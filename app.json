@@ -16,57 +16,27 @@
     },
     "ios": {
       "bundleIdentifier": "com.darkmoor.gaia",
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSCameraUsageDescription": "GAIA uses your camera to diagnose crop diseases.",
-        "NSPhotoLibraryUsageDescription": "GAIA accesses your photos to analyze crops.",
-        "NSLocationWhenInUseUsageDescription": "GAIA uses location for weather-based advice."
-      }
+      "supportsTablet": true
     },
     "android": {
       "package": "com.darkmoor.gaia",
-      "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION"
-      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "notification": {
-        "icon": "./assets/notification-icon.png",
-        "color": "#00ff88"
+        "backgroundColor": "#000000"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "GAIA needs camera access."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "GAIA needs photo access."
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#00ff88"
-        }
-      ]
+      "expo-router"
     ],
     "extra": {
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "DjnEgiu392wmIathfzEnatotFZr4xiucy8qIWt2p"
       }
     }
   }
