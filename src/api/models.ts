@@ -2,7 +2,7 @@
 import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
 
-const API_BASE = 'https://your-gaia-api.up.railway.app'; // replace after deploying backend
+const API_BASE = "https://gaia-api-xuly.onrender.com"; // replace after deploying backend
 
 export interface Prediction {
   label: string;
