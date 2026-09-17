@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
@@ -45,11 +44,10 @@ export default function Signup() {
           keyboardShouldPersistTaps="handled"
         >
           <Pressable onPress={() => router.back()} style={styles.back}>
-            <Text style={styles.backText}>← BACK</Text>
+            <Text style={styles.backText}>BACK</Text>
           </Pressable>
 
-          <Text style={styles.title}>Create your{'
-'}GAIA account.</Text>
+          <Text style={styles.title}>Create your GAIA account.</Text>
           <Text style={styles.subtitle}>
             Join thousands of farmers across Africa using AI to protect their harvests.
           </Text>
@@ -62,7 +60,7 @@ export default function Signup() {
               placeholder="you@example.com"
               keyboardType="email-address"
               autoCapitalize="none"
-              icon="✉"
+              icon="E"
             />
             <NeonInput
               label="PASSWORD"
@@ -70,7 +68,7 @@ export default function Signup() {
               onChangeText={setPassword}
               placeholder="Min. 6 characters"
               secureTextEntry
-              icon="🔒"
+              icon="P"
             />
             <NeonInput
               label="CONFIRM PASSWORD"
@@ -78,7 +76,7 @@ export default function Signup() {
               onChangeText={setConfirm}
               placeholder="Repeat password"
               secureTextEntry
-              icon="🔒"
+              icon="P"
             />
           </View>
 
@@ -92,7 +90,7 @@ export default function Signup() {
           />
 
           <Text style={styles.terms}>
-            By continuing you agree to GAIA's Terms of Service and Privacy Policy.
+            By continuing you agree to GAIA Terms of Service and Privacy Policy.
           </Text>
 
           <View style={styles.bottom}>
@@ -122,7 +120,6 @@ const styles = StyleSheet.create({
     ...typography.title,
     color: palette.text,
     marginBottom: spacing.md,
-    lineHeight: 40,
   },
   subtitle: {
     ...typography.body,
