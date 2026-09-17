@@ -41,6 +41,15 @@
         "projectId": "48d7bb48-df02-4d67-b566-793649a2d0a6"
       }
     },
-    "owner": "darkmoorai"
+    "owner": "darkmoorai",
+    "updates": {
+      "url": "https://u.expo.dev/48d7bb48-df02-4d67-b566-793649a2d0a6",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
