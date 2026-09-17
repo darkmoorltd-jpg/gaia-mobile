@@ -22,7 +22,11 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#000000"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -30,9 +34,13 @@
       "expo-image-picker"
     ],
     "extra": {
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "e9720886-5bf2-4c5f-bdc6-bfd0025bf979"
+        "projectId": "48d7bb48-df02-4d67-b566-793649a2d0a6"
       }
-    }
+    },
+    "owner": "darkmoorai"
   }
 }
