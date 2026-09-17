@@ -1,4 +1,3 @@
-
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -37,7 +36,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '700',
-          letterSpacing: 1,
+          letterSpacing: 0.5,
           marginTop: 4,
         },
       }}
@@ -47,7 +46,7 @@ export default function TabsLayout() {
         options={{
           title: 'HOME',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="⌂" focused={focused} color={color} />
+            <TabIcon emoji="H" focused={focused} color={color} />
           ),
         }}
       />
@@ -56,7 +55,7 @@ export default function TabsLayout() {
         options={{
           title: 'CROPS',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="🌿" focused={focused} color={color} />
+            <TabIcon emoji="C" focused={focused} color={color} />
           ),
         }}
       />
@@ -65,7 +64,7 @@ export default function TabsLayout() {
         options={{
           title: 'PESTS',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="🐛" focused={focused} color={color} />
+            <TabIcon emoji="P" focused={focused} color={color} />
           ),
         }}
       />
@@ -74,7 +73,7 @@ export default function TabsLayout() {
         options={{
           title: 'SOIL',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="🏞" focused={focused} color={color} />
+            <TabIcon emoji="S" focused={focused} color={color} />
           ),
         }}
       />
@@ -83,7 +82,16 @@ export default function TabsLayout() {
         options={{
           title: 'LIVESTOCK',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="🐄" focused={focused} color={color} />
+            <TabIcon emoji="L" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'ME',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="U" focused={focused} color={color} />
           ),
         }}
       />
@@ -108,5 +116,5 @@ const styles = StyleSheet.create({
   iconWrapActive: {
     backgroundColor: palette.neonSoft,
   },
-  icon: { fontSize: 20 },
+  icon: { fontSize: 18, fontWeight: '900' },
 });
