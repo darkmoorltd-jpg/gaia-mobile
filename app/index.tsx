@@ -53,8 +53,7 @@ export default function Splash() {
         <Text style={styles.leaf}>🌱</Text>
         <Text style={styles.brand}>GAIA</Text>
         <View style={styles.divider} />
-        <Text style={styles.tagline}>GLOBAL AGRICULTURAL{'
-'}INTELLIGENCE ASSISTANT</Text>
+        <Text style={styles.tagline}>GLOBAL AGRICULTURAL INTELLIGENCE ASSISTANT</Text>
       </Animated.View>
 
       <View style={styles.footer}>
