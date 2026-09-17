@@ -29,7 +29,29 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GAIA uses the camera to diagnose crop diseases."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GAIA reads your photos to analyze crops."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "$rootDir/../node_modules/expo-camera/android/maven"
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {
