@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Screen, NeonButton, NeonInput } from '../../src/components';
 import { useAuth } from '../../src/store/auth';
+import { registerForPushNotifications } from '../../src/utils/push';
 import { typography, spacing } from '../../src/theme';
 import { useTheme } from '../../src/theme';
 
@@ -32,6 +33,10 @@ export default function Signup() {
     setBusy(true);
     setError('');
     const err = await signUp(email.trim(), password);
+    if (!err) {
+      const u = useAuth.getState().user;
+      if (u) registerForPushNotifications(u.id);
+    }
     if (err) setError(err);
     setBusy(false);
   };

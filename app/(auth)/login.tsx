@@ -1,24 +1,57 @@
-
-import { useState } from 'react';
-import {
-  View, Text, StyleSheet, Pressable, KeyboardAvoidingView,
-  Platform, ScrollView,
-} from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, NeonButton, NeonInput, Pill } from '../../src/components';
+import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
-import { typography, spacing } from '../../src/theme';
-import { useTheme } from '../../src/theme';
+import {
+  checkBiometricSupport, enableBiometric, isBiometricEnabled,
+  promptBiometric, getBiometricEmail,
+} from '../../src/utils/biometric';
+import { registerForPushNotifications } from '../../src/utils/push';
 
 export default function Login() {
-  const { palette } = useTheme();
-  const styles = createStyles(palette);
   const router = useRouter();
+  const { palette } = useTheme();
   const signIn = useAuth((s) => s.signIn);
+  const user = useAuth((s) => s.user);
+  const styles = createStyles(palette);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioType, setBioType] = useState<string | null>(null);
+  const [bioEmail, setBioEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const support = await checkBiometricSupport();
+      setBioAvailable(support.available && support.enrolled);
+      setBioType(support.type);
+      const enabled = await isBiometricEnabled();
+      setBioEnabled(enabled);
+      const em = await getBiometricEmail();
+      setBioEmail(em);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      registerForPushNotifications(user.id);
+    }
+  }, [user]);
+
+  const handleBiometricLogin = async () => {
+    const ok = await promptBiometric();
+    if (ok && bioEmail) {
+      Alert.alert('Biometric verified', 'Please enter your password to continue.');
+      setEmail(bioEmail);
+    } else {
+      Alert.alert('Authentication failed', 'Try again or use password.');
+    }
+  };
 
   const handleLogin = async () => {
     setBusy(true);
@@ -28,170 +61,79 @@ export default function Login() {
     setBusy(false);
   };
 
+  const offerBiometricSetup = async () => {
+    if (!bioAvailable || !user) return;
+    const enabled = await enableBiometric(user.email || '');
+    if (enabled) {
+      setBioEnabled(true);
+      Alert.alert('Success', bioType + ' login enabled.');
+    }
+  };
+
   return (
-    <Screen glow="crops">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.header}>
-            <Text style={styles.leaf}>🌱</Text>
-            <Text style={styles.brand}>GAIA</Text>
-            <Pill label="AI Agritech" />
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Text style={styles.leaf}>GAIA</Text>
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to continue protecting your farm</Text>
+
+        <View style={{ marginTop: 32 }}>
+          <Text style={styles.label}>EMAIL</Text>
+          <View style={styles.inputWrap}>
+            <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="you@example.com" placeholderTextColor={palette.textDim} style={styles.input} />
           </View>
 
-          <Text style={styles.title}>Welcome back.</Text>
-          <Text style={styles.subtitle}>
-            Sign in to continue diagnosing and protecting your farm.
-          </Text>
-
-          <View style={{ marginTop: spacing.xxl }}>
-            <NeonInput
-              label="EMAIL"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              icon="✉"
-            />
-            <NeonInput
-              label="PASSWORD"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              secureTextEntry
-              icon="🔒"
-            />
-
-            <Pressable onPress={() => {}}>
-              <Text style={styles.forgot}>FORGOT PASSWORD?</Text>
-            </Pressable>
+          <Text style={styles.label}>PASSWORD</Text>
+          <View style={styles.inputWrap}>
+            <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="password" placeholderTextColor={palette.textDim} style={styles.input} />
           </View>
+        </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <NeonButton
-            label={busy ? '' : 'SIGN IN'}
-            onPress={handleLogin}
-            loading={busy}
-            disabled={!email || !password}
-            style={{ marginTop: spacing.lg }}
-          />
+        <Pressable onPress={handleLogin} disabled={busy || !email || !password} style={[styles.cta, (busy || !email || !password) && { opacity: 0.4 }]}>
+          <Text style={styles.ctaText}>{busy ? 'SIGNING IN...' : 'SIGN IN'}</Text>
+        </Pressable>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>OR CONTINUE WITH</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <Pressable style={styles.googleBtn}>
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleText}>Google</Text>
+        {bioAvailable && bioEnabled ? (
+          <Pressable onPress={handleBiometricLogin} style={styles.bioBtn}>
+            <Text style={styles.bioText}>USE {bioType?.toUpperCase()}</Text>
           </Pressable>
+        ) : null}
 
-          <View style={styles.bottom}>
-            <Text style={styles.bottomText}>New here? </Text>
-            <Pressable onPress={() => router.push('/(auth)/signup')}>
-              <Text style={styles.bottomLink}>Create account</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Screen>
+        {bioAvailable && !bioEnabled && user ? (
+          <Pressable onPress={offerBiometricSetup} style={styles.bioBtnOutline}>
+            <Text style={styles.bioTextOutline}>ENABLE {bioType?.toUpperCase()}</Text>
+          </Pressable>
+        ) : null}
+
+        <Pressable onPress={() => router.push('/(auth)/signup')} style={{ marginTop: 24 }}>
+          <Text style={styles.signup}>Don't have an account? Sign up</Text>
+        </Pressable>
+
+        <View style={{ height: 60 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  scroll: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: 80,
-    paddingBottom: spacing.xxxl,
-  },
-  header: { alignItems: 'center', marginBottom: spacing.xxxl },
-  leaf: { fontSize: 56, marginBottom: 8 },
-  brand: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: palette.text,
-    letterSpacing: 8,
-    marginBottom: spacing.lg,
-  },
-  title: {
-    ...typography.title,
-    color: palette.text,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    ...typography.body,
-    color: palette.textMuted,
-    lineHeight: 22,
-  },
-  forgot: {
-    ...typography.micro,
-    color: palette.neon,
-    alignSelf: 'flex-end',
-    marginTop: -4,
-    marginBottom: spacing.lg,
-  },
-  error: {
-    color: palette.danger,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    fontSize: 13,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing.xl,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: palette.border,
-  },
-  dividerText: {
-    ...typography.micro,
-    color: palette.textDim,
-    marginHorizontal: spacing.md,
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
-  },
-  googleIcon: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#fff',
-  },
-  googleText: {
-    color: palette.text,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  bottom: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing.xxl,
-  },
-  bottomText: {
-    ...typography.body,
-    color: palette.textMuted,
-  },
-  bottomLink: {
-    ...typography.body,
-    color: palette.neon,
-    fontWeight: '700',
-  },
+import { TextInput } from 'react-native';
+
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { paddingHorizontal: 24, paddingTop: 100, paddingBottom: 40 },
+  leaf: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: 8, marginBottom: 20 },
+  title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  subtitle: { fontSize: 14, color: p.textMuted, marginTop: 6 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
+  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16, marginBottom: 16 },
+  input: { paddingVertical: 14, color: p.text, fontSize: 15 },
+  error: { color: p.danger, textAlign: 'center', marginVertical: 12, fontSize: 13 },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 12 },
+  ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  bioBtn: { marginTop: 12, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
+  bioText: { color: p.neon, fontWeight: '900', letterSpacing: 1 },
+  bioBtnOutline: { marginTop: 12, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
+  bioTextOutline: { color: p.text, fontWeight: '800', letterSpacing: 1 },
+  signup: { color: p.textMuted, textAlign: 'center', fontSize: 14 },
 });

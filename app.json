@@ -15,7 +15,14 @@
     },
     "ios": {
       "bundleIdentifier": "com.darkmoor.gaia",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "GAIA uses the camera to diagnose crop diseases.",
+        "NSPhotoLibraryUsageDescription": "GAIA reads your photos to analyze crops.",
+        "NSLocationWhenInUseUsageDescription": "GAIA uses your location for weather-based farming advice.",
+        "NSFaceIDUsageDescription": "GAIA uses Face ID to securely log you in.",
+        "NSUserNotificationUsageDescription": "GAIA sends you farming alerts and diagnosis updates."
+      }
     },
     "android": {
       "package": "com.darkmoor.gaia",
@@ -25,13 +32,20 @@
       },
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
       "expo-router",
       "expo-camera",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-local-authentication",
+      "expo-notifications"
     ],
     "extra": {
       "router": {
