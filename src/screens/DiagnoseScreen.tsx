@@ -1,19 +1,16 @@
-
 import { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, Image, Modal, FlatList,
+  View, Text, StyleSheet, Pressable, ScrollView, Image,
+  Modal, FlatList, ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Screen, GlassCard, NeonButton, Pill } from '../components';
-import { typography, spacing, radius, shadows } from '../theme';
-import { useTheme } from '../theme';
+import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
-import { diagnose } from '../api/models';
+import { diagnose, DiagnosisError } from '../api/models';
 
 export interface DiagnoseConfig {
   key: string;
@@ -22,7 +19,7 @@ export interface DiagnoseConfig {
   emoji: string;
   color: string;
   modelKey: string;
-  options: { key: string; label: string; emoji: string }[];
+  options: { key: string; label: string }[];
   contextType: 'crop' | 'pest' | 'soil' | 'livestock';
 }
 
@@ -39,26 +36,27 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [error, setError] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
-  const openCamera = async () => {
+  const requestCamera = async () => {
     if (!permission?.granted) {
-      const { granted } = await requestPermission();
-      if (!granted) {
-        setError('Camera permission required.');
-        return;
+      const r = await requestPermission();
+      if (!r.granted) {
+        setError('Camera permission required');
+        return false;
       }
     }
-    setImageUri(null);
-    setResult(null);
-    setError('');
+    return true;
   };
 
   const shoot = async () => {
+    if (!(await requestCamera())) return;
     if (!cameraRef.current) return;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
       if (photo?.uri) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setImageUri(photo.uri);
+        setResult(null);
+        setError('');
       }
     } catch (e: any) {
       setError(e?.message ?? 'Capture failed');
@@ -68,11 +66,15 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const pickFromGallery = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
+      quality: 0.7,
       allowsEditing: true,
       aspect: [1, 1],
     });
-    if (!res.canceled) setImageUri(res.assets[0].uri);
+    if (!res.canceled) {
+      setImageUri(res.assets[0].uri);
+      setResult(null);
+      setError('');
+    }
   };
 
   const analyze = async () => {
@@ -83,297 +85,220 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     }
     setLoading(true);
     setError('');
+    setResult(null);
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      const res = await diagnose(imageUri, config.modelKey, token);
+      if (!token) throw new Error('Session expired — please log in again');
+
+      const res = await diagnose(imageUri, selected.key, token);
       setResult(res);
       await refreshScans();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
-      setError(e?.message ?? 'Diagnosis failed.');
+      const msg = e instanceof DiagnosisError ? e.message : (e?.message ?? 'Diagnosis failed');
+      setError(msg);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
   };
 
-  // --------- RESULT VIEW ---------
+  // ────────────────────────────────────────────
+  // RESULT VIEW
+  // ────────────────────────────────────────────
   if (result) {
     const top = result.top;
     const healthy = top.label.toLowerCase().includes('healthy');
     const accent = healthy ? palette.neon : palette.warning;
 
     return (
-      <Screen glow="crops">
+      <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Animated.View entering={FadeInDown.duration(600)}>
-            <LinearGradient
-              colors={[accent, accent + '99']}
-              style={styles.resultHero}
-            >
-              <Text style={styles.resultEmoji}>{healthy ? '✓' : '⚠'}</Text>
-              <Text style={styles.resultLabel}>{top.label}</Text>
-              <Text style={styles.resultConfidence}>
-                {top.confidence.toFixed(1)}% CONFIDENCE
-              </Text>
-            </LinearGradient>
-          </Animated.View>
+          <LinearGradient colors align={[accent, accent +Self 'CC'] as any} style={styles.resultHero}>
+            <:Text style={styles.resultEmoji}>{healthy ? '✓' : '!'}</Text>
+            <Text style={styles.resultLabel}>{top.label}</Text>
+            <Text style={styles.resultConfidence}>{top.confidence.toFixed(1)}% CONFIDENCE</Text>
+          </LinearGradient>
+
+          <View style={styles.resultMeta}>
+            <Text style={styles.resultMetaText}>
+              {result.processingMs} ms · {result.scansRemaining} scans left
+            </Text>
+            {result.historyId ? (
+              <Text style={styles.resultMetaText}>Saved · #{result.historyId}</Text>
+            ) : null}
+          </View>
+
+          {result.gradcamBase64 ? (
+            <>
+              <Text style={styles.sectionLabel}>WHAT AI SAW</Text>
+              <Image
+                source={{ uri: 'data:image/png;base64,' + result.gradcamBase64 }}
+                style={styles.gradcam}
+              />
+            </>
+          ) : null}
 
           <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
           {result.predictions.map((p: any, i: number) => (
-            <Animated.View
-              key={i}
-              entering={FadeInDown.delay(i * 80).duration(500)}
-              style={{ marginBottom: spacing.md }}
-            >
-              <GlassCard>
-                <View style={styles.predRow}>
-                  <Text style={styles.predLabel}>{p.label}</Text>
-                  <Text style={styles.predPct}>{p.confidence.toFixed(1)}%</Text>
-                </View>
-                <View style={styles.barBg}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      { width: `${Math.min(p.confidence, 100)}%`, backgroundColor: palette.neon },
-                    ]}
-                  />
-                </View>
-              </GlassCard>
-            </Animated.View>
+            <View key={i} style={styles.predRow}>
+              <Text style={styles.predLabel}>{p.label}</Text>
+              <Text style={styles.predPct}>{p.confidence.toFixed(1)}%</Text>
+              <View style={styles.barBg}>
+                <View style={[styles.barFill, { width: `${Math.min(p.confidence, 100)}%` }]} />
+              </View>
+            </View>
           ))}
 
-          <Text style={styles.sectionLabel}>RECOMMENDED ACTIONS</Text>
-          <GlassCard>
-            <Text style={styles.actionTitle}>🌿 Organic</Text>
-            <Text style={styles.actionBody}>Apply neem oil spray at 5ml/L every 7 days.</Text>
-            <View style={styles.actionDivider} />
-            <Text style={styles.actionTitle}>🧪 Chemical</Text>
-            <Text style={styles.actionBody}>Mancozeb 80% WP at 2g/L. Spray evening, not midday.</Text>
-            <View style={styles.actionDivider} />
-            <Text style={styles.actionTitle}>💧 Water</Text>
-            <Text style={styles.actionBody}>Avoid overhead irrigation to reduce leaf wetness.</Text>
-          </GlassCard>
+          <Pressable onPress={() => { setResult(null); setImageUri(null); }} style={styles.cta}>
+            <Text style={styles.ctaText}>NEW SCAN</Text>
+          </Pressable>
 
-          <View style={{ height: spacing.xl }} />
-          <NeonButton label="NEW SCAN" onPress={() => setResult(null)} />
-          <View style={{ height: spacing.md }} />
-          <NeonButton label="SAVE TO HISTORY" variant="ghost" onPress={() => setResult(null)} />
           <View style={{ height: 120 }} />
         </ScrollView>
-      </Screen>
+      </View>
     );
   }
 
-  // --------- CAMERA VIEW ---------
+  // ────────────────────────────────────────────
+  // CAMERA VIEW
+  // ────────────────────────────────────────────
   return (
-    <Screen glow={config.contextType as any}>
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Animated.View entering={FadeInDown.duration(600)}>
-          <Pill label={config.title.toUpperCase()} color={config.color} />
-          <Text style={styles.title}>{config.emoji}  {config.title}</Text>
-          <Text style={styles.subtitle}>{config.subtitle}</Text>
-        </Animated.View>
+        <Text style={[styles.kicker, { color: config.color }]}>{config.title.toUpperCase()}</Text>
+        <Text style={styles.title}>{config.emoji} {config.subtitle}</Text>
 
-        <Animated.View entering={FadeInDown.delay(100)} style={styles.scanBar}>
-          <Text style={styles.scanText}>📉 {scansRemaining} SCANS LEFT</Text>
-        </Animated.View>
+        <View style={styles.scanBox}>
+          <Text style={styles.scanLabel}>SCANS</Text>
+          <Text style={styles.scanVal}>{scansRemaining}</Text>
+        </View>
 
-        {/* Selector */}
-        <Pressable
-          onPress={() => setShowPicker(true)}
-          style={styles.selector}
-        >
-          <Text style={styles.selectorEmoji}>{selected.emoji}</Text>
+        <Pressable onPress={() => setShowPicker(true)} style={styles.selector}>
           <Text style={styles.selectorLabel}>{selected.label}</Text>
           <Text style={styles.selectorCaret}>▼</Text>
         </Pressable>
 
-        {/* Preview */}
         {imageUri ? (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.previewBox}>
+          <View style={styles.previewBox}>
             <Image source={{ uri: imageUri }} style={styles.preview} />
-          </Animated.View>
+          </View>
         ) : permission?.granted ? (
           <View style={styles.cameraBox}>
             <CameraView ref={cameraRef} style={styles.camera} facing="back" />
-            <View style={styles.frameOverlay} />
             <Pressable onPress={shoot} style={styles.shutter}>
               <View style={styles.shutterInner} />
             </Pressable>
           </View>
         ) : (
-          <Pressable onPress={openCamera} style={styles.cameraBox}>
+          <Pressable onPress={requestCamera} style={styles.cameraBox}>
             <View style={styles.cameraPlaceholder}>
-              <Text style={{ fontSize: 48 }}>📷</Text>
               <Text style={styles.cameraHint}>TAP TO OPEN CAMERA</Text>
             </View>
           </Pressable>
         )}
 
-        {/* Actions */}
         <View style={styles.actionRow}>
           <Pressable onPress={pickFromGallery} style={styles.actionBtn}>
-            <Text style={styles.actionBtnIcon}>🖼</Text>
             <Text style={styles.actionBtnLabel}>ALBUM</Text>
           </Pressable>
-          <Pressable onPress={openCamera} style={styles.actionBtn}>
-            <Text style={styles.actionBtnIcon}>📸</Text>
+          <Pressable onPress={shoot} style={styles.actionBtn}>
             <Text style={styles.actionBtnLabel}>CAMERA</Text>
           </Pressable>
           <Pressable
-            onPress={() => { setImageUri(null); setResult(null); }}
+            onPress={() => { setImageUri(null); setResult(null); setError(''); }}
             style={styles.actionBtn}
           >
-            <Text style={styles.actionBtnIcon}>↺</Text>
             <Text style={styles.actionBtnLabel}>RESET</Text>
           </Pressable>
         </View>
 
-        {imageUri && (
-          <Animated.View entering={FadeInUp.duration(400)} style={{ marginTop: spacing.lg }}>
-            <NeonButton
-              label={loading ? '' : `ANALYZE WITH AI`}
-              onPress={analyze}
-              loading={loading}
-              disabled={!imageUri || loading}
-            />
-          </Animated.View>
-        )}
+        {imageUri ? (
+          <Pressable
+            onPress={analyze}
+            disabled={loading}
+            style={[styles.cta, loading && { opacity: 0.6 }]}
+          >
+            {loading ? (
+              <ActivityIndicator color={palette.obsidian} />
+            ) : (
+              <Text style={styles.ctaText}>ANALYZE WITH AI</Text>
+            )}
+          </Pressable>
+        ) : null}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <View style={{ height: 140 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Picker modal */}
-      <Modal
-        visible={showPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPicker(false)}
-      >
+      <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
         <Pressable style={styles.modalBg} onPress={() => setShowPicker(false)}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>SELECT {config.title.toUpperCase()}</Text>
+            <Text style={styles.modalTitle}>SELECT</Text>
             <FlatList
               data={config.options}
-              keyExtractor={(item) => item.key}
+              keyExtractor={(i) => i.key}
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => { setSelected(item); setShowPicker(false); }}
-                  style={[
-                    styles.modalItem,
-                    selected.key === item.key && styles.modalItemActive,
-                  ]}
+                  style={[styles.modalItem, selected.key === item.key && styles.modalItemActive]}
                 >
-                  <Text style={styles.modalEmoji}>{item.emoji}</Text>
                   <Text style={styles.modalLabel}>{item.label}</Text>
-                  {selected.key === item.key && (
-                    <Text style={styles.modalCheck}>✓</Text>
-                  )}
                 </Pressable>
               )}
             />
           </View>
         </Pressable>
       </Modal>
-    </Screen>
+    </View>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 40 },
-  title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.md },
-  subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },
-  scanBar: {
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: palette.neonSoft,
-    borderWidth: 1,
-    borderColor: palette.border,
-  },
-  scanText: { ...typography.micro, color: palette.neon, textAlign: 'center' },
-  selector: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    padding: spacing.lg, borderRadius: radius.md,
-    backgroundColor: palette.surface, borderWidth: 1,
-    borderColor: palette.border, marginTop: spacing.md,
-  },
-  selectorEmoji: { fontSize: 22 },
-  selectorLabel: { ...typography.body, color: palette.text, fontWeight: '700', flex: 1 },
-  selectorCaret: { color: palette.textMuted, fontSize: 12 },
-  cameraBox: {
-    marginTop: spacing.lg, aspectRatio: 1, borderRadius: radius.xl,
-    overflow: 'hidden', backgroundColor: palette.abyss,
-    borderWidth: 1, borderColor: palette.border, position: 'relative',
-  },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2 },
+  title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1, marginTop: 6 },
+  scanBox: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 20, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, 'flex-start' },
+  scanLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon },
+  scanVal: { fontSize: 16, fontWeight: '900', color: p.text },
+  selector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginTop: 16 },
+  selectorLabel: { fontSize: 15, fontWeight: '700', color: p.text },
+  selectorCaret: { fontSize: 12, color: p.textMuted },
+  cameraBox: { aspectRatio: 1, marginTop: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: p.abyss, borderWidth: 1, borderColor: p.border, position: 'relative' },
   camera: { flex: 1 },
-  cameraPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  cameraHint: { ...typography.micro, color: palette.textMuted },
-  frameOverlay: {
-    position: 'absolute', top: '20%', left: '20%', right: '20%', bottom: '20%',
-    borderWidth: 2, borderColor: palette.neon, borderRadius: radius.lg, opacity: 0.6,
-  },
-  shutter: {
-    position: 'absolute', bottom: 24, alignSelf: 'center',
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderWidth: 3, borderColor: palette.neon,
-    alignItems: 'center', justifyContent: 'center',
-    left: '50%', marginLeft: -36,
-  },
-  shutterInner: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: palette.neon,
-    ...shadows.neon,
-  },
-  previewBox: {
-    marginTop: spacing.lg, aspectRatio: 1, borderRadius: radius.xl,
-    overflow: 'hidden', borderWidth: 1, borderColor: palette.borderHi,
-    ...shadows.neon,
-  },
-  preview: { flex: 1, resizeMode: 'cover' },
-  actionRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  actionBtn: {
-    flex: 1, padding: spacing.md, borderRadius: radius.md,
-    backgroundColor: palette.surface, borderWidth: 1,
-    borderColor: palette.border, alignItems: 'center',
-  },
-  actionBtnIcon: { fontSize: 22 },
-  actionBtnLabel: { ...typography.micro, color: palette.text, marginTop: 6 },
-  error: { color: palette.danger, textAlign: 'center', marginTop: spacing.md, fontSize: 13 },
-  // Result
-  resultHero: {
-    borderRadius: radius.xl, padding: spacing.xxl, alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  resultEmoji: { fontSize: 64, color: '#000', fontWeight: '900' },
-  resultLabel: { fontSize: 26, fontWeight: '900', color: '#000', marginTop: spacing.md, textAlign: 'center' },
-  resultConfidence: { ...typography.micro, color: '#000', marginTop: spacing.sm },
-  sectionLabel: { ...typography.micro, color: palette.textMuted, marginVertical: spacing.lg },
-  predRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  predLabel: { ...typography.body, color: palette.text, fontWeight: '600', flex: 1 },
-  predPct: { color: palette.neon, fontWeight: '800' },
-  barBg: { height: 6, backgroundColor: 'rgba(0,255,136,0.15)', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3 },
-  actionTitle: { ...typography.body, color: palette.neon, fontWeight: '800', marginTop: spacing.sm },
-  actionBody: { ...typography.body, color: palette.textMuted, marginTop: 4, lineHeight: 20 },
-  actionDivider: { height: 1, backgroundColor: palette.border, marginVertical: spacing.md },
-  // Modal
+  cameraPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  cameraHint: { fontSize: 12, color: p.textMuted, letterSpacing: 1.2 },
+  shutter: { position: 'absolute', bottom: 20, alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 3, borderColor: p.neon, alignItems: 'center', justifyContent: 'center', left: '50%', marginLeft: -32 },
+  shutterInner: { width: 48, height: 48, borderRadius: 24, backgroundColor: p.neon },
+  previewBox: { aspectRatio: 1, marginTop: 16, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: p.borderHi },
+  preview: { flex: 1 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actionBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
+  actionBtnLabel: { fontSize: 11, fontWeight: '700', color: p.text, letterSpacing: 1 },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 20 },
+  ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  error: { color: p.danger, textAlign: 'center', marginTop: 14, fontSize: 13 },
+  resultHero: { borderRadius: 24, padding: 32, alignItems: 'center', marginTop: 20 },
+  resultEmoji: { fontSize: 56, color: '#000', fontWeight: '900' },
+  resultLabel: { fontSize: 24, fontWeight: '900', color: '#000', marginTop ': 12, textAlign: 'center' },
+  resultsoilConfidence: { fontSize: 11, letterSpacing: ',
+1.5, color: '#000', marginTop   : 6, fontWeight: '700' },
+  title resultMeta: { flexDirection: 'row', justifyContent:: 'space-between', marginTop: 12 },
+  resultMetaText: { fontSize: 11, color: p.textMuted },
+  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 24, marginBottom: 12 },
+  gradcam: { width: '100%', aspectRatio: 1, borderRadius: 16, backgroundColor: '#000' },
+  predRow: { marginBottom: 14 },
+  predLabel: { fontSize: 14, fontWeight: '600', color: p.text },
+  predPct: { position: 'absolute', right: 0, top: 0, fontSize: 13, fontWeight: '800', color: p.neon },
+  barBg: { height: 6, borderRadius: 3, backgroundColor: p.surface, marginTop: 6, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: p.neon, borderRadius: 3 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: palette.abyss, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: spacing.xl, maxHeight: '75%', borderTopWidth: 1, borderColor: palette.borderHi,
-  },
-  modalTitle: { ...typography.micro, color: palette.textMuted, marginBottom: spacing.lg },
-  modalItem: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    padding: spacing.lg, borderRadius: radius.md, marginBottom: spacing.sm,
-    backgroundColor: palette.surface,
-  },
-  modalItemActive: { backgroundColor: palette.neonSoft, borderWidth: 1, borderColor: palette.borderHi },
-  modalEmoji: { fontSize: 22 },
-  modalLabel: { ...typography.body, color: palette.text, flex: 1, fontWeight: '600' },
-  modalCheck: { color: palette.neon, fontSize: 18, fontWeight: '900' },
+  modalSheet: { backgroundColor: p.abyss, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '75%' },
+  modalTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 14 },
+  modalItem: { padding: 16, borderRadius: 12, backgroundColor: p.surface, marginBottom: 8 },
+  modalItemActive: { backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi },
+  modalLabel: { fontSize: 15, fontWeight: '600', color: p.text },
 });
