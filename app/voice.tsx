@@ -1,87 +1,93 @@
+import { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { useTheme, radius } from '../src/theme';
 
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { useState } from 'react';
-import { Screen, GlassCard, Pill } from '../src/components';
-import { typography, spacing, radius, shadows } from '../src/theme';
-import { useTheme } from '../src/theme';
+interface Msg { role: 'user' | 'ai'; text: string }
 
 export default function Voice() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
-  const [listening, setListening] = useState(false);
+  const [messages, setMessages] = useState<Msg[]>([
+    { role: 'ai', text: 'Hello. I am GAIA. Ask me anything about your farm - crops, pests, soil, or livestock.' },
+  ]);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const send = async () => {
+    if (!input.trim()) return;
+    const q = input.trim();
+    setMessages((m) => [...m, { role: 'user', text: q }]);
+    setInput('');
+    setBusy(true);
+
+    setTimeout(() => {
+      setMessages((m) => [...m, { role: 'ai', text: 'I am connecting to the GAIA backend. Once the API key is live, I will reply with detailed farming advice for: "' + q + '"' }]);
+      setBusy(false);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }, 900);
+
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
 
   return (
-    <Screen glow="livestock">
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Pill label="Voice AI" color={palette.livestock} />
-        <Text style={styles.title}>Agronomist</Text>
-        <Text style={styles.subtitle}>Ask anything. In your language.</Text>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.dot} />
+        <Text style={styles.headerTitle}>GAIA Voice Agronomist</Text>
+      </View>
 
-        <View style={styles.micWrap}>
-          <Pressable
-            onPress={() => setListening(!listening)}
-            style={[styles.micOuter, listening && styles.micOuterActive]}
-          >
-            <View style={[styles.micInner, listening && styles.micInnerActive]}>
-              <Text style={styles.micIcon}>🎙</Text>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
+        {messages.map((m, i) => (
+          <View key={i} style={[styles.row, m.role === 'user' ? styles.rowUser : styles.rowAi]}>
+            <View style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
+              <Text style={[styles.bubbleText, m.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAi]}>{m.text}</Text>
             </View>
-          </Pressable>
-        </View>
-
-        <Text style={styles.status}>
-          {listening ? 'LISTENING…' : 'TAP TO SPEAK'}
-        </Text>
-
-        {listening && (
-          <View style={styles.wave}>
-            {[8, 16, 24, 32, 24, 16, 8, 16, 24, 16, 8].map((h, i) => (
-              <View key={i} style={[styles.bar, { height: h }]} />
-            ))}
           </View>
-        )}
-
-        <GlassCard style={{ marginTop: spacing.xxl }}>
-          <Text style={styles.aiLabel}>🌱 GAIA</Text>
-          <Text style={styles.aiText}>
-            Your maize is showing early signs of leaf blight. I recommend applying Mancozeb 2g/L this evening.
-          </Text>
-        </GlassCard>
-
-        <Text style={styles.sectionLabel}>TRY ASKING</Text>
-        <GlassCard>
-          <Text style={styles.example}>"Why are my leaves yellow?"</Text>
-          <Text style={styles.example}>"When should I plant?"</Text>
-          <Text style={styles.example}>"How do I kill armyworm?"</Text>
-        </GlassCard>
-
-        <View style={{ height: 120 }} />
+        ))}
+        {busy ? (
+          <View style={[styles.row, styles.rowAi]}>
+            <View style={[styles.bubble, styles.bubbleAi]}>
+              <ActivityIndicator color={palette.neon} size="small" />
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
-    </Screen>
+
+      <View style={styles.inputBar}>
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder="Ask GAIA anything..."
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+          multiline
+        />
+        <Pressable onPress={send} disabled={busy || !input.trim()} style={[styles.sendBtn, (!input.trim() || busy) && { opacity: 0.4 }]}>
+          <Text style={styles.sendBtnText}>Send</Text>
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, alignItems: 'center' },
-  title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm, alignSelf: 'flex-start' },
-  subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, alignSelf: 'flex-start' },
-  micWrap: { marginTop: spacing.xxxl, alignItems: 'center' },
-  micOuter: {
-    width: 200, height: 200, borderRadius: 100,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: palette.borderHi,
-  },
-  micOuterActive: { borderColor: palette.neon, ...shadows.neon },
-  micInner: {
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: palette.neonSoft, alignItems: 'center', justifyContent: 'center',
-  },
-  micInnerActive: { backgroundColor: palette.neon },
-  micIcon: { fontSize: 60 },
-  status: { ...typography.micro, color: palette.neon, marginTop: spacing.xl, letterSpacing: 2 },
-  wave: { flexDirection: 'row', gap: 4, marginTop: spacing.lg, alignItems: 'center', height: 40 },
-  bar: { width: 4, backgroundColor: palette.neon, borderRadius: 2 },
-  aiLabel: { ...typography.micro, color: palette.neon, marginBottom: spacing.sm },
-  aiText: { ...typography.body, color: palette.text, lineHeight: 22 },
-  sectionLabel: { ...typography.micro, color: palette.textMuted, marginTop: spacing.xxl, marginBottom: spacing.md, alignSelf: 'flex-start' },
-  example: { ...typography.body, color: palette.textMuted, marginBottom: 8 },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 60, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: p.border },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: p.neon },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: p.text, letterSpacing: -0.3 },
+  scroll: { padding: 16, paddingBottom: 20 },
+  row: { marginBottom: 12 },
+  rowUser: { alignItems: 'flex-end' },
+  rowAi: { alignItems: 'flex-start' },
+  bubble: { maxWidth: '85%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+  bubbleUser: { backgroundColor: p.neon, borderBottomRightRadius: 6 },
+  bubbleAi: { backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, borderBottomLeftRadius: 6 },
+  bubbleText: { fontSize: 14, lineHeight: 20 },
+  bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
+  bubbleTextAi: { color: p.text },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: p.border, backgroundColor: p.obsidian },
+  input: { flex: 1, minHeight: 44, maxHeight: 120, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 22, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 14 },
+  sendBtn: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22, backgroundColor: p.neon },
+  sendBtnText: { fontSize: 13, fontWeight: '800', color: p.obsidian },
 });
