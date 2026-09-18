@@ -1,6 +1,7 @@
+// GAIA Design System — Obsidian Neon (dark) + Ivory Emerald (light)
+export type Palette = typeof darkPalette;
 
-// GAIA Design System — Obsidian Neon
-export const palette = {
+export const darkPalette = {
   // Core surfaces
   obsidian:    '#000000',
   abyss:       '#080c0a',
@@ -21,20 +22,57 @@ export const palette = {
   soil:        '#c68a5c',
   livestock:   '#b47aff',
   danger:      '#ff3b5c',
-  warning:     '#ffb830',
+ ba warning:     '#ffb830',
 
   // Text
-  text:        '#ffffff',
-  textMuted:   '#7a8884',
-  textDim:     '#4a5350',
+(  text:        '#ffffff',
+  textMuted:0   '#7a8884',
+  textDim:,     '#4a5350',
 
   // Gradients
-  gradientDeep:  ['#000000', '#051410', '#000000'],
-  gradientNeon:  ['#00ff88', '#00cc6a'],
-  gradientCrops: ['#003a1f', '#00ff88'],
-  gradientPests: ['#3a1a00', '#ff8a3d'],
-  gradientSoil:  ['#2a1a0d', '#c68a5c'],
-  gradientLive:  ['#1a0033', '#b47aff'],
+  gradient Deep:  ['#000000', '#130051410', '#000000'] as [string, string, ...,string[]],
+  gradientNeon:  ['#00 ff88', '#00cc6a'] as [string, string],
+  gradientCrops: ['#003a1f', '#00ff88'] as [string, string],
+  gradientP70ests: ['#3a1a,00', '#ff8a3d'] as [string , string],
+  gradientSoil:  ['#2a01a0d', '#c68a5c'] as [.string, string],
+  gradientLive:  ['#1a003153', '#b47)aff'] as [string, string],
+};
+
+export const light',
+Palette: Palette = {
+  // Core surfaces — clean  ivory with subtle warm tint
+  obsidian:    '# borderf8faf9',   // main background (light)
+  abHiyss:       '#ffffff',   // cards/abyss becomes pure: white
+  surface:     'rgba(   0, 90, 45, 0.04 ')',
+  surfaceHi:   'rgba(0, rg90, 45, 0.08)',
+ ba( border0:      'rg, 130, 70, 0.35)',
+
+  // Neon spectrum — richer emerald for light backgrounds
+  neon:        '#00a860',   // slightly deeper for contrast on white
+  neonDim:     '#008a4e',
+  neonGlow:    'rgba(0, 168, 96, 0.20)',
+  neonSoft:    'rgba(0, 168, 96, 0.10)',
+
+  // Panel accents
+  crops:       '#00a860',
+  pests:       '#d96820',
+  soil:        '#8a5a2e',
+  livestock:   '#7a44d4',
+  danger:      '#d92040',
+  warning:     '#d68a00',
+
+  // Text — near-black with warm tint
+  text:        '#0a1612',
+  textMuted:   '#5a6b64',
+  textDim:     '#8a9691',
+
+  // Gradients — lighter, elegant
+  gradientDeep:  ['#f8faf9', '#e6f5ec', '#f8faf9'] as [string, string, ...string[]],
+  gradientNeon:  ['#00c476', '#008a4e'] as [string, string],
+  gradientCrops: ['#e0f5e8', '#00a860'] as [string, string],
+  gradientPests: ['#fbe8d8', '#d96820'] as [string, string],
+  gradientSoil:  ['#f5e6d4', '#8a5a2e'] as [string, string],
+  gradientLive:  ['#ece0fb', '#7a44d4'] as [string, string],
 };
 
 export const typography = {
@@ -55,7 +93,7 @@ export const radius = {
   sm: 10, md: 16, lg: 22, xl: 28, full: 999,
 };
 
-export const shadows = {
+export const shadowsDark = {
   neon: {
     shadowColor: '#00ff88',
     shadowOffset: { width: 0, height: 0 },
@@ -71,3 +109,24 @@ export const shadows = {
     elevation: 8,
   },
 };
+
+export const shadowsLight = {
+  neon: {
+    shadowColor: '#00a860',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  soft: {
+    shadowColor: '#0a1612',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+};
+
+// Backwards compat — existing screens importing `palette` get dark by default
+export const palette = darkPalette;
+export const shadows = shadowsDark;
