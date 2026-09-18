@@ -9,7 +9,8 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton, Pill } from '../components';
-import { palette, typography, spacing, radius, shadows } from '../theme';
+import { typography, spacing, radius, shadows } from '../theme';
+import { useTheme } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose } from '../api/models';
@@ -26,6 +27,8 @@ export interface DiagnoseConfig {
 }
 
 export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const { user, scansRemaining, refreshScans } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [selected, setSelected] = useState(config.options[0]);
@@ -279,7 +282,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 40 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.md },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

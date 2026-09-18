@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Screen, Pill } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const CHATS = [
   { emoji: '👥', name: 'Farmers Lagos Group', msg: 'Yes, the rain is here…', time: '2m', unread: 3, online: true },
@@ -12,6 +13,8 @@ const CHATS = [
 ];
 
 export default function Chat() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="livestock">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -50,7 +53,7 @@ export default function Chat() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm, marginBottom: spacing.lg },
   search: {

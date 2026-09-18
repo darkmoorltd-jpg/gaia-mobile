@@ -2,7 +2,8 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { useAuth } from '../src/store/auth';
-import { palette, typography, spacing, radius, shadows } from '../src/theme';
+import { typography, spacing, radius, shadows } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const PLANS = [
   { key: 'starter',    name: 'STARTER',    scans: 150,  price: '₦3,000',  tag: null,       url: 'https://paystack.shop/pay/e-z03btaq-' },
@@ -12,6 +13,8 @@ const PLANS = [
 ];
 
 export default function BuyScans() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const { scansRemaining, plan } = useAuth();
 
   return (
@@ -66,7 +69,7 @@ export default function BuyScans() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

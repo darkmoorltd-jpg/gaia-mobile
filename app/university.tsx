@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Screen, GlassCard, Pill, NeonButton } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const COURSES = [
   { emoji: '🌽', title: 'Maize Agronomist', progress: 70, modules: '8 of 12' },
@@ -11,6 +12,8 @@ const COURSES = [
 ];
 
 export default function University() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="crops">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -48,7 +51,7 @@ export default function University() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, marginBottom: spacing.xl },

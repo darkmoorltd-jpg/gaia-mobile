@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const LISTINGS = [
   { emoji: '🌽', title: 'Yellow Maize', price: '₦45,000/ton', rating: 4.8, location: 'Kaduna' },
@@ -13,6 +14,8 @@ const LISTINGS = [
 ];
 
 export default function Marketplace() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="crops">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -64,7 +67,7 @@ export default function Marketplace() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },

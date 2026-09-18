@@ -5,11 +5,14 @@ import { useFocusEffect } from 'expo-router';
 import { Screen, GlassCard, Pill } from '../src/components';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const FILTERS = ['ALL', 'CROPS', 'PESTS', 'SOIL', 'LIVESTOCK'];
 
 export default function History() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const { user } = useAuth();
   const [scans, setScans] = useState<any[]>([]);
   const [filter, setFilter] = useState('ALL');
@@ -79,7 +82,7 @@ export default function History() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { palette, typography, spacing } from '../src/theme';
+import { typography, spacing } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const ALERTS = [
   { emoji: '⚠', title: 'Northern Leaf Blight', level: 'HIGH', pct: 85, color: palette.danger,  desc: 'Next 7 days · maize farms' },
@@ -10,6 +11,8 @@ const ALERTS = [
 ];
 
 export default function EarlyWarning() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="pests">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -47,7 +50,7 @@ export default function EarlyWarning() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, marginBottom: spacing.xl },

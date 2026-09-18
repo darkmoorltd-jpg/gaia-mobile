@@ -2,7 +2,8 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton } from '../src/components';
-import { palette, typography, spacing, radius, shadows } from '../src/theme';
+import { typography, spacing, radius, shadows } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const TXNS = [
   { icon: '➕', label: 'Pro Plan Purchase', sub: 'Today · 10:24 AM', amt: '+300 scans', positive: true },
@@ -12,6 +13,8 @@ const TXNS = [
 ];
 
 export default function Wallet() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="livestock">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -67,7 +70,7 @@ export default function Wallet() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

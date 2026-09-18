@@ -2,7 +2,8 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton } from '../src/components';
-import { palette, typography, spacing, radius, shadows } from '../src/theme';
+import { typography, spacing, radius, shadows } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const BADGES = [
   { key: 'bronze',   name: 'BRONZE',   emoji: '🥉', price: '₦500/mo',  loan: 'Up to ₦50,000',   colors: ['#7a5230', '#c68a5c'] },
@@ -12,6 +13,8 @@ const BADGES = [
 ];
 
 export default function Badges() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="livestock">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -50,7 +53,7 @@ export default function Badges() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

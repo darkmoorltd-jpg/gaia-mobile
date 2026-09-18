@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { palette, typography, spacing } from '../src/theme';
+import { typography, spacing } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const NOTIFS = [
   { icon: '🌿', title: 'Diagnosis Complete', body: 'Northern Leaf Blight · 89%', time: '2 minutes ago' },
@@ -12,6 +13,8 @@ const NOTIFS = [
 ];
 
 export default function Notifications() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="crops">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -39,7 +42,7 @@ export default function Notifications() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm, marginBottom: spacing.xl },
   row: { flexDirection: 'row', gap: spacing.md },

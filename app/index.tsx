@@ -7,11 +7,14 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay,
   withRepeat, withSequence, Easing, interpolate,
 } from 'react-native-reanimated';
-import { palette, typography, spacing } from '../src/theme';
+import { typography, spacing } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const { width, height } = Dimensions.get('window');
 
 export default function Splash() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const router = useRouter();
 
   const scale = useSharedValue(0.6);
@@ -63,7 +66,7 @@ export default function Splash() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: palette.obsidian,

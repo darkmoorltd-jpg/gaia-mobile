@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen, GlassCard, Pill } from '../../src/components';
 import { useAuth } from '../../src/store/auth';
-import { palette, typography, spacing, radius } from '../../src/theme';
+import { typography, spacing, radius } from '../../src/theme';
+import { useTheme } from '../../src/theme';
 
 const ITEMS = [
   { icon: '📜', label: 'Scan History',       route: '/history' },
@@ -20,6 +21,8 @@ const ITEMS = [
 ];
 
 export default function Profile() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const router = useRouter();
   const { user, scansRemaining, signOut, plan } = useAuth();
   const name = user?.email?.split('@')[0] ?? 'Farmer';
@@ -80,7 +83,7 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   avatar: {

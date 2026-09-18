@@ -5,9 +5,12 @@ import { useFocusEffect } from 'expo-router';
 import { Screen, GlassCard } from '../src/components';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { palette, typography, spacing } from '../src/theme';
+import { typography, spacing } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 export default function PaymentHistory() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
 
@@ -57,7 +60,7 @@ export default function PaymentHistory() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, marginBottom: spacing.xl },

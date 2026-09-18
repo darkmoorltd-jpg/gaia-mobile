@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, NeonButton, NeonInput, Pill } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const STEPS = [
   { key: 'account',  label: 'Account created',  done: true },
@@ -13,6 +14,8 @@ const STEPS = [
 ];
 
 export default function Verification() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const done = STEPS.filter(s => s.done).length;
   const pct = Math.round((done / STEPS.length) * 100);
 
@@ -61,7 +64,7 @@ export default function Verification() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.md },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, lineHeight: 22 },

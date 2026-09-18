@@ -6,7 +6,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { palette, typography, spacing, radius } from '../../src/theme';
+import { typography, spacing, radius } from '../../src/theme';
+import { useTheme } from '../../src/theme';
 import { NeonButton } from '../../src/components';
 
 const { width } = Dimensions.get('window');
@@ -36,6 +37,8 @@ const SLIDES = [
 ];
 
 export default function Onboarding() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const router = useRouter();
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -109,7 +112,7 @@ export default function Onboarding() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.obsidian },
   topBar: {
     flexDirection: 'row',

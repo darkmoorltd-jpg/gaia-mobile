@@ -2,9 +2,12 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { palette, typography, spacing, radius, shadows } from '../src/theme';
+import { typography, spacing, radius, shadows } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 export default function Voice() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const [listening, setListening] = useState(false);
 
   return (
@@ -57,7 +60,7 @@ export default function Voice() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, alignItems: 'center' },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm, alignSelf: 'flex-start' },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm, alignSelf: 'flex-start' },

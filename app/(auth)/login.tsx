@@ -7,9 +7,12 @@ import {
 import { useRouter } from 'expo-router';
 import { Screen, NeonButton, NeonInput, Pill } from '../../src/components';
 import { useAuth } from '../../src/store/auth';
-import { palette, typography, spacing } from '../../src/theme';
+import { typography, spacing } from '../../src/theme';
+import { useTheme } from '../../src/theme';
 
 export default function Login() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const router = useRouter();
   const signIn = useAuth((s) => s.signIn);
   const [email, setEmail] = useState('');
@@ -103,7 +106,7 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: {
     paddingHorizontal: spacing.xl,
     paddingTop: 80,

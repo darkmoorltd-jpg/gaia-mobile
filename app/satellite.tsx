@@ -1,9 +1,12 @@
 
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill, StatCard } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 export default function Satellite() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   return (
     <Screen glow="crops">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -47,7 +50,7 @@ export default function Satellite() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },

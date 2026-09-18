@@ -1,7 +1,8 @@
 
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { palette, typography, spacing, radius } from '../src/theme';
+import { typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 
 const DAYS = ['M','T','W','T','F','S','S'];
 const TODAY = 17;
@@ -14,6 +15,8 @@ const TASKS = [
 ];
 
 export default function Calendar() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
   const days = Array.from({ length: 30 }, (_, i) => i + 1);
   const startOffset = 0;
 
@@ -65,7 +68,7 @@ export default function Calendar() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (palette: any) => StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
   dow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
