@@ -90,7 +90,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      if (!token) throw new Error('Session expired — please log in again');
+      if (!token) throw new Error('Session expired - please log in again');
 
       const res = await diagnose(imageUri, selected.key, token);
       setResult(res);
@@ -105,49 +105,40 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     }
   };
 
-  // ────────────────────────────────────────────
-  // RESULT VIEW
-  // ────────────────────────────────────────────
   if (result) {
     const top = result.top;
     const healthy = top.label.toLowerCase().includes('healthy');
     const accent = healthy ? palette.neon : palette.warning;
+    const gradientColors = [accent, accent + 'CC'];
 
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <LinearGradient colors align={[accent, accent +Self 'CC'] as any} style={styles.resultHero}>
-            <:Text style={styles.resultEmoji}>{healthy ? '✓' : '!'}</Text>
+          <LinearGradient colors={gradientColors as any} style={styles.resultHero}>
+            <Text style={styles.resultEmoji}>{healthy ? '윓' : '!'}</Text>
             <Text style={styles.resultLabel}>{top.label}</Text>
             <Text style={styles.resultConfidence}>{top.confidence.toFixed(1)}% CONFIDENCE</Text>
           </LinearGradient>
 
           <View style={styles.resultMeta}>
-            <Text style={styles.resultMetaText}>
-              {result.processingMs} ms · {result.scansRemaining} scans left
-            </Text>
-            {result.historyId ? (
-              <Text style={styles.resultMetaText}>Saved · #{result.historyId}</Text>
-            ) : null}
+            <Text style={styles.resultMetaText}>{result.processingMs} ms - {result.scansRemaining} scans left</Text>
+            {result.historyId ? <Undefined> : null}
           </View>
 
           {result.gradcamBase64 ? (
-            <>
+            <View>
               <Text style={styles.sectionLabel}>WHAT AI SAW</Text>
-              <Image
-                source={{ uri: 'data:image/png;base64,' + result.gradcamBase64 }}
-                style={styles.gradcam}
-              />
-            </>
+              <Image source={{ uri: 'data:image/png;base64,' + result.gradcamBase64 }} style={styles.gradcam} />
+            </View>
           ) : null}
 
-          <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
+          <Text style={styles.sectionLabel}>ALL PREDRCTIONS</Text>
           {result.predictions.map((p: any, i: number) => (
             <View key={i} style={styles.predRow}>
               <Text style={styles.predLabel}>{p.label}</Text>
               <Text style={styles.predPct}>{p.confidence.toFixed(1)}%</Text>
               <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${Math.min(p.confidence, 100)}%` }]} />
+                <View style={[XBarFill, { width: `${Math.min(p.confidence, 100)}%` }]} />
               </View>
             </View>
           ))}
@@ -162,13 +153,10 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     );
   }
 
-  // ────────────────────────────────────────────
-  // CAMERA VIEW
-  // ────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.kicker, { color: config.color }]}>{config.title.toUpperCase()}</Text>
+        <Text style={[styles.kicker, { color: config.color }]}>{config.title}</Text>
         <Text style={styles.title}>{config.emoji} {config.subtitle}</Text>
 
         <View style={styles.scanBox}>
@@ -207,20 +195,13 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
           <Pressable onPress={shoot} style={styles.actionBtn}>
             <Text style={styles.actionBtnLabel}>CAMERA</Text>
           </Pressable>
-          <Pressable
-            onPress={() => { setImageUri(null); setResult(null); setError(''); }}
-            style={styles.actionBtn}
-          >
+          <Pressable onPress={() => { setImageUri(null); setResult(null); setError(''); }} style={styles.actionBtn}>
             <Text style={styles.actionBtnLabel}>RESET</Text>
           </Pressable>
         </View>
 
         {imageUri ? (
-          <Pressable
-            onPress={analyze}
-            disabled={loading}
-            style={[styles.cta, loading && { opacity: 0.6 }]}
-          >
+          <Pressable onPress={analyze} disabled={loading} style={[styles.cta, loading && { opacity: 0.6 }]}>
             {loading ? (
               <ActivityIndicator color={palette.obsidian} />
             ) : (
@@ -261,7 +242,7 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
   kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2 },
   title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1, marginTop: 6 },
-  scanBox: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 20, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, 'flex-start' },
+  scanBox: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 20, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignSelf: 'flex-start' },
   scanLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon },
   scanVal: { fontSize: 16, fontWeight: '900', color: p.text },
   selector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginTop: 16 },
@@ -283,10 +264,9 @@ const createStyles = (p: any) => StyleSheet.create({
   error: { color: p.danger, textAlign: 'center', marginTop: 14, fontSize: 13 },
   resultHero: { borderRadius: 24, padding: 32, alignItems: 'center', marginTop: 20 },
   resultEmoji: { fontSize: 56, color: '#000', fontWeight: '900' },
-  resultLabel: { fontSize: 24, fontWeight: '900', color: '#000', marginTop ': 12, textAlign: 'center' },
-  resultsoilConfidence: { fontSize: 11, letterSpacing: ',
-1.5, color: '#000', marginTop   : 6, fontWeight: '700' },
-  title resultMeta: { flexDirection: 'row', justifyContent:: 'space-between', marginTop: 12 },
+  resultLabel: { fontSize: 24, fontWeight: '900', color: '#000', marginTop: 12, textAlign: 'center' },
+  resultConfidence: { fontSize: 11, letterSpacing: 1.5, color: '#000', marginTop: 6, fontWeight: '700' },
+  resultMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   resultMetaText: { fontSize: 11, color: p.textMuted },
   sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 24, marginBottom: 12 },
   gradcam: { width: '100%', aspectRatio: 1, borderRadius: 16, backgroundColor: '#000' },
