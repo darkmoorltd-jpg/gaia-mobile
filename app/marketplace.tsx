@@ -1,97 +1,144 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, TextInput, Image, Dimensions, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
+  Image, Dimensions, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
-import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
+import {
+  fetchListings, isVerifiedSeller, CATEGORIES, naira, Listing,
+} from '../src/utils/marketplace';
 
 const { width } = Dimensions.get('window');
-const CATEGORIES = ['All', 'Maize', 'Rice', 'Tomato', 'Pepper', 'Beans', 'Cassava'];
+const CARD_W = (width - 42) / 2;
 
-const FALLBACK = [
-  { id: '1', title: 'Yellow Maize - Grade A', price: 45000, unit: 'per ton', location: 'Kaduna', crop: 'Maize', image_url: 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600' },
-  { id: '2', title: 'Fresh Tomatoes', price: 25000, unit: 'per basket', location: 'Lagos', crop: 'Tomato', image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600' },
-  { id: '3', title: 'Red Pepper - Dried', price: 15000, unit: 'per basket', location: 'Oyo', crop: 'Pepper', image_url: 'https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?w=600' },
-  { id: '4', title: 'Cassava Tubers', price: 18000, unit: 'per 100kg', location: 'Ogun', crop: 'Cassava', image_url: 'https://images.unsplash.com/photo-1595348020949-87cdfbb44174?w=600' },
-];
-
-export default function Marketplace() {
+export default function MarketplaceHome() {
   const { palette } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
-  const [cat, setCat] = useState('All');
-  const [rows, setRows] = useState<any[]>(FALLBACK);
-  const [busy, setBusy] = useState(true);
   const styles = createStyles(palette);
+  const [cat, setCat] = useState('All');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [busy, setBusy] = useState(true);
+  const [search, setSearch] = useState('');
+  const [verified, setVerified] = useState(false);
 
-  useFocusEffect(useCallback(() => {
-    (async () => {
-      setBusy(true);
-      try {
-        const { data } = await supabase
-          .from('marketplace_listings')
-          .select('*')
-          .eq('sold', false)
-          .order('created_at', { ascending: false })
-          .limit(100);
-        if (data && data.length > 0) setRows(data);
-      } catch {}
-      setBusy(false);
-    })();
-  }, []));
+  const load = useCallback(async () => {
+    setBusy(true);
+    const rows = await fetchListings(cat);
+    setListings(rows);
+    if (user) setVerified(await isVerifiedSeller(user.id));
+    setBusy(false);
+  }, [cat, user]);
 
-  const filtered = cat === 'All' ? rows : rows.filter((r) => (r.crop || '').toLowerCase() === cat.toLowerCase());
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const filtered = search.trim()
+    ? listings.filter((l) =>
+        l.title.toLowerCase().includes(search.toLowerCase()) ||
+        (l.location || '').toLowerCase().includes(search.toLowerCase()),
+      )
+    : listings;
+
+  const goSell = () => {
+    if (verified) router.push('/marketplace-sell' as any);
+    else router.push('/marketplace-verify-gate' as any);
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.brand}>Marketplace</Text>
-          <Pressable onPress={() => router.push('/marketplace-sell' as any)} style={styles.sellBtn}>
-            <Text style={styles.sellBtnText}>SELL</Text>
-          </Pressable>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <Text style={styles.brand}>GAIA Market</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable onPress={() => router.push('/marketplace-orders' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconTxt}>O</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/marketplace-cart' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconTxt}>C</Text>
+            </Pressable>
+            <Pressable onPress={goSell} style={styles.sellBtn}>
+              <Text style={styles.sellTxt}>SELL</Text>
+            </Pressable>
+          </View>
         </View>
         <View style={styles.search}>
           <Text style={styles.searchIcon}>S</Text>
-          <TextInput placeholder="Search produce" placeholderTextColor={palette.textDim} style={styles.searchInput} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search produce, seeds, tools…"
+            placeholderTextColor={palette.textDim}
+            style={styles.searchInput}
+          />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={palette.neon} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Category chips */}
+        <Text style={styles.sectionLabel}>CATEGORIES</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16 }}>
             {CATEGORIES.map((c) => (
-              <Pressable key={c} onPress={() => setCat(c)} style={[styles.chip, cat === c && styles.chipActive]}>
+              <Pressable
+                key={c}
+                onPress={() => setCat(c)}
+                style={[styles.chip, cat === c && styles.chipActive]}
+              >
                 <Text style={[styles.chipText, cat === c && styles.chipTextActive]}>{c}</Text>
               </Pressable>
             ))}
           </View>
         </ScrollView>
 
-        {busy ? <ActivityIndicator color={palette.neon} /> : null}
+        {/* Flash banner */}
+        <View style={styles.flash}>
+          <Text style={styles.flashLabel}>FEATURED</Text>
+          <Text style={styles.flashTitle}>Fresh harvests direct from farmers</Text>
+          <Text style={styles.flashSub}>No middlemen. Escrow protected.</Text>
+        </View>
+
+        <Text style={styles.sectionLabel}>
+          {cat === 'All' ? 'ALL LISTINGS' : cat.toUpperCase()}
+        </Text>
+
+        {busy && listings.length === 0 ? <ActivityIndicator color={palette.neon} style={{ marginVertical: 30 }} /> : null}
+
+        {!busy && filtered.length === 0 ? (
+          <Text style={styles.empty}>No listings yet. Be the first to sell!</Text>
+        ) : null}
 
         <View style={styles.grid}>
           {filtered.map((l) => (
-            <Pressable key={l.id} style={styles.card}>
+            <Pressable
+              key={l.id}
+              onPress={() => router.push({ pathname: '/marketplace-product', params: { id: String(l.id) } } as any)}
+              style={styles.card}
+            >
               <Image
-                source={{ uri: l.image_url || 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600' }}
+                source={{ uri: (l.images && l.images[0]) || 'https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600' }}
                 style={styles.cardImg}
               />
               <View style={styles.cardBody}>
                 <Text style={styles.cardTitle} numberOfLines={2}>{l.title}</Text>
-                <Text style={styles.cardPrice}>N{Number(l.price || 0).toLocaleString()}</Text>
+                <Text style={styles.cardPrice}>{naira(l.price)}</Text>
                 <Text style={styles.cardUnit}>{l.unit}</Text>
                 <View style={styles.cardMeta}>
-                  <Text style={styles.cardRating}>★ {l.rating || 4.8}</Text>
-                  <Text style={styles.cardLoc}>{l.location}</Text>
+                  <Text style={styles.rating}>★ {l.rating ? l.rating.toFixed(1) : '4.5'}</Text>
+                  <Text style={styles.loc} numberOfLines={1}>{l.location || 'Nigeria'}</Text>
                 </View>
               </View>
             </Pressable>
           ))}
         </View>
-        <View style={{ height: 120 }} />
+
+        <View style={{ height: 140 }} />
       </ScrollView>
     </View>
   );
@@ -99,30 +146,52 @@ export default function Marketplace() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  topBar: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12 },
-  brand: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sellBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: p.neon },
-  sellBtnText: { fontSize: 11, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: p.obsidian, borderBottomWidth: 1, borderBottomColor: p.border },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  brand: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  iconBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iconTxt: { fontSize: 14, fontWeight: '900', color: p.neon },
+  sellBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: p.neon },
+  sellTxt: { fontSize: 11, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   search: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
-    backgroundColor: p.surface, borderRadius: 12, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: p.border,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 12, backgroundColor: p.surface, borderRadius: 12,
+    paddingHorizontal: 14, borderWidth: 1, borderColor: p.border,
   },
   searchIcon: { fontSize: 14, fontWeight: '900', color: p.neon },
   searchInput: { flex: 1, paddingVertical: 12, color: p.text, fontSize: 14 },
   scroll: { paddingBottom: 40 },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
+  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 20, marginBottom: 10, paddingHorizontal: 16 },
+  chip: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+  },
   chipActive: { backgroundColor: p.neon, borderColor: p.neon },
   chipText: { fontSize: 12, fontWeight: '700', color: p.textMuted },
   chipTextActive: { color: p.obsidian },
+  flash: {
+    marginHorizontal: 16, padding: 20, borderRadius: 16,
+    backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
+  },
+  flashLabel: { fontSize: 10, fontWeight: '900', color: p.neon, letterSpacing: 2 },
+  flashTitle: { fontSize: 18, fontWeight: '900', color: p.text, marginTop: 6 },
+  flashSub: { fontSize: 12, color: p.textMuted, marginTop: 4 },
+  empty: { fontSize: 14, color: p.textMuted, textAlign: 'center', paddingVertical: 30 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16 },
-  card: { width: (width - 42) / 2, backgroundColor: p.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: p.border },
-  cardImg: { width: '100%', height: 140 },
-  cardBody: { padding: 12 },
+  card: {
+    width: CARD_W, backgroundColor: p.surface, borderRadius: 16,
+    overflow: 'hidden', borderWidth: 1, borderColor: p.border,
+  },
+  cardImg: { width: '100%', height: 130 },
+  cardBody: { padding: 10 },
   cardTitle: { fontSize: 13, fontWeight: '700', color: p.text, minHeight: 34 },
-  cardPrice: { fontSize: 17, fontWeight: '900', color: p.neon, marginTop: 6 },
+  cardPrice: { fontSize: 16, fontWeight: '900', color: p.neon, marginTop: 4 },
   cardUnit: { fontSize: 10, color: p.textMuted, marginTop: 2 },
-  cardMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  cardRating: { fontSize: 11, color: p.warning, fontWeight: '700' },
-  cardLoc: { fontSize: 11, color: p.textMuted },
+  cardMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  rating: { fontSize: 11, color: p.warning, fontWeight: '700' },
+  loc: { fontSize: 11, color: p.textMuted, maxWidth: '55%' },
 });

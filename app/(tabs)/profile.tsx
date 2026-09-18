@@ -19,6 +19,8 @@ export default function Profile() {
     { label: 'Badges', route: '/badges' },
     { label: 'Verification', route: '/verification' },
     { label: 'Marketplace', route: '/marketplace' },
+    { label: 'My Store (Seller)', route: '/marketplace-store' },
+    { label: 'My Orders', route: '/marketplace-orders' },
     { label: 'Early Warning', route: '/early-warning' },
     { label: 'University', route: '/university' },
     { label: 'Farming Calendar', route: '/calendar' },
