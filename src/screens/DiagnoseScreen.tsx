@@ -95,6 +95,18 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const res = await diagnose(imageUri, selected.key, token);
       setResult(res);
       await refreshScans();
+      // Save to scan_history
+      try {
+        await supabase.from('scan_history').insert({
+          user_id: user.id,
+          type: config.contextType,
+          top_label: res.top?.label || 'Unknown',
+          confidence: res.top?.confidence || 0,
+          emoji: config.emoji,
+        });
+      } catch (histErr) {
+        // silently ignore
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e: any) {
       const msg = e instanceof DiagnosisError ? e.message : (e?.message ?? 'Diagnosis failed');

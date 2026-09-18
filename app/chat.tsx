@@ -1,86 +1,155 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { Screen, Pill } from '../src/components';
-import { typography, spacing, radius } from '../src/theme';
-import { useTheme } from '../src/theme';
-
-const CHATS = [
-  { emoji: '👥', name: 'Farmers Lagos Group', msg: 'Yes, the rain is here…', time: '2m', unread: 3, online: true },
-  { emoji: '👤', name: 'Musa Ibrahim', msg: 'Thanks for the advice!', time: '15m', unread: 0, online: true },
-  { emoji: '👤', name: 'Fatima Bello', msg: 'See you at the market', time: '1h', unread: 0, online: false },
-  { emoji: '👥', name: 'Maize Growers NG', msg: '[Image]', time: '3h', unread: 5, online: true },
-  { emoji: '👤', name: 'John Okoro', msg: 'Voice message', time: 'yesterday', unread: 0, online: false },
-];
+import { useCallback, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useTheme, spacing, radius } from '../src/theme';
+import { useAuth } from '../src/store/auth';
+import { ensureMyProfile, listFriends, displayName } from '../src/utils/friends';
 
 export default function Chat() {
+  const router = useRouter();
   const { palette } = useTheme();
+  const { user } = useAuth();
   const styles = createStyles(palette);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [busy, setBusy] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setBusy(true);
+    await ensureMyProfile(user.id, user.email || '');
+    const f = await listFriends(user.id);
+    setFriends(f);
+    setBusy(false);
+  }, [user]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const filtered = search.trim()
+    ? friends.filter((f) => (f.email || '').toLowerCase().includes(search.toLowerCase()))
+    : friends;
+
   return (
-    <Screen glow="livestock">
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Pill label="Community" />
-        <Text style={styles.title}>Chat</Text>
-
-        <View style={styles.search}>
-          <Text>🔍</Text>
-          <Text style={styles.searchText}>Search messages…</Text>
+    <View style={styles.container}>
+      <View style={styles.topBar}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={styles.brand}>Chats</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable onPress={() => router.push('/friend-requests' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>R</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.iconBtnSolid}>
+              <Text style={styles.iconBtnSolidText}>+</Text>
+            </Pressable>
+          </View>
         </View>
+        <View style={styles.search}>
+          <Text style={styles.searchIcon}>S</Text>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search friends"
+            placeholderTextColor={palette.textDim}
+            style={styles.searchInput}
+          />
+        </View>
+      </View>
 
-        {CHATS.map((c, i) => (
-          <Pressable key={i} style={styles.row}>
-            <View style={styles.avatarWrap}>
-              <Text style={styles.avatarEmoji}>{c.emoji}</Text>
-              {c.online && <View style={styles.onlineDot} />}
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
+
+        {!busy && friends.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyTitle}>No chats yet</Text>
+            <Text style={styles.emptyText}>Add a farmer by email to start messaging.</Text>
+            <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.emptyBtn}>
+              <Text style={styles.emptyBtnText}>ADD A FARMER</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {filtered.map((f) => (
+          <Pressable
+            key={f.user_id}
+            onPress={() => router.push({
+              pathname: '/chat-room',
+              params: {
+                peerId: f.user_id,
+                peerEmail: f.email,
+                peerName: displayName(f),
+              },
+            } as any)}
+            style={styles.row}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{displayName(f)[0].toUpperCase()}</Text>
+              <View style={styles.onlineDot} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{c.name}</Text>
-              <Text style={styles.msg} numberOfLines={1}>{c.msg}</Text>
+              <Text style={styles.name}>{displayName(f)}</Text>
+              <Text style={styles.email} numberOfLines={1}>{f.email}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end', gap: 6 }}>
-              <Text style={styles.time}>{c.time}</Text>
-              {c.unread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{c.unread}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={styles.chev}>›</Text>
           </Pressable>
         ))}
 
         <View style={{ height: 120 }} />
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
-  title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm, marginBottom: spacing.lg },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  topBar: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: p.obsidian },
+  brand: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  iconBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iconBtnText: { fontSize: 14, fontWeight: '900', color: p.neon },
+  iconBtnSolid: {
+    width: 42, height: 42, borderRadius: 21, backgroundColor: p.neon,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iconBtnSolidText: { fontSize: 22, fontWeight: '900', color: p.obsidian, lineHeight: 24 },
   search: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
-    borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 12, backgroundColor: p.surface,
+    borderRadius: 12, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: p.border,
   },
-  searchText: { color: palette.textDim, fontSize: 14 },
+  searchIcon: { fontSize: 14, fontWeight: '900', color: p.neon },
+  searchInput: { flex: 1, paddingVertical: 12, color: p.text, fontSize: 14 },
+  scroll: { paddingBottom: 40 },
+  emptyBox: { alignItems: 'center', padding: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: p.text, marginBottom: 8 },
+  emptyText: { fontSize: 13, color: p.textMuted, textAlign: 'center', marginBottom: 20 },
+  emptyBtn: {
+    paddingHorizontal: 24, paddingVertical: 14,
+    borderRadius: 12, backgroundColor: p.neon,
+  },
+  emptyBtnText: { fontSize: 12, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    padding: spacing.lg, borderRadius: radius.md,
-    backgroundColor: palette.surface, marginBottom: spacing.sm,
-    borderWidth: 1, borderColor: palette.border,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: p.border,
   },
-  avatarWrap: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: palette.abyss, alignItems: 'center', justifyContent: 'center',
+  avatar: {
+    width: 50, height: 50, borderRadius: 25,
+    backgroundColor: p.neonSoft, alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   },
-  avatarEmoji: { fontSize: 22 },
+  avatarText: { fontSize: 20, fontWeight: '900', color: p.neon },
   onlineDot: {
     position: 'absolute', bottom: 2, right: 2,
     width: 12, height: 12, borderRadius: 6,
-    backgroundColor: palette.neon, borderWidth: 2, borderColor: palette.obsidian,
+    backgroundColor: p.neon, borderWidth: 2, borderColor: p.obsidian,
   },
-  name: { ...typography.body, color: palette.text, fontWeight: '700' },
-  msg: { ...typography.caption, color: palette.textMuted, marginTop: 4 },
-  time: { ...typography.micro, color: palette.textDim },
-  badge: { backgroundColor: palette.neon, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
+  name: { fontSize: 16, fontWeight: '700', color: p.text },
+  email: { fontSize: 12, color: p.textMuted, marginTop: 3 },
+  chev: { fontSize: 22, color: p.textDim },
 });

@@ -63,6 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="pests"     options={{ title: 'PESTS',     tabBarIcon: ({ focused, color }) => <TabIcon emoji="P" focused={focused} color={color} /> }} />
       <Tabs.Screen name="soil"      options={{ title: 'SOIL',      tabBarIcon: ({ focused, color }) => <TabIcon emoji="S" focused={focused} color={color} /> }} />
       <Tabs.Screen name="livestock" options={{ title: 'LIVESTOCK', tabBarIcon: ({ focused, color }) => <TabIcon emoji="L" focused={focused} color={color} /> }} />
+      <Tabs.Screen name="chat" options={{ title: 'CHAT', tabBarIcon: ({ focused, color }) => <TabIcon emoji="C" focused={focused} color={color} /> }} />
       <Tabs.Screen name="profile"   options={{ title: 'ME',        tabBarIcon: ({ focused, color }) => <TabIcon emoji="U" focused={focused} color={color} /> }} />
     </Tabs>
   );
