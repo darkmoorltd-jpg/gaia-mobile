@@ -1,18 +1,17 @@
-
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
-import { typography, spacing } from '../src/theme';
-import { useTheme } from '../src/theme';
-
-const ALERTS = [
-  { emoji: '⚠', title: 'Northern Leaf Blight', level: 'HIGH', pct: 85, color: palette.danger,  desc: 'Next 7 days · maize farms' },
-  { emoji: '🐛', title: 'Fall Armyworm',       level: 'MODERATE', pct: 62, color: palette.warning, desc: 'Rain-dependent spread' },
-  { emoji: '🌧', title: 'Flood potential',     level: 'LOW', pct: 12, color: palette.neon, desc: 'Below seasonal average' },
-];
+import { typography, spacing, useTheme } from '../src/theme';
 
 export default function EarlyWarning() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
+
+  const ALERTS = [
+    { emoji: '⚠', title: 'Northern Leaf Blight', level: 'HIGH', pct: 85, color: palette.danger, desc: 'Next 7 days · maize farms' },
+    { emoji: '🐛', title: 'Fall Armyworm',       level: 'MODERATE', pct: 62, color: palette.warning, desc: 'Rain-dependent spread' },
+    { emoji: '🌧', title: 'Flood potential',     level: 'LOW', pct: 12, color: palette.neon, desc: 'Below seasonal average' },
+  ];
+
   return (
     <Screen glow="pests">
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -37,7 +36,7 @@ export default function EarlyWarning() {
               </View>
               <Text style={styles.alertDesc}>{a.desc}</Text>
               <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${a.pct}%`, backgroundColor: a.color }]} />
+                <View style={[styles.barFill, { width: `${a.pct}%` as any, backgroundColor: a.color }]} />
               </View>
               <Text style={styles.pctText}>{a.pct}% probability</Text>
             </GlassCard>

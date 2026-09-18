@@ -1,4 +1,3 @@
-
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Screen, Pill } from '../src/components';
 import { typography, spacing, radius } from '../src/theme';

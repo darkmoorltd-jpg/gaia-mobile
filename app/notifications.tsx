@@ -1,4 +1,3 @@
-
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Screen, GlassCard, Pill } from '../src/components';
 import { typography, spacing } from '../src/theme';

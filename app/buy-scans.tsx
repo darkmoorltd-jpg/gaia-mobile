@@ -1,4 +1,3 @@
-
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { useAuth } from '../src/store/auth';

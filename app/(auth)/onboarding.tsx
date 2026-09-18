@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, Dimensions, ScrollView,
@@ -6,35 +5,10 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { typography, spacing, radius } from '../../src/theme';
-import { useTheme } from '../../src/theme';
+import { typography, spacing, radius, useTheme } from '../../src/theme';
 import { NeonButton } from '../../src/components';
 
 const { width } = Dimensions.get('window');
-
-const SLIDES = [
-  {
-    icon: '📷',
-    title: 'Diagnose any crop',
-    subtitle: 'in seconds',
-    body: 'Snap a leaf. GAIA reads disease, pests, and nutrient deficiency with 98% accuracy — offline, on any phone.',
-    gradient: palette.gradientCrops,
-  },
-  {
-    icon: '🎙️',
-    title: 'Talk to your',
-    subtitle: 'AI agronomist',
-    body: 'Ask in Hausa, Yoruba, Igbo, Pidgin, or English. Get instant advice on planting, treatment, and harvest.',
-    gradient: palette.gradientLive,
-  },
-  {
-    icon: '🏅',
-    title: 'Earn rewards',
-    subtitle: 'as you farm',
-    body: 'Badges, loans, insurance, and a marketplace — all in one app built for African farmers.',
-    gradient: palette.gradientPests,
-  },
-];
 
 export default function Onboarding() {
   const { palette } = useTheme();
@@ -42,6 +16,30 @@ export default function Onboarding() {
   const router = useRouter();
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+
+  const SLIDES = [
+    {
+      icon: '📷',
+      title: 'Diagnose any crop',
+      subtitle: 'in seconds',
+      body: 'Snap a leaf. GAIA reads disease, pests, and nutrient deficiency with 98% accuracy — offline, on any phone.',
+      gradient: palette.gradientCrops,
+    },
+    {
+      icon: '🎙️',
+      title: 'Talk to your',
+      subtitle: 'AI agronomist',
+      body: 'Ask in Hausa, Yoruba, Igbo, Pidgin, or English. Get instant advice on planting, treatment, and harvest.',
+      gradient: palette.gradientLive,
+    },
+    {
+      icon: '🏅',
+      title: 'Earn rewards',
+      subtitle: 'as you farm',
+      body: 'Badges, loans, insurance, and a marketplace — all in one app built for African farmers.',
+      gradient: palette.gradientPests,
+    },
+  ];
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -76,10 +74,7 @@ export default function Onboarding() {
         {SLIDES.map((s, i) => (
           <View key={i} style={[styles.slide, { width }]}>
             <View style={styles.iconWrap}>
-              <LinearGradient
-                colors={s.gradient as any}
-                style={styles.iconGradient}
-              >
+              <LinearGradient colors={s.gradient as any} style={styles.iconGradient}>
                 <Text style={styles.icon}>{s.icon}</Text>
               </LinearGradient>
             </View>
@@ -121,16 +116,8 @@ const createStyles = (palette: any) => StyleSheet.create({
     paddingTop: 70,
     paddingBottom: spacing.lg,
   },
-  brand: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: palette.text,
-    letterSpacing: 4,
-  },
-  skip: {
-    ...typography.micro,
-    color: palette.textMuted,
-  },
+  brand: { fontSize: 16, fontWeight: '900', color: palette.text, letterSpacing: 4 },
+  skip: { ...typography.micro, color: palette.textMuted },
   slide: {
     flex: 1,
     paddingHorizontal: spacing.xxl,
@@ -154,19 +141,8 @@ const createStyles = (palette: any) => StyleSheet.create({
     borderRadius: radius.xl,
   },
   icon: { fontSize: 64 },
-  title: {
-    ...typography.hero,
-    color: palette.text,
-    textAlign: 'center',
-    lineHeight: 46,
-  },
-  subtitle: {
-    ...typography.hero,
-    color: palette.neon,
-    textAlign: 'center',
-    lineHeight: 46,
-    marginBottom: spacing.xl,
-  },
+  title: { ...typography.hero, color: palette.text, textAlign: 'center', lineHeight: 46 },
+  subtitle: { ...typography.hero, color: palette.neon, textAlign: 'center', lineHeight: 46, marginBottom: spacing.xl },
   body: {
     ...typography.body,
     color: palette.textMuted,
@@ -175,22 +151,7 @@ const createStyles = (palette: any) => StyleSheet.create({
     lineHeight: 22,
   },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: 60 },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: spacing.xl,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: palette.textDim,
-  },
-  dotActive: {
-    backgroundColor: palette.neon,
-    shadowColor: palette.neon,
-    shadowOpacity: 1,
-    shadowRadius: 8,
-  },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: spacing.xl },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.textDim },
+  dotActive: { backgroundColor: palette.neon, shadowColor: palette.neon, shadowOpacity: 1, shadowRadius: 8 },
 });

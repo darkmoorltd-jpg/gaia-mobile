@@ -1,4 +1,3 @@
-
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton } from '../src/components';

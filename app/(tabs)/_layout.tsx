@@ -1,9 +1,9 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useTheme } from '../../src/theme/ThemeContext';
+import { useTheme } from '../../src/theme';
 
-function TabIcon({ emoji, focused, color, isLight }: any) {
+function TabIcon({ emoji, focused, color }: any) {
   const { palette } = useTheme();
   return (
     <View
@@ -55,9 +55,7 @@ export default function TabsLayout() {
               />
             </BlurView>
           ),
-        tabBarLabelStyle: {
-          fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 4,
-        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 4 },
       }}
     >
       <Tabs.Screen name="index"     options={{ title: 'HOME',      tabBarIcon: ({ focused, color }) => <TabIcon emoji="H" focused={focused} color={color} /> }} />

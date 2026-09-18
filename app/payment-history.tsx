@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect } from 'expo-router';

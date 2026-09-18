@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Linking } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, Image, Linking, TextInput,
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
@@ -45,7 +47,9 @@ export default function Verification() {
       const blob = await response.blob();
       const arrayBuffer = await new Response(blob).arrayBuffer();
       const path = user!.id + '/' + name + '_' + Date.now() + '.jpg';
-      const { error } = await supabase.storage.from('verifications').upload(path, arrayBuffer, { contentType: 'image/jpeg' });
+      const { error } = await supabase.storage
+        .from('verifications')
+        .upload(path, arrayBuffer, { contentType: 'image/jpeg' });
       if (error) throw error;
       const { data } = supabase.storage.from('verifications').getPublicUrl(path);
       return data.publicUrl;
@@ -131,8 +135,14 @@ export default function Verification() {
 
         {message ? <Text style={styles.message}>{message}</Text> : null}
 
-        <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          <Text style={styles.ctaText}>{busy ? 'Submitting...' : 'SUBMIT AND PAY N2,000'}</Text>
+        <Pressable
+          onPress={submit}
+          disabled={busy}
+          style={[styles.cta, busy && { opacity: 0.5 }]}
+        >
+          <Text style={styles.ctaText}>
+            {busy ? 'Submitting...' : 'SUBMIT AND PAY N2,000'}
+          </Text>
         </Pressable>
 
         <View style={{ height: 80 }} />
@@ -168,7 +178,7 @@ function UploadBox({ label, uri, onPress, palette }: any) {
         <Image source={{ uri }} style={s.uploadImg} />
       ) : (
         <View style={s.uploadPlaceholder}>
-          <Text style={s.uploadPlus}>+</Text>
+          <Text style={s.uploadIcon}>+</Text>
           <Text style={s.uploadLabel}>{label}</Text>
         </View>
       )}
@@ -176,28 +186,73 @@ function UploadBox({ label, uri, onPress, palette }: any) {
   );
 }
 
-import { TextInput } from 'react-native';
-
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
   back: { marginBottom: 16 },
-  backText: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted },
-  title: { fontSize: 32, fontWeight: '800', letterSpacing: -1, color: p.text },
-  subtitle: { fontSize: 15, lineHeight: 22, color: p.textMuted, marginTop: 8, marginBottom: 20 },
-  feeBox: { padding: 20, borderRadius: 16, backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi, alignItems: 'center' },
-  feeLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted },
+  backText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
+  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -0.8 },
+  subtitle: { fontSize: 13, color: p.textMuted, marginTop: 8, lineHeight: 20 },
+  feeBox: {
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: p.neonSoft,
+    borderWidth: 1,
+    borderColor: p.borderHi,
+  },
+  feeLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted },
   feeValue: { fontSize: 32, fontWeight: '900', color: p.neon, marginTop: 4 },
-  section: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted, marginTop: 24, marginBottom: 8 },
-  inputLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted, marginBottom: 6 },
-  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16 },
-  input: { paddingVertical: 14, color: p.text, fontSize: 15 },
-  upload: { height: 140, borderRadius: 16, marginBottom: 12, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.border, borderStyle: 'dashed' },
+  section: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: p.textMuted,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: p.textMuted,
+    marginBottom: 6,
+  },
+  inputWrap: {
+    borderWidth: 1.5,
+    borderColor: p.border,
+    backgroundColor: p.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+  },
+  input: { paddingVertical: 13, color: p.text, fontSize: 15 },
+  upload: {
+    aspectRatio: 4 / 3,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: p.surface,
+    borderWidth: 1.5,
+    borderColor: p.border,
+    borderStyle: 'dashed',
+    marginBottom: 12,
+  },
   uploadImg: { width: '100%', height: '100%' },
   uploadPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  uploadPlus: { fontSize: 32, color: p.neon, fontWeight: '300' },
-  uploadLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted, marginTop: 6 },
-  message: { color: p.danger, textAlign: 'center', marginTop: 12, fontSize: 13 },
-  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 20 },
-  ctaText: { fontSize: 15, fontWeight: '800', color: p.obsidian },
+  uploadIcon: { fontSize: 32, color: p.neon },
+  uploadLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: p.textMuted,
+    marginTop: 8,
+  },
+  message: { color: p.warning, textAlign: 'center', marginTop: 14, fontSize: 13 },
+  cta: {
+    marginTop: 24,
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: p.neon,
+    alignItems: 'center',
+  },
+  ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });

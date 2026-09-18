@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { ThemeProvider, useTheme } from '../src/theme/ThemeContext';
+import { ThemeProvider, useTheme } from '../src/theme';
 
 const queryClient = new QueryClient();
 
