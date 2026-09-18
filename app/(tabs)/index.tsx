@@ -1,151 +1,150 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeInDown, FadeIn, useSharedValue, useAnimatedStyle,
   withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
-import { Screen, GlassCard, Pill, StatCard, NeonButton } from '../../src/components';
-import { useAuth } from '../../src/store/auth';
-import { useTheme } from '../../src/theme/ThemeContext';
-import { typography, spacing, radius, shadowsDark } from '../../src/theme';
+import { useTheme } from '../../src/theme';
+import { typography, spacing, radius, shadows } from '../../src/theme';
 
 const FEATURES = [
-  { key: 'crops',     icon: '🌿', title: 'Crop Disease',   sub: '6 crops · 60+ diseases', accent: 'crops' },
-  { key: 'pests',     icon: '🐛', title: 'Pest Detection', sub: '102 pest classes',       accent: 'pests' },
-  { key: 'soil',      icon: '🏞', title: 'Soil Analysis',  sub: '11 soil types',          accent: 'soil' },
-  { key: 'livestock', icon: '🐄', title: 'Livestock',      sub: 'Cattle + Poultry',       accent: 'livestock' },
+  { key: 'crops',     emoji: 'L', title: 'Crop Disease',   sub: '6 crops · 60+ diseases' },
+  { key: 'pests',     emoji: 'B', title: 'Pest Detection', sub: '102 pest classes' },
+  { key: 'soil',      emoji: 'S', title: 'Soil Analysis',  sub: '11 soil types' },
+  { key: 'livestock', emoji: 'A', title: 'Livestock',      sub: 'Cattle + Poultry' },
 ];
 
 export default function Home() {
   const router = useRouter();
-  const { user, scansRemaining, plan, refreshScans } = useAuth();
-  const { palette, shadows, mode } = useTheme();
-  const isLight = mode === 'light';
+  const { palette, mode, toggle } = useTheme();
+  const { scansRemaining, plan, refreshScans } = require('../../src/store/auth').useAuth();
 
   const pulse = useSharedValue(1);
   useEffect(() => {
     refreshScans();
     pulse.value = withRepeat(
-      withSequence(withTiming(1.05, { duration: 1500 }), withTiming(1, { duration: 1500 })),
+      withSequence(
+        withTiming(1.05, { duration: 1500 }),
+        withTiming(1, { duration: 1500 })
+      ),
       -1, true,
     );
   }, []);
 
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
 
-  const firstName = user?.email?.split('@')[0] ?? 'farmer';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const firstName = 'farmer';
 
   return (
-    <Screen glow="crops">
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1, backgroundColor: palette.obsidian }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 100 }}>
+        {/* Header with theme toggle */}
         <Animated.View entering={FadeInDown.duration(600)}>
-          <View style={styles.headerRow}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View>
-              <Text style={[styles.greeting, { color: palette.textMuted }]}>{greeting},</Text>
-              <Text style={[styles.name, { color: palette.text }]}>{firstName}</Text>
+              <Text style={{ ...typography.body, color: palette.textMuted }}>{greeting},</Text>
+              <Text style={{ fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 }}>
+                {firstName}
+              </Text>
             </View>
-            <Animated.View style={pulseStyle}>
-              <LinearGradient colors={palette.gradientNeon} style={styles.scanBadge}>
-                <Text style={[styles.scanNum, { color: isLight ? '#fff' : '#000' }]}>{scansRemaining}</Text>
-                <Text style={[styles.scanLbl, { color: isLight ? '#fff' : '#000' }]}>SCANS</Text>
-              </LinearGradient>
-            </Animated.View>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(100).duration(600)}>
-          <GlassCard style={{ marginTop: spacing.xl }}>
-            <View style={styles.planRow}>
-              <View>
-                <Text style={[styles.planLabel, { color: palette.textMuted }]}>CURRENT PLAN</Text>
-                <Text style={[styles.planValue, { color: palette.neon }]}>{plan.toUpperCase()}</Text>
-              </View>
-              <Pill label="Active" />
-            </View>
-            <NeonButton
-              label="UPGRADE SCANS"
-              variant="ghost"
-              onPress={() => router.push('/buy-scans' as any)}
-              style={{ marginTop: spacing.lg }}
-            />
-          </GlassCard>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(200).duration(600)}>
-          <Text style={[styles.sectionLabel, { color: palette.textMuted }]}>TODAY</Text>
-          <View style={styles.statRow}>
-            <StatCard value={28} label="TEMP °C" color={palette.neon} />
-            <StatCard value="64%" label="HUMIDITY" color={isLight ? '#0091c2' : '#66d9ff'} />
-            <StatCard value="🌤" label="CLEAR" color={palette.warning} />
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(300).duration(600)}>
-          <Text style={[styles.sectionLabel, { color: palette.textMuted }]}>DIAGNOSE</Text>
-          <View style={styles.grid}>
-            {FEATURES.map((f) => {
-              const accent = (palette as any)[f.accent];
-              return (
-                <Pressable
-                  key={f.key}
-                  onPress={() => router.push(`/(tabs)/${f.key}` as any)}
-                  style={styles.tileOuter}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Pressable
+                onPress={toggle}
+                style={{
+                  width: 44, height: 44, borderRadius: 22,
+                  backgroundColor: palette.surface,
+                  borderWidth: 1, borderColor: palette.border,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 20 }}>{mode === 'dark' ? 'S' : 'M'}</Text>
+              </Pressable>
+              <Animated.View style={pulseStyle}>
+                <LinearGradient
+                  colors={[palette.neon, palette.neonDim] as any}
+                  style={{ width: 74, height: 74, borderRadius: 37, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <View
-                    style={[
-                      styles.tile,
-                      {
-                        borderColor: accent + '44',
-                        backgroundColor: isLight ? palette.abyss : palette.surface,
-                        ...(isLight ? shadows.soft : {}),
-                      },
-                    ]}
-                  >
-                    <Text style={styles.tileIcon}>{f.icon}</Text>
-                    <Text style={[styles.tileTitle, { color: palette.text }]}>{f.title}</Text>
-                    <Text style={[styles.tileSub, { color: palette.textMuted }]}>{f.sub}</Text>
-                    <View style={[styles.tileGlow, { backgroundColor: accent }]} />
-                  </View>
-                </Pressable>
-              );
-            })}
+                  <Text style={{ fontSize: 26, fontWeight: '900', color: mode === 'dark' ? '#000' : '#fff' }}>
+                    {scansRemaining}
+                  </Text>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: mode === 'dark' ? '#000' : '#fff', letterSpacing: 1.5 }}>
+                    SCANS
+                  </Text>
+                </LinearGradient>
+              </Animated.View>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Plan card */}
+        <Animated.View entering={FadeInDown.delay(100).duration(600)}>
+          <View style={{
+            marginTop: spacing.xl, padding: spacing.xl,
+            borderRadius: radius.lg,
+            backgroundColor: palette.surface,
+            borderWidth: 1, borderColor: palette.border,
+          }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={{ ...typography.micro, color: palette.textMuted }}>CURRENT PLAN</Text>
+                <Text style={{ fontSize: 24, fontWeight: '900', color: palette.neon, marginTop: 4 }}>
+                  {plan.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => router.push('/buy-scans' as any)}
+              style={{
+                marginTop: spacing.lg, padding: 16, borderRadius: radius.md,
+                borderWidth: 1.5, borderColor: palette.borderHi, alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: palette.neon, fontWeight: '800' }}>UPGRADE SCANS</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+
+        {/* Diagnose section */}
+        <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+          <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: spacing.xxl, marginBottom: spacing.md }}>
+            DIAGNOSE
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md }}>
+            {FEATURES.map((f) => (
+              <Pressable
+                key={f.key}
+                onPress={() => router.push(('/(tabs)/' + f.key) as any)}
+                style={{
+                  width: '48%',
+                  padding: spacing.lg,
+                  borderRadius: radius.lg,
+                  backgroundColor: palette.surface,
+                  borderWidth: 1, borderColor: palette.border,
+                  minHeight: 140,
+                }}
+              >
+                <Text style={{ fontSize: 32 }}>{f.emoji}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: palette.text, marginTop: spacing.md }}>
+                  {f.title}
+                </Text>
+                <Text style={{ ...typography.micro, color: palette.textMuted, marginTop: 2 }}>
+                  {f.sub}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         </Animated.View>
 
         <View style={{ height: 120 }} />
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 100 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  greeting: { ...typography.body },
-  name: { fontSize: 34, fontWeight: '900', textTransform: 'capitalize', letterSpacing: -1 },
-  scanBadge: {
-    width: 74, height: 74, borderRadius: 37,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  scanNum: { fontSize: 26, fontWeight: '900' },
-  scanLbl: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
-  planRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  planLabel: { ...typography.micro },
-  planValue: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5, marginTop: 4 },
-  sectionLabel: { ...typography.micro, marginTop: spacing.xxl, marginBottom: spacing.md },
-  statRow: { flexDirection: 'row', gap: spacing.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  tileOuter: { width: '48%', borderRadius: radius.lg, overflow: 'hidden' },
-  tile: {
-    padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1,
-    minHeight: 140, justifyContent: 'space-between', position: 'relative',
-  },
-  tileIcon: { fontSize: 32 },
-  tileTitle: { fontSize: 15, fontWeight: '800', marginTop: spacing.md, letterSpacing: -0.3 },
-  tileSub: { ...typography.micro, marginTop: 2 },
-  tileGlow: { position: 'absolute', bottom: 0, right: 0, width: 60, height: 60, borderRadius: 30, opacity: 0.15 },
-});
