@@ -1,11 +1,14 @@
-
 import { Stack } from 'expo-router';
-import { palette } from '../../src/theme';
+import { useTheme } from '../../src/theme';
+
 export default function AuthLayout() {
+  const { palette } = useTheme();
   return (
-    <Stack screenOptions={{
-      headerShown: false,
-      contentStyle: { backgroundColor: palette.obsidian },
-    }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: palette.obsidian },
+      }}
+    />
   );
 }

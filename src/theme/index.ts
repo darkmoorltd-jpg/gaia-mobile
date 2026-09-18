@@ -138,7 +138,7 @@ const ThemeContext = createContext<ThemeValue | null>(null);
 const STORAGE_KEY = '@gaia:theme';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>('dark');
+  const [mode, setModeState] = useState<ThemeMode>('light');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
