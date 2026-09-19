@@ -1,73 +1,130 @@
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
+import * as Location from 'expo-location';
+import { useTheme, typography, spacing, radius } from '../src/theme';
+import { supabase } from '../src/api/supabase';
 
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Screen, GlassCard, Pill, StatCard } from '../src/components';
-import { typography, spacing, radius } from '../src/theme';
-import { useTheme } from '../src/theme';
+const API = 'https://gaia-api-xuly.onrender.com';
+
+type Layer = 'TRUE_COLOR' | 'NDVI' | 'MOISTURE';
 
 export default function Satellite() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
+  const [layer, setLayer] = useState<Layer>('TRUE_COLOR');
+  const [imgUri, setImgUri] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+
+  const load = async (lat: number, lon: number, l: Layer) => {
+    setBusy(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      const url = `${API}/satellite/tile?lat=${lat}&lon=${lon}&layer=${l}`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => setImgUri(reader.result as string);
+      reader.readAsDataURL(blob);
+    } catch (e: any) {
+      Alert.alert('Satellite error', e?.message || 'Could not load tile');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const locate = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Location access is needed to load satellite imagery');
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync({});
+    const c = { lat: loc.coords.latitude, lon: loc.coords.longitude };
+    setCoords(c);
+    load(c.lat, c.lon, layer);
+  };
+
+  useEffect(() => { locate(); }, []);
+  useEffect(() => { if (coords) load(coords.lat, coords.lon, layer); }, [layer]);
+
   return (
-    <Screen glow="crops">
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pill label="Satellite" />
+        <Text style={styles.kicker}>SATELLITE MONITOR</Text>
         <Text style={styles.title}>Field Monitor</Text>
-        <Text style={styles.subtitle}>Sentinel-2 · Updated 2h ago</Text>
+        {coords ? (
+          <Text style={styles.sub}>{coords.lat.toFixed(4)}, {coords.lon.toFixed(4)}</Text>
+        ) : (
+          <Text style={styles.sub}>Getting your location…</Text>
+        )}
 
         <View style={styles.mapBox}>
-          <View style={styles.mapGrid}>
-            {Array.from({ length: 24 }).map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.cell,
-                  { backgroundColor: [palette.crops, palette.warning, palette.neon][i % 3], opacity: 0.25 + (i % 5) * 0.1 },
-                ]}
-              />
-            ))}
-          </View>
-          <View style={styles.mapOverlay}>
-            <Text style={styles.mapLabel}>OWEI FARM · KADUNA</Text>
-          </View>
+          {busy ? (
+            <View style={styles.mapLoading}><ActivityIndicator color={palette.neon} /></View>
+          ) : imgUri ? (
+            <Image source={{ uri: imgUri }} style={styles.map} />
+          ) : (
+            <View style={styles.mapLoading}>
+              <Text style={styles.mapText}>No imagery loaded</Text>
+              <Pressable onPress={locate} style={styles.retryBtn}>
+                <Text style={styles.retryTxt}>RETRY</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
-        <View style={styles.statRow}>
-          <StatCard value="0.72" label="NDVI" color={palette.neon} />
-          <StatCard value="0.45" label="MOISTURE" color="#66d9ff" />
-          <StatCard value="28°" label="TEMP" color={palette.warning} />
+        <View style={styles.chips}>
+          {(['TRUE_COLOR', 'NDVI', 'MOISTURE'] as Layer[]).map((l) => (
+            <Pressable
+              key={l}
+              onPress={() => setLayer(l)}
+              style={[styles.chip, layer === l && styles.chipActive]}
+            >
+              <Text style={[styles.chipTxt, layer === l && styles.chipTxtActive]}>{l}</Text>
+            </Pressable>
+          ))}
         </View>
 
-        <GlassCard style={{ marginTop: spacing.lg }}>
-          <Text style={styles.alertTitle}>⚠ 2 ALERT ZONES</Text>
-          <View style={styles.divider} />
-          <Text style={styles.alertItem}>• North corner — low NDVI</Text>
-          <Text style={styles.alertItem}>• Center patch — moisture deficit</Text>
-        </GlassCard>
+        <Text style={styles.legend}>
+          {layer === 'TRUE_COLOR' && 'Real color from Sentinel-2 L2A'}
+          {layer === 'NDVI' && 'NDVI — bright = healthy vegetation'}
+          {layer === 'MOISTURE' && 'NDMI — moisture index'}
+        </Text>
+
+        <Pressable onPress={locate} style={styles.cta}>
+          <Text style={styles.ctaTxt}>REFRESH TILE</Text>
+        </Pressable>
 
         <View style={{ height: 120 }} />
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
-  title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
-  subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { paddingHorizontal: 20, paddingTop: 60 },
+  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon },
+  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, marginTop: 6 },
+  sub: { fontSize: 13, color: p.textMuted, marginTop: 4 },
   mapBox: {
-    aspectRatio: 1, marginTop: spacing.lg, borderRadius: radius.xl, overflow: 'hidden',
-    backgroundColor: palette.abyss, borderWidth: 1, borderColor: palette.border,
-    position: 'relative',
+    aspectRatio: 1, marginTop: 18, borderRadius: 24, overflow: 'hidden',
+    backgroundColor: p.abyss, borderWidth: 1, borderColor: p.border, position: 'relative',
   },
-  mapGrid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%', height: '100%' },
-  cell: { width: '25%', height: '16.66%' },
-  mapOverlay: {
-    position: 'absolute', bottom: spacing.md, left: spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6,
-  },
-  mapLabel: { ...typography.micro, color: palette.neon },
-  statRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  alertTitle: { ...typography.micro, color: palette.warning, marginBottom: spacing.md },
-  divider: { height: 1, backgroundColor: palette.border, marginBottom: spacing.md },
-  alertItem: { ...typography.body, color: palette.textMuted, marginBottom: spacing.sm },
+  map: { width: '100%', height: '100%' },
+  mapLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  mapText: { color: p.textMuted, fontSize: 13 },
+  retryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: p.borderHi },
+  retryTxt: { color: p.neon, fontWeight: '800', letterSpacing: 1.5, fontSize: 11 },
+  chips: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  chip: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
+  chipActive: { backgroundColor: p.neonSoft, borderColor: p.borderHi },
+  chipTxt: { fontSize: 11, fontWeight: '800', color: p.textMuted, letterSpacing: 1 },
+  chipTxtActive: { color: p.neon },
+  legend: { fontSize: 12, color: p.textMuted, marginTop: 12, textAlign: 'center' },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 22 },
+  ctaTxt: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });
