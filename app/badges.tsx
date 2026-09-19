@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton } from '../src/components';
 import { typography, spacing, radius, shadows } from '../src/theme';
 import { useTheme } from '../src/theme';
+import { usePaymentRefresh } from '../src/utils/paymentRefresh';
 
 const BADGES = [
   { key: 'bronze',   name: 'BRONZE',   emoji: '🥉', price: '₦500/mo',  loan: 'Up to ₦50,000',   colors: ['#7a5230', '#c68a5c'] },
@@ -14,6 +15,7 @@ const BADGES = [
 export default function Badges() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
+  usePaymentRefresh();
   return (
     <Screen glow="livestock">
       <ScrollView contentContainerStyle={styles.scroll}>

@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-na
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { useAuth } from '../src/store/auth';
 import { typography, spacing, radius, shadows, useTheme } from '../src/theme';
+import { usePaymentRefresh } from '../src/utils/paymentRefresh';
 
 interface Plan {
   key: string;
@@ -23,6 +24,7 @@ export default function BuyScans() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const { scansRemaining, plan } = useAuth();
+  usePaymentRefresh();
 
   return (
     <Screen glow="livestock">
