@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Screen, GlassCard, NeonButton } from '../src/components';
 import { typography, spacing, radius, shadows } from '../src/theme';
@@ -40,7 +40,7 @@ export default function Badges() {
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.badgePrice}>{b.price}</Text>
-                <NeonButton label="SELECT" variant="ghost" onPress={() => {}} style={{ marginTop: 6, paddingVertical: 8, paddingHorizontal: 16, minHeight: 36 }} />
+                <NeonButton label="SELECT" variant="ghost" onPress={() => Linking.openURL("https://paystack.shop/pay/gaia-badges")} style={{ marginTop: 6, paddingVertical: 8, paddingHorizontal: 16, minHeight: 36 }} />
               </View>
             </View>
           </Pressable>

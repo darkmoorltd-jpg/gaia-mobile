@@ -1,5 +1,5 @@
 
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Screen, GlassCard, Pill, NeonButton } from '../src/components';
 import { typography, spacing, radius } from '../src/theme';
 import { useTheme } from '../src/theme';
@@ -38,7 +38,7 @@ export default function University() {
               <NeonButton
                 label={c.progress > 0 ? 'CONTINUE' : 'START'}
                 variant={c.progress > 0 ? 'primary' : 'ghost'}
-                onPress={() => {}}
+                onPress={() => Alert.alert("Coming soon", "Course content is being prepared. Check back shortly.")}
                 style={{ marginTop: spacing.md }}
               />
             </GlassCard>

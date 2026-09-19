@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { Screen, GlassCard, NeonButton } from '../src/components';
 import { typography, spacing } from '../src/theme';
 import { useTheme } from '../src/theme';
@@ -15,13 +15,13 @@ export default function Help() {
         <GlassCard style={{ marginTop: spacing.xl }}>
           <Text style={styles.cardTitle}>🆘 Contact Support</Text>
           <Text style={styles.cardBody}>Average response time: 2 hours</Text>
-          <NeonButton label="OPEN TICKET" onPress={() => {}} style={{ marginTop: spacing.md }} />
+          <NeonButton label="OPEN TICKET" onPress={() => Linking.openURL("mailto:darkmoorltd@gmail.com?subject=GAIA%20Support%20Ticket")} style={{ marginTop: spacing.md }} />
         </GlassCard>
 
         <GlassCard style={{ marginTop: spacing.md }}>
           <Text style={styles.cardTitle}>💬 WhatsApp</Text>
           <Text style={styles.cardBody}>+234 705 464 7903</Text>
-          <NeonButton label="CHAT NOW" variant="ghost" onPress={() => {}} style={{ marginTop: spacing.md }} />
+          <NeonButton label="CHAT NOW" variant="ghost" onPress={() => Linking.openURL("https://wa.me/2347054647903?text=Hello%20GAIA%20support")} style={{ marginTop: spacing.md }} />
         </GlassCard>
 
         <GlassCard style={{ marginTop: spacing.md }}>

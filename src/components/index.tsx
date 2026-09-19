@@ -6,6 +6,8 @@ import {
 import { BlurView } from 'expo-blur';
 import { useTheme, typography, spacing, radius } from '../theme';
 
+type GlowKey = 'crops' | 'pests' | 'soil' | 'livestock' | 'none';
+
 export function NeonButton({ label, onPress, loading, disabled, variant = 'primary', style }: any) {
   const { palette } = useTheme();
   const isGhost = variant === 'ghost';
@@ -50,9 +52,16 @@ export function GlassCard({ children, style, intensity = 20 }: any) {
   );
 }
 
-export function Screen({ children, glow = 'crops', style }: any) {
+export function Screen({
+  children, glow = 'crops', style,
+}: {
+  children: React.ReactNode;
+  glow?: GlowKey;
+  style?: ViewStyle;
+}) {
   const { palette } = useTheme();
-  const glowColor = glow === 'none' ? 'transparent' : palette[glow];
+  const paletteAny = palette as unknown as Record<string, string>;
+  const glowColor: string = glow === 'none' ? 'transparent' : (paletteAny[glow] || 'transparent');
   return (
     <View style={[{ flex: 1, backgroundColor: palette.obsidian }, style]}>
       <View

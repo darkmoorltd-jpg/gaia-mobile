@@ -1,14 +1,22 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from 'react-native';
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { useAuth } from '../src/store/auth';
-import { typography, spacing, radius, shadows } from '../src/theme';
-import { useTheme } from '../src/theme';
+import { typography, spacing, radius, shadows, useTheme } from '../src/theme';
 
-const PLANS = [
-  { key: 'starter',    name: 'STARTER',    scans: 150,  price: '₦3,000',  tag: null,       url: 'https://paystack.shop/pay/e-z03btaq-' },
-  { key: 'pro',        name: 'PRO',        scans: 300,  price: '₦5,000',  tag: 'POPULAR',  url: 'https://paystack.shop/pay/nc3bs0quuh' },
-  { key: 'business',   name: 'BUSINESS',   scans: 1000, price: '₦10,000', tag: null,       url: 'https://paystack.shop/pay/1j9yrapbt4' },
-  { key: 'enterprise', name: 'ENTERPRISE', scans: 5000, price: '₦20,000', tag: 'BEST VALUE', url: 'https://paystack.shop/pay/rln87t1694' },
+interface Plan {
+  key: string;
+  name: string;
+  scans: number;
+  price: string;
+  tag: string | null;
+  url: string;
+}
+
+const PLANS: Plan[] = [
+  { key: 'starter',    name: 'STARTER',    scans: 150,  price: 'N3,000',  tag: null,         url: 'https://paystack.shop/pay/e-z03btaq-' },
+  { key: 'pro',        name: 'PRO',        scans: 300,  price: 'N5,000',  tag: 'POPULAR',    url: 'https://paystack.shop/pay/nc3bs0quuh' },
+  { key: 'business',   name: 'BUSINESS',   scans: 1000, price: 'N10,000', tag: null,         url: 'https://paystack.shop/pay/1j9yrapbt4' },
+  { key: 'enterprise', name: 'ENTERPRISE', scans: 5000, price: 'N20,000', tag: 'BEST VALUE', url: 'https://paystack.shop/pay/rln87t1694' },
 ];
 
 export default function BuyScans() {
@@ -27,7 +35,7 @@ export default function BuyScans() {
             <View>
               <Text style={styles.heroLabel}>CURRENT BALANCE</Text>
               <Text style={styles.heroValue}>{scansRemaining}</Text>
-              <Text style={styles.heroSub}>scans · {plan.toUpperCase()} plan</Text>
+              <Text style={styles.heroSub}>scans - {plan.toUpperCase()} plan</Text>
             </View>
             <Pill label="ACTIVE" />
           </View>
@@ -41,8 +49,8 @@ export default function BuyScans() {
             onPress={() => Linking.openURL(p.url)}
             style={styles.planOuter}
           >
-            <View style={[styles.planCard, p.tag && styles.planCardFeatured]}>
-              {p.tag && (
+            <View style={[styles.planCard, p.tag !== null && styles.planCardFeatured]}>
+              {p.tag !== null && (
                 <View style={styles.tag}>
                   <Text style={styles.tagText}>{p.tag}</Text>
                 </View>
@@ -53,7 +61,7 @@ export default function BuyScans() {
               <Text style={styles.planPeriod}>per month</Text>
               <NeonButton
                 label="SELECT"
-                variant={p.tag ? 'primary' : 'ghost'}
+                variant={p.tag !== null ? 'primary' : 'ghost'}
                 onPress={() => Linking.openURL(p.url)}
                 style={{ marginTop: spacing.lg }}
               />
@@ -61,7 +69,7 @@ export default function BuyScans() {
           </Pressable>
         ))}
 
-        <Text style={styles.footer}>🔒 Secure payment via Paystack</Text>
+        <Text style={styles.footer}>Secure payment via Paystack</Text>
         <View style={{ height: 120 }} />
       </ScrollView>
     </Screen>
@@ -83,16 +91,14 @@ const createStyles = (palette: any) => StyleSheet.create({
     backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
     position: 'relative',
   },
-  planCardFeatured: {
-    borderColor: palette.borderHi, backgroundColor: palette.neonSoft, ...shadows.neon,
-  },
+  planCardFeatured: { borderColor: palette.borderHi, backgroundColor: palette.neonSoft },
   tag: {
     position: 'absolute', top: -1, right: 20,
     backgroundColor: palette.neon,
     paddingHorizontal: 12, paddingVertical: 4,
     borderBottomLeftRadius: 8, borderBottomRightRadius: 8,
   },
-  tagText: { ...typography.micro, color: '#000' },
+  tagText: { ...typography.micro, color: palette.obsidian, fontWeight: '900' },
   planName: { ...typography.micro, color: palette.textMuted },
   planScans: { fontSize: 26, fontWeight: '900', color: palette.text, marginTop: 6, letterSpacing: -0.8 },
   planPrice: { fontSize: 32, fontWeight: '900', color: palette.neon, marginTop: spacing.sm, letterSpacing: -1 },
