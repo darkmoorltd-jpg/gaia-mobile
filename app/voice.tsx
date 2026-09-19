@@ -3,9 +3,9 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
 } from 'react-native';
-import { useTheme, radius } from '../theme';
-import { useAuth } from '../store/auth';
-import { supabase } from '../api/supabase';
+import { useTheme, radius } from '../src/theme';
+import { useAuth } from '../src/store/auth';
+import { supabase } from '../src/api/supabase';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
