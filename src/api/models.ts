@@ -1,5 +1,4 @@
 import axios from 'axios';
-import * as FileSystem from 'expo-file-system';
 
 const API_BASE = "https://gaia-api-xuly.onrender.com";
 

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Image,
-  Modal, FlatList, ActivityIndicator,
+  Modal, FlatList, ActivityIndicator, ImageBackground, Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +12,15 @@ import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
 
+const { width } = Dimensions.get('window');
+
+const BACKDROPS: Record<string, string> = {
+  crops:     'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=1200',
+  pests:     'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=1200',
+  soil:      'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=1200',
+  livestock: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=1200',
+};
+
 export interface DiagnoseConfig {
   key: string;
   title: string;
@@ -19,7 +28,7 @@ export interface DiagnoseConfig {
   emoji: string;
   color: string;
   modelKey: string;
-  options: { key: string; label: string }[];
+  options: { key: string; label: string; emoji?: string }[];
   contextType: 'crop' | 'pest' | 'soil' | 'livestock';
 }
 
@@ -35,6 +44,8 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState('');
   const cameraRef = useRef<CameraView>(null);
+
+  const backdrop = BACKDROPS[config.key] || BACKDROPS.crops;
 
   const requestCamera = async () => {
     if (!permission?.granted) {
@@ -94,168 +105,150 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
 
       const res = await diagnose(imageUri, selected.key, token);
       setResult(res);
-      await refreshScans();
-      // Save to scan_history
-      try {
-        await supabase.from('scan_history').insert({
-          user_id: user.id,
-          type: config.contextType,
-          top_label: res.top?.label || 'Unknown',
-          confidence: res.top?.confidence || 0,
-          emoji: config.emoji,
-        });
-      } catch (histErr) {
-        // silently ignore
-      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await refreshScans();
     } catch (e: any) {
-      const msg = e instanceof DiagnosisError ? e.message : (e?.message ?? 'Diagnosis failed');
-      setError(msg);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (e instanceof DiagnosisError) {
+        if (e.status === 402) setError('No scans left. Please buy more.');
+        else setError(e.message);
+      } else {
+        setError(e?.message ?? 'Diagnosis failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================================
-  // RESULT VIEW
-  // ============================================
+  // ----- RESULT VIEW -----
   if (result) {
     const top = result.top;
-    const healthy = top.label.toLowerCase().includes('healthy');
-    const accent = healthy ? palette.neon : palette.warning;
+    const isHealthy = (top?.label || '').toLowerCase().includes('healthy');
+    const accent = isHealthy ? palette.neon : palette.warning;
 
     return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <LinearGradient colors={[accent, accent + 'CC'] as any} style={styles.resultHero}>
-            <Text style={styles.resultEmoji}>{healthy ? '✓' : '!'}</Text>
-            <Text style={styles.resultLabel}>{top.label}</Text>
-            <Text style={styles.resultConfidence}>{top.confidence.toFixed(1)}% CONFIDENCE</Text>
+      <View style={styles.root}>
+        <ImageBackground source={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.18 }}>
+          <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)'] as any} style={styles.overlay}>
+            <ScrollView contentContainerStyle={styles.scroll}>
+              <Pressable onPress={() => setResult(null)}>
+                <Text style={styles.back}>NEW SCAN</Text>
+              </Pressable>
+
+              <LinearGradient colors={[accent, accent + '99'] as any} style={styles.resultHero}>
+                <Text style={styles.resultIcon}>{isHealthy ? '✓' : '!'}</Text>
+                <Text style={styles.resultLabel}>{top?.label || 'Unknown'}</Text>
+                <Text style={styles.resultConf}>
+                  {typeof top?.confidence === 'number' ? top.confidence.toFixed(1) : '0'}% CONFIDENCE
+                </Text>
+              </LinearGradient>
+
+              <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
+              {(result.predictions || []).slice(0, 8).map((p: any, i: number) => (
+                <View key={i} style={styles.predCard}>
+                  <View style={styles.predRow}>
+                    <Text style={styles.predLabel}>{p.label}</Text>
+                    <Text style={styles.predPct}>{p.confidence.toFixed(1)}%</Text>
+                  </View>
+                  <View style={styles.barBg}>
+                    <View style={[styles.barFill, { width: (Math.min(p.confidence, 100) + '%') as any }]} />
+                  </View>
+                </View>
+              ))}
+
+              <Text style={styles.sectionLabel}>RECOMMENDED ACTIONS</Text>
+              <View style={styles.actionsCard}>
+                <Text style={styles.actionTitle}>Organic</Text>
+                <Text style={styles.actionBody}>Apply neem oil spray at 5ml/L every 7 days.</Text>
+                <View style={styles.divider} />
+                <Text style={styles.actionTitle}>Chemical</Text>
+                <Text style={styles.actionBody}>Mancozeb 80% WP at 2g/L. Spray in the evening.</Text>
+                <View style={styles.divider} />
+                <Text style={styles.actionTitle}>Water</Text>
+                <Text style={styles.actionBody}>Avoid overhead irrigation to reduce leaf wetness.</Text>
+              </View>
+
+              <View style={{ height: 120 }} />
+            </ScrollView>
           </LinearGradient>
-
-          <Text style={styles.resultMetaText}>
-            {result.processingMs} ms · {result.scansRemaining} scans left
-          </Text>
-
-          {result.gradcamBase64 ? (
-            <View>
-              <Text style={styles.sectionLabel}>WHAT AI SAW</Text>
-              <Image
-                source={{ uri: 'data:image/png;base64,' + result.gradcamBase64 }}
-                style={styles.gradcam}
-              />
-            </View>
-          ) : null}
-
-          <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
-          {result.predictions.map((p: any, i: number) => (
-            <View key={i} style={styles.predRow}>
-              <View style={styles.predHeader}>
-                <Text style={styles.predLabel}>{p.label}</Text>
-                <Text style={styles.predPct}>{p.confidence.toFixed(1)}%</Text>
-              </View>
-              <View style={styles.barBg}>
-                <View style={[styles.barFill, { width: `${Math.min(p.confidence, 100)}%` as any }]} />
-              </View>
-            </View>
-          ))}
-
-          <Pressable
-            onPress={() => { setResult(null); setImageUri(null); }}
-            style={styles.cta}
-          >
-            <Text style={styles.ctaText}>NEW SCAN</Text>
-          </Pressable>
-
-          <View style={{ height: 120 }} />
-        </ScrollView>
+        </ImageBackground>
       </View>
     );
   }
 
-  // ============================================
-  // CAPTURE VIEW
-  // ============================================
+  // ----- INPUT VIEW -----
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={[styles.kicker, { color: config.color }]}>{config.title}</Text>
-        <Text style={styles.title}>{config.emoji} {config.subtitle}</Text>
+    <View style={styles.root}>
+      <ImageBackground source={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.28 }}>
+        <LinearGradient colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.88)'] as any} style={styles.overlay}>
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            <Text style={styles.kicker}>{config.title}</Text>
+            <Text style={styles.title}>{config.emoji}  {config.subtitle}</Text>
 
-        <View style={styles.scanBox}>
-          <Text style={styles.scanLabel}>SCANS</Text>
-          <Text style={styles.scanVal}>{scansRemaining}</Text>
-        </View>
-
-        <Pressable onPress={() => setShowPicker(true)} style={styles.selector}>
-          <Text style={styles.selectorLabel}>{selected.label}</Text>
-          <Text style={styles.selectorCaret}>▼</Text>
-        </Pressable>
-
-        {imageUri ? (
-          <View style={styles.previewBox}>
-            <Image source={{ uri: imageUri }} style={styles.preview} />
-          </View>
-        ) : permission?.granted ? (
-          <View style={styles.cameraBox}>
-            <CameraView ref={cameraRef} style={styles.camera} facing="back" />
-            <View style={styles.frame} />
-            <Pressable onPress={shoot} style={styles.shutter}>
-              <View style={styles.shutterInner} />
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable onPress={requestCamera} style={styles.cameraBox}>
-            <View style={styles.cameraPlaceholder}>
-              <Text style={{ fontSize: 48 }}>📷</Text>
-              <Text style={styles.cameraHint}>TAP TO OPEN CAMERA</Text>
+            <View style={styles.scanBar}>
+              <Text style={styles.scanText}>{scansRemaining} SCANS LEFT</Text>
             </View>
-          </Pressable>
-        )}
 
-        <View style={styles.actionRow}>
-          <Pressable onPress={pickFromGallery} style={styles.actionBtn}>
-            <Text style={styles.actionBtnIcon}>🖼</Text>
-            <Text style={styles.actionBtnLabel}>ALBUM</Text>
-          </Pressable>
-          <Pressable onPress={requestCamera} style={styles.actionBtn}>
-            <Text style={styles.actionBtnIcon}>📸</Text>
-            <Text style={styles.actionBtnLabel}>CAMERA</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => { setImageUri(null); setResult(null); setError(''); }}
-            style={styles.actionBtn}
-          >
-            <Text style={styles.actionBtnIcon}>↺</Text>
-            <Text style={styles.actionBtnLabel}>RESET</Text>
-          </Pressable>
-        </View>
+            <Pressable onPress={() => setShowPicker(true)} style={styles.selector}>
+              <Text style={styles.selectorLabel}>{selected.label}</Text>
+              <Text style={styles.selectorCaret}>v</Text>
+            </Pressable>
 
-        {imageUri ? (
-          <Pressable
-            onPress={analyze}
-            disabled={loading}
-            style={[styles.cta, loading && { opacity: 0.6 }]}
-          >
-            {loading
-              ? <ActivityIndicator color={palette.obsidian} />
-              : <Text style={styles.ctaText}>ANALYZE WITH AI</Text>}
-          </Pressable>
-        ) : null}
+            {imageUri ? (
+              <View style={styles.previewBox}>
+                <Image source={{ uri: imageUri }} style={styles.preview} />
+              </View>
+            ) : permission?.granted ? (
+              <View style={styles.cameraBox}>
+                <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+                <View style={styles.frameOverlay} />
+                <Pressable onPress={shoot} style={styles.shutter}>
+                  <View style={styles.shutterInner} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable onPress={requestCamera} style={styles.cameraBox}>
+                <View style={styles.cameraPlaceholder}>
+                  <Text style={styles.cameraIcon}>CAM</Text>
+                  <Text style={styles.cameraHint}>TAP TO OPEN CAMERA</Text>
+                </View>
+              </Pressable>
+            )}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+            <View style={styles.actionRow}>
+              <Pressable onPress={pickFromGallery} style={styles.actionBtn}>
+                <Text style={styles.actionBtnLabel}>ALBUM</Text>
+              </Pressable>
+              <Pressable onPress={requestCamera} style={styles.actionBtn}>
+                <Text style={styles.actionBtnLabel}>CAMERA</Text>
+              </Pressable>
+              <Pressable onPress={() => { setImageUri(null); setResult(null); }} style={styles.actionBtn}>
+                <Text style={styles.actionBtnLabel}>RESET</Text>
+              </Pressable>
+            </View>
 
-        <View style={{ height: 140 }} />
-      </ScrollView>
+            {imageUri ? (
+              <Pressable onPress={analyze} disabled={loading} style={styles.cta}>
+                {loading
+                  ? <ActivityIndicator color={palette.obsidian} />
+                  : <Text style={styles.ctaText}>ANALYZE WITH AI</Text>}
+              </Pressable>
+            ) : null}
 
-      {/* Picker modal */}
-      <Modal
-        visible={showPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPicker(false)}
-      >
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <View style={styles.tips}>
+              <Text style={styles.tipsTitle}>TIPS</Text>
+              <Text style={styles.tip}>Use natural daylight</Text>
+              <Text style={styles.tip}>Fill the frame with one leaf or subject</Text>
+              <Text style={styles.tip}>Avoid shadows and blur</Text>
+            </View>
+
+            <View style={{ height: 140 }} />
+          </ScrollView>
+        </LinearGradient>
+      </ImageBackground>
+
+      <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
         <Pressable style={styles.modalBg} onPress={() => setShowPicker(false)}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>SELECT {config.title}</Text>
@@ -265,10 +258,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => { setSelected(item); setShowPicker(false); }}
-                  style={[
-                    styles.modalItem,
-                    selected.key === item.key && styles.modalItemActive,
-                  ]}
+                  style={[styles.modalItem, selected.key === item.key && styles.modalItemActive]}
                 >
                   <Text style={styles.modalLabel}>{item.label}</Text>
                   {selected.key === item.key && <Text style={styles.modalCheck}>✓</Text>}
@@ -283,166 +273,103 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
+  root: { flex: 1, backgroundColor: p.obsidian },
+  bg: { flex: 1 },
+  overlay: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
-  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
-  title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -0.8 },
-  scanBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: p.neonSoft,
-    borderWidth: 1,
-    borderColor: p.border,
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon, marginBottom: 16 },
+  kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon },
+  title: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -1, marginTop: 6 },
+  scanBar: {
+    marginTop: 18, padding: 12, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: p.borderHi,
     alignSelf: 'flex-start',
   },
-  scanLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted },
-  scanVal: { fontSize: 16, fontWeight: '900', color: p.neon },
+  scanText: { fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: p.neon },
   selector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: p.surface,
-    borderWidth: 1,
-    borderColor: p.border,
-    marginTop: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 14, padding: 16, borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: p.border,
   },
-  selectorLabel: { fontSize: 15, fontWeight: '700', color: p.text },
-  selectorCaret: { color: p.textMuted, fontSize: 12 },
+  selectorLabel: { fontSize: 15, color: '#fff', fontWeight: '700' },
+  selectorCaret: { color: p.neon, fontWeight: '900', fontSize: 14 },
   cameraBox: {
-    marginTop: 16,
-    aspectRatio: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: p.abyss,
-    borderWidth: 1,
-    borderColor: p.border,
-    position: 'relative',
+    marginTop: 16, aspectRatio: 1, borderRadius: 24, overflow: 'hidden',
+    backgroundColor: '#000', borderWidth: 1, borderColor: p.borderHi, position: 'relative',
   },
   camera: { flex: 1 },
-  cameraPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  cameraHint: { fontSize: 11, letterSpacing: 1.5, fontWeight: '700', color: p.textMuted },
-  frame: {
-    position: 'absolute',
-    top: '20%', left: '20%', right: '20%', bottom: '20%',
-    borderWidth: 2,
-    borderColor: p.neon,
-    borderRadius: 20,
-    opacity: 0.6,
+  cameraPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  cameraIcon: { fontSize: 22, color: p.neon, fontWeight: '900', letterSpacing: 3 },
+  cameraHint: { fontSize: 11, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, fontWeight: '700' },
+  frameOverlay: {
+    position: 'absolute', top: '15%', left: '15%', right: '15%', bottom: '15%',
+    borderWidth: 2, borderColor: p.neon, borderRadius: 20, opacity: 0.8,
   },
   shutter: {
-    position: 'absolute',
-    bottom: 24,
-    alignSelf: 'center',
+    position: 'absolute', bottom: 22, left: '50%', marginLeft: -36,
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: 'rgba(0,0,0,0.4)',
     borderWidth: 3, borderColor: p.neon,
     alignItems: 'center', justifyContent: 'center',
-    left: '50%', marginLeft: -36,
   },
-  shutterInner: {
-    width: 56, height: 56, borderRadius: 28, backgroundColor: p.neon,
-  },
+  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: p.neon },
   previewBox: {
-    marginTop: 16,
-    aspectRatio: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: p.borderHi,
+    marginTop: 16, aspectRatio: 1, borderRadius: 24, overflow: 'hidden',
+    borderWidth: 1, borderColor: p.borderHi,
   },
   preview: { flex: 1, resizeMode: 'cover' },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   actionBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: p.surface,
-    borderWidth: 1,
-    borderColor: p.border,
+    flex: 1, paddingVertical: 14, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: p.border,
     alignItems: 'center',
   },
-  actionBtnIcon: { fontSize: 20 },
-  actionBtnLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: p.text, marginTop: 4 },
+  actionBtnLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: '#fff' },
   cta: {
-    marginTop: 20,
-    padding: 18,
-    borderRadius: 16,
-    backgroundColor: p.neon,
-    alignItems: 'center',
+    marginTop: 16, paddingVertical: 20, borderRadius: 16,
+    backgroundColor: p.neon, alignItems: 'center',
   },
   ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  error: { color: p.danger, textAlign: 'center', marginTop: 14, fontSize: 13 },
-  // Result
-  resultHero: { borderRadius: 24, padding: 32, alignItems: 'center', marginTop: 20 },
-  resultEmoji: { fontSize: 56, color: '#000', fontWeight: '900' },
-  resultLabel: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#000',
-    marginTop: 12,
-    textAlign: 'center',
+  error: { color: p.danger, textAlign: 'center', marginTop: 12, fontSize: 13 },
+  tips: {
+    marginTop: 22, padding: 16, borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
-  resultConfidence: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, color: '#000', marginTop: 8 },
-  resultMetaText: {
-    fontSize: 12,
-    color: p.textMuted,
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 20,
+  tipsTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon, marginBottom: 8 },
+  tip: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 4 },
+  resultHero: { borderRadius: 24, padding: 32, alignItems: 'center', marginTop: 8 },
+  resultIcon: { fontSize: 60, color: '#000', fontWeight: '900' },
+  resultLabel: { fontSize: 24, fontWeight: '900', color: '#000', marginTop: 8, textAlign: 'center' },
+  resultConf: { fontSize: 11, letterSpacing: 1.5, fontWeight: '800', color: '#000', marginTop: 8 },
+  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)', marginTop: 22, marginBottom: 10 },
+  predCard: {
+    padding: 14, borderRadius: 14, marginBottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: p.border,
   },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    color: p.textMuted,
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  gradcam: { width: '100%', aspectRatio: 1, borderRadius: 16 },
-  predRow: { marginBottom: 14 },
-  predHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  predLabel: { fontSize: 14, fontWeight: '600', color: p.text, flex: 1 },
-  predPct: { fontSize: 14, fontWeight: '800', color: p.neon },
-  barBg: {
-    height: 6,
-    backgroundColor: 'rgba(0,255,136,0.15)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
+  predRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  predLabel: { fontSize: 14, color: '#fff', fontWeight: '600', flex: 1 },
+  predPct: { fontSize: 14, color: p.neon, fontWeight: '900' },
+  barBg: { height: 6, backgroundColor: 'rgba(0,255,136,0.15)', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: p.neon, borderRadius: 3 },
-  // Modal
+  actionsCard: {
+    padding: 16, borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: p.border,
+  },
+  actionTitle: { fontSize: 14, color: p.neon, fontWeight: '800' },
+  actionBody: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 6, lineHeight: 19 },
+  divider: { height: 1, backgroundColor: p.border, marginVertical: 12 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: p.abyss,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    maxHeight: '75%',
-    borderTopWidth: 1,
-    borderColor: p.borderHi,
+    backgroundColor: '#0a0a0a', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 22, maxHeight: '70%', borderTopWidth: 1, borderColor: p.borderHi,
   },
-  modalTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 16 },
+  modalTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)', marginBottom: 14 },
   modalItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 8,
-    backgroundColor: p.surface,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 16, borderRadius: 14, marginBottom: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   modalItemActive: { backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi },
-  modalLabel: { fontSize: 15, fontWeight: '600', color: p.text },
+  modalLabel: { fontSize: 15, color: '#fff', fontWeight: '600', flex: 1 },
   modalCheck: { color: p.neon, fontSize: 18, fontWeight: '900' },
 });
