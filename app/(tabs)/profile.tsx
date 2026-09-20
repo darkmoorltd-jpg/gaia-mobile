@@ -5,9 +5,9 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme, spacing, radius, typography } from '../src/theme';
-import { useAuth } from '../src/store/auth';
-import { supabase } from '../src/api/supabase';
+import { useTheme, spacing, radius, typography } from '../../src/theme';
+import { useAuth } from '../../src/store/auth';
+import { supabase } from '../../src/api/supabase';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
