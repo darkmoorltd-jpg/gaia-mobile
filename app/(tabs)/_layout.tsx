@@ -1,25 +1,25 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
 
-function TabIcon({ emoji, focused, color }: any) {
-  const { palette } = useTheme();
+function TabIcon({
+  emoji,
+  focused,
+  color,
+}: {
+  emoji: string;
+  focused: boolean;
+  color: ColorValue;
+}) {
   return (
-    <View
-      style={[
-        { width: 44, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-        focused && { backgroundColor: palette.neonSoft },
-      ]}
-    >
-      <Text style={{ fontSize: 18, fontWeight: '900', color }}>{emoji}</Text>
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+      <Text style={[styles.icon, { color }]}>{emoji}</Text>
     </View>
   );
 }
 
 export default function TabsLayout() {
-  const { palette, mode } = useTheme();
-  const isLight = mode === 'light';
+  const { palette } = useTheme();
 
   return (
     <Tabs
@@ -28,43 +28,80 @@ export default function TabsLayout() {
         tabBarActiveTintColor: palette.neon,
         tabBarInactiveTintColor: palette.textDim,
         tabBarStyle: {
-          position: 'absolute',
-          bottom: 0, left: 0, right: 0,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
+          backgroundColor: palette.obsidian,
+          borderTopWidth: 1,
+          borderTopColor: palette.border,
           height: 88,
           paddingTop: 12,
           paddingBottom: 32,
-          elevation: 0,
         },
-        tabBarBackground: () =>
-          isLight ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: palette.border },
-              ]}
-            />
-          ) : (
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill}>
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: 'rgba(0,0,0,0.55)', borderTopWidth: 1, borderTopColor: palette.border },
-                ]}
-              />
-            </BlurView>
-          ),
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginTop: 4 },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '700',
+          letterSpacing: 1,
+          marginTop: 4,
+        },
       }}
     >
-      <Tabs.Screen name="index"     options={{ title: 'HOME',      tabBarIcon: ({ focused, color }) => <TabIcon emoji="H" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="crops"     options={{ title: 'CROPS',     tabBarIcon: ({ focused, color }) => <TabIcon emoji="C" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="pests"     options={{ title: 'PESTS',     tabBarIcon: ({ focused, color }) => <TabIcon emoji="P" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="soil"      options={{ title: 'SOIL',      tabBarIcon: ({ focused, color }) => <TabIcon emoji="S" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="livestock" options={{ title: 'LIVESTOCK', tabBarIcon: ({ focused, color }) => <TabIcon emoji="L" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="chat" options={{ title: 'CHAT', tabBarIcon: ({ focused, color }) => <TabIcon emoji="C" focused={focused} color={color} /> }} />
-      <Tabs.Screen name="profile"   options={{ title: 'ME',        tabBarIcon: ({ focused, color }) => <TabIcon emoji="U" focused={focused} color={color} /> }} />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'HOME',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="H" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="crops"
+        options={{
+          title: 'CROPS',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="C" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="pests"
+        options={{
+          title: 'PESTS',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="P" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="soil"
+        options={{
+          title: 'SOIL',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="S" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="livestock"
+        options={{
+          title: 'LIVESTOCK',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="L" focused={focused} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 44,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  iconWrapActive: {
+    backgroundColor: 'rgba(0,255,136,0.12)',
+  },
+  icon: { fontSize: 20, fontWeight: '900' },
+});
