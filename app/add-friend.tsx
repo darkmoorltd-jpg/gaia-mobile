@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, Pressable,
-  ScrollView, ActivityIndicator,
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-// Normalize a phone to international format (234XXXXXXXXXX)
 function normalizePhone(input: string): string {
   let p = (input || '').trim().replace(/[\s\-\(\)]/g, '');
   if (p.startsWith('+')) p = p.slice(1);
@@ -24,18 +28,20 @@ export default function AddFriend() {
   const user = useAuth((s) => s.user);
 
   const [query, setQuery] = useState('');
+  const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [message, setMessage] = useState('');
-  const [mode, setMode] = useState<'email' | 'phone'>('email');
 
   const search = async () => {
+    const raw = query.trim();
+    if (!raw) return;
+
     setBusy(true);
     setMessage('');
     setResult(null);
 
     try {
-      const raw = query.trim();
       let data: any = null;
 
       if (mode === 'email') {
@@ -77,13 +83,12 @@ export default function AddFriend() {
     if (!result || !user) return;
     setBusy(true);
     try {
-      // Check existing friendship (either direction)
       const { data: existing } = await supabase
         .from('friendships')
-        .select('id,status,sender_id')
+        .select('id,status')
         .or(
-          `and(sender_id.eq.${user.id},receiver_id.eq.${result.user_id}),` +
-          `and(sender_id.eq.${result.user_id},receiver_id.eq.${user.id})`,
+          'and(sender_id.eq.' + user.id + ',receiver_id.eq.' + result.user_id + '),' +
+          'and(sender_id.eq.' + result.user_id + ',receiver_id.eq.' + user.id + ')',
         )
         .maybeSingle();
 
@@ -93,7 +98,6 @@ export default function AddFriend() {
         } else if (existing.status === 'pending') {
           setMessage('Friend request already pending.');
         } else {
-          // was rejected — resend
           await supabase
             .from('friendships')
             .update({ status: 'pending', sender_id: user.id })
@@ -119,9 +123,12 @@ export default function AddFriend() {
     }
   };
 
-  const displayName = (r: any) =>
-    ((r.first_name || '') + ' ' + (r.last_name || '')).trim() ||
-    (r.email ? r.email.split('@')[0] : 'Farmer');
+  const displayName = (r: any) => {
+    const full = ((r.first_name || '') + ' ' + (r.last_name || '')).trim();
+    if (full) return full;
+    if (r.email) return r.email.split('@')[0];
+    return 'Farmer';
+  };
 
   return (
     <View style={styles.container}>
@@ -133,7 +140,6 @@ export default function AddFriend() {
         <Text style={styles.title}>Add a friend</Text>
         <Text style={styles.sub}>Search by email or phone number.</Text>
 
-        {/* Mode toggle */}
         <View style={styles.tabs}>
           <Pressable
             onPress={() => setMode('email')}
@@ -168,11 +174,13 @@ export default function AddFriend() {
         <Pressable
           onPress={search}
           disabled={!query.trim() || busy}
-          style={[styles.cta, (!query.trim() || busy) && { opacity: 0.5 }]}
+          style={[styles.cta, (!query.trim() || busy) && styles.ctaDisabled]}
         >
-          {busy
-            ? <ActivityIndicator color={palette.obsidian} />
-            : <Text style={styles.ctaText}>SEARCH</Text>}
+          {busy ? (
+            <ActivityIndicator color={palette.obsidian} />
+          ) : (
+            <Text style={styles.ctaText}>SEARCH</Text>
+          )}
         </Pressable>
 
         {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -184,7 +192,7 @@ export default function AddFriend() {
                 {displayName(result).charAt(0).toUpperCase()}
               </Text>
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={styles.cardBody}>
               <Text style={styles.name}>{displayName(result)}</Text>
               <Text style={styles.email}>{result.email}</Text>
               {result.phone ? (
@@ -203,11 +211,31 @@ export default function AddFriend() {
 
 const createStyles = (palette: any) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: palette.obsidian },
-    scroll: { padding: spacing.xl, paddingTop: 60 },
-    back: { ...typography.micro, color: palette.textMuted, marginBottom: spacing.lg },
-    title: { fontSize: 32, fontWeight: '900', color: palette.text, letterSpacing: -1 },
-    sub: { ...typography.body, color: palette.textMuted, marginTop: 6, marginBottom: spacing.lg },
+    container: {
+      flex: 1,
+      backgroundColor: palette.obsidian,
+    },
+    scroll: {
+      padding: spacing.xl,
+      paddingTop: 60,
+    },
+    back: {
+      ...typography.micro,
+      color: palette.textMuted,
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: '900',
+      color: palette.text,
+      letterSpacing: -1,
+    },
+    sub: {
+      ...typography.body,
+      color: palette.textMuted,
+      marginTop: 6,
+      marginBottom: spacing.lg,
+    },
     tabs: {
       flexDirection: 'row',
       gap: spacing.sm,
@@ -226,8 +254,13 @@ const createStyles = (palette: any) =>
       backgroundColor: palette.neonSoft,
       borderColor: palette.borderHi,
     },
-    tabText: { ...typography.micro, color: palette.textMuted },
-    tabTextActive: { color: palette.neon },
+    tabText: {
+      ...typography.micro,
+      color: palette.textMuted,
+    },
+    tabTextActive: {
+      color: palette.neon,
+    },
     searchWrap: {
       borderWidth: 1.5,
       borderColor: palette.border,
@@ -235,7 +268,11 @@ const createStyles = (palette: any) =>
       borderRadius: radius.md,
       paddingHorizontal: spacing.lg,
     },
-    input: { paddingVertical: 14, color: palette.text, fontSize: 16 },
+    input: {
+      paddingVertical: 14,
+      color: palette.text,
+      fontSize: 16,
+    },
     cta: {
       marginTop: spacing.lg,
       padding: 18,
@@ -243,7 +280,15 @@ const createStyles = (palette: any) =>
       backgroundColor: palette.neon,
       alignItems: 'center',
     },
-    ctaText: { fontSize: 15, fontWeight: '900', color: palette.obsidian, letterSpacing: 1 },
+    ctaDisabled: {
+      opacity: 0.5,
+    },
+    ctaText: {
+      fontSize: 15,
+      fontWeight: '900',
+      color: palette.obsidian,
+      letterSpacing: 1,
+    },
     message: {
       ...typography.caption,
       color: palette.warning,
@@ -258,23 +303,49 @@ const createStyles = (palette: any) =>
       borderRadius: radius.lg,
       backgroundColor: palette.surface,
       borderWidth: 1,
-      borderColor:16 palette.borderHi,
-      marginTop:,
- spacing.xl,
+      borderColor: palette.borderHi,
+      marginTop: spacing.xl,
     },
     avatar: {
-      width:      48, height: 48, borderRadius: 24,
-      backgroundColor padding: palette.neonSoft,
-      alignItems: 'centerVertical', justifyContent: 'center',
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: palette.neonSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    avatarText: {: fontSize: 20, fontWeight: '900',  color: palette.neon },
-    name: {10 ...typography.body, fontWeight: '700', color:,
- palette.text },
-    email: { ...typography.c     aption, color: palette.textMuted, margin borderRadiusTop: 2 },
-    phone: { ...typ:ography.caption, color: palette.neon, margin radiusTop: 2 },
+    avatarText: {
+      fontSize: 20,
+      fontWeight: '900',
+      color: palette.neon,
+    },
+    cardBody: {
+      flex: 1,
+    },
+    name: {
+      ...typography.body,
+      fontWeight: '700',
+      color: palette.text,
+    },
+    email: {
+      ...typography.caption,
+      color: palette.textMuted,
+      marginTop: 2,
+    },
+    phone: {
+      ...typography.caption,
+      color: palette.neon,
+      marginTop: 2,
+    },
     addBtn: {
-      paddingHorizontal: .md,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: radius.md,
       backgroundColor: palette.neon,
     },
-    addBtnText: { fontSize: 12, fontWeight: '900', color: palette.obsidian },
+    addBtnText: {
+      fontSize: 12,
+      fontWeight: '900',
+      color: palette.obsidian,
+    },
   });
