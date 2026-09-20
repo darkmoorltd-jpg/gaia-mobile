@@ -65,3 +65,15 @@ export const shadows = {
   neon: { shadowColor: '#00ff88', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.55, shadowRadius: 24, elevation: 12 },
   soft: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8 },
 };
+
+
+// ── ThemeProvider ──
+// Passthrough component. Zustand handles theme globally, so no context needed.
+// Kept for compatibility with code that imports <ThemeProvider>.
+import React from 'react';
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  return React.createElement(React.Fragment, null, children);
+}
+
+export default ThemeProvider;
