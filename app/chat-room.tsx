@@ -180,7 +180,7 @@ export default function ChatRoom() {
       await supabase.from('chat_messages').insert({
         room_id: roomId,
         sender_id: user.id,
-        body: type === 'image' ? '[Photo]' : '[File] ' + name,
+        body: name,                 // store the filename (or 'photo.jpg')
         attachment_url: pub.publicUrl,
         attachment_type: type,
       });
@@ -240,44 +240,122 @@ export default function ChatRoom() {
 
   const renderItem = ({ item }: { item: Msg }) => {
     const mine = item.sender_id === user?.id;
+    const isImage = !!item.attachment_url && item.attachment_type === 'image';
+    const isFile  = !!item.attachment_url && item.attachment_type === 'file';
+    const isText  = !isImage && !isFile;
+    const caption = item.body && item.body.trim() ? item.body : null;
+
     return (
       <View style={[styles.msgRow, mine ? styles.msgRowMine : styles.msgRowTheirs]}>
-        <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          {item.attachment_url && item.attachment_type === 'image' ? (
+        <View
+          style={[
+            styles.bubble,
+            mine ? styles.bubbleMine : styles.bubbleTheirs,
+            isImage && { padding: 6, paddingBottom: 6 },
+          ]}
+        >
+          {isImage ? (
             <Pressable onPress={() => Linking.openURL(item.attachment_url!)}>
               <Image
-                source={{ uri: item.attachment_url }}
-                style={styles.attachImage}
+                source={{ uri: item.attachment_url! }}
+                style={{
+                  width: 220,
+                  height: 220,
+                  borderRadius: 14,
+                  backgroundColor: 'rgba(0,0,0,0.15)',
+                }}
                 resizeMode="cover"
               />
             </Pressable>
           ) : null}
 
-          {item.attachment_url && item.attachment_type === 'file' ? (
+          {isFile ? (
             <Pressable
               onPress={() => Linking.openURL(item.attachment_url!)}
-              style={styles.fileRow}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                minWidth: 200,
+                paddingVertical: 4,
+              }}
             >
-              <Text style={styles.fileIcon}>F</Text>
-              <Text
-                style={[styles.fileName, mine ? styles.fileNameMine : styles.fileNameTheirs]}
-                numberOfLines={1}
+              <View
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: mine ? 'rgba(0,0,0,0.15)' : 'rgba(0,200,100,0.15)',
+                }}
               >
-                {item.body.replace('[File] ', '') || 'Attachment'}
-              </Text>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '900',
+                    color: mine ? '#000' : '#00cc66',
+                  }}
+                >
+                  F
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: mine ? '#000' : (palette.text ?? '#fff'),
+                  }}
+                >
+                  {caption || 'Attachment'}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    marginTop: 2,
+                    color: mine ? 'rgba(0,0,0,0.6)' : (palette.textMuted ?? '#888'),
+                  }}
+                >
+                  Tap to open
+                </Text>
+              </View>
             </Pressable>
           ) : null}
 
-          {item.body && !item.body.startsWith('[File]') ? (
+          {isText && caption ? (
             <Text
-              style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextTheirs]}
+              style={[
+                styles.bubbleText,
+                mine ? styles.bubbleTextMine : styles.bubbleTextTheirs,
+              ]}
             >
-              {item.body}
+              {caption}
+            </Text>
+          ) : null}
+
+          {isImage && caption ? (
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 11,
+                marginTop: 6,
+                marginHorizontal: 4,
+                color: mine ? 'rgba(0,0,0,0.6)' : (palette.textMuted ?? '#888'),
+              }}
+            >
+              {caption}
             </Text>
           ) : null}
 
           <View style={styles.metaRow}>
-            <Text style={[styles.bubbleTime, mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs]}>
+            <Text
+              style={[
+                styles.bubbleTime,
+                mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs,
+              ]}
+            >
               {new Date(item.created_at).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -438,9 +516,7 @@ const createStyles = (palette: any) =>
     bubbleTimeMine: { color: 'rgba(0,0,0,0.55)' },
     bubbleTimeTheirs: { color: palette.textDim },
     ticks: { fontSize: 11, fontWeight: '900' },
-    attachImage: {
-      width: 220, height: 220, borderRadius: 12, marginBottom: 4,
-    },
+    attachImage: { width: 220, height: 220, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.15)' },
     fileRow: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
       paddingVertical: 4,
