@@ -47,7 +47,7 @@ export default function VideoScan() {
             { label: res.top.label, conf: res.top.confidence, at: new Date().toLocaleTimeString() },
             ...prev.slice(0, 6),
           ]);
-          await refreshScans();
+          try { await refreshScans(); } catch {}
         }
       } catch (e: any) {
         setError(e?.message ?? 'Scan failed');
