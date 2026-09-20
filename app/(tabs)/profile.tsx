@@ -1,43 +1,119 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTheme, typography, spacing, radius } from '../../src/theme';
-import { useAuth } from '../../src/store/auth';
+import { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useTheme, spacing, radius, typography } from '../src/theme';
+import { useAuth } from '../src/store/auth';
+import { supabase } from '../src/api/supabase';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
 export default function Profile() {
   const router = useRouter();
   const { palette } = useTheme();
-  const { user, scansRemaining, plan, signOut } = useAuth();
   const styles = createStyles(palette);
+  const { user, scansRemaining, plan, signOut } = useAuth();
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
-  const ITEMS = [
-    { label: 'Scan History', route: '/history' },
-    { label: 'Payment History', route: '/payment-history' },
-    { label: 'Wallet', route: '/wallet' },
-    { label: 'Badges', route: '/badges' },
-    { label: 'Verification', route: '/verification' },
-    { label: 'Marketplace', route: '/marketplace' },
-    { label: 'My Store (Seller)', route: '/marketplace-store' },
-    { label: 'My Orders', route: '/marketplace-orders' },
-    { label: 'Early Warning', route: '/early-warning' },
-    { label: 'University', route: '/university' },
-    { label: 'Farming Calendar', route: '/calendar' },
-    { label: 'Help and Support', route: '/help' },
-    { label: 'Settings', route: '/settings' },
-  ];
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const firstName = user?.email?.split('@')[0] || 'Farmer';
+  const load = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('avatar_url,first_name,last_name,email')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (data) {
+      setAvatar(data.avatar_url || null);
+      const n = ((data.first_name || '') + ' ' + (data.last_name || '')).trim();
+      setName(n || (data.email ? data.email.split('@')[0] : 'Farmer'));
+    }
+  }, [user]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const uploadAvatar = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (res.canceled || !user) return;
+
+    setBusy(true);
+    try {
+      const asset = res.assets[0];
+      const response = await fetch(asset.uri);
+      const arrayBuffer = await new Response(response.body ?? response).arrayBuffer();
+      const path = user.id + '/' + Date.now() + '.jpg';
+
+      const { error: upErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, arrayBuffer, { contentType: 'image/jpeg', upsert: true });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = pub.publicUrl;
+
+      await supabase
+        .from('user_profiles')
+        .update({ avatar_url: url, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      setAvatar(url);
+      Alert.alert('Success', 'Profile picture updated');
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message || 'Try again');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ITEMS = [
+    { label: 'Scan History',       route: '/history' },
+    { label: 'Payment History',    route: '/payment-history' },
+    { label: 'Wallet',             route: '/wallet' },
+    { label: 'Badges',             route: '/badges' },
+    { label: 'Verification',       route: '/verification' },
+    { label: 'Marketplace',        route: '/marketplace' },
+    { label: 'Early Warning',      route: '/early-warning' },
+    { label: 'University',         route: '/university' },
+    { label: 'Farming Calendar',   route: '/calendar' },
+    { label: 'Help and Support',   route: '/help' },
+    { label: 'Settings',           route: '/settings' },
+  ];
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{firstName[0].toUpperCase()}</Text>
-          </View>
-          <Text style={styles.name}>{firstName}</Text>
+          <Pressable onPress={uploadAvatar} style={styles.avatarWrap}>
+            {avatar ? (
+              <Image source={{ uri: avatar }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarText}>
+                  {(name || user?.email || 'F').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={styles.avatarEdit}>
+              {busy ? (
+                <ActivityIndicator color={palette.obsidian} size="small" />
+              ) : (
+                <Text style={styles.avatarEditText}>+</Text>
+              )}
+            </View>
+          </Pressable>
+
+          <Text style={styles.name}>{name || user?.email?.split('@')[0]}</Text>
           <Text style={styles.email}>{user?.email}</Text>
         </View>
 
@@ -54,7 +130,11 @@ export default function Profile() {
 
         <Text style={styles.sectionLabel}>ACCOUNT</Text>
         {ITEMS.map((item, i) => (
-          <Pressable key={i} onPress={() => router.push(item.route as any)} style={styles.item}>
+          <Pressable
+            key={i}
+            onPress={() => router.push(item.route as any)}
+            style={styles.item}
+          >
             <Text style={styles.itemLabel}>{item.label}</Text>
             <Text style={styles.itemChevron}>›</Text>
           </Pressable>
@@ -77,25 +157,74 @@ export default function Profile() {
   );
 }
 
-const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
-  hero: { alignItems: 'center', marginBottom: 24 },
-  avatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: p.neonSoft, borderWidth: 2, borderColor: p.borderHi, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 40, fontWeight: '900', color: p.neon },
-  name: { fontSize: 24, fontWeight: '900', color: p.text, marginTop: 12, textTransform: 'capitalize', letterSpacing: -0.5 },
-  email: { fontSize: 14, color: p.textMuted, marginTop: 4 },
-  statRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  stat: { flex: 1, padding: 16, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
-  statVal: { fontSize: 22, fontWeight: '900', color: p.neon },
-  statLbl: { fontSize: 10, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted, marginTop: 2 },
-  sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5, color: p.textMuted, marginBottom: 8 },
-  item: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: p.surface, marginBottom: 8, borderWidth: 1, borderColor: p.border },
-  itemLabel: { fontSize: 15, fontWeight: '600', color: p.text },
-  itemChevron: { fontSize: 22, color: p.textDim },
-  adminItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: 'rgba(255,60,90,0.08)', marginTop: 8, borderWidth: 1.5, borderColor: p.danger },
-  adminLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: p.danger },
-  adminChevron: { fontSize: 22, color: p.danger },
-  logout: { marginTop: 24, padding: 18, borderRadius: 14, borderWidth: 1.5, borderColor: p.danger, alignItems: 'center' },
-  logoutText: { fontSize: 15, fontWeight: '800', color: p.danger },
-});
+const createStyles = (palette: any) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: palette.obsidian },
+    scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 40 },
+    hero: { alignItems: 'center', marginBottom: spacing.xl },
+    avatarWrap: { width: 110, height: 110, position: 'relative' },
+    avatarImg: { width: 110, height: 110, borderRadius: 55 },
+    avatarFallback: {
+      width: 110, height: 110, borderRadius: 55,
+      backgroundColor: palette.neonSoft,
+      borderWidth: 2, borderColor: palette.borderHi,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: 44, fontWeight: '900', color: palette.neon },
+    avatarEdit: {
+      position: 'absolute', bottom: 0, right: 0,
+      width: 34, height: 34, borderRadius: 17,
+      backgroundColor: palette.neon,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 3, borderColor: palette.obsidian,
+    },
+    avatarEditText: {
+      fontSize: 20, fontWeight: '900',
+      color: palette.obsidian, lineHeight: 22,
+    },
+    name: {
+      fontSize: 24, fontWeight: '900', color: palette.text,
+      marginTop: spacing.md, textTransform: 'capitalize', letterSpacing: -0.5,
+    },
+    email: { fontSize: 14, color: palette.textMuted, marginTop: 4 },
+    statRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl },
+    stat: {
+      flex: 1, padding: spacing.lg,
+      borderRadius: radius.md,
+      backgroundColor: palette.surface,
+      borderWidth: 1, borderColor: palette.border,
+      alignItems: 'center',
+    },
+    statVal: { fontSize: 22, fontWeight: '900', color: palette.neon },
+    statLbl: { ...typography.micro, color: palette.textMuted, marginTop: 2 },
+    sectionLabel: {
+      ...typography.micro, color: palette.textMuted, marginBottom: spacing.sm,
+    },
+    item: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: spacing.lg,
+      borderRadius: radius.md,
+      backgroundColor: palette.surface,
+      marginBottom: spacing.sm,
+      borderWidth: 1, borderColor: palette.border,
+    },
+    itemLabel: { ...typography.body, fontWeight: '600', color: palette.text },
+    itemChevron: { fontSize: 22, color: palette.textDim },
+    adminItem: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: spacing.lg, borderRadius: radius.md,
+      backgroundColor: 'rgba(255,60,90,0.08)', marginTop: spacing.sm,
+      borderWidth: 1.5, borderColor: palette.danger,
+    },
+    adminLabel: {
+      fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: palette.danger,
+    },
+    adminChevron: { fontSize: 22, color: palette.danger },
+    logout: {
+      marginTop: spacing.xl, padding: spacing.lg,
+      borderRadius: radius.md,
+      borderWidth: 1.5, borderColor: palette.danger,
+      alignItems: 'center',
+    },
+    logoutText: { fontSize: 15, fontWeight: '800', color: palette.danger },
+  });
