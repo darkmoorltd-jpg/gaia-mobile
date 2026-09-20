@@ -1,94 +1,166 @@
-import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useTheme, spacing, radius } from '../src/theme';
+import { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, FlatList, Pressable,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { listPendingRequests, acceptFriendRequest, rejectFriendRequest, displayName } from '../src/utils/friends';
+import { supabase } from '../src/api/supabase';
 
 export default function FriendRequests() {
   const router = useRouter();
   const { palette } = useTheme();
-  const { user } = useAuth();
   const styles = createStyles(palette);
-  const [rows, setRows] = useState<any[]>([]);
+  const user = useAuth((s) => s.user);
+
+  const [requests, setRequests] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
 
   const load = useCallback(async () => {
     if (!user) return;
     setBusy(true);
-    setRows(await listPendingRequests(user.id));
-    setBusy(false);
+    try {
+      const { data: rows } = await supabase
+        .from('friendships')
+        .select('id,sender_id')
+        .eq('receiver_id', user.id)
+        .eq('status', 'pending');
+
+      const senders = (rows || []).map((r: any) => r.sender_id);
+
+      if (senders.length === 0) {
+        setRequests([]);
+        setBusy(false);
+        return;
+      }
+
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id,email,first_name,last_name')
+        .in('user_id', senders);
+
+      const profileMap: Record<string, any> = {};
+      (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+
+      const result = (rows || []).map((r: any) => ({
+        id: r.id,
+        sender_id: r.sender_id,
+        profile: profileMap[r.sender_id] || {},
+      }));
+
+      setRequests(result);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setBusy(false);
+    }
   }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const accept = async (id: number) => { await acceptFriendRequest(id); load(); };
-  const reject = async (id: number) => { await rejectFriendRequest(id); load(); };
+  const respond = async (id: number, status: 'accepted' | 'rejected') => {
+    await supabase.from('friendships').update({ status }).eq('id', id);
+    load();
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <View style={styles.header}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>BACK</Text>
         </Pressable>
         <Text style={styles.title}>Friend requests</Text>
+        <Text style={styles.sub}>People who want to connect</Text>
+      </View>
 
-        {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
-        {!busy && rows.length === 0 ? (
-          <Text style={styles.empty}>No pending requests.</Text>
-        ) : null}
-
-        {rows.map((r) => (
-          <View key={r.id} style={styles.card}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {((r.sender && (r.sender.first_name || r.sender.email)) || 'F')[0].toUpperCase()}
-              </Text>
+      {busy ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={palette.neon} />
+        </View>
+      ) : (
+        <FlatList
+          data={requests}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>No pending requests</Text>
+              <Text style={styles.emptySub}>When someone adds you, it appears here.</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{displayName(r.sender || {})}</Text>
-              <Text style={styles.email}>{r.sender?.email || ''}</Text>
-            </View>
-            <View style={styles.actionRow}>
-              <Pressable onPress={() => accept(r.id)} style={styles.accept}>
-                <Text style={styles.acceptText}>ACCEPT</Text>
-              </Pressable>
-              <Pressable onPress={() => reject(r.id)} style={styles.reject}>
-                <Text style={styles.rejectText}>X</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
+          }
+          renderItem={({ item }) => {
+            const p = item.profile || {};
+            const name =
+              ((p.first_name || '') + ' ' + (p.last_name || '')).trim() ||
+              (p.email ? p.email.split('@')[0] : 'Farmer');
+            return (
+              <View style={styles.card}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{name}</Text>
+                  <Text style={styles.email}>{p.email}</Text>
+                </View>
+                <Pressable
+                  onPress={() => respond(item.id, 'accepted')}
+                  style={styles.accept}
+                >
+                  <Text style={styles.acceptText}>ACCEPT</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => respond(item.id, 'rejected')}
+                  style={styles.reject}
+                >
+                  <Text style={styles.rejectText}>X</Text>
+                </Pressable>
+              </View>
+            );
+          }}
+        />
+      )}
     </View>
   );
 }
 
-const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60, paddingBottom: 60 },
-  back: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1, marginBottom: 20 },
-  empty: { fontSize: 14, color: p.textMuted, textAlign: 'center', marginTop: 40 },
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10,
-    padding: 14, borderRadius: radius.md, backgroundColor: p.surface,
-    borderWidth: 1, borderColor: p.border,
-  },
-  avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: p.neonSoft, alignItems: 'center', justifyContent: 'center',
-  },
-  avatarText: { fontSize: 18, fontWeight: '900', color: p.neon },
-  name: { fontSize: 15, fontWeight: '700', color: p.text },
-  email: { fontSize: 12, color: p.textMuted, marginTop: 2 },
-  actionRow: { flexDirection: 'row', gap: 6 },
-  accept: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: p.neon },
-  acceptText: { fontSize: 10, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  reject: {
-    width: 36, paddingVertical: 8, borderRadius: 8,
-    borderWidth: 1.5, borderColor: p.danger,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rejectText: { fontSize: 12, fontWeight: '900', color: p.danger },
-});
+const createStyles = (palette: any) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: palette.obsidian },
+    header: { padding: spacing.xl, paddingTop: 60 },
+    back: { ...typography.micro, color: palette.textMuted, marginBottom: spacing.lg },
+    title: { fontSize: 30, fontWeight: '900', color: palette.text, letterSpacing: -1 },
+    sub: { ...typography.body, color: palette.textMuted, marginTop: 6 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl },
+    empty: { alignItems: 'center', paddingVertical: 60 },
+    emptyTitle: { ...typography.heading, color: palette.text },
+    emptySub: { ...typography.body, color: palette.textMuted, marginTop: 6, textAlign: 'center' },
+    card: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      padding: spacing.lg, borderRadius: radius.lg,
+      backgroundColor: palette.surface,
+      borderWidth: 1, borderColor: palette.border,
+      marginBottom: spacing.sm,
+    },
+    avatar: {
+      width: 48, height: 48, borderRadius: 24,
+      backgroundColor: palette.neonSoft,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: 20, fontWeight: '900', color: palette.neon },
+    name: { ...typography.body, fontWeight: '700', color: palette.text },
+    email: { ...typography.caption, color: palette.textMuted, marginTop: 2 },
+    accept: {
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderRadius: radius.md, backgroundColor: palette.neon,
+    },
+    acceptText: { fontSize: 11, fontWeight: '900', color: palette.obsidian },
+    reject: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: palette.surface,
+      borderWidth: 1, borderColor: palette.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rejectText: { fontSize: 14, color: palette.danger, fontWeight: '900' },
+  });

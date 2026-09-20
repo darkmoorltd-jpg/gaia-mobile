@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
+  View, Text, StyleSheet, FlatList, Pressable, TextInput,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -8,88 +8,133 @@ import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
 
-interface Profile {
+interface Row {
   user_id: string;
+  name: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
+  room_id: string | null;
+  last_message: string;
+  last_at: string | null;
+  unread: number;
 }
 
-// Demo chats shown when the user has no real friends yet
-const DEMO_CHATS: Profile[] = [
-  { user_id: 'demo-1', email: 'farmers-lagos@gaia.app',  first_name: 'Farmers', last_name: 'Lagos Group' },
-  { user_id: 'demo-2', email: 'maize-growers@gaia.app',  first_name: 'Maize',   last_name: 'Growers NG' },
-  { user_id: 'demo-3', email: 'support@gaia.app',        first_name: 'GAIA',    last_name: 'Support' },
-];
-
-export default function Chat() {
+export default function ChatTab() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
-
   const user = useAuth((s) => s.user);
 
-  const [friends, setFriends] = useState<Profile[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [usingDemo, setUsingDemo] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) { setBusy(false); return; }
     setBusy(true);
-    setUsingDemo(false);
     try {
-      // Ensure my profile exists
-      try {
-        await supabase.from('user_profiles').upsert({
-          user_id: user.id,
-          email: (user.email || '').toLowerCase(),
-        }, { onConflict: 'user_id' });
-      } catch (_) {}
+      // 1. My accepted friendships
+      const { data: fships } = await supabase
+        .from('friendships')
+        .select('sender_id,receiver_id')
+        .eq('status', 'accepted');
 
-      // Get my friendships
-      let rows: any[] = [];
-      try {
-        const res = await supabase
-          .from('friendships')
-          .select('*')
-          .eq('status', 'accepted');
-        rows = res.data || [];
-      } catch (_) {
-        rows = [];
-      }
-
-      const mine = rows.filter(
+      const mine = (fships || []).filter(
         (r: any) => r.sender_id === user.id || r.receiver_id === user.id,
       );
-      const ids = mine.map((r: any) =>
+      const friendIds = mine.map((r: any) =>
         r.sender_id === user.id ? r.receiver_id : r.sender_id,
       );
 
-      if (ids.length === 0) {
-        setFriends([]);
-        setUsingDemo(true);
+      if (friendIds.length === 0) {
+        setRows([]);
         setBusy(false);
         return;
       }
 
+      // 2. Friend profiles
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id,email,first_name,last_name')
-        .in('user_id', ids);
+        .in('user_id', friendIds);
 
-      const realFriends = (profiles || []) as Profile[];
-      if (realFriends.length === 0) {
-        setFriends([]);
-        setUsingDemo(true);
-      } else {
-        setFriends(realFriends);
+      // 3. My chat rooms (DM only)
+      const { data: mems } = await supabase
+        .from('chat_members')
+        .select('room_id,last_read_at')
+        .eq('user_id', user.id);
+
+      const myRoomIds = (mems || []).map((m: any) => m.room_id);
+      const readMap: Record<string, string> = {};
+      (mems || []).forEach((m: any) => { readMap[m.room_id] = m.last_read_at; });
+
+      const result: Row[] = [];
+
+      for (const f of (profiles || [])) {
+        // find room shared between me and this friend
+        let roomId: string | null = null;
+        let lastMessage = '';
+        let lastAt: string | null = null;
+        let unread = 0;
+
+        if (myRoomIds.length > 0) {
+          const { data: theirMems } = await supabase
+            .from('chat_members')
+            .select('room_id')
+            .eq('user_id', f.user_id);
+
+          const theirRoomIds = (theirMems || []).map((m: any) => m.room_id);
+          roomId = myRoomIds.find((id: string) => theirRoomIds.includes(id)) || null;
+
+          if (roomId) {
+            const { data: msgs } = await supabase
+              .from('chat_messages')
+              .select('body,created_at,sender_id')
+              .eq('room_id', roomId)
+              .order('created_at', { ascending: false })
+              .limit(50);
+
+            const all = msgs || [];
+            if (all.length > 0) {
+              lastMessage = all[0].body;
+              lastAt = all[0].created_at;
+
+              const myReadAt = readMap[roomId] || '1970-01-01T00:00:00Z';
+              unread = all.filter(
+                (m: any) =>
+                  m.sender_id !== user.id &&
+                  new Date(m.created_at) > new Date(myReadAt),
+              ).length;
+            }
+          }
+        }
+
+        const fullName =
+          ((f.first_name || '') + ' ' + (f.last_name || '')).trim() ||
+          (f.email ? f.email.split('@')[0] : 'Farmer');
+
+        result.push({
+          user_id: f.user_id,
+          name: fullName,
+          email: f.email || '',
+          room_id: roomId,
+          last_message: lastMessage,
+          last_at: lastAt,
+          unread,
+        });
       }
+
+      // Sort by last message time, most recent first, nulls last
+      result.sort((a, b) => {
+        if (!a.last_at && !b.last_at) return 0;
+        if (!a.last_at) return 1;
+        if (!b.last_at) return -1;
+        return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
+      });
+
+      setRows(result);
     } catch (e) {
       console.log('chat load error', e);
-      setFriends([]);
-      setUsingDemo(true);
     } finally {
       setBusy(false);
       setRefreshing(false);
@@ -100,27 +145,25 @@ export default function Chat() {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  // If no real friends, fall back to demo chats so the page always shows content
-  const baseList = usingDemo ? DEMO_CHATS : friends;
-
   const filtered = search.trim()
-    ? baseList.filter((f) =>
-        (f.email || '').toLowerCase().includes(search.toLowerCase()) ||
-        (f.first_name || '').toLowerCase().includes(search.toLowerCase()) ||
-        (f.last_name || '').toLowerCase().includes(search.toLowerCase()),
+    ? rows.filter((r) =>
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.email.toLowerCase().includes(search.toLowerCase()),
       )
-    : baseList;
+    : rows;
 
-  const displayName = (p: Profile) => {
-    const n = ((p.first_name || '') + ' ' + (p.last_name || '')).trim();
-    return n || (p.email ? p.email.split('@')[0] : 'Farmer');
+  const timeAgo = (iso: string | null) => {
+    if (!iso) return '';
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return 'now';
+    if (s < 3600) return Math.floor(s / 60) + 'm';
+    if (s < 86400) return Math.floor(s / 3600) + 'h';
+    if (s < 604800) return Math.floor(s / 86400) + 'd';
+    return new Date(iso).toLocaleDateString();
   };
-
-  const initial = (p: Profile) => displayName(p).charAt(0).toUpperCase();
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
@@ -148,7 +191,7 @@ export default function Chat() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search friends"
+            placeholder="Search chats"
             placeholderTextColor={palette.textDim}
             style={styles.searchInput}
             autoCapitalize="none"
@@ -156,15 +199,16 @@ export default function Chat() {
         </View>
       </View>
 
-      {/* Body */}
-      {busy ? (
+      {busy && rows.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator color={palette.neon} />
           <Text style={styles.centerText}>Loading chats…</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.user_id}
+          contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -172,19 +216,9 @@ export default function Chat() {
               tintColor={palette.neon}
             />
           }
-          showsVerticalScrollIndicator={false}
-        >
-          {usingDemo ? (
-            <View style={styles.banner}>
-              <Text style={styles.bannerText}>
-                You have no friends yet — showing sample chats. Tap + to add someone.
-              </Text>
-            </View>
-          ) : null}
-
-          {filtered.length === 0 ? (
+          ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>C</Text>
+              <Text style={styles.emptyIcon}>M</Text>
               <Text style={styles.emptyTitle}>
                 {search ? 'No matching chats' : 'No chats yet'}
               </Text>
@@ -202,40 +236,53 @@ export default function Chat() {
                 </Pressable>
               ) : null}
             </View>
-          ) : (
-            filtered.map((f) => (
-              <Pressable
-                key={f.user_id}
-                onPress={() => {
-                  if (usingDemo) return; // demo rows are not clickable
-                  router.push(('/chat-room?uid=' + f.user_id) as any);
-                }}
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              >
-                <View style={styles.avatarWrap}>
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarText}>{initial(f)}</Text>
-                  </View>
-                  <View style={styles.onlineDot} />
-                </View>
-
-                <View style={styles.rowBody}>
-                  <View style={styles.rowTop}>
-                    <Text style={styles.name} numberOfLines={1}>
-                      {displayName(f)}
-                    </Text>
-                    <Text style={styles.time}>now</Text>
-                  </View>
-                  <Text style={styles.lastMessage} numberOfLines={1}>
-                    {f.email}
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() =>
+                router.push(
+                  ('/chat-room?uid=' + item.user_id) as any,
+                )
+              }
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            >
+              <View style={styles.avatarWrap}>
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarText}>
+                    {item.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
-              </Pressable>
-            ))
-          )}
+              </View>
 
-          <View style={{ height: 120 }} />
-        </ScrollView>
+              <View style={styles.rowBody}>
+                <View style={styles.rowTop}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.time}>{timeAgo(item.last_at)}</Text>
+                </View>
+                <View style={styles.rowBottom}>
+                  <Text
+                    style={[
+                      styles.lastMessage,
+                      item.unread > 0 && { color: palette.text, fontWeight: '600' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.last_message || 'Tap to start chatting'}
+                  </Text>
+                  {item.unread > 0 ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {item.unread > 99 ? '99+' : item.unread}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            </Pressable>
+          )}
+        />
       )}
     </View>
   );
@@ -265,69 +312,37 @@ const createStyles = (palette: any) =>
     },
     headerActions: { flexDirection: 'row', gap: spacing.sm },
     iconBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 44, height: 44, borderRadius: 22,
       backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.border,
-      alignItems: 'center',
-      justifyContent: 'center',
+      borderWidth: 1, borderColor: palette.border,
+      alignItems: 'center', justifyContent: 'center',
     },
-    iconBtnText: {
-      fontSize: 16,
-      fontWeight: '900',
-      color: palette.neon,
-    },
+    iconBtnText: { fontSize: 16, fontWeight: '900', color: palette.neon },
     iconBtnSolid: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 44, height: 44, borderRadius: 22,
       backgroundColor: palette.neon,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center',
     },
     iconBtnSolidText: {
-      fontSize: 22,
-      fontWeight: '900',
-      color: palette.obsidian,
-      lineHeight: 24,
+      fontSize: 22, fontWeight: '900',
+      color: palette.obsidian, lineHeight: 24,
     },
     search: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: 'row', alignItems: 'center',
       gap: spacing.sm,
       backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.border,
+      borderWidth: 1, borderColor: palette.border,
       borderRadius: radius.md,
       paddingHorizontal: spacing.lg,
     },
     searchIcon: { fontSize: 14, fontWeight: '900', color: palette.neon },
     searchInput: {
-      flex: 1,
-      paddingVertical: 12,
-      color: palette.text,
-      fontSize: 14,
+      flex: 1, paddingVertical: 12,
+      color: palette.text, fontSize: 14,
     },
-    scroll: { paddingHorizontal: spacing.xl, paddingBottom: 40 },
-    banner: {
-      padding: spacing.md,
-      borderRadius: radius.md,
-      backgroundColor: palette.neonSoft,
-      borderWidth: 1,
-      borderColor: palette.borderHi,
-      marginBottom: spacing.md,
-    },
-    bannerText: {
-      ...typography.caption,
-      color: palette.neon,
-      textAlign: 'center',
-    },
+    list: { paddingHorizontal: spacing.xl, paddingBottom: 40 },
     center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+      flex: 1, alignItems: 'center', justifyContent: 'center',
       gap: spacing.md,
     },
     centerText: { ...typography.caption, color: palette.textMuted },
@@ -337,18 +352,13 @@ const createStyles = (palette: any) =>
       paddingHorizontal: spacing.xl,
     },
     emptyIcon: {
-      fontSize: 64,
-      fontWeight: '900',
-      color: palette.neonSoft,
-      marginBottom: spacing.lg,
+      fontSize: 64, fontWeight: '900',
+      color: palette.neonSoft, marginBottom: spacing.lg,
     },
     emptyTitle: { ...typography.heading, color: palette.text },
     emptySub: {
-      ...typography.body,
-      color: palette.textMuted,
-      marginTop: 6,
-      textAlign: 'center',
-      lineHeight: 22,
+      ...typography.body, color: palette.textMuted,
+      marginTop: 6, textAlign: 'center', lineHeight: 22,
     },
     emptyBtn: {
       marginTop: spacing.xl,
@@ -358,62 +368,51 @@ const createStyles = (palette: any) =>
       backgroundColor: palette.neon,
     },
     emptyBtnText: {
-      ...typography.micro,
-      color: palette.obsidian,
-      fontWeight: '900',
+      ...typography.micro, color: palette.obsidian, fontWeight: '900',
     },
     row: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: 'row', alignItems: 'center',
       gap: spacing.md,
       padding: spacing.lg,
       borderRadius: radius.lg,
       backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.border,
+      borderWidth: 1, borderColor: palette.border,
       marginBottom: spacing.sm,
     },
     rowPressed: { opacity: 0.75 },
-    avatarWrap: { width: 52, height: 52, borderRadius: 26, position: 'relative' },
+    avatarWrap: { width: 52, height: 52, borderRadius: 26 },
     avatarFallback: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 52, height: 52, borderRadius: 26,
       backgroundColor: palette.neonSoft,
-      borderWidth: 1,
-      borderColor: palette.borderHi,
-      alignItems: 'center',
-      justifyContent: 'center',
+      borderWidth: 1, borderColor: palette.borderHi,
+      alignItems: 'center', justifyContent: 'center',
     },
     avatarText: { fontSize: 22, fontWeight: '900', color: palette.neon },
-    onlineDot: {
-      position: 'absolute',
-      bottom: 0,
-      right: 0,
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: palette.neon,
-      borderWidth: 2,
-      borderColor: palette.obsidian,
-    },
     rowBody: { flex: 1 },
     rowTop: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     },
     name: {
-      ...typography.body,
-      fontWeight: '700',
-      color: palette.text,
-      flex: 1,
-      marginRight: spacing.sm,
+      ...typography.body, fontWeight: '700',
+      color: palette.text, flex: 1, marginRight: spacing.sm,
     },
     time: { ...typography.micro, color: palette.textDim },
-    lastMessage: {
-      ...typography.caption,
-      color: palette.textMuted,
+    rowBottom: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between',
       marginTop: 4,
     },
+    lastMessage: {
+      ...typography.caption, color: palette.textMuted,
+      flex: 1, marginRight: spacing.sm,
+    },
+    badge: {
+      backgroundColor: palette.neon,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      minWidth: 22,
+      alignItems: 'center',
+    },
+    badgeText: { fontSize: 10, fontWeight: '900', color: palette.obsidian },
   });
