@@ -91,7 +91,7 @@ export default function ChatRoom() {
       const { error } = await supabase.storage.from('verifications').upload(path, buf, { contentType: 'image/jpeg' });
       if (!error) {
         const { data } = supabase.storage.from('verifications').getPublicUrl(path);
-        const { data: msg } = await sendMessage(user.id, peerId, 'photo', 'image', data.publicUrl);
+        const { data: msg } = await sendMessage(user.id, peerId, 'photo', data.publicUrl);
         if (msg) setMessages((prev) => [...prev, msg as ChatMessage]);
       }
     } catch {}

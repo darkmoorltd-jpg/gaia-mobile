@@ -2,20 +2,22 @@ import { supabase } from '../api/supabase';
 
 export interface ChatMessage {
   id: number;
+  room_id?: string;
   sender_id: string;
   receiver_id: string;
   content: string;
-  type: string;
-  media_url?: string;
-  delivered_at?: string;
-  read_at?: string;
-  deleted?: boolean;
+  image_url?: string | null;
+  read_at?: string | null;
   created_at: string;
 }
 
+/**
+ * Fetch the full DM conversation between two users.
+ * Matches the backend `messages` table.
+ */
 export async function fetchMessages(me: string, peer: string): Promise<ChatMessage[]> {
-  const { data } = await supabase
-    .from('chat_messages')
+  const { data, error } = await supabase
+    .from('messages')
     .select('*')
     .or(
       'and(sender_id.eq.' + me + ',receiver_id.eq.' + peer + '),' +
@@ -23,88 +25,150 @@ export async function fetchMessages(me: string, peer: string): Promise<ChatMessa
     )
     .order('created_at', { ascending: true })
     .limit(300);
+  if (error) {
+    console.warn('fetchMessages error:', error.message);
+    return [];
+  }
   return (data || []) as ChatMessage[];
 }
 
+/**
+ * Send a text or image message.
+ * Returns { data, error } matching chat-room.tsx expectations.
+ */
 export async function sendMessage(
   senderId: string,
   receiverId: string,
   content: string,
-  type: string = 'text',
-  mediaUrl: string | null = null,
-) {
+  imageUrl: string | null = null,
+): Promise<{ data: ChatMessage | null; error: string | null }> {
   const { data, error } = await supabase
-    .from('chat_messages')
-    .insert({ sender_id: senderId, receiver_id: receiverId, content, type, media_url: mediaUrl })
+    .from('messages')
+    .insert({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content,
+      image_url: imageUrl,
+      room_id: 'dm',
+    })
     .select()
     .single();
-  return { data, error: error?.message || null };
+  return { data: (data as ChatMessage) || null, error: error?.message || null };
 }
 
+/**
+ * Mark all messages from `peer` to `me` as read.
+ */
 export async function markMessagesRead(me: string, peer: string) {
   try {
     await supabase
-      .from('chat_messages')
+      .from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('sender_id', peer)
       .eq('receiver_id', me)
       .is('read_at', null);
-  } catch {}
+  } catch (e) {
+    console.warn('markMessagesRead error:', e);
+  }
 }
 
-export async function deleteMessage(id: number) {
-  await supabase.from('chat_messages').update({ deleted: true }).eq('id', id);
-}
-
-export function subscribeToIncoming(me: string, onNew: (m: ChatMessage) => void) {
+/**
+ * Subscribe to incoming DMs for the current user.
+ * Returns an unsubscribe function.
+ */
+export function subscribeToIncoming(
+  me: string,
+  onNew: (m: ChatMessage) => void,
+): () => void {
   const channel = supabase
     .channel('dm-' + me + '-' + Date.now())
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: 'receiver_id=eq.' + me },
-      (payload: any) => onNew(payload.new as ChatMessage),
-    )
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
-}
-
-export async function setTyping(me: string, peer: string) {
-  try {
-    await supabase.from('chat_typing').upsert({
-      user_id: me,
-      peer_id: peer,
-      updated_at: new Date().toISOString(),
-    });
-  } catch {}
-}
-
-export function subscribeToTyping(me: string, peer: string, onTyping: () => void) {
-  const channel = supabase
-    .channel('typing-' + me + '-' + peer)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'chat_typing', filter: 'peer_id=eq.' + me },
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: 'receiver_id=eq.' + me,
+      },
       (payload: any) => {
-        if (payload.new && payload.new.user_id === peer) onTyping();
+        const record = payload.new || payload.record;
+        if (record) onNew(record as ChatMessage);
       },
     )
     .subscribe();
   return () => { supabase.removeChannel(channel); };
 }
 
-export function fmtTime(iso: string) {
+/**
+ * Broadcast that I'm typing to `peer`.
+ * Uses the backend `typing_status` table.
+ */
+export async function setTyping(me: string, peer: string) {
   try {
-    const d = new Date(iso);
-    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
-  } catch { return ''; }
+    await supabase.from('typing_status').upsert({
+      user_id: me,
+      peer_id: peer,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn('setTyping error:', e);
+  }
 }
 
-export function fmtDayLabel(iso: string) {
+/**
+ * Subscribe to typing events from `peer` directed at `me`.
+ */
+export function subscribeToTyping(
+  me: string,
+  peer: string,
+  onTyping: () => void,
+): () => void {
+  const channel = supabase
+    .channel('typing-' + me + '-' + peer + '-' + Date.now())
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'typing_status',
+        filter: 'peer_id=eq.' + me,
+      },
+      (payload: any) => {
+        const record = payload.new || payload.record;
+        if (record && record.user_id === peer) onTyping();
+      },
+    )
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}
+
+/**
+ * HH:MM format from ISO timestamp.
+ */
+export function fmtTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return (
+      d.getHours().toString().padStart(2, '0') +
+      ':' +
+      d.getMinutes().toString().padStart(2, '0')
+    );
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Day label — Today / Yesterday / date.
+ */
+export function fmtDayLabel(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
   const yesterday = new Date(Date.now() - 86400000);
   const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
   if (sameDay(d, today)) return 'Today';
   if (sameDay(d, yesterday)) return 'Yesterday';
   return d.toLocaleDateString();
