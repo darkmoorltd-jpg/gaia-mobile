@@ -82,6 +82,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'CHAT',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="M" focused={focused} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
