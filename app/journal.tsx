@@ -7,6 +7,7 @@ import { useTheme, spacing, radius, typography } from '../src/theme';
 import { NeonButton, GlassCard, Pill } from '../src/components';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
+import { shareToWhatsApp } from '../src/utils/share';
 
 type Tab = 'journal' | 'diary' | 'timeline';
 
@@ -58,8 +59,10 @@ export default function Journal() {
   };
 
   const shareWhatsApp = (e: any) => {
-    const text = e.kind === 'photo' ? 'Check out my crop: ' + e.image_url : 'Field note: ' + e.note;
-    Linking.openURL('whatsapp://send?text=' + encodeURIComponent(text));
+    shareToWhatsApp({
+      text: e.kind === 'photo' ? 'Check out my crop' : e.note,
+      imageUrl: e.image_url,
+    }, user?.id);
   };
 
   return (
