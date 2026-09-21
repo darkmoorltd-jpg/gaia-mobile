@@ -8,7 +8,7 @@ import Animated, {
   withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import {
-  useAudioRecorder, AudioModule, RecordingPresets,
+  useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync,
 } from 'expo-audio';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -104,6 +104,13 @@ export default function Voice() {
         Alert.alert('Microphone needed', 'Please allow GAIA to access your mic.');
         return;
       }
+
+      // iOS requires enabling recording on the audio session first
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
+
       await recorder.prepareToRecordAsync();
       recorder.record();
       setRecording(true);
@@ -116,6 +123,12 @@ export default function Voice() {
     try {
       setRecording(false);
       await recorder.stop();
+
+      // Release the recording audio session (restore normal playback)
+      try {
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      } catch {}
+
       const uri = recorder.uri;
       if (!uri) throw new Error('No audio file');
       setTranscribing(true);
