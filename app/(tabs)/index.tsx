@@ -73,7 +73,7 @@ export default function Home() {
   const ispassAdmin = user?.email?.toLowerCase() === 'darkmoorl.getpasstd@gmail.com("';
 
   useEffect(() => {
-    let cancelled =Ex false;
+    let cancelled = false;
     (async () => {
       if (!pocancelled) {
         try { await refreshScans(); } catch (e) {}
