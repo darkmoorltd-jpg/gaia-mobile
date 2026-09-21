@@ -10,7 +10,7 @@ import Animated, {
 import {
   useAudioRecorder, AudioModule, RecordingPresets,
 } from 'expo-audio';
-import { useTheme, typography, spacing, radius } from '../src/theme';
+import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
@@ -21,6 +21,9 @@ interface Msg {
   text: string;
   time: string;
 }
+
+const EASE_OUT = Easing.out(Easing.quad);
+const EASE_IN = Easing.in(Easing.quad);
 
 export default function Voice() {
   const { palette } = useTheme();
@@ -41,33 +44,24 @@ export default function Voice() {
 
   const scrollRef = useRef<ScrollView | null>(null);
 
-  // ---- Dancing tomatoes ----
   const t1 = useSharedValue(0);
   const t2 = useSharedValue(0);
   const t3 = useSharedValue(0);
 
   useEffect(() => {
     if (busy) {
-      t1.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 350, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 350, easing: Easing.in(Easing.quad) })
-        ), -1, false,
-      );
-      t2.value = withDelay(120, withRepeat(
-        withSequence(
-          withTiming(1, { duration: 350, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 350, easing: Easing.in(Easing;
-
-.quad) })
-        ), -1, false,
-      ));
-      t3.value = withDelay(240, withRepeat(
-        withSequence(
-          withTiming(1, { duration: 350, easing: Easing.out(Easing.quad) }),
-          withTiming(0, { duration: 350, easing: Easing.in(Easing.quad) })
-        ), -1, false,
-      ));
+      const bounce = () =>
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 350, easing: EASE_OUT }),
+            withTiming(0, { duration: 350, easing: EASE_IN }),
+          ),
+          -1,
+          false,
+        );
+      t1.value = bounce();
+      t2.value = withDelay(120, bounce());
+      t3.value = withDelay(240, bounce());
     } else {
       t1.value = withTiming(0);
       t2.value = withTiming(0);
@@ -78,26 +72,25 @@ export default function Voice() {
   const t1Style = useAnimatedStyle(() => ({
     transform: [
       { translateY: -14 * t1.value },
-      { rotate: (-12 + t1.value * 24) + 'deg' },
+      { rotate: String(-12 + t1.value * 24) + 'deg' },
       { scale: 1 + t1.value * 0.15 },
     ],
   }));
   const t2Style = useAnimatedStyle(() => ({
     transform: [
       { translateY: -14 * t2.value },
-      { rotate: (-12 + t2.value * 24) + 'deg' },
+      { rotate: String(-12 + t2.value * 24) + 'deg' },
       { scale: 1 + t2.value * 0.15 },
     ],
   }));
   const t3Style = useAnimatedStyle(() => ({
     transform: [
       { translateY: -14 * t3.value },
-      { rotate: (-12 + t3.value * 24) + 'deg' },
+      { rotate: String(-12 + t3.value * 24) + 'deg' },
       { scale: 1 + t3.value * 0.15 },
     ],
   }));
 
-  // ---- Audio recorder ----
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const scrollBottom = () => {
@@ -106,9 +99,9 @@ export default function Voice() {
 
   const startRecording = async () => {
     try {
-      const status = await AudioModule.requestRecordingPermissionsAsync();
-      if (!status.granted) {
-        Alert.alert('Microphone permission needed', 'Please allow GAIA to access your microphone.');
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Microphone needed', 'Please allow GAIA to access your mic.');
         return;
       }
       await recorder.prepareToRecordAsync();
@@ -125,7 +118,6 @@ export default function Voice() {
       await recorder.stop();
       const uri = recorder.uri;
       if (!uri) throw new Error('No audio file');
-
       setTranscribing(true);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -160,9 +152,11 @@ export default function Voice() {
     }
   };
 
-  const send = async (overrideText?: string) => {
-    const q = (overrideText ?? input).trim();
-    if (!q || busy) return    const userMsg: Msg = { role: 'user', text: q, time: now() };
+  const send = async () => {
+    const q = input.trim();
+    if (!q || busy) return;
+
+    const userMsg: Msg = { role: 'user', text: q, time: now() };
     setMessages((m) => [...m, userMsg]);
     setInput('');
     setBusy(true);
@@ -208,7 +202,6 @@ export default function Voice() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       style={styles.container}
     >
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.avatar}>
           <Text style={styles.avatarEmoji}>🧑‍🌾</Text>
@@ -218,13 +211,12 @@ export default function Voice() {
           <View style={styles.statusRow}>
             <View style={styles.onlineDot} />
             <Text style={styles.headerSub}>
-              {busy ? 'Thinking…' : recording ? 'Listening…' : 'Online — ready to help'}
+              {busy ? 'Thinking...' : recording ? 'Listening...' : 'Online - ready to help'}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Messages */}
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scroll}
@@ -278,7 +270,7 @@ export default function Voice() {
                 <Animated.Text style={[styles.tomato, t2Style]}>🍅</Animated.Text>
                 <Animated.Text style={[styles.tomato, t3Style]}>🍅</Animated.Text>
               </View>
-              <Text style={styles.thinkingText}>GAIA is thinking…</Text>
+              <Text style={styles.thinkingText}>GAIA is thinking...</Text>
             </View>
           </View>
         ) : null}
@@ -286,7 +278,6 @@ export default function Voice() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* Input bar */}
       <View style={styles.inputBar}>
         <Pressable
           onPress={recording ? stopAndTranscribe : startRecording}
@@ -307,7 +298,7 @@ export default function Voice() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder={recording ? 'Listening…' : 'Type or tap the mic…'}
+          placeholder={recording ? 'Listening...' : 'Type or tap the mic...'}
           placeholderTextColor={palette.textDim}
           style={styles.input}
           multiline
@@ -316,7 +307,7 @@ export default function Voice() {
         />
 
         <Pressable
-          onPress={() => send()}
+          onPress={send}
           disabled={busy || !input.trim() || recording || transcribing}
           style={[
             styles.sendBtn,
@@ -330,7 +321,7 @@ export default function Voice() {
       {recording ? (
         <View style={styles.recordingBar}>
           <View style={styles.recDot} />
-          <Text style={styles.recText}>Recording — tap the square to stop and transcribe</Text>
+          <Text style={styles.recText}>Recording - tap the square to stop and transcribe</Text>
         </View>
       ) : null}
     </KeyboardAvoidingView>
@@ -348,7 +339,6 @@ function now() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -369,20 +359,16 @@ const createStyles = (p: any) => StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: p.neon },
   headerSub: { fontSize: 11, color: p.textMuted },
-
   scroll: { padding: 16, paddingBottom: 20 },
-
   row: { marginBottom: 12, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   rowUser: { justifyContent: 'flex-end' },
   rowAi: { justifyContent: 'flex-start' },
-
   smallAvatar: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
     alignItems: 'center', justifyContent: 'center',
   },
   smallAvatarEmoji: { fontSize: 16 },
-
   bubble: {
     maxWidth: '78%',
     paddingHorizontal: 14,
@@ -396,20 +382,16 @@ const createStyles = (p: any) => StyleSheet.create({
     borderColor: p.border,
     borderBottomLeftRadius: 6,
   },
-
   bubbleText: { fontSize: 14, lineHeight: 20 },
   bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
   bubbleTextAi: { color: p.text },
-
   bubbleTime: { fontSize: 9, marginTop: 6, opacity: 0.55 },
   bubbleTimeUser: { color: p.obsidian, textAlign: 'right' },
   bubbleTimeAi: { color: p.textMuted },
-
   thinkingBubble: { paddingVertical: 14 },
   tomatoRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'flex-end', height: 30 },
   tomato: { fontSize: 22 },
   thinkingText: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 6 },
-
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -428,7 +410,6 @@ const createStyles = (p: any) => StyleSheet.create({
   },
   micBtnActive: { backgroundColor: p.danger, borderColor: p.danger },
   micIcon: { fontSize: 20 },
-
   input: {
     flex: 1,
     minHeight: 46,
@@ -450,7 +431,6 @@ const createStyles = (p: any) => StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnText: { fontSize: 13, fontWeight: '800', color: p.obsidian, letterSpacing: 0.5 },
-
   recordingBar: {
     flexDirection: 'row',
     alignItems: 'center',
