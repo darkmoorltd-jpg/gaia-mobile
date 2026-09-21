@@ -49,10 +49,7 @@ export default function Profile() {
 
     setBusy(true);
     try {
-      const asset = res.assets[0    { label: 'Affiliate Program', route: '/affiliate' },
-    { label: 'Sponsored Ads', route: '/ads' },
-    { label: 'B2B Dashboard', route: '/b2b-dashboard' },
-];
+      const asset = res.assets[0];
       const response = await fetch(asset.uri);
       const arrayBuffer = await new Response(response.body ?? response).arrayBuffer();
       const path = user.id + '/' + Date.now() + '.jpg';
@@ -90,7 +87,10 @@ export default function Profile() {
     { label: 'University',         route: '/university' },
     { label: 'Farming Calendar',   route: '/calendar' },
     { label: 'Help and Support',   route: '/help' },
-    { label: 'Settings',           route: '/settings' },
+    { label: 'Settings',           route: '/settings' },,
+    { label: 'Affiliate Program', route: '/affiliate' },
+    { label: 'Sponsored Ads', route: '/ads' },
+    { label: 'B2B Dashboard', route: '/b2b-dashboard' },
   ];
 
   return (
