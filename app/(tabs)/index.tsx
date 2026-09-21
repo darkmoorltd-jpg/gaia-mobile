@@ -69,6 +69,7 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Header */}
         <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
           <View style={styles.flex1}>
             <Text style={styles.greeting}>{greeting},</Text>
@@ -80,6 +81,7 @@ export default function Home() {
           </LinearGradient>
         </Animated.View>
 
+        {/* Plan card */}
         <Animated.View entering={FadeInDown.delay(80).duration(500)}>
           <LinearGradient colors={[palette.neonSoft, palette.surface]} style={styles.planCard}>
             <View style={styles.flex1}>
@@ -92,22 +94,60 @@ export default function Home() {
           </LinearGradient>
         </Animated.View>
 
+        {/* ============================================ */}
+        {/* GAIA AGRONOMIST — hero tile                  */}
+        {/* ============================================ */}
+        <Animated.View entering={FadeInDown.delay(140).duration(550)}>
+          <Pressable
+            onPress={() => router.push('/voice' as any)}
+            style={({ pressed }) => [
+              styles.heroOuter,
+              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+            ]}
+          >
+            <LinearGradient
+              colors={['#00cc6a', '#009e52', '#00582e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroBg}
+            >
+              <View style={styles.heroLeft}>
+                <Text style={styles.heroEmoji}>🧑‍🌾</Text>
+              </View>
+              <View style={styles.heroRight}>
+                <View style={styles.heroBadgeRow}>
+                  <View style={styles.heroDot} />
+                  <Text style={styles.heroBadgeText}>LIVE</Text>
+                </View>
+                <Text style={styles.heroTitle}>GAIA Agronomist</Text>
+                <Text style={styles.heroSub}>Voice + chat · ask me anything</Text>
+              </View>
+              <View style={styles.heroArrowWrap}>
+                <Text style={styles.heroArrow}>›</Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+
+        {/* Diagnose grid */}
         <Text style={styles.sectionLabel}>DIAGNOSE</Text>
         <View style={styles.grid}>
           {DIAGNOSE.map((item, i) => (
-            <Tile key={item.key} item={item} delay={120 + i * 60} />
+            <Tile key={item.key} item={item} delay={220 + i * 60} />
           ))}
         </View>
 
+        {/* Explore grid */}
         <Text style={styles.sectionLabel}>EXPLORE</Text>
         <View style={styles.grid}>
           {EXTRAS.map((item, i) => (
-            <Tile key={item.key} item={item} delay={360 + i * 60} />
+            <Tile key={item.key} item={item} delay={480 + i * 60} />
           ))}
         </View>
 
+        {/* Admin */}
         {isAdmin ? (
-          <Animated.View entering={FadeInDown.delay(500).duration(400)}>
+          <Animated.View entering={FadeInDown.delay(600).duration(400)}>
             <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
               <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
               <Text style={styles.adminArrow}>›</Text>
@@ -137,6 +177,58 @@ const createStyles = (p: any) =>
     planValue: { fontSize: 22, fontWeight: '900', color: p.neon, marginTop: 2 },
     planBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: p.neon },
     planBtnText: { fontSize: 11, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+
+    // ============================================
+    // HERO TILE — GAIA Agronomist
+    // ============================================
+    heroOuter: {
+      marginTop: 20,
+      borderRadius: 24,
+      overflow: 'hidden',
+      shadowColor: '#00cc6a',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    heroBg: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 20,
+      borderRadius: 24,
+    },
+    heroLeft: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 16,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.35)',
+    },
+    heroEmoji: { fontSize: 34 },
+    heroRight: { flex: 1 },
+    heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+    heroDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ffffff' },
+    heroBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: '#ffffff' },
+    heroTitle: { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
+    heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2, fontWeight: '500' },
+    heroArrowWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroArrow: { fontSize: 22, color: '#ffffff', fontWeight: '300', lineHeight: 24 },
+
+    // ============================================
+    // GRIDS
+    // ============================================
     sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5, color: p.textMuted, marginTop: 32, marginBottom: 12 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
     tileOuter: { width: TILE_W },
@@ -146,6 +238,10 @@ const createStyles = (p: any) =>
     tileOverlay: { padding: 14 },
     tileTitle: { fontSize: 18, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
     tileSub: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+
+    // ============================================
+    // ADMIN
+    // ============================================
     adminCard: { marginTop: 24, padding: 16, borderRadius: 16, borderWidth: 1.5, borderColor: p.danger, backgroundColor: 'rgba(255,60,90,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     adminLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: p.danger },
     adminArrow: { fontSize: 22, color: p.danger },
