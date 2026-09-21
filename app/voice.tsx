@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
-  Modal, useWindowDimensions,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
-  withTiming, withDelay, Easing, withSpring,
+  withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import {
   useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync,
@@ -40,17 +40,16 @@ export default function Voice() {
   const { user } = useAuth();
   const { width: screenW } = useWindowDimensions();
   const styles = createStyles(palette);
-  const markdownStyles = createMarkdownStyles(palette);
+  const markdownRules = createMarkdownRules(palette);
 
   const drawerWidth = Math.min(320, screenW * 0.85);
 
-  // ---- State ----
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: 'ai',
       text:
         'Hello. I am **GAIA**, your personal agronomist.\n\n' +
-        'Ask me anything about your farm — crops, pests, soil, or livestock.\n\n' +
+        'Ask me anything about your farm - crops, pests, soil, or livestock.\n\n' +
         'Tap the mic to speak, or the speaker icon on any reply to have me read it aloud.',
       time: now(),
     },
@@ -67,7 +66,6 @@ export default function Voice() {
   const scrollRef = useRef<ScrollView | null>(null);
   const drawerX = useSharedValue(-drawerWidth);
 
-  // ---- Dancing tomatoes ----
   const t1 = useSharedValue(0);
   const t2 = useSharedValue(0);
   const t3 = useSharedValue(0);
@@ -115,7 +113,6 @@ export default function Voice() {
     ],
   }));
 
-  // ---- Sidebar animation ----
   useEffect(() => {
     drawerX.value = withTiming(sidebarOpen ? 0 : -drawerWidth, { duration: 240 });
   }, [sidebarOpen, drawerWidth]);
@@ -128,14 +125,12 @@ export default function Voice() {
     opacity: sidebarOpen ? 1 : 0,
   }));
 
-  // ---- Audio recorder ----
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
   const scrollBottom = () => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
   };
 
-  // ---- Load conversations on mount ----
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -151,7 +146,6 @@ export default function Voice() {
     })();
   }, [user]);
 
-  // ---- Save a single message ----
   const saveMessage = async (convId: string, role: 'user' | 'ai', text: string) => {
     if (!user) return;
     try {
@@ -164,12 +158,11 @@ export default function Voice() {
     } catch {}
   };
 
-  // ---- Create new conversation ----
   const ensureConversation = async (firstUserMsg: string): Promise<string | null> => {
     if (!user) return null;
     if (currentConvId) return currentConvId;
     try {
-      const title = firstUserMsg.slice(0, 40) + (firstUserMsg.length > 40 ? '…' : '');
+      const title = firstUserMsg.slice(0, 40) + (firstUserMsg.length > 40 ? '...' : '');
       const { data, error } = await supabase
         .from('agronomist_conversations')
         .insert({ user_id: user.id, title })
@@ -193,7 +186,6 @@ export default function Voice() {
     } catch {}
   };
 
-  // ---- Load a past conversation ----
   const loadConversation = async (conv: Conv) => {
     setSidebarOpen(false);
     try {
@@ -216,21 +208,18 @@ export default function Voice() {
     } catch {}
   };
 
-  // ---- Start a fresh conversation ----
   const startNewConversation = () => {
     setCurrentConvId(null);
     setMessages([
       {
         role: 'ai',
-        text:
-          'New conversation. Ask me anything about your farm — crops, pests, soil, or livestock.',
+        text: 'New conversation. Ask me anything about your farm - crops, pests, soil, or livestock.',
         time: now(),
       },
     ]);
     setSidebarOpen(false);
   };
 
-  // ---- Recording ----
   const startRecording = async () => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
@@ -288,7 +277,6 @@ export default function Voice() {
     }
   };
 
-  // ---- Send ----
   const send = async () => {
     const q = input.trim();
     if (!q || busy) return;
@@ -304,7 +292,6 @@ export default function Voice() {
     setBusy(true);
     scrollBottom();
 
-    // Ensure conversation and save the user message
     const convId = await ensureConversation(q);
     if (convId) {
       await saveMessage(convId, 'user', q);
@@ -345,15 +332,12 @@ export default function Voice() {
     }
   };
 
-  // ---- Copy ----
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
     Alert.alert('Copied', 'Message copied to clipboard.');
   };
 
-  // ---- TTS ----
   const speak = async (text: string, idx: number) => {
-    // Stop if already speaking this one
     if (speakingIdx === idx) {
       Speech.stop();
       setSpeakingIdx(null);
@@ -361,7 +345,6 @@ export default function Voice() {
     }
     Speech.stop();
     setSpeakingIdx(idx);
-    // Strip markdown so TTS doesn't read "asterisk asterisk"
     const clean = text
       .replace(/```[\s\S]*?```/g, ' code block ')
       .replace(/`([^`]+)`/g, '$1')
@@ -386,29 +369,27 @@ export default function Voice() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       style={styles.container}
     >
-      {/* ===== Header ===== */}
       <View style={styles.header}>
         <Pressable onPress={() => setSidebarOpen(true)} style={styles.hamburger}>
-          <Text style={styles.hamburgerIcon}>☰</Text>
+          <Text style={styles.hamburgerIcon}>H</Text>
         </Pressable>
         <View style={styles.avatar}>
-          <Text style={styles.avatarEmoji}>🧑‍🌾</Text>
+          <Text style={styles.avatarEmoji}>GA</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>GAIA Agronomist</Text>
           <View style={styles.statusRow}>
             <View style={styles.onlineDot} />
             <Text style={styles.headerSub}>
-              {busy ? 'Thinking...' : recording ? 'Listening...' : 'Online — ready to help'}
+              {busy ? 'Thinking...' : recording ? 'Listening...' : 'Online - ready to help'}
             </Text>
           </View>
         </View>
         <Pressable onPress={startNewConversation} style={styles.newChatBtn}>
-          <Text style={styles.newChatIcon}>＋</Text>
+          <Text style={styles.newChatIcon}>N</Text>
         </Pressable>
       </View>
 
-      {/* ===== Messages ===== */}
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scroll}
@@ -422,7 +403,7 @@ export default function Voice() {
           >
             {m.role === 'ai' ? (
               <View style={styles.smallAvatar}>
-                <Text style={styles.smallAvatarEmoji}>🧑‍🌾</Text>
+                <Text style={styles.smallAvatarEmoji}>GA</Text>
               </View>
             ) : null}
 
@@ -435,7 +416,7 @@ export default function Voice() {
               {m.role === 'user' ? (
                 <Text style={styles.bubbleTextUser}>{m.text}</Text>
               ) : (
-                <Markdown style={markdownStyles}>{m.text}</Markdown>
+                <Markdown style={markdownRules}>{m.text}</Markdown>
               )}
 
               <View style={styles.bubbleFooter}>
@@ -449,12 +430,12 @@ export default function Voice() {
                 </Text>
                 <View style={styles.actions}>
                   <Pressable onPress={() => copyToClipboard(m.text)} style={styles.actionBtn}>
-                    <Text style={styles.actionIcon}>⧉</Text>
+                    <Text style={styles.actionIcon}>C</Text>
                   </Pressable>
                   {m.role === 'ai' ? (
                     <Pressable onPress={() => speak(m.text, i)} style={styles.actionBtn}>
                       <Text style={styles.actionIcon}>
-                        {speakingIdx === i ? '⏸' : '🔊'}
+                        {speakingIdx === i ? 'P' : 'S'}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -467,13 +448,13 @@ export default function Voice() {
         {busy ? (
           <View style={[styles.row, styles.rowAi]}>
             <View style={styles.smallAvatar}>
-              <Text style={styles.smallAvatarEmoji}>🧑‍🌾</Text>
+              <Text style={styles.smallAvatarEmoji}>GA</Text>
             </View>
             <View style={[styles.bubble, styles.bubbleAi, styles.thinkingBubble]}>
               <View style={styles.tomatoRow}>
-                <Animated.Text style={[styles.tomato, t1Style]}>🍅</Animated.Text>
-                <Animated.Text style={[styles.tomato, t2Style]}>🍅</Animated.Text>
-                <Animated.Text style={[styles.tomato, t3Style]}>🍅</Animated.Text>
+                <Animated.Text style={[styles.tomato, t1Style]}>{'\uD83C\uDF45'}</Animated.Text>
+                <Animated.Text style={[styles.tomato, t2Style]}>{'\uD83C\uDF45'}</Animated.Text>
+                <Animated.Text style={[styles.tomato, t3Style]}>{'\uD83C\uDF45'}</Animated.Text>
               </View>
               <Text style={styles.thinkingText}>GAIA is thinking...</Text>
             </View>
@@ -483,7 +464,6 @@ export default function Voice() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ===== Input bar ===== */}
       <View style={styles.inputBar}>
         <Pressable
           onPress={recording ? stopAndTranscribe : startRecording}
@@ -497,7 +477,7 @@ export default function Voice() {
           {transcribing ? (
             <ActivityIndicator color={palette.obsidian} size="small" />
           ) : (
-            <Text style={styles.micIcon}>{recording ? '■' : '🎤'}</Text>
+            <Text style={styles.micIcon}>{recording ? 'X' : 'M'}</Text>
           )}
         </Pressable>
 
@@ -527,11 +507,10 @@ export default function Voice() {
       {recording ? (
         <View style={styles.recordingBar}>
           <View style={styles.recDot} />
-          <Text style={styles.recText}>Recording — tap the square to stop and transcribe</Text>
+          <Text style={styles.recText}>Recording - tap X to stop and transcribe</Text>
         </View>
       ) : null}
 
-      {/* ===== Sidebar (history) ===== */}
       <Modal visible={sidebarOpen} transparent animationType="none" onRequestClose={() => setSidebarOpen(false)}>
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={sidebarOpen ? 'auto' : 'none'}>
           <Pressable style={{ flex: 1 }} onPress={() => setSidebarOpen(false)} />
@@ -544,7 +523,7 @@ export default function Voice() {
           </View>
 
           <Pressable onPress={startNewConversation} style={styles.drawerNewBtn}>
-            <Text style={styles.drawerNewText}>＋  New conversation</Text>
+            <Text style={styles.drawerNewText}>+ New conversation</Text>
           </Pressable>
 
           <ScrollView contentContainerStyle={styles.drawerScroll}>
@@ -573,9 +552,6 @@ export default function Voice() {
   );
 }
 
-// ============================================
-// Utilities
-// ============================================
 function now() {
   const d = new Date();
   const h = d.getHours();
@@ -599,268 +575,263 @@ function timeOf(iso: string) {
   }
 }
 
-// ============================================
-// Styles
-// ============================================
-const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
+const createStyles = (p: any) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: p.obsidian },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingTop: Platform.OS === 'ios' ? 60 : 40,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: p.border,
+    },
+    hamburger: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hamburgerIcon: { fontSize: 18, color: p.text, fontWeight: '700' },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: p.neonSoft,
+      borderWidth: 1,
+      borderColor: p.borderHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarEmoji: { fontSize: 13, color: p.neon, fontWeight: '900' },
+    headerTitle: { fontSize: 16, fontWeight: '900', color: p.text, letterSpacing: -0.3 },
+    statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+    onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: p.neon },
+    headerSub: { fontSize: 11, color: p.textMuted },
+    newChatBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: p.neonSoft,
+      borderWidth: 1,
+      borderColor: p.borderHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    newChatIcon: { fontSize: 16, color: p.neon, fontWeight: '900' },
+    scroll: { padding: 16, paddingBottom: 20 },
+    row: { marginBottom: 14, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    rowUser: { justifyContent: 'flex-end' },
+    rowAi: { justifyContent: 'flex-start' },
+    smallAvatar: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: p.neonSoft,
+      borderWidth: 1,
+      borderColor: p.borderHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    smallAvatarEmoji: { fontSize: 10, color: p.neon, fontWeight: '900' },
+    bubble: {
+      maxWidth: '82%',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 18,
+    },
+    bubbleUser: { backgroundColor: p.neon, borderBottomRightRadius: 5 },
+    bubbleAi: {
+      backgroundColor: p.surface,
+      borderWidth: 1,
+      borderColor: p.border,
+      borderBottomLeftRadius: 5,
+    },
+    bubbleTextUser: { fontSize: 15, lineHeight: 21, color: p.obsidian, fontWeight: '600' },
+    bubbleFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 8,
+    },
+    bubbleTime: { fontSize: 9, opacity: 0.6 },
+    bubbleTimeUser: { color: p.obsidian },
+    bubbleTimeAi: { color: p.textMuted },
+    actions: { flexDirection: 'row', gap: 8 },
+    actionBtn: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+    actionIcon: { fontSize: 12, color: p.neon, fontWeight: '700' },
+    thinkingBubble: { paddingVertical: 14 },
+    tomatoRow: {
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      height: 30,
+    },
+    tomato: { fontSize: 22 },
+    thinkingText: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 6 },
+    inputBar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: p.border,
+      backgroundColor: p.obsidian,
+    },
+    micBtn: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: p.surface,
+      borderWidth: 1.5,
+      borderColor: p.borderHi,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    micBtnActive: { backgroundColor: p.danger, borderColor: p.danger },
+    micIcon: { fontSize: 16, color: p.neon, fontWeight: '900' },
+    input: {
+      flex: 1,
+      minHeight: 46,
+      maxHeight: 120,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 23,
+      backgroundColor: p.surface,
+      borderWidth: 1,
+      borderColor: p.border,
+      color: p.text,
+      fontSize: 14,
+    },
+    sendBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      borderRadius: 23,
+      backgroundColor: p.neon,
+      justifyContent: 'center',
+    },
+    sendBtnText: { fontSize: 13, fontWeight: '800', color: p.obsidian, letterSpacing: 0.5 },
+    recordingBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      backgroundColor: 'rgba(255, 60, 90, 0.12)',
+      borderTopWidth: 1,
+      borderTopColor: p.danger,
+    },
+    recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: p.danger },
+    recText: { fontSize: 12, color: p.danger, fontWeight: '600' },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+    drawer: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: p.abyss,
+      borderRightWidth: 1,
+      borderRightColor: p.border,
+    },
+    drawerHeader: {
+      paddingHorizontal: 20,
+      paddingTop: Platform.OS === 'ios' ? 70 : 50,
+      paddingBottom: 16,
+    },
+    drawerKicker: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.neon },
+    drawerTitle: {
+      fontSize: 24,
+      fontWeight: '900',
+      color: p.text,
+      letterSpacing: -0.8,
+      marginTop: 4,
+    },
+    drawerNewBtn: {
+      marginHorizontal: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      backgroundColor: p.neonSoft,
+      borderWidth: 1,
+      borderColor: p.borderHi,
+    },
+    drawerNewText: { color: p.neon, fontWeight: '800', fontSize: 14 },
+    drawerScroll: { padding: 16 },
+    drawerItem: {
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: p.surface,
+      borderWidth: 1,
+      borderColor: p.border,
+      marginBottom: 8,
+    },
+    drawerItemActive: { borderColor: p.borderHi, backgroundColor: p.neonSoft },
+    drawerItemTitle: { color: p.text, fontSize: 13, fontWeight: '700' },
+    drawerItemDate: { color: p.textMuted, fontSize: 10, marginTop: 4 },
+    drawerEmpty: { color: p.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 30 },
+  });
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: p.border,
-  },
-  hamburger: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  hamburgerIcon: { fontSize: 22, color: p.text, fontWeight: '700' },
-  avatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarEmoji: { fontSize: 20 },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: p.text, letterSpacing: -0.3 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: p.neon },
-  headerSub: { fontSize: 11, color: p.textMuted },
-  newChatBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  newChatIcon: { fontSize: 20, color: p.neon, fontWeight: '900' },
-
-  scroll: { padding: 16, paddingBottom: 20 },
-
-  row: { marginBottom: 14, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  rowUser: { justifyContent: 'flex-end' },
-  rowAi: { justifyContent: 'flex-start' },
-  smallAvatar: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  smallAvatarEmoji: { fontSize: 15 },
-
-  bubble: {
-    maxWidth: '82%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 18,
-  },
-  bubbleUser: { backgroundColor: p.neon, borderBottomRightRadius: 5 },
-  bubbleAi: {
-    backgroundColor: p.surface,
-    borderWidth: 1,
-    borderColor: p.border,
-    borderBottomLeftRadius: 5,
-  },
-  bubbleTextUser: { fontSize: 15, lineHeight: 21, color: p.obsidian, fontWeight: '600' },
-
-  bubbleFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  bubbleTime: { fontSize: 9, opacity: 0.6 },
-  bubbleTimeUser: { color: p.obsidian },
-  bubbleTimeAi: { color: p.textMuted },
-
-  actions: { flexDirection: 'row', gap: 8 },
-  actionBtn: {
-    paddingHorizontal: 6, paddingVertical: 2,
-    borderRadius: 6,
-  },
-  actionIcon: { fontSize: 14, color: p.neon, opacity: 0.85 },
-
-  thinkingBubble: { paddingVertical: 14 },
-  tomatoRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'flex-end', height: 30 },
-  tomato: { fontSize: 22 },
-  thinkingText: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 6 },
-
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: p.border,
-    backgroundColor: p.obsidian,
-  },
-  micBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: p.surface,
-    borderWidth: 1.5, borderColor: p.borderHi,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  micBtnActive: { backgroundColor: p.danger, borderColor: p.danger },
-  micIcon: { fontSize: 20 },
-  input: {
-    flex: 1,
-    minHeight: 46,
-    maxHeight: 120,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 23,
-    backgroundColor: p.surface,
-    borderWidth: 1,
-    borderColor: p.border,
-    color: p.text,
-    fontSize: 14,
-  },
-  sendBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 23,
-    backgroundColor: p.neon,
-    justifyContent: 'center',
-  },
-  sendBtnText: { fontSize: 13, fontWeight: '800', color: p.obsidian, letterSpacing: 0.5 },
-
-  recordingBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, paddingVertical: 10,
-    backgroundColor: 'rgba(255, 60, 90, 0.12)',
-    borderTopWidth: 1, borderTopColor: p.danger,
-  },
-  recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: p.danger },
-  recText: { fontSize: 12, color: p.danger, fontWeight: '600' },
-
-  // ---- Sidebar ----
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  drawer: {
-    position: 'absolute',
-    top: 0, bottom: 0, left: 0,
-    backgroundColor: p.abyss,
-    borderRightWidth: 1,
-    borderRightColor: p.border,
-  },
-  drawerHeader: {
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 70 : 50,
-    paddingBottom: 16,
-  },
-  drawerKicker: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.neon },
-  drawerTitle: { fontSize: 24, fontWeight: '900', color: p.text, letterSpacing: -0.8, marginTop: 4 },
-  drawerNewBtn: {
-    marginHorizontal: 16,
-    paddingVertical: 14, paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: p.neonSoft,
-    borderWidth: 1, borderColor: p.borderHi,
-  },
-  drawerNewText: { color: p.neon, fontWeight: '800', fontSize: 14 },
-  drawerScroll: { padding: 16 },
-  drawerItem: {
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: p.surface,
-    borderWidth: 1, borderColor: p.border,
-    marginBottom: 8,
-  },
-  drawerItemActive: { borderColor: p.borderHi, backgroundColor: p.neonSoft },
-  drawerItemTitle: { color: p.text, fontSize: 13, fontWeight: '700' },
-  drawerItemDate: { color: p.textMuted, fontSize: 10, marginTop: 4 },
-  drawerEmpty: { color: p.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 30 },
-});
-
-// ============================================
-// Markdown styles
-// ============================================
-const createMarkdownStyles = (p: any) => StyleSheet.create({
-  body: { color: p.text, fontSize: 15, lineHeight: 22 },
-  heading1: { color: p.text, fontSize: 20, fontWeight: '900', marginTop: 8, marginBottom: 6 },
-  heading2: { color: p.text, fontSize: 18, fontWeight: '800', marginTop: 8, marginBottom: 4 },
-  heading3: { color: p.text, fontSize: 16, fontWeight: '700', marginTop: 6, marginBottom: 4 },
-  strong: { fontWeight: '800', color: p.text },
-  backgroundColor em: { fontStyle: 'italic' },
-  paragraph: {: marginTop: 4, marginBottom: 6 ', flexWrap: 'wrap' },
-  bullet_list: { marginVertical: 4 },
-  ordered_list: { marginVertical: 4 },
-  list_item: { marginVertical: 2 },
-  bullet_list_icon: { color: p.neon, marginRight: 6 },
-  ordered_list_icon: { color: p.neon, marginRight: 6 },
-  code_inline: {
-    backgroundColor: 'rgba(0,255,136,0.12)',
-    color: p.neon,
-    paddingHorizontal: 4,
-    borderRadius: 4,
-    fontFamily: 'monospace',
-    fontSize: 13,
-  },
-  code_block: {
-    backgroundColor: p.abyss,
-    borderColor: p.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: p.text,
-    marginVertical: 6,
-  },
-  fence: {
-    backgroundColor: p.abyss,
-    borderColor: p.border,
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: p.text,
-    marginVertical: 6,
-  },
-  blockquote: {
-    borderLeftWidth: 3,
-    borderLeftColor: p.neon,
-    paddingLeft: 10,
-    marginVertical: 6,
-    opacity: 0.9,
-  },
-  link: { color: p.neon, textDecorationLine: 'underline' },
-  hr: { backgroundColor: p.border, height: 1, marginVertical: 8 },
-  // ---- Tables ----
-  table: {
-    borderWidth: 1,
-    borderColor: p.border,
-    borderRadius: 8,
-    marginVertical: 8,
-    overflow: 'hidden',
-  },
-  thead: {rgba(0,255,136,0.10)' },
-  tbody: {},
-  tr: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: p.border,
-  },
-  th: {
-    flex: 1,
-    padding: 8,
-    fontWeight: '800',
-    color: p.text,
-    fontSize: 13,
-    borderRightWidth: 1,
-    borderRightColor: p.border,
-  },
-  td: {
-    flex: 1,
-    padding: 8,
-    color: p.text,
-    fontSize: 13,
-    borderRightWidth: 1,
-    borderRightColor: p.border,
-  },
-});
+const createMarkdownRules = (p: any) => {
+  return StyleSheet.create({
+    body: { color: p.text, fontSize: 15, lineHeight: 22 },
+    heading1: { color: p.text, fontSize: 20, fontWeight: '900', marginTop: 8, marginBottom: 6 },
+    heading2: { color: p.text, fontSize: 18, fontWeight: '800', marginTop: 8, marginBottom: 4 },
+    heading3: { color: p.text, fontSize: 16, fontWeight: '700', marginTop: 6, marginBottom: 4 },
+    strong: { fontWeight: '800', color: p.text },
+    em: { fontStyle: 'italic' },
+    paragraph: { marginTop: 4, marginBottom: 6, flexWrap: 'wrap' },
+    bullet_list: { marginVertical: 4 },
+    ordered_list: { marginVertical: 4 },
+    list_item: { marginVertical: 2 },
+    bullet_list_icon: { color: p.neon, marginRight: 6 },
+    ordered_list_icon: { color: p.neon, marginRight: 6 },
+    code_inline: {
+      backgroundColor: 'rgba(0,255,136,0.12)',
+      color: p.neon,
+      paddingHorizontal: 4,
+      borderRadius: 4,
+      fontFamily: 'monospace',
+      fontSize: 13,
+    },
+    code_block: {
+      backgroundColor: p.abyss,
+      borderColor: p.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 10,
+      fontFamily: 'monospace',
+      fontSize: 12,
+      color: p.text,
+      marginVertical: 6,
+    },
+    fence: {
+      backgroundColor: p.abyss,
+      borderColor: p.border,
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 10,
+      fontFamily: 'monospace',
+      fontSize: 12,
+      color: p.text,
+      marginVertical: 6,
+    },
+    blockquote: {
+      borderLeftWidth: 3,
+      borderLeftColor: p.neon,
+      paddingLeft: 10,
+      marginVertical: 6,
+      opacity: 0.9,
+    },
+    link: { color: p.neon, textDecorationLine: 'underline' },
+    hr: { backgroundColor: p.border, height: 1, marginVertical: 8 },
+  });
+};
