@@ -76,11 +76,12 @@ export default function Profile() {
     }
   };
 
-  const ITEMS = [
+    const ITEMS = [
     { label: 'Scan History', route: '/history' },
     { label: 'Payment History', route: '/payment-history' },
-    { label: 'Video Scan', route: '/video-scan' },
-    { label: 'Voice Agronomist', route: '/voice' },
+    { label: 'Wallet', route: '/wallet' },
+    { label: 'Badges', route: '/badges' },
+    { label: 'Verification', route: '/verification' },
     { label: 'Farm Mapping', route: '/farm-mapping' },
     { label: 'Yield Estimator', route: '/yield-estimator' },
     { label: 'Fertilizer Calculator', route: '/input-calculator' },
@@ -88,18 +89,14 @@ export default function Profile() {
     { label: 'Planting Calendar', route: '/planting-calendar' },
     { label: 'Seed Recommender', route: '/seed-recommender' },
     { label: 'Farm Journal', route: '/journal' },
-    { label: 'Satellite Monitor', route: '/satellite' },
-    { label: 'Early Warning', route: '/early-warning' },
-    { label: 'University', route: '/university' },
-    { label: 'Marketplace', route: '/marketplace' },
-    { label: 'Notifications', route: '/notifications' },
-    { label: 'Wallet', route: '/wallet' },
-    { label: 'Badges', route: '/badges' },
-    { label: 'Verification', route: '/verification' },
     { label: 'Rewards & Referral', route: '/rewards' },
     { label: 'Affiliate Program', route: '/affiliate' },
     { label: 'Sponsored Ads', route: '/ads' },
     { label: 'B2B Dashboard', route: '/b2b-dashboard' },
+    { label: 'Marketplace', route: '/marketplace' },
+    { label: 'Early Warning', route: '/early-warning' },
+    { label: 'University', route: '/university' },
+    { label: 'Farming Calendar', route: '/calendar' },
     { label: 'Help and Support', route: '/help' },
     { label: 'Settings', route: '/settings' },
   ];
