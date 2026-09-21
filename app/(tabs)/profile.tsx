@@ -49,7 +49,10 @@ export default function Profile() {
 
     setBusy(true);
     try {
-      const asset = res.assets[0];
+      const asset = res.assets[0    { label: 'Affiliate Program', route: '/affiliate' },
+    { label: 'Sponsored Ads', route: '/ads' },
+    { label: 'B2B Dashboard', route: '/b2b-dashboard' },
+];
       const response = await fetch(asset.uri);
       const arrayBuffer = await new Response(response.body ?? response).arrayBuffer();
       const path = user.id + '/' + Date.now() + '.jpg';
