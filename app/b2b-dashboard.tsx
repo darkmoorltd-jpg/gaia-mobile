@@ -24,7 +24,7 @@ export default function B2BDashboard() {
     const { data: users } = await supabase.from('user_scans').select('*').limit(500);
     const { data: scans } = await supabase.from('scan_history').select('*').limit(1000);
     const { data: profiles } = await supabase.from('user_profiles').select('*').limit(500);
-    const { data: payments }*').limit(500);
+    const { data: payments } = await supabase.from('payment_history').select('*').limit(500);
 
     const total = users?.length || 0;
     const active = scans?.filter((s) => new Date(s.created_at) > new Date(Date.now() - 30 * 86400000)).length || 0;
