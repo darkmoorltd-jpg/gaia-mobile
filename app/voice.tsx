@@ -137,9 +137,12 @@ export default function Voice() {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired');
 
+      // RN 0.86 no longer accepts {uri,name,type} in FormData on iOS.
+      // Convert the local file URI to a Blob first, then append the Blob.
+      const fileResponse = await fetch(uri);
+      const audioBlob = await fileResponse.blob();
       const form = new FormData();
-      // @ts-ignore
-      form.append('audio', { uri, name: 'voice.m4a', type: 'audio/m4a' });
+      form.append('audio', audioBlob, 'voice.m4a');
 
       const res = await fetch(API_BASE + '/transcribe', {
         method: 'POST',
