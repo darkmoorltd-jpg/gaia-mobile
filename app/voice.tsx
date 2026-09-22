@@ -15,9 +15,8 @@ import * as Clipboard from 'expo-clipboard';
 import * as Speech from 'expo-speech';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import Markdown from 'react-native-markdown-display';
-import { useTheme, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
@@ -84,14 +83,12 @@ export default function Voice() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
 
-  // Attachments
   const [attachedDocs, setAttachedDocs] = useState<AttachedDoc[]>([]);
   const [attachedImgs, setAttachedImgs] = useState<AttachedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [attachSheet, setAttachSheet] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
 
-  // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
@@ -180,7 +177,6 @@ export default function Voice() {
     })();
   }, [user]);
 
-  // ---------- Persistence ----------
   const saveMessage = async (
     convId: string,
     role: 'user' | 'ai',
@@ -275,7 +271,6 @@ export default function Voice() {
     setSidebarOpen(false);
   };
 
-  // ---------- Voice ----------
   const startRecording = async () => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
@@ -333,11 +328,9 @@ export default function Voice() {
     }
   };
 
-  // ---------- Attachments ----------
   const pickDocument = async () => {
     if (isPicking) return;
     setAttachSheet(false);
-    // Wait for the modal dismiss animation to finish (iOS blocks native pickers during transitions)
     await new Promise((r) => setTimeout(r, 400));
     setIsPicking(true);
     try {
@@ -402,22 +395,19 @@ export default function Voice() {
   const pickImage = async () => {
     if (isPicking) return;
     if (attachedImgs.length >= MAX_IMAGES) {
-      Alert.alert('Limit', `Max ${MAX_IMAGES} images per message.`);
+      Alert.alert('Limit', 'Max ' + MAX_IMAGES + ' images per message.');
       return;
     }
     setAttachSheet(false);
-    // Wait for modal dismiss
     await new Promise((r) => setTimeout(r, 400));
     setIsPicking(true);
-    tryis {
-      // Request permission first (needed on iOS and Android P13+)
-      const perm = await ImagePicker.requestMediaickingLibraryPermissionsAsync();
-      if (!perm.granted &&) {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
         Alert.alert('Permission needed', 'Please allow access to your photos.');
         return;
       }
 
-      // SDK 57 uses the array form for mediaTypes
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.6,
@@ -447,7 +437,6 @@ export default function Voice() {
   const removeAttachedImg = (idx: number) =>
     setAttachedImgs((prev) => prev.filter((_, i) => i !== idx));
 
-  // ---------- Chat ----------
   const requestAIReply = async (
     history: { role: string; content: string }[],
     document_ids?: number[],
@@ -530,12 +519,11 @@ export default function Voice() {
     }
   };
 
-  // ---------- Edit ----------
   const openEdit = (idx: number) => {
     const m = messages[idx];
     if (!m || m.role !== 'user') return;
     if ((m.edit_count ?? 0) >= MAX_EDITS) {
-      Alert.alert('Edit limit', `You can only edit ${MAX_EDITS} times.`);
+      Alert.alert('Edit limit', 'You can only edit ' + MAX_EDITS + ' times.');
       return;
     }
     setEditIdx(idx);
@@ -555,7 +543,7 @@ export default function Voice() {
     if (!msg || msg.role !== 'user') return;
     const currentCount = msg.edit_count ?? 0;
     if (currentCount >= MAX_EDITS) {
-      Alert.alert('Edit limit reached', `Max ${MAX_EDITS} edits.`);
+      Alert.alert('Edit limit reached', 'Max ' + MAX_EDITS + ' edits.');
       cancelEdit();
       return;
     }
@@ -622,7 +610,6 @@ export default function Voice() {
     }
   };
 
-  // ---------- Utils ----------
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
     Alert.alert('Copied', 'Message copied.');
@@ -782,9 +769,9 @@ export default function Voice() {
             </View>
             <View style={[styles.bubble, styles.bubbleAi, styles.thinkingBubble]}>
               <View style={styles.tomatoRow}>
-                <Animated.Text style={[styles.tomato, t1Style]}>{'\uD83C\uDF45'}</Animated.Text>
-                <Animated.Text style={[styles.tomato, t2Style]}>{'\uD83C\uDF45'}</Animated.Text>
-                <Animated.Text style={[styles.tomato, t3Style]}>{'\uD83C\uDF45'}</Animated.Text>
+                <Animated.Text style={[styles.tomato, t1Style]}>🍅</Animated.Text>
+                <Animated.Text style={[styles.tomato, t2Style]}>🍅</Animated.Text>
+                <Animated.Text style={[styles.tomato, t3Style]}>🍅</Animated.Text>
               </View>
               <Text style={styles.thinkingText}>GAIA is thinking...</Text>
             </View>
@@ -794,7 +781,6 @@ export default function Voice() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* Attachments preview */}
       {attachedDocs.length || attachedImgs.length || uploading ? (
         <View style={styles.attachmentsBar}>
           {uploading ? (
@@ -884,19 +870,18 @@ export default function Voice() {
         </View>
       ) : null}
 
-      {/* Attachment sheet */}
       <Modal visible={attachSheet} transparent animationType="slide" onRequestClose={() => setAttachSheet(false)}>
         <Pressable style={styles.sheetBackdrop} onPress={() => setAttachSheet(false)}>
           <View style={styles.sheet}>
             <Text style={styles.sheetKicker}>ATTACH</Text>
-            <Pressable onPress={() => ! pickDocument()} disabled={isPicking} style={styles.sheetOption}>
+            <Pressable onPress={pickDocument} disabled={isPicking} style={styles.sheetOption}>
               <Text style={styles.sheetIcon}>DOC</Text>
               <View>
                 <Text style={styles.sheetTitle}>Document</Text>
                 <Text style={styles.sheetSub}>PDF, DOCX, TXT - GAIA reads it</Text>
               </View>
             </Pressable>
-            <Pressable onPress={() => !isPicking && pickImage()} disabled={isPicking} style={styles.sheetOption}>
+            <Pressable onPress={pickImage} disabled={isPicking} style={styles.sheetOption}>
               <Text style={styles.sheetIcon}>IMG</Text>
               <View>
                 <Text style={styles.sheetTitle}>Image</Text>
@@ -907,7 +892,6 @@ export default function Voice() {
         </Pressable>
       </Modal>
 
-      {/* History drawer */}
       <Modal visible={sidebarOpen} transparent animationType="none" onRequestClose={() => setSidebarOpen(false)}>
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={sidebarOpen ? 'auto' : 'none'}>
           <Pressable style={{ flex: 1 }} onPress={() => setSidebarOpen(false)} />
@@ -941,7 +925,6 @@ export default function Voice() {
         </Animated.View>
       </Modal>
 
-      {/* Edit modal */}
       <Modal visible={editOpen} transparent animationType="fade" onRequestClose={cancelEdit}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
