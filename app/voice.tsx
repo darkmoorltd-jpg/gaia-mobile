@@ -367,9 +367,12 @@ export default function Voice() {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired');
 
+      // React Native FormData does not accept {uri, name, type} for picked documents.
+      // Fetch the file into a Blob first, then append the Blob directly.
+      const fileResponse = await fetch(uri);
+      const blob = await fileResponse.blob();
       const form = new FormData();
-      // @ts-ignore
-      form.append('file', { uri, name, type: mime });
+      form.append('file', blob, name);
 
       const res = await fetch(API_BASE + '/documents/upload', {
         method: 'POST',
