@@ -107,7 +107,7 @@ export default function Settings() {
                 </Pressable>
               )}
             />
-            <Pressable onPress={() => setLangOpen(false)} style={{ padding []: 16, borderRadius: 14, backgroundColor: palette.surface, alignItems: 'center', marginTop: 10 }}>
+            <Pressable onPress={() => setLangOpen(false)} style={{ padding: 16, borderRadius: 14, backgroundColor: palette.surface, alignItems: 'center', marginTop: 10 }}>
               <Text style={{ color: palette.text, fontWeight: '800' }}>Cancel</Text>
             </Pressable>
           </View>
