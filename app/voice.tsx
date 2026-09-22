@@ -17,6 +17,9 @@ import Markdown from 'react-native-markdown-display';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { speakText, stopSpeaking } from '../src/utils/tts';
+import { transcribeAudio } from '../src/utils/stt';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_EDITS = 5;
@@ -66,6 +69,11 @@ export default function Voice() {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
+  const [voiceLang, setVoiceLang] = useState('en');
+
+  useEffect(() => {
+    AsyncStorage.getItem('gaia.language').then((v) => { if (v) setVoiceLang(v); });
+  },);
 
   // ---- EDIT STATE ----
   const [editOpen, setEditOpen] = useState(false);
@@ -279,22 +287,9 @@ export default function Voice() {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired');
 
-      const fileResponse = await fetch(uri);
-      const audioBlob = await fileResponse.blob();
-      const form = new FormData();
-      form.append('audio', audioBlob, 'voice.m4a');
-
-      const res = await fetch(API_BASE + '/transcribe', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + token },
-        body: form,
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error('Transcribe ' + res.status + ': ' + errText.slice(0, 120));
-      }
-      const data = await res.json();
-      const text = (data.text || '').trim();
+      const result = await transcribeAudio(uri, voiceLang, token);
+      if (result.error) throw new Error(result.error);
+      const text = result.text;
       if (text) setInput(text);
       else Alert.alert('No speech detected', 'Please try again.');
     } catch (e: any) {
@@ -482,26 +477,16 @@ export default function Voice() {
 
   const speak = async (text: string, idx: number) => {
     if (speakingIdx === idx) {
-      Speech.stop();
+      stopSpeaking();
       setSpeakingIdx(null);
       return;
     }
-    Speech.stop();
     setSpeakingIdx(idx);
-    const clean = text
-      .replace(/```[\s\S]*?```/g, ' code block ')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/#+\s?/g, '')
-      .replace(/\|/g, ' ')
-      .replace(/\n{2,}/g, '. ');
-    Speech.speak(clean, {
-      language: 'en-US',
+    speakText(text, {
+      language: voiceLang,
       rate: 0.95,
       pitch: 1.0,
       onDone: () => setSpeakingIdx(null),
-      onStopped: () => setSpeakingIdx(null),
       onError: () => setSpeakingIdx(null),
     });
   };

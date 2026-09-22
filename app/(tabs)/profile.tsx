@@ -89,6 +89,7 @@ export default function Profile() {
     { label: 'Planting Calendar', route: '/planting-calendar' },
     { label: 'Seed Recommender', route: '/seed-recommender' },
     { label: 'Farm Journal', route: '/journal' },
+    { label: 'Savings Groups', route: '/savings-groups' },
     { label: 'Rewards & Referral', route: '/rewards' },
     { label: 'Affiliate Program', route: '/affiliate' },
     { label: 'Sponsored Ads', route: '/ads' },
