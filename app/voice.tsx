@@ -89,6 +89,7 @@ export default function Voice() {
   const [attachedImgs, setAttachedImgs] = useState<AttachedImage[]>([]);
   const [uploading, setUploading] = useState(false);
   const [attachSheet, setAttachSheet] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
 
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -334,7 +335,11 @@ export default function Voice() {
 
   // ---------- Attachments ----------
   const pickDocument = async () => {
+    if (isPicking) return;
     setAttachSheet(false);
+    // Wait for the modal dismiss animation to finish (iOS blocks native pickers during transitions)
+    await new Promise((r) => setTimeout(r, 400));
+    setIsPicking(true);
     try {
       const res = await DocumentPicker.getDocumentAsync({
         type: [
@@ -345,12 +350,19 @@ export default function Voice() {
           'text/csv',
         ],
         copyToCacheDirectory: true,
+        multiple: false,
       });
-      if (res.canceled) return;
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
       const file = res.assets[0];
-      await uploadDocument(file.uri, file.name, file.mimeType || 'application/octet-stream');
+      await uploadDocument(
+        file.uri,
+        file.name || 'document',
+        file.mimeType || 'application/octet-stream',
+      );
     } catch (e: any) {
       Alert.alert('Pick failed', e?.message || 'unknown');
+    } finally {
+      setIsPicking(false);
     }
   };
 
@@ -388,19 +400,33 @@ export default function Voice() {
   };
 
   const pickImage = async () => {
-    setAttachSheet(false);
+    if (isPicking) return;
     if (attachedImgs.length >= MAX_IMAGES) {
       Alert.alert('Limit', `Max ${MAX_IMAGES} images per message.`);
       return;
     }
-    try {
+    setAttachSheet(false);
+    // Wait for modal dismiss
+    await new Promise((r) => setTimeout(r, 400));
+    setIsPicking(true);
+    tryis {
+      // Request permission first (needed on iOS and Android P13+)
+      const perm = await ImagePicker.requestMediaickingLibraryPermissionsAsync();
+      if (!perm.granted &&) {
+        Alert.alert('Permission needed', 'Please allow access to your photos.');
+        return;
+      }
+
+      // SDK 57 uses the array form for mediaTypes
       const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.6,
         allowsEditing: false,
         base64: true,
+        exif: false,
       });
-      if (res.canceled) return;
+
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
       const asset = res.assets[0];
       const base64 = asset.base64 || '';
       if (!base64) {
@@ -411,6 +437,8 @@ export default function Voice() {
       setAttachedImgs((prev) => [...prev, { uri: asset.uri, mime, base64 }]);
     } catch (e: any) {
       Alert.alert('Pick failed', e?.message || 'unknown');
+    } finally {
+      setIsPicking(false);
     }
   };
 
@@ -804,8 +832,8 @@ export default function Voice() {
       <View style={styles.inputBar}>
         <Pressable
           onPress={() => setAttachSheet(true)}
-          disabled={busy || uploading}
-          style={[styles.attachBtn, (busy || uploading) && { opacity: 0.5 }]}
+          disabled={busy || uploading || isPicking}
+          style={[styles.attachBtn, (busy || uploading || isPicking) && { opacity: 0.5 }]}
         >
           <Text style={styles.attachIcon}>+</Text>
         </Pressable>
@@ -861,14 +889,14 @@ export default function Voice() {
         <Pressable style={styles.sheetBackdrop} onPress={() => setAttachSheet(false)}>
           <View style={styles.sheet}>
             <Text style={styles.sheetKicker}>ATTACH</Text>
-            <Pressable onPress={pickDocument} style={styles.sheetOption}>
+            <Pressable onPress={() => ! pickDocument()} disabled={isPicking} style={styles.sheetOption}>
               <Text style={styles.sheetIcon}>DOC</Text>
               <View>
                 <Text style={styles.sheetTitle}>Document</Text>
                 <Text style={styles.sheetSub}>PDF, DOCX, TXT - GAIA reads it</Text>
               </View>
             </Pressable>
-            <Pressable onPress={pickImage} style={styles.sheetOption}>
+            <Pressable onPress={() => !isPicking && pickImage()} disabled={isPicking} style={styles.sheetOption}>
               <Text style={styles.sheetIcon}>IMG</Text>
               <View>
                 <Text style={styles.sheetTitle}>Image</Text>
