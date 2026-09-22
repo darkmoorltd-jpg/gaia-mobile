@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
-  useWindowDimensions,
+  useWindowDimensions, Image,
 } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
@@ -13,16 +13,17 @@ import {
 } from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
 import * as Speech from 'expo-speech';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import Markdown from 'react-native-markdown-display';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { speakText, stopSpeaking } from '../src/utils/tts';
-import { transcribeAudio } from '../src/utils/stt';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_EDITS = 5;
+const MAX_IMAGES = 4;
 
 const EASE_OUT = Easing.out(Easing.quad);
 const EASE_IN = Easing.in(Easing.quad);
@@ -34,12 +35,25 @@ interface Msg {
   db_id?: number;
   edit_count?: number;
   edited_at?: string;
+  attachments?: { kind: 'doc' | 'image'; name: string; uri?: string; id?: number }[];
 }
 
 interface Conv {
   id: string;
   title: string;
   updated_at: string;
+}
+
+interface AttachedDoc {
+  id: number;
+  name: string;
+  chunks: number;
+}
+
+interface AttachedImage {
+  uri: string;
+  mime: string;
+  base64: string;
 }
 
 export default function Voice() {
@@ -57,7 +71,7 @@ export default function Voice() {
       text:
         'Hello. I am **GAIA**, your personal agronomist.\n\n' +
         'Ask me anything about your farm - crops, pests, soil, or livestock.\n\n' +
-        'Tap the mic to speak, or the speaker icon on any reply to have me read it aloud.',
+        'Attach documents (PDF/DOCX) or images and I can read them.',
       time: now(),
     },
   ]);
@@ -69,13 +83,14 @@ export default function Voice() {
   const [conversations, setConversations] = useState<Conv[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [speakingIdx, setSpeakingIdx] = useState<number | null>(null);
-  const [voiceLang, setVoiceLang] = useState('en');
 
-  useEffect(() => {
-    AsyncStorage.getItem('gaia.language').then((v) => { if (v) setVoiceLang(v); });
-  },);
+  // Attachments
+  const [attachedDocs, setAttachedDocs] = useState<AttachedDoc[]>([]);
+  const [attachedImgs, setAttachedImgs] = useState<AttachedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [attachSheet, setAttachSheet] = useState(false);
 
-  // ---- EDIT STATE ----
+  // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
@@ -164,10 +179,13 @@ export default function Voice() {
     })();
   }, [user]);
 
-  // ---------------------------------------------------------
-  // Persistence
-  // ---------------------------------------------------------
-  const saveMessage = async (convId: string, role: 'user' | 'ai', text: string): Promise<number | null> => {
+  // ---------- Persistence ----------
+  const saveMessage = async (
+    convId: string,
+    role: 'user' | 'ai',
+    text: string,
+    attachments?: Msg['attachments'],
+  ): Promise<number | null> => {
     if (!user) return null;
     try {
       const { data } = await supabase
@@ -178,6 +196,7 @@ export default function Voice() {
           role,
           content: text,
           edit_count: 0,
+          attachments: attachments ? JSON.stringify(attachments) : null,
         })
         .select('id')
         .single();
@@ -220,7 +239,7 @@ export default function Voice() {
     try {
       const { data } = await supabase
         .from('agronomist_messages')
-        .select('id, role, content, created_at, edit_count, edited_at')
+        .select('id, role, content, created_at, edit_count, edited_at, attachments')
         .eq('conversation_id', conv.id)
         .order('created_at', { ascending: true });
       if (data) {
@@ -232,6 +251,7 @@ export default function Voice() {
             db_id: m.id,
             edit_count: m.edit_count ?? 0,
             edited_at: m.edited_at,
+            attachments: m.attachments ? JSON.parse(m.attachments) : undefined,
           })),
         );
         setCurrentConvId(conv.id);
@@ -242,19 +262,19 @@ export default function Voice() {
 
   const startNewConversation = () => {
     setCurrentConvId(null);
+    setAttachedDocs([]);
+    setAttachedImgs([]);
     setMessages([
       {
         role: 'ai',
-        text: 'New conversation. Ask me anything about your farm - crops, pests, soil, or livestock.',
+        text: 'New conversation. Ask me anything about your farm.',
         time: now(),
       },
     ]);
     setSidebarOpen(false);
   };
 
-  // ---------------------------------------------------------
-  // Recording
-  // ---------------------------------------------------------
+  // ---------- Voice ----------
   const startRecording = async () => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
@@ -287,9 +307,22 @@ export default function Voice() {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired');
 
-      const result = await transcribeAudio(uri, voiceLang, token);
-      if (result.error) throw new Error(result.error);
-      const text = result.text;
+      const fileResponse = await fetch(uri);
+      const audioBlob = await fileResponse.blob();
+      const form = new FormData();
+      form.append('audio', audioBlob, 'voice.m4a');
+
+      const res = await fetch(API_BASE + '/transcribe', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        body: form,
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error('Transcribe ' + res.status + ': ' + errText.slice(0, 120));
+      }
+      const data = await res.json();
+      const text = (data.text || '').trim();
       if (text) setInput(text);
       else Alert.alert('No speech detected', 'Please try again.');
     } catch (e: any) {
@@ -299,13 +332,106 @@ export default function Voice() {
     }
   };
 
-  // ---------------------------------------------------------
-  // AI round-trip
-  // ---------------------------------------------------------
-  const requestAIReply = async (history: { role: string; content: string }[]) => {
+  // ---------- Attachments ----------
+  const pickDocument = async () => {
+    setAttachSheet(false);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain',
+          'text/markdown',
+          'text/csv',
+        ],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled) return;
+      const file = res.assets[0];
+      await uploadDocument(file.uri, file.name, file.mimeType || 'application/octet-stream');
+    } catch (e: any) {
+      Alert.alert('Pick failed', e?.message || 'unknown');
+    }
+  };
+
+  const uploadDocument = async (uri: string, name: string, mime: string) => {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      if (!token) throw new Error('Session expired');
+
+      const form = new FormData();
+      // @ts-ignore
+      form.append('file', { uri, name, type: mime });
+
+      const res = await fetch(API_BASE + '/documents/upload', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        body: form,
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error('Upload ' + res.status + ': ' + errText.slice(0, 120));
+      }
+      const data = await res.json();
+      setAttachedDocs((prev) => [
+        ...prev,
+        { id: data.id, name: data.filename, chunks: data.chunk_count },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message || 'unknown');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    setAttachSheet(false);
+    if (attachedImgs.length >= MAX_IMAGES) {
+      Alert.alert('Limit', `Max ${MAX_IMAGES} images per message.`);
+      return;
+    }
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.6,
+        allowsEditing: false,
+        base64: true,
+      });
+      if (res.canceled) return;
+      const asset = res.assets[0];
+      const base64 = asset.base64 || '';
+      if (!base64) {
+        Alert.alert('Could not read image', 'Please try a different image.');
+        return;
+      }
+      const mime = asset.mimeType || 'image/jpeg';
+      setAttachedImgs((prev) => [...prev, { uri: asset.uri, mime, base64 }]);
+    } catch (e: any) {
+      Alert.alert('Pick failed', e?.message || 'unknown');
+    }
+  };
+
+  const removeAttachedDoc = (id: number) =>
+    setAttachedDocs((prev) => prev.filter((d) => d.id !== id));
+  const removeAttachedImg = (idx: number) =>
+    setAttachedImgs((prev) => prev.filter((_, i) => i !== idx));
+
+  // ---------- Chat ----------
+  const requestAIReply = async (
+    history: { role: string; content: string }[],
+    document_ids?: number[],
+    images?: { data: string; mime: string }[],
+  ) => {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token ?? '';
     if (!token) throw new Error('Session expired');
+
+    const payload: any = { messages: history, max_tokens: 1500 };
+    if (document_ids && document_ids.length) payload.document_ids = document_ids;
+    if (images && images.length) payload.images = images;
 
     const res = await fetch(API_BASE + '/chat', {
       method: 'POST',
@@ -313,7 +439,7 @@ export default function Voice() {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + token,
       },
-      body: JSON.stringify({ messages: history, max_tokens: 1500 }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
@@ -325,9 +451,22 @@ export default function Voice() {
 
   const send = async () => {
     const q = input.trim();
-    if (!q || busy) return;
+    if ((!q && attachedDocs.length === 0 && attachedImgs.length === 0) || busy) return;
 
-    const userMsg: Msg = { role: 'user', text: q, time: now(), edit_count: 0 };
+    const docIds = attachedDocs.map((d) => d.id);
+    const imgPayload = attachedImgs.map((i) => ({ data: i.base64, mime: i.mime }));
+    const attachmentChips: Msg['attachments'] = [
+      ...attachedDocs.map((d) => ({ kind: 'doc' as const, name: d.name, id: d.id })),
+      ...attachedImgs.map((i) => ({ kind: 'image' as const, name: 'image', uri: i.uri })),
+    ];
+
+    const userMsg: Msg = {
+      role: 'user',
+      text: q || '(sent attachments)',
+      time: now(),
+      edit_count: 0,
+      attachments: attachmentChips.length ? attachmentChips : undefined,
+    };
     const history = [...messages, userMsg].map((m) => ({
       role: m.role === 'ai' ? 'assistant' : 'user',
       content: m.text,
@@ -335,18 +474,19 @@ export default function Voice() {
 
     setMessages((m) => [...m, userMsg]);
     setInput('');
+    setAttachedDocs([]);
+    setAttachedImgs([]);
     setBusy(true);
     scrollBottom();
 
-    const convId = await ensureConversation(q);
-    let userDbId: number | null = null;
+    const convId = await ensureConversation(q || 'attachment');
     if (convId) {
-      userDbId = await saveMessage(convId, 'user', q);
+      await saveMessage(convId, 'user', userMsg.text, attachmentChips);
       await touchConversation(convId);
     }
 
     try {
-      const reply = await requestAIReply(history);
+      const reply = await requestAIReply(history, docIds, imgPayload);
       setMessages((m) => [...m, { role: 'ai', text: reply, time: now() }]);
       if (convId) {
         await saveMessage(convId, 'ai', reply);
@@ -362,14 +502,12 @@ export default function Voice() {
     }
   };
 
-  // ---------------------------------------------------------
-  // EDIT — open, save, re-run AI
-  // ---------------------------------------------------------
+  // ---------- Edit ----------
   const openEdit = (idx: number) => {
     const m = messages[idx];
     if (!m || m.role !== 'user') return;
     if ((m.edit_count ?? 0) >= MAX_EDITS) {
-      Alert.alert('Edit limit reached', `You can only edit a message ${MAX_EDITS} times.`);
+      Alert.alert('Edit limit', `You can only edit ${MAX_EDITS} times.`);
       return;
     }
     setEditIdx(idx);
@@ -387,27 +525,20 @@ export default function Voice() {
     if (editIdx === null || !user) return;
     const msg = messages[editIdx];
     if (!msg || msg.role !== 'user') return;
-
     const currentCount = msg.edit_count ?? 0;
     if (currentCount >= MAX_EDITS) {
-      Alert.alert('Edit limit reached', `You can only edit a message ${MAX_EDITS} times.`);
+      Alert.alert('Edit limit reached', `Max ${MAX_EDITS} edits.`);
       cancelEdit();
       return;
     }
-
     const newText = editText.trim();
-    if (!newText) {
-      Alert.alert('Empty message', 'Message cannot be empty.');
-      return;
-    }
-    if (newText === msg.text) {
+    if (!newText || newText === msg.text) {
       cancelEdit();
       return;
     }
 
     setEditBusy(true);
     try {
-      // 1) Update the DB row
       const nextCount = currentCount + 1;
       if (msg.db_id) {
         await supabase
@@ -421,14 +552,12 @@ export default function Voice() {
           .eq('user_id', user.id);
       }
 
-      // 2) Trim the message list: keep up to and including the edited one, drop the rest
       const trimmed = messages.slice(0, editIdx + 1).map((m, i) =>
         i === editIdx
           ? { ...m, text: newText, edit_count: nextCount, edited_at: new Date().toISOString(), time: now() }
-          : m
+          : m,
       );
 
-      // 3) Delete all messages after this one in the DB
       if (currentConvId && msg.db_id) {
         await supabase
           .from('agronomist_messages')
@@ -437,7 +566,6 @@ export default function Voice() {
           .gt('id', msg.db_id);
       }
 
-      // 4) Replace state
       setMessages(trimmed);
       setEditOpen(false);
       setEditIdx(null);
@@ -445,7 +573,6 @@ export default function Voice() {
       setBusy(true);
       scrollBottom();
 
-      // 5) Re-run AI with the edited history
       const history = trimmed.map((m) => ({
         role: m.role === 'ai' ? 'assistant' : 'user',
         content: m.text,
@@ -467,35 +594,40 @@ export default function Voice() {
     }
   };
 
-  // ---------------------------------------------------------
-  // Utilities
-  // ---------------------------------------------------------
+  // ---------- Utils ----------
   const copyToClipboard = async (text: string) => {
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'Message copied to clipboard.');
+    Alert.alert('Copied', 'Message copied.');
   };
 
   const speak = async (text: string, idx: number) => {
     if (speakingIdx === idx) {
-      stopSpeaking();
+      Speech.stop();
       setSpeakingIdx(null);
       return;
     }
+    Speech.stop();
     setSpeakingIdx(idx);
-    speakText(text, {
-      language: voiceLang,
+    const clean = text
+      .replace(/```[\s\S]*?```/g, ' code block ')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/#+\s?/g, '')
+      .replace(/\|/g, ' ')
+      .replace(/\n{2,}/g, '. ');
+    Speech.speak(clean, {
+      language: 'en-US',
       rate: 0.95,
       pitch: 1.0,
       onDone: () => setSpeakingIdx(null),
+      onStopped: () => setSpeakingIdx(null),
       onError: () => setSpeakingIdx(null),
     });
   };
 
   const remainingEdits = (m: Msg) => MAX_EDITS - (m.edit_count ?? 0);
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -514,7 +646,7 @@ export default function Voice() {
           <View style={styles.statusRow}>
             <View style={styles.onlineDot} />
             <Text style={styles.headerSub}>
-              {busy ? 'Thinking...' : recording ? 'Listening...' : 'Online - ready to help'}
+              {busy ? 'Thinking...' : recording ? 'Listening...' : 'Online'}
             </Text>
           </View>
         </View>
@@ -540,61 +672,75 @@ export default function Voice() {
               </View>
             ) : null}
 
-            <View
-              style={[
-                styles.bubble,
-                m.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
-              ]}
-            >
-              {m.role === 'user' ? (
-                <Text style={styles.bubbleTextUser}>{m.text}</Text>
-              ) : (
-                <Markdown style={markdownRules}>{m.text}</Markdown>
-              )}
+            <View style={{ maxWidth: '82%' }}>
+              {m.attachments && m.attachments.length > 0 ? (
+                <View style={styles.attachmentChips}>
+                  {m.attachments.map((a, ai) => (
+                    <View key={ai} style={styles.attachmentChip}>
+                      <Text style={styles.attachmentChipIcon}>
+                        {a.kind === 'doc' ? 'DOC' : 'IMG'}
+                      </Text>
+                      <Text style={styles.attachmentChipText} numberOfLines={1}>
+                        {a.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
-              <View style={styles.bubbleFooter}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text
-                    style={[
-                      styles.bubbleTime,
-                      m.role === 'user' ? styles.bubbleTimeUser : styles.bubbleTimeAi,
-                    ]}
-                  >
-                    {m.time}
-                  </Text>
-                  {m.role === 'user' && (m.edit_count ?? 0) > 0 ? (
+              <View
+                style={[
+                  styles.bubble,
+                  m.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
+                ]}
+              >
+                {m.role === 'user' ? (
+                  <Text style={styles.bubbleTextUser}>{m.text}</Text>
+                ) : (
+                  <Markdown style={markdownRules}>{m.text}</Markdown>
+                )}
+
+                <View style={styles.bubbleFooter}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text
                       style={[
-                        styles.editBadge,
-                        m.role === 'user' ? styles.editBadgeUser : styles.editBadgeAi,
+                        styles.bubbleTime,
+                        m.role === 'user' ? styles.bubbleTimeUser : styles.bubbleTimeAi,
                       ]}
                     >
-                      edited {m.edit_count}/{MAX_EDITS}
+                      {m.time}
                     </Text>
-                  ) : null}
-                </View>
-                <View style={styles.actions}>
-                  <Pressable onPress={() => copyToClipboard(m.text)} style={styles.actionBtn}>
-                    <Text style={styles.actionIcon}>C</Text>
-                  </Pressable>
-                  {m.role === 'ai' ? (
-                    <Pressable onPress={() => speak(m.text, i)} style={styles.actionBtn}>
-                      <Text style={styles.actionIcon}>
-                        {speakingIdx === i ? 'P' : 'S'}
+                    {m.role === 'user' && (m.edit_count ?? 0) > 0 ? (
+                      <Text
+                        style={[
+                          styles.editBadge,
+                          m.role === 'user' ? styles.editBadgeUser : styles.editBadgeAi,
+                        ]}
+                      >
+                        edited {m.edit_count}/{MAX_EDITS}
                       </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.actions}>
+                    <Pressable onPress={() => copyToClipboard(m.text)} style={styles.actionBtn}>
+                      <Text style={styles.actionIcon}>C</Text>
                     </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={() => openEdit(i)}
-                      disabled={remainingEdits(m) <= 0}
-                      style={[
-                        styles.actionBtn,
-                        remainingEdits(m) <= 0 && { opacity: 0.35 },
-                      ]}
-                    >
-                      <Text style={styles.actionIcon}>E</Text>
-                    </Pressable>
-                  )}
+                    {m.role === 'ai' ? (
+                      <Pressable onPress={() => speak(m.text, i)} style={styles.actionBtn}>
+                        <Text style={styles.actionIcon}>
+                          {speakingIdx === i ? 'P' : 'S'}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => openEdit(i)}
+                        disabled={remainingEdits(m) <= 0}
+                        style={[styles.actionBtn, remainingEdits(m) <= 0 && { opacity: 0.35 }]}
+                      >
+                        <Text style={styles.actionIcon}>E</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
@@ -620,7 +766,50 @@ export default function Voice() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
+      {/* Attachments preview */}
+      {attachedDocs.length || attachedImgs.length || uploading ? (
+        <View style={styles.attachmentsBar}>
+          {uploading ? (
+            <View style={styles.attachingChip}>
+              <ActivityIndicator color={palette.neon} size="small" />
+              <Text style={styles.attachingText}>Uploading...</Text>
+            </View>
+          ) : null}
+          {attachedDocs.map((d) => (
+            <Pressable
+              key={'d' + d.id}
+              onPress={() => removeAttachedDoc(d.id)}
+              style={styles.attachedChip}
+            >
+              <Text style={styles.attachedChipIcon}>DOC</Text>
+              <Text style={styles.attachedChipName} numberOfLines={1}>{d.name}</Text>
+              <Text style={styles.attachedChipX}>X</Text>
+            </Pressable>
+          ))}
+          {attachedImgs.map((img, idx) => (
+            <Pressable
+              key={'i' + idx}
+              onPress={() => removeAttachedImg(idx)}
+              style={styles.attachedImg}
+            >
+              <Image source={{ uri: img.uri }} style={styles.attachedImgThumb} />
+              <View style={styles.attachedImgX}>
+                <Text style={styles.attachedImgXText}>X</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.inputBar}>
+        <Pressable
+          onPress={() => setAttachSheet(true)}
+          disabled={busy || uploading}
+          style={[styles.attachBtn, (busy || uploading) && { opacity: 0.5 }]}
+        >
+          <Text style={styles.attachIcon}>+</Text>
+        </Pressable>
+
         <Pressable
           onPress={recording ? stopAndTranscribe : startRecording}
           disabled={busy || transcribing}
@@ -650,10 +839,10 @@ export default function Voice() {
 
         <Pressable
           onPress={send}
-          disabled={busy || !input.trim() || recording || transcribing}
+          disabled={busy || (!input.trim() && !attachedDocs.length && !attachedImgs.length)}
           style={[
             styles.sendBtn,
-            (busy || !input.trim() || recording || transcribing) && { opacity: 0.4 },
+            (busy || (!input.trim() && !attachedDocs.length && !attachedImgs.length)) && { opacity: 0.4 },
           ]}
         >
           <Text style={styles.sendBtnText}>Send</Text>
@@ -663,11 +852,34 @@ export default function Voice() {
       {recording ? (
         <View style={styles.recordingBar}>
           <View style={styles.recDot} />
-          <Text style={styles.recText}>Recording - tap X to stop and transcribe</Text>
+          <Text style={styles.recText}>Recording - tap X to stop</Text>
         </View>
       ) : null}
 
-      {/* ---------- HISTORY DRAWER ---------- */}
+      {/* Attachment sheet */}
+      <Modal visible={attachSheet} transparent animationType="slide" onRequestClose={() => setAttachSheet(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setAttachSheet(false)}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetKicker}>ATTACH</Text>
+            <Pressable onPress={pickDocument} style={styles.sheetOption}>
+              <Text style={styles.sheetIcon}>DOC</Text>
+              <View>
+                <Text style={styles.sheetTitle}>Document</Text>
+                <Text style={styles.sheetSub}>PDF, DOCX, TXT - GAIA reads it</Text>
+              </View>
+            </Pressable>
+            <Pressable onPress={pickImage} style={styles.sheetOption}>
+              <Text style={styles.sheetIcon}>IMG</Text>
+              <View>
+                <Text style={styles.sheetTitle}>Image</Text>
+                <Text style={styles.sheetSub}>Up to {MAX_IMAGES} - GAIA sees it</Text>
+              </View>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* History drawer */}
       <Modal visible={sidebarOpen} transparent animationType="none" onRequestClose={() => setSidebarOpen(false)}>
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents={sidebarOpen ? 'auto' : 'none'}>
           <Pressable style={{ flex: 1 }} onPress={() => setSidebarOpen(false)} />
@@ -678,23 +890,18 @@ export default function Voice() {
             <Text style={styles.drawerKicker}>HISTORY</Text>
             <Text style={styles.drawerTitle}>Conversations</Text>
           </View>
-
           <Pressable onPress={startNewConversation} style={styles.drawerNewBtn}>
             <Text style={styles.drawerNewText}>+ New conversation</Text>
           </Pressable>
-
           <ScrollView contentContainerStyle={styles.drawerScroll}>
             {conversations.length === 0 ? (
-              <Text style={styles.drawerEmpty}>No past conversations yet.</Text>
+              <Text style={styles.drawerEmpty}>No past conversations.</Text>
             ) : (
               conversations.map((c) => (
                 <Pressable
                   key={c.id}
                   onPress={() => loadConversation(c)}
-                  style={[
-                    styles.drawerItem,
-                    currentConvId === c.id && styles.drawerItemActive,
-                  ]}
+                  style={[styles.drawerItem, currentConvId === c.id && styles.drawerItemActive]}
                 >
                   <Text style={styles.drawerItemTitle} numberOfLines={1}>{c.title}</Text>
                   <Text style={styles.drawerItemDate}>{timeOf(c.updated_at)}</Text>
@@ -706,13 +913,8 @@ export default function Voice() {
         </Animated.View>
       </Modal>
 
-      {/* ---------- EDIT MESSAGE MODAL ---------- */}
-      <Modal
-        visible={editOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelEdit}
-      >
+      {/* Edit modal */}
+      <Modal visible={editOpen} transparent animationType="fade" onRequestClose={cancelEdit}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.editBackdrop}
@@ -726,40 +928,22 @@ export default function Voice() {
                 </Text>
               ) : null}
             </View>
-
             <TextInput
               value={editText}
               onChangeText={setEditText}
-              placeholder="Edit your message..."
-              placeholderTextColor={palette.textDim}
               multiline
               style={styles.editInput}
               maxLength={1000}
               autoFocus
             />
-
-            <Text style={styles.editHint}>
-              {editIdx !== null
-                ? `You can edit this message ${remainingEdits(messages[editIdx])} more time${remainingEdits(messages[editIdx]) === 1 ? '' : 's'}. Saving will regenerate GAIA's reply.`
-                : ''}
-            </Text>
-
             <View style={styles.editActions}>
-              <Pressable
-                onPress={cancelEdit}
-                disabled={editBusy}
-                style={[styles.editCancel, editBusy && { opacity: 0.5 }]}
-              >
+              <Pressable onPress={cancelEdit} disabled={editBusy} style={[styles.editCancel, editBusy && { opacity: 0.5 }]}>
                 <Text style={styles.editCancelText}>Cancel</Text>
               </Pressable>
-
               <Pressable
                 onPress={saveEdit}
                 disabled={editBusy || !editText.trim()}
-                style={[
-                  styles.editSave,
-                  (editBusy || !editText.trim()) && { opacity: 0.5 },
-                ]}
+                style={[styles.editSave, (editBusy || !editText.trim()) && { opacity: 0.5 }]}
               >
                 {editBusy ? (
                   <ActivityIndicator color={palette.obsidian} size="small" />
@@ -775,9 +959,6 @@ export default function Voice() {
   );
 }
 
-// ---------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------
 function now() {
   const d = new Date();
   const h = d.getHours();
@@ -819,7 +1000,7 @@ const createStyles = (p: any) =>
       alignItems: 'center', justifyContent: 'center',
     },
     avatarEmoji: { fontSize: 13, color: p.neon, fontWeight: '900' },
-    headerTitle: { fontSize: 16, fontWeight: '900', color: p.text, letterSpacing: -0.3 },
+    headerTitle: { fontSize: 16, fontWeight: '900', color: p.text },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
     onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: p.neon },
     headerSub: { fontSize: 11, color: p.textMuted },
@@ -839,7 +1020,7 @@ const createStyles = (p: any) =>
       alignItems: 'center', justifyContent: 'center',
     },
     smallAvatarEmoji: { fontSize: 10, color: p.neon, fontWeight: '900' },
-    bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+    bubble: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
     bubbleUser: { backgroundColor: p.neon, borderBottomRightRadius: 5 },
     bubbleAi: {
       backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
@@ -857,27 +1038,62 @@ const createStyles = (p: any) =>
       fontSize: 9, fontWeight: '700', letterSpacing: 0.5,
       paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6,
     },
-    editBadgeUser: {
-      color: p.obsidian, backgroundColor: 'rgba(0,0,0,0.15)',
-    },
-    editBadgeAi: {
-      color: p.neon, backgroundColor: p.neonSoft,
-    },
+    editBadgeUser: { color: p.obsidian, backgroundColor: 'rgba(0,0,0,0.15)' },
+    editBadgeAi: { color: p.neon, backgroundColor: p.neonSoft },
     actions: { flexDirection: 'row', gap: 8 },
     actionBtn: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
     actionIcon: { fontSize: 12, color: p.neon, fontWeight: '700' },
     thinkingBubble: { paddingVertical: 14 },
-    tomatoRow: {
-      flexDirection: 'row', gap: 8, justifyContent: 'center',
-      alignItems: 'flex-end', height: 30,
-    },
+    tomatoRow: { flexDirection: 'row', gap: 8, justifyContent: 'center', alignItems: 'flex-end', height: 30 },
     tomato: { fontSize: 22 },
     thinkingText: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 6 },
+    attachmentChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
+    attachmentChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10,
+      backgroundColor: 'rgba(0,0,0,0.15)',
+    },
+    attachmentChipIcon: { fontSize: 9, fontWeight: '900', color: p.obsidian, letterSpacing: 0.5 },
+    attachmentChipText: { fontSize: 11, color: p.obsidian, maxWidth: 180 },
+    attachmentsBar: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+      paddingHorizontal: 12, paddingVertical: 8,
+      borderTopWidth: 1, borderTopColor: p.border,
+      backgroundColor: p.surface,
+    },
+    attachedChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12,
+      backgroundColor: p.obsidian, borderWidth: 1, borderColor: p.borderHi,
+    },
+    attachedChipIcon: { fontSize: 9, fontWeight: '900', color: p.neon },
+    attachedChipName: { fontSize: 11, color: p.text, maxWidth: 140 },
+    attachedChipX: { fontSize: 11, color: p.danger, fontWeight: '900', marginLeft: 4 },
+    attachedImg: { position: 'relative' },
+    attachedImgThumb: { width: 54, height: 54, borderRadius: 10, borderWidth: 1, borderColor: p.borderHi },
+    attachedImgX: {
+      position: 'absolute', top: -4, right: -4,
+      width: 18, height: 18, borderRadius: 9,
+      backgroundColor: p.danger, alignItems: 'center', justifyContent: 'center',
+    },
+    attachedImgXText: { fontSize: 10, color: '#fff', fontWeight: '900' },
+    attachingChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12,
+      backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
+    },
+    attachingText: { fontSize: 11, color: p.neon, fontWeight: '700' },
     inputBar: {
       flexDirection: 'row', alignItems: 'flex-end', gap: 8,
       paddingHorizontal: 12, paddingVertical: 10,
       borderTopWidth: 1, borderTopColor: p.border, backgroundColor: p.obsidian,
     },
+    attachBtn: {
+      width: 46, height: 46, borderRadius: 23,
+      backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    attachIcon: { fontSize: 22, color: p.neon, fontWeight: '900' },
     micBtn: {
       width: 46, height: 46, borderRadius: 23,
       backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi,
@@ -915,10 +1131,7 @@ const createStyles = (p: any) =>
       paddingBottom: 16,
     },
     drawerKicker: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.neon },
-    drawerTitle: {
-      fontSize: 24, fontWeight: '900', color: p.text,
-      letterSpacing: -0.8, marginTop: 4,
-    },
+    drawerTitle: { fontSize: 24, fontWeight: '900', color: p.text, marginTop: 4 },
     drawerNewBtn: {
       marginHorizontal: 16, paddingVertical: 14, paddingHorizontal: 16,
       borderRadius: 14, backgroundColor: p.neonSoft,
@@ -935,7 +1148,29 @@ const createStyles = (p: any) =>
     drawerItemTitle: { color: p.text, fontSize: 13, fontWeight: '700' },
     drawerItemDate: { color: p.textMuted, fontSize: 10, marginTop: 4 },
     drawerEmpty: { color: p.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 30 },
-    // ---- EDIT MODAL ----
+    sheetBackdrop: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: p.abyss,
+      borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      padding: 20,
+      borderTopWidth: 1, borderColor: p.borderHi,
+    },
+    sheetKicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon, marginBottom: 14 },
+    sheetOption: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      padding: 16, borderRadius: 14,
+      backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+      marginBottom: 10,
+    },
+    sheetIcon: {
+      fontSize: 12, fontWeight: '900', color: p.neon, letterSpacing: 1,
+      width: 40, height: 40, borderRadius: 20, textAlign: 'center',
+      lineHeight: 40, backgroundColor: p.neonSoft, overflow: 'hidden',
+    },
+    sheetTitle: { fontSize: 15, fontWeight: '800', color: p.text },
+    sheetSub: { fontSize: 11, color: p.textMuted, marginTop: 2 },
     editBackdrop: {
       flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
       justifyContent: 'center', alignItems: 'center',
@@ -951,12 +1186,8 @@ const createStyles = (p: any) =>
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       marginBottom: 14,
     },
-    editKicker: {
-      fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon,
-    },
-    editCounter: {
-      fontSize: 11, fontWeight: '700', color: p.textMuted,
-    },
+    editKicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon },
+    editCounter: { fontSize: 11, fontWeight: '700', color: p.textMuted },
     editInput: {
       minHeight: 100, maxHeight: 260,
       paddingHorizontal: 14, paddingVertical: 12,
@@ -965,24 +1196,17 @@ const createStyles = (p: any) =>
       color: p.text, fontSize: 15,
       textAlignVertical: 'top',
     },
-    editHint: {
-      fontSize: 11, color: p.textMuted,
-      marginTop: 10, lineHeight: 16,
-    },
-    editActions: {
-      flexDirection: 'row', gap: 10, marginTop: 16,
-    },
+    editActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
     editCancel: {
       flex: 1, paddingVertical: 14, borderRadius: 14,
-      borderWidth: 1.5, borderColor: p.border,
-      alignItems: 'center',
+      borderWidth: 1.5, borderColor: p.border, alignItems: 'center',
     },
     editCancelText: { color: p.text, fontWeight: '800', fontSize: 14 },
     editSave: {
       flex: 2, paddingVertical: 14, borderRadius: 14,
       backgroundColor: p.neon, alignItems: 'center',
     },
-    editSaveText: { color: p.obsidian, fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+    editSaveText: { color: p.obsidian, fontWeight: '900', fontSize: 14 },
   });
 
 const createMarkdownRules = (p: any) =>
