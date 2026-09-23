@@ -1,24 +1,35 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Alert, ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as turf from '@turf/turf';
+import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Polygon, Polyline, Circle, Line as SvgLine } from 'react-native-svg';
 import { useTheme, spacing, radius, typography, shadows } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 
-const { width: SW } = Dimensions.get('window');
+// Reject fixes worse than this accuracy (meters)
+const MAX_ACCURACY_M = 15;
+// Smooth by averaging the last N accepted points
+const SMOOTH_WINDOW = 3;
+// Minimum metres between recorded points
+const MIN_DISTANCE_M = 5;
 
 const LAYERS = [
-  { key: 'satellite', label: 'Satellite', top: '#0a2016', mid: '#1a4d2e', bottom: '#050d08' },
-  { key: 'terrain',   label: 'Terrain',   top: '#1a1008', mid: '#3d2817', bottom: '#0a0604' },
-  { key: 'street',    label: 'Street',    top: '#141414', mid: '#262626', bottom: '#0a0a0a' },
-  { key: 'dark',      label: 'Dark',      top: '#000000', mid: '#0a0a0a', bottom: '#000000' },
+  { key: 'satellite', label: 'Satellite',
+    tile: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr: 'Esri' },
+  { key: 'terrain', label: 'Terrain',
+    tile: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attr: 'OpenTopoMap' },
+  { key: 'street', label: 'Street',
+    tile: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attr: 'OpenStreetMap' },
+  { key: 'dark', label: 'Dark',
+    tile: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    attr: 'CARTO' },
 ];
 
 export default function FarmMapping() {
@@ -29,80 +40,125 @@ export default function FarmMapping() {
 
   const [points, setPoints] = useState<{lat: number; lon: number}[]>([]);
   const [areaM2, setAreaM2] = useState(0);
+  const [distanceM, setDistanceM] = useState(0);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [tracking, setTracking] = useState(false);
   const [currentPos, setCurrentPos] = useState<{lat: number; lon: number} | null>(null);
   const [maps, setMaps] = useState<any[]>([]);
   const [layer, setLayer] = useState(LAYERS[0]);
   const [busy, setBusy] = useState(false);
-  const [permErr, setPermErr] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>('Idle');
+
   const locationSub = useRef<any>(null);
+  const webRef = useRef<any>(null);
+  const rawBuffer = useRef<{lat: number; lon: number; acc: number}[]>([]);
 
   const acres = areaM2 / 4046.86;
   const hectares = areaM2 / 10000;
 
   useEffect(() => {
     (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setPermErr('Location permission required');
-          return;
-        }
-        loadMaps();
-        const last = await Location.getLastKnownPositionAsync();
-        if (last) {
-          setCurrentPos({ lat: last.coords.latitude, lon: last.coords.longitude });
-        }
-      } catch (e: any) {
-        setPermErr(e?.message || 'Location unavailable');
+      const { status: ps } = await Location.requestForegroundPermissionsAsync();
+      if (ps !== 'granted') {
+        Alert.alert('Location needed', 'GAIA uses GPS to map your farm.');
+        return;
       }
+      loadMaps();
+      try {
+        const last = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
+        if (last && (last.coords.accuracy ?? 1000) < MAX_ACCURACY_M) {
+          setCurrentPos({ lat: last.coords.latitude, lon: last.coords.longitude });
+          setAccuracy(last.coords.accuracy ?? null);
+        }
+      } catch {}
     })();
-    return () => {
-      if (locationSub.current) locationSub.current.remove();
-    };
+    return () => { if (locationSub.current) locationSub.current.remove(); };
   }, []);
 
   const loadMaps = async () => {
     if (!user) return;
-    try {
-      const { data } = await supabase
-        .from('farm_maps')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      setMaps(data || []);
-    } catch {}
+    const { data } = await supabase.from('farm_maps')
+      .select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    setMaps(data || []);
   };
 
+  const haversine = (a: any, b: any) => turf.distance([a.lon, a.lat], [b.lon, b.lat], { units: 'meters' });
+
   const startTracking = async () => {
+    rawBuffer.current = [];
     setPoints([]);
     setAreaM2(0);
+    setDistanceM(0);
     setTracking(true);
-    try {
-      locationSub.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 3 },
-        (loc) => {
-          const p = { lat: loc.coords.latitude, lon: loc.coords.longitude };
-          setCurrentPos(p);
-          setPoints((prev) => {
-            const next = [...prev, p];
-            if (next.length >= 3) {
-              try {
-                const poly = turf.polygon([[
-                  ...next.map((x) => [x.lon, x.lat]),
-                  [next[0].lon, next[0].lat],
-                ]]);
-                setAreaM2(turf.area(poly));
-              } catch {}
-            }
-            return next;
-          });
+    setStatus('Locking GPS…');
+
+    locationSub.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        distanceInterval: 2,
+        timeInterval: 1000,
+      },
+      (loc) => {
+        const acc = loc.coords.accuracy ?? 999;
+        setAccuracy(acc);
+
+        // 1. Reject low-quality fixes
+        if (acc > MAX_ACCURACY_M) {
+          setStatus('Weak signal — waiting…');
+          return;
         }
-      );
-    } catch (e: any) {
-      Alert.alert('GPS error', e?.message || 'Try again');
-      setTracking(false);
-    }
+
+        // 2. Push to raw buffer, keep last N for smoothing
+        rawBuffer.current.push({
+          lat: loc.coords.latitude,
+          lon: loc.coords.longitude,
+          acc,
+        });
+        if (rawBuffer.current.length > SMOOTH_WINDOW) rawBuffer.current.shift();
+
+        // 3. Weighted average — weight by 1/accuracy
+        const buf = rawBuffer.current;
+        const wsum = buf.reduce((s, p) => s + (1 / p.acc), 0);
+        const smooth = {
+          lat: buf.reduce((s, p) => s + p.lat / p.acc, 0) / wsum,
+          lon: buf.reduce((s, p) => s + p.lon / p.acc, 0) / wsum,
+        };
+
+        setCurrentPos(smooth);
+        setStatus(`GPS ±${acc.toFixed(1)} m`);
+
+        // 4. Only record if we've moved enough
+        setPoints((prev) => {
+          if (prev.length > 0) {
+            const last = prev[prev.length - 1];
+            const d = haversine(last, smooth);
+            if (d < MIN_DISTANCE_M) return prev;
+            setDistanceM((dm) => dm + d);
+          }
+          const next = [...prev, smooth];
+
+          // Update WebView live
+          if (webRef.current) {
+            webRef.current.injectJavaScript(
+              `window.addPoint && window.addPoint(${smooth.lat}, ${smooth.lon}); true;`
+            );
+          }
+
+          // Update area
+          if (next.length >= 3) {
+            try {
+              const ring = [[
+                ...next.map((x) => [x.lon, x.lat]),
+                [next[0].lon, next[0].lat],
+              ]];
+              const poly = turf.polygon(ring);
+              setAreaM2(turf.area(poly));
+            } catch {}
+          }
+          return next;
+        });
+      }
+    );
   };
 
   const stopTracking = async () => {
@@ -111,10 +167,12 @@ export default function FarmMapping() {
       locationSub.current = null;
     }
     setTracking(false);
-    if (points.length >= 3) {
+    setStatus('Idle');
+    if (points.length >= 4) {
       await saveMap();
     } else {
-      Alert.alert('Not enough points', 'Walk a wider perimeter and try again.');
+      Alert.alert('Not enough points',
+        'Walk a wider perimeter. GAIA needs at least 4 well-spaced points.');
     }
   };
 
@@ -123,15 +181,18 @@ export default function FarmMapping() {
     setBusy(true);
     try {
       const a = areaM2 / 4046.86;
+      const h = areaM2 / 10000;
       await supabase.from('farm_maps').insert({
         user_id: user.id,
         boundary: JSON.stringify(points),
         area_sqm: areaM2,
         area_acres: a,
+        distance_m: distanceM,
         label: 'Field ' + new Date().toLocaleDateString(),
       });
       await loadMaps();
-      Alert.alert('Saved', `${a.toFixed(2)} acres mapped`);
+      Alert.alert('Saved',
+        `${a.toFixed(3)} acres · ${h.toFixed(3)} ha · ${(distanceM/1000).toFixed(2)} km walked`);
     } catch (e: any) {
       Alert.alert('Save failed', e?.message || 'Try again');
     } finally {
@@ -139,40 +200,65 @@ export default function FarmMapping() {
     }
   };
 
-  // ── Project lat/lon into SVG viewport coordinates ──
-  const canvasW = SW - spacing.xl * 2;
-  const canvasH = 320;
+  // ── Leaflet HTML ──
+  const html = currentPos ? `
+    <!DOCTYPE html><html><head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+      html,body,#map{height:100%;margin:0;background:#000;}
+      .leaflet-control-attribution{background:rgba(0,0,0,.55)!important;
+        color:#777!important;font-size:9px;}
+      .leaflet-control-attribution a{color:#00ff88!important;}
+      .pulse{width:16px;height:16px;border-radius:8px;background:#00ff88;
+        box-shadow:0 0 12px #00ff88,0 0 24px #00ff88;
+        animation:pl 1.4s ease-in-out infinite;}
+      @keyframes pl{0%,100%{transform:scale(1);opacity:1}
+                    50%{transform:scale(1.3);opacity:.7}}
+    </style></head><body>
+    <div id="map"></div>
+    <script>
+      var map = L.map('map',{zoomControl:false,attributionControl:true})
+        .setView([${currentPos.lat}, ${currentPos.lon}], 19);
+      L.tileLayer('${layer.tile}',{
+        maxZoom: 21,
+        attribution: '${layer.attr}'
+      }).addTo(map);
 
-  const project = (pts: {lat: number; lon: number}[]) => {
-    if (pts.length === 0) return [];
-    const all = currentPos ? [...pts, currentPos] : pts;
-    const lats = all.map((p) => p.lat);
-    const lons = all.map((p) => p.lon);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const spanLat = maxLat - minLat || 0.0001;
-    const spanLon = maxLon - minLon || 0.0001;
-    const pad = 30;
-    return all.map((p) => ({
-      x: pad + ((p.lon - minLon) / spanLon) * (canvasW - pad * 2),
-      y: canvasH - pad - ((p.lat - minLat) / spanLat) * (canvasH - pad * 2),
-    }));
-  };
+      var icon = L.divIcon({className:'',html:'<div class="pulse"></div>',
+        iconSize:[16,16],iconAnchor:[8,8]});
+      var marker = L.marker([${currentPos.lat}, ${currentPos.lon}],{icon:icon}).addTo(map);
 
-  const projected = project(points);
-  const currentProjected = currentPos
-    ? project([currentPos])[project([currentPos]).length - 1]
-    : null;
+      var trail = ${JSON.stringify(points.map((p) => [p.lat, p.lon]))};
+      var line = trail.length >= 2
+        ? L.polyline(trail,{color:'#00ff88',weight:3,opacity:.9}).addTo(map)
+        : null;
+      var poly = trail.length >= 3
+        ? L.polygon(trail,{color:'#00ff88',weight:3,
+            fillColor:'#00ff88',fillOpacity:.2}).addTo(map)
+        : null;
+
+      window.addPoint = function(lat,lon){
+        trail.push([lat,lon]);
+        marker.setLatLng([lat,lon]);
+        if (trail.length >= 2) {
+          if (line) line.setLatLngs(trail);
+          else line = L.polyline(trail,{color:'#00ff88',weight:3,opacity:.9}).addTo(map);
+        }
+        if (trail.length >= 3) {
+          if (poly) poly.setLatLngs(trail);
+          else poly = L.polygon(trail,{color:'#00ff88',weight:3,
+            fillColor:'#00ff88',fillOpacity:.2}).addTo(map);
+        }
+        map.panTo([lat,lon],{animate:false});
+      };
+    </script></body></html>
+  ` : '';
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[layer.top, layer.mid, layer.bottom] as any}
-        style={StyleSheet.absoluteFill}
-      />
-
       {/* TOP BAR */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
@@ -182,7 +268,7 @@ export default function FarmMapping() {
         <View style={styles.topCenter}>
           <Text style={styles.topKicker}>FARM MAPPING</Text>
           <Text style={styles.topTitle}>
-            {tracking ? 'Recording…' : points.length >= 3 ? acres.toFixed(2) + ' acres' : 'Walk the perimeter'}
+            {tracking ? status : acres > 0 ? acres.toFixed(3) + ' acres' : 'Walk the perimeter'}
           </Text>
         </View>
         <View style={[styles.livePill, tracking && styles.livePillActive]}>
@@ -192,90 +278,50 @@ export default function FarmMapping() {
       </View>
 
       {/* LAYER CHIPS */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.layerRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.layerRow}>
         {LAYERS.map((l) => {
           const active = l.key === layer.key;
           return (
-            <Pressable
-              key={l.key}
-              onPress={() => setLayer(l)}
-              style={[styles.layerChip, active && styles.layerChipActive]}
-            >
-              <View style={[styles.swatch, { backgroundColor: l.mid }]} />
-              <Text style={[styles.layerText, active && styles.layerTextActive]}>{l.label}</Text>
+            <Pressable key={l.key} onPress={() => setLayer(l)}
+              style={[styles.layerChip, active && styles.layerChipActive]}>
+              <Text style={[styles.layerText, active && styles.layerTextActive]}>
+                {l.label}
+              </Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
-      {/* MAP CANVAS (SVG) */}
-      <View style={[styles.mapWrap, { width: canvasW, height: canvasH }]}>
-        <Svg width={canvasW} height={canvasH}>
-          {/* grid */}
-          {Array.from({ length: 9 }).map((_, i) => (
-            <SvgLine
-              key={'h' + i}
-              x1={0} y1={(i / 8) * canvasH}
-              x2={canvasW} y2={(i / 8) * canvasH}
-              stroke="rgba(255,255,255,0.06)" strokeWidth="1"
-            />
-          ))}
-          {Array.from({ length: 9 }).map((_, i) => (
-            <SvgLine
-              key={'v' + i}
-              x1={(i / 8) * canvasW} y1={0}
-              x2={(i / 8) * canvasW} y2={canvasH}
-              stroke="rgba(255,255,255,0.06)" strokeWidth="1"
-            />
-          ))}
+      {/* MAP */}
+      <View style={styles.mapWrap}>
+        {currentPos ? (
+          <WebView
+            ref={webRef}
+            key={layer.key}
+            source={{ html }}
+            style={styles.map}
+            originWhitelist={['*']}
+            javaScriptEnabled
+            domStorageEnabled
+            scrollEnabled={false}
+            androidLayerType="hardware"
+            mixedContentMode="always"
+            startInLoadingState
+            renderLoading={() => (
+              <View style={styles.mapLoading}>
+                <ActivityIndicator color={palette.neon} />
+              </View>
+            )}
+          />
+        ) : (
+          <View style={styles.mapLoading}>
+            <ActivityIndicator color={palette.neon} />
+            <Text style={styles.loadingText}>ACQUIRING GPS…</Text>
+          </View>
+        )}
 
-          {/* polygon fill (when 3+ points) */}
-          {projected.length >= 3 && (
-            <Polygon
-              points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
-              fill={palette.neon}
-              fillOpacity={0.18}
-              stroke={palette.neon}
-              strokeWidth={3}
-            />
-          )}
-
-          {/* polyline while walking */}
-          {projected.length >= 2 && (
-            <Polyline
-              points={projected.map((p) => `${p.x},${p.y}`).join(' ')}
-              fill="none"
-              stroke={palette.neon}
-              strokeWidth={2}
-              strokeOpacity={0.9}
-            />
-          )}
-
-          {/* breadcrumb dots */}
-          {projected.map((p, i) => (
-            <Circle key={i} cx={p.x} cy={p.y} r={3} fill={palette.neon} opacity={0.6} />
-          ))}
-
-          {/* current position — outer glow + inner dot */}
-          {currentProjected && (
-            <>
-              <Circle
-                cx={currentProjected.x} cy={currentProjected.y}
-                r={14} fill={palette.neon} fillOpacity={0.18}
-              />
-              <Circle
-                cx={currentProjected.x} cy={currentProjected.y}
-                r={8} fill={palette.neon} fillOpacity={0.4}
-              />
-              <Circle
-                cx={currentProjected.x} cy={currentProjected.y}
-                r={5} fill={palette.neon}
-              />
-            </>
-          )}
-        </Svg>
-
-        {/* Neon corner frame */}
+        {/* corner frame */}
         <View pointerEvents="none" style={styles.frame}>
           <View style={[styles.corner, styles.cornerTL]} />
           <View style={[styles.corner, styles.cornerTR]} />
@@ -283,59 +329,43 @@ export default function FarmMapping() {
           <View style={[styles.corner, styles.cornerBR]} />
         </View>
 
-        {/* Empty state */}
-        {!currentPos && !permErr && (
-          <View style={styles.centerOverlay}>
-            <ActivityIndicator color={palette.neon} />
-            <Text style={styles.loadingText}>ACQUIRING GPS…</Text>
-          </View>
-        )}
-        {permErr && (
-          <View style={styles.centerOverlay}>
-            <Text style={styles.errorText}>⚠ {permErr}</Text>
-          </View>
-        )}
-
-        {/* Coordinate badge */}
-        {currentPos && (
-          <View style={styles.coordBadge}>
-            <Text style={styles.coordText}>
-              {currentPos.lat.toFixed(5)}, {currentPos.lon.toFixed(5)}
+        {/* accuracy badge */}
+        {accuracy != null && (
+          <View style={[
+            styles.accBadge,
+            accuracy > MAX_ACCURACY_M && { borderColor: palette.danger },
+          ]}>
+            <Text style={[
+              styles.accText,
+              accuracy > MAX_ACCURACY_M && { color: palette.danger },
+            ]}>
+              GPS ±{accuracy.toFixed(1)} m
             </Text>
           </View>
         )}
-
-        {/* Layer name overlay */}
-        <View style={styles.layerBadge}>
-          <Text style={styles.layerBadgeText}>{layer.label.toUpperCase()}</Text>
-        </View>
       </View>
 
       {/* STATS */}
       <View style={styles.statRow}>
         <View style={styles.stat}>
-          <Text style={styles.statVal}>{acres.toFixed(2)}</Text>
+          <Text style={styles.statVal}>{acres.toFixed(3)}</Text>
           <Text style={styles.statLbl}>ACRES</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statVal}>{hectares.toFixed(2)}</Text>
+          <Text style={styles.statVal}>{hectares.toFixed(3)}</Text>
           <Text style={styles.statLbl}>HECTARES</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statVal}>{points.length}</Text>
-          <Text style={styles.statLbl}>POINTS</Text>
+          <Text style={styles.statVal}>{(distanceM/1000).toFixed(2)}</Text>
+          <Text style={styles.statLbl}>KM WALKED</Text>
         </View>
       </View>
 
       {/* CTA */}
       <Pressable
         onPress={tracking ? stopTracking : startTracking}
-        disabled={busy || !!permErr}
-        style={[
-          styles.cta,
-          tracking && styles.ctaStop,
-          (busy || permErr) && { opacity: 0.5 },
-        ]}
+        disabled={busy}
+        style={[styles.cta, tracking && styles.ctaStop, busy && { opacity: 0.5 }]}
       >
         <Text style={[styles.ctaText, tracking && { color: '#fff' }]}>
           {busy ? 'SAVING…' : tracking ? 'STOP & SAVE' : 'START WALKING'}
@@ -344,11 +374,12 @@ export default function FarmMapping() {
 
       {/* SAVED FIELDS */}
       {maps.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.savedRow}>
           {maps.map((m) => (
             <View key={m.id} style={styles.savedCard}>
               <Text style={styles.savedLabel}>{m.label}</Text>
-              <Text style={styles.savedAcres}>{(m.area_acres || 0).toFixed(2)}</Text>
+              <Text style={styles.savedAcres}>{(m.area_acres || 0).toFixed(3)}</Text>
               <Text style={styles.savedUnit}>ACRES</Text>
             </View>
           ))}
@@ -372,9 +403,9 @@ const createStyles = (palette: any) => StyleSheet.create({
   backText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: palette.text },
   topCenter: { flex: 1, alignItems: 'center' },
   topKicker: { ...typography.micro, color: palette.textMuted },
-  topTitle: { fontSize: 15, fontWeight: '900', color: palette.text, marginTop: 2, letterSpacing: -0.3 },
+  topTitle: { fontSize: 15, fontWeight: '900', color: palette.text, marginTop: 2 },
   livePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, width: 60,
+    flexDirection: 'row', alignItems: 'center', gap: 6, width: 62,
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
     borderWidth: 1, borderColor: palette.border,
     backgroundColor: palette.surface, justifyContent: 'center',
@@ -385,26 +416,28 @@ const createStyles = (palette: any) => StyleSheet.create({
 
   layerRow: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, gap: spacing.sm },
   layerChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
   },
   layerChipActive: { backgroundColor: palette.neon, borderColor: palette.neon },
-  swatch: { width: 12, height: 12, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-  layerText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  layerText: { fontSize: 12, fontWeight: '700', color: palette.textMuted },
   layerTextActive: { color: palette.obsidian },
 
   mapWrap: {
-    alignSelf: 'center',
+    marginHorizontal: spacing.xl,
+    height: 360,
     borderRadius: radius.xl,
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: palette.borderHi,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: palette.abyss,
     position: 'relative',
     ...shadows.neon,
   },
+  map: { flex: 1, backgroundColor: palette.abyss },
+  mapLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { ...typography.micro, color: palette.neon },
+
   frame: { ...StyleSheet.absoluteFillObject },
   corner: { position: 'absolute', width: 22, height: 22, borderColor: palette.neon },
   cornerTL: { top: 8, left: 8, borderTopWidth: 2, borderLeftWidth: 2, borderTopLeftRadius: 8 },
@@ -412,26 +445,13 @@ const createStyles = (palette: any) => StyleSheet.create({
   cornerBL: { bottom: 8, left: 8, borderBottomWidth: 2, borderLeftWidth: 2, borderBottomLeftRadius: 8 },
   cornerBR: { bottom: 8, right: 8, borderBottomWidth: 2, borderRightWidth: 2, borderBottomRightRadius: 8 },
 
-  centerOverlay: {
-    position: 'absolute', inset: 0,
-    alignItems: 'center', justifyContent: 'center', gap: 12,
-  },
-  loadingText: { ...typography.micro, color: palette.neon },
-  errorText: { ...typography.body, color: palette.danger, textAlign: 'center', paddingHorizontal: 24 },
-
-  coordBadge: {
-    position: 'absolute', bottom: 12, left: 12,
+  accBadge: {
+    position: 'absolute', top: 12, left: 12,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
     backgroundColor: 'rgba(0,0,0,0.7)',
     borderWidth: 1, borderColor: palette.border,
   },
-  coordText: { fontSize: 10, fontWeight: '700', color: palette.neon, fontFamily: 'monospace' },
-  layerBadge: {
-    position: 'absolute', top: 12, right: 12,
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  layerBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5, color: palette.neon },
+  accText: { fontSize: 10, fontWeight: '800', color: palette.neon, fontFamily: 'monospace' },
 
   statRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, paddingHorizontal: spacing.xl },
   stat: {
@@ -439,7 +459,7 @@ const createStyles = (palette: any) => StyleSheet.create({
     backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
     alignItems: 'center',
   },
-  statVal: { fontSize: 22, fontWeight: '900', color: palette.neon, letterSpacing: -0.5 },
+  statVal: { fontSize: 20, fontWeight: '900', color: palette.neon, letterSpacing: -0.5 },
   statLbl: { ...typography.micro, color: palette.textMuted, marginTop: 4 },
 
   cta: {
@@ -457,6 +477,6 @@ const createStyles = (palette: any) => StyleSheet.create({
     backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
   },
   savedLabel: { ...typography.micro, color: palette.textMuted },
-  savedAcres: { fontSize: 26, fontWeight: '900', color: palette.neon, marginTop: 4, letterSpacing: -0.8 },
+  savedAcres: { fontSize: 24, fontWeight: '900', color: palette.neon, marginTop: 4 },
   savedUnit: { ...typography.micro, color: palette.textDim, marginTop: 2 },
 });
