@@ -12,9 +12,9 @@ export interface DiagnosisResult {
   top: Prediction;
   model: string;
   processingMs: number;
-  scansRemaining: number;
-  historyId?: number;
-  gradcamBase64?: string;
+  scansRemaining?: number;
+  gradcam_image?: string | null;
+  top_class_index?: number;
 }
 
 export class DiagnosisError extends Error {
