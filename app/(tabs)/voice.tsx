@@ -7,10 +7,10 @@ import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
-import { useTheme, typography, spacing, radius } from '../src/theme';
-import { useAuth } from '../src/store/auth';
-import { supabase } from '../src/api/supabase';
-import { MarkdownOutput } from '../src/components/MarkdownOutput';
+import { useTheme, typography, spacing, radius } from '../../src/theme';
+import { useAuth } from '../../src/store/auth';
+import { supabase } from '../../src/api/supabase';
+import { MarkdownOutput } from '../../src/components/MarkdownOutput';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_EDITS = 5;
