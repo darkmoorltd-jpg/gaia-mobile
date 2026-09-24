@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
 } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
@@ -55,7 +55,7 @@ export default function Voice() {
   const [memory, setMemory] = useState<Record<string, string>>({});
   const [showMemory, setShowMemory] = useState(false);
   const [editing, setEditing] = useState<{ idx: number; text: string } | null>(null);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsBusy, setSessionsBusy] = useState(false);
@@ -272,25 +272,22 @@ export default function Voice() {
 
   const startRecording = async () => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
-      if (perm.status !== 'granted') { Alert.alert('Microphone permission required'); return; }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      setRecording(recording);
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Microphone permission required'); return; }
+      await recorder.prepareToRecordAsync();
+      recorder.record();
       setIsRecording(true);
     } catch (e: any) { Alert.alert('Recording error', e.message); }
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
     setIsRecording(false);
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
-      setRecording(null);
+      await recorder.stop();
+      const uri = recorder.uri;
       if (!uri) return;
       sendVoice(uri);
-    } catch (e: any) { Alert.alert('Stop error', e.message); setRecording(null); }
+    } catch (e: any) { Alert.alert('Stop error', e.message); }
   };
 
   const sendVoice = async (uri: string) => {

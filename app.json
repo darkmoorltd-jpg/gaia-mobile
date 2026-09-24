@@ -45,7 +45,8 @@
       "expo-image-picker",
       "expo-local-authentication",
       "expo-notifications",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-audio"
     ],
     "extra": {
       "router": {
