@@ -1,6 +1,4 @@
-
-import { View, ScrollView, StyleSheet, Image } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { palette, typography, spacing, radius, shadows } from '../src/theme';
@@ -18,17 +16,9 @@ export default function ResultScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ---------- HERO ---------- */}
-        <View
-          style={[
-            styles.hero,
-            { backgroundColor: accent + '22', borderColor: accent },
-          ]}
-        >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        <View style={[styles.hero, { backgroundColor: accent + '22', borderColor: accent }]}>
           <Text style={[styles.heroEmoji, { color: accent }]}>
             {isHealthy ? '\u2713' : '\u26A0'}
           </Text>
@@ -38,28 +28,16 @@ export default function ResultScreen() {
           </Text>
         </View>
 
-        {/* ---------- GRAD-CAM ---------- */}
         {gradcamImage ? (
           <View>
             <Text style={styles.sectionLabel}>WHAT THE AI FOCUSED ON</Text>
 
             <View style={styles.camWrap}>
-              <Image
-                source={{ uri: gradcamImage }}
-                style={styles.camImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: gradcamImage }} style={styles.camImage} resizeMode="cover" />
             </View>
 
             <LinearGradient
-              colors={[
-                '#00007f',
-                '#0000ff',
-                '#00ffff',
-                '#ffff00',
-                '#ff0000',
-                '#7f0000',
-              ]}
+              colors={['#00007f', '#0000ff', '#00ffff', '#ffff00', '#ff0000', '#7f0000']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.legendBar}
@@ -77,41 +55,25 @@ export default function ResultScreen() {
           </View>
         ) : null}
 
-        {/* ---------- ALL PREDICTIONS ---------- */}
         <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
 
         {predictions.map((p: any, i: number) => (
           <View key={i} style={styles.predCard}>
             <View style={styles.predRow}>
               <Text style={styles.predLabel}>{String(p.label)}</Text>
-              <Text style={styles.predPct}>
-                {Number(p.confidence).toFixed(1)}%
-              </Text>
+              <Text style={styles.predPct}>{Number(p.confidence).toFixed(1)}%</Text>
             </View>
             <View style={styles.barBg}>
-              <View
-                style={[
-                  styles.barFill,
-                  { width: Math.min(Number(p.confidence), 100) + '%' },
-                ]}
-              />
+              <View style={[styles.barFill, { width: Math.min(Number(p.confidence), 100) + '%' }]} />
             </View>
           </View>
         ))}
 
-        {/* ---------- ACTION ---------- */}
         <View style={{ height: spacing.xl }} />
 
-        <Button
-          mode="contained"
-          onPress={() => router.back()}
-          buttonColor={palette.neon}
-          textColor="#000000"
-          style={styles.backBtn}
-          labelStyle={styles.backBtnLabel}
-        >
-          NEW SCAN
-        </Button>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>NEW SCAN</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -120,15 +82,8 @@ export default function ResultScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: palette.obsidian,
-  },
-  scroll: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: 70,
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: palette.obsidian },
+  scroll: { paddingHorizontal: spacing.xl, paddingTop: 70, paddingBottom: 40 },
 
   hero: {
     borderRadius: radius.xl,
@@ -137,29 +92,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: spacing.xl,
   },
-  heroEmoji: {
-    fontSize: 56,
-    fontWeight: '900',
-  },
+  heroEmoji: { fontSize: 56, fontWeight: '900' },
   heroLabel: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: palette.text,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    letterSpacing: -0.5,
+    fontSize: 24, fontWeight: '900', color: palette.text,
+    marginTop: spacing.md, textAlign: 'center', letterSpacing: -0.5,
   },
-  heroConf: {
-    ...typography.micro,
-    color: palette.textMuted,
-    marginTop: spacing.sm,
-  },
+  heroConf: { ...typography.micro, color: palette.textMuted, marginTop: spacing.sm },
 
   sectionLabel: {
-    ...typography.micro,
-    color: palette.textMuted,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
+    ...typography.micro, color: palette.textMuted,
+    marginTop: spacing.xl, marginBottom: spacing.md,
   },
 
   camWrap: {
@@ -168,36 +110,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.borderHi,
     backgroundColor: palette.surface,
-    ...shadows.neon,
   },
-  camImage: {
-    width: '100%',
-    aspectRatio: 1,
-  },
-  legendBar: {
-    height: 8,
-    borderRadius: 4,
-    marginTop: spacing.md,
-  },
+  camImage: { width: '100%', aspectRatio: 1 },
+  legendBar: { height: 8, borderRadius: 4, marginTop: spacing.md },
   legendLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
+    flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm,
   },
-  legendText: {
-    ...typography.micro,
-    color: palette.textDim,
-  },
+  legendText: { ...typography.micro, color: palette.textDim },
   camCaption: {
-    ...typography.caption,
-    color: palette.textMuted,
-    marginTop: spacing.md,
-    lineHeight: 20,
+    ...typography.caption, color: palette.textMuted,
+    marginTop: spacing.md, lineHeight: 20,
   },
-  camCaptionBold: {
-    color: palette.neon,
-    fontWeight: '800',
-  },
+  camCaptionBold: { color: palette.neon, fontWeight: '800' },
 
   predCard: {
     backgroundColor: palette.surface,
@@ -208,38 +132,23 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
   },
   predRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm,
   },
-  predLabel: {
-    ...typography.body,
-    color: palette.text,
-    fontWeight: '600',
-    flex: 1,
-  },
-  predPct: {
-    color: palette.neon,
-    fontWeight: '800',
-  },
+  predLabel: { ...typography.body, color: palette.text, fontWeight: '600', flex: 1 },
+  predPct: { color: palette.neon, fontWeight: '800' },
   barBg: {
-    height: 6,
-    backgroundColor: 'rgba(0,255,136,0.12)',
-    borderRadius: 3,
-    overflow: 'hidden',
+    height: 6, backgroundColor: 'rgba(0,255,136,0.12)',
+    borderRadius: 3, overflow: 'hidden',
   },
-  barFill: {
-    height: '100%',
-    backgroundColor: palette.neon,
-    borderRadius: 3,
-  },
+  barFill: { height: '100%', backgroundColor: palette.neon, borderRadius: 3 },
 
   backBtn: {
-    paddingVertical: 6,
+    paddingVertical: 18,
     borderRadius: radius.md,
+    backgroundColor: palette.neon,
+    alignItems: 'center',
   },
-  backBtnLabel: {
-    fontWeight: '900',
-    letterSpacing: 1,
+  backBtnText: {
+    color: '#000', fontSize: 16, fontWeight: '900', letterSpacing: 1,
   },
 });
