@@ -1,7 +1,8 @@
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { palette, typography, spacing, radius, shadows } from '../src/theme';
+import { palette, typography, spacing, radius } from '../src/theme';
+import { MarkdownOutput } from '../src/components/MarkdownOutput';
 
 export default function ResultScreen() {
   const router = useRouter();
@@ -11,14 +12,23 @@ export default function ResultScreen() {
   const predictions = parsed.predictions ?? [];
   const top = parsed.top ?? { label: 'Unknown', confidence: 0 };
   const gradcamImage = parsed.gradcam_image;
+  const recommendations = parsed.recommendations;
   const isHealthy = String(top.label).toLowerCase().includes('healthy');
   const accent = isHealthy ? palette.neon : palette.warning;
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        <View style={[styles.hero, { backgroundColor: accent + '22', borderColor: accent }]}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ---------- HERO ---------- */}
+        <View
+          style={[
+            styles.hero,
+            { backgroundColor: accent + '22', borderColor: accent },
+          ]}
+        >
           <Text style={[styles.heroEmoji, { color: accent }]}>
             {isHealthy ? '\u2713' : '\u26A0'}
           </Text>
@@ -28,16 +38,28 @@ export default function ResultScreen() {
           </Text>
         </View>
 
+        {/* ---------- GRAD-CAM ---------- */}
         {gradcamImage ? (
           <View>
             <Text style={styles.sectionLabel}>WHAT THE AI FOCUSED ON</Text>
 
             <View style={styles.camWrap}>
-              <Image source={{ uri: gradcamImage }} style={styles.camImage} resizeMode="cover" />
+              <Image
+                source={{ uri: gradcamImage }}
+                style={styles.camImage}
+                resizeMode="cover"
+              />
             </View>
 
             <LinearGradient
-              colors={['#00007f', '#0000ff', '#00ffff', '#ffff00', '#ff0000', '#7f0000']}
+              colors={[
+                '#00007f',
+                '#0000ff',
+                '#00ffff',
+                '#ffff00',
+                '#ff0000',
+                '#7f0000',
+              ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.legendBar}
@@ -55,23 +77,45 @@ export default function ResultScreen() {
           </View>
         ) : null}
 
+        {/* ---------- RECOMMENDATIONS ---------- */}
+        {recommendations ? (
+          <View>
+            <Text style={styles.sectionLabel}>RECOMMENDATIONS FOR YOUR FARM</Text>
+            <View style={styles.recoWrap}>
+              <MarkdownOutput content={recommendations} />
+            </View>
+          </View>
+        ) : null}
+
+        {/* ---------- ALL PREDICTIONS ---------- */}
         <Text style={styles.sectionLabel}>ALL PREDICTIONS</Text>
 
         {predictions.map((p: any, i: number) => (
           <View key={i} style={styles.predCard}>
             <View style={styles.predRow}>
               <Text style={styles.predLabel}>{String(p.label)}</Text>
-              <Text style={styles.predPct}>{Number(p.confidence).toFixed(1)}%</Text>
+              <Text style={styles.predPct}>
+                {Number(p.confidence).toFixed(1)}%
+              </Text>
             </View>
             <View style={styles.barBg}>
-              <View style={[styles.barFill, { width: Math.min(Number(p.confidence), 100) + '%' }]} />
+              <View
+                style={[
+                  styles.barFill,
+                  { width: Math.min(Number(p.confidence), 100) + '%' },
+                ]}
+              />
             </View>
           </View>
         ))}
 
+        {/* ---------- ACTION ---------- */}
         <View style={{ height: spacing.xl }} />
 
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backBtn}
+        >
           <Text style={styles.backBtnText}>NEW SCAN</Text>
         </TouchableOpacity>
 
@@ -82,8 +126,15 @@ export default function ResultScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.obsidian },
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 70, paddingBottom: 40 },
+  container: {
+    flex: 1,
+    backgroundColor: palette.obsidian,
+  },
+  scroll: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 70,
+    paddingBottom: 40,
+  },
 
   hero: {
     borderRadius: radius.xl,
@@ -94,14 +145,24 @@ const styles = StyleSheet.create({
   },
   heroEmoji: { fontSize: 56, fontWeight: '900' },
   heroLabel: {
-    fontSize: 24, fontWeight: '900', color: palette.text,
-    marginTop: spacing.md, textAlign: 'center', letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: '900',
+    color: palette.text,
+    marginTop: spacing.md,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
-  heroConf: { ...typography.micro, color: palette.textMuted, marginTop: spacing.sm },
+  heroConf: {
+    ...typography.micro,
+    color: palette.textMuted,
+    marginTop: spacing.sm,
+  },
 
   sectionLabel: {
-    ...typography.micro, color: palette.textMuted,
-    marginTop: spacing.xl, marginBottom: spacing.md,
+    ...typography.micro,
+    color: palette.textMuted,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
 
   camWrap: {
@@ -111,17 +172,42 @@ const styles = StyleSheet.create({
     borderColor: palette.borderHi,
     backgroundColor: palette.surface,
   },
-  camImage: { width: '100%', aspectRatio: 1 },
-  legendBar: { height: 8, borderRadius: 4, marginTop: spacing.md },
+  camImage: {
+    width: '100%',
+    aspectRatio: 1,
+  },
+  legendBar: {
+    height: 8,
+    borderRadius: 4,
+    marginTop: spacing.md,
+  },
   legendLabels: {
-    flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
   },
-  legendText: { ...typography.micro, color: palette.textDim },
+  legendText: {
+    ...typography.micro,
+    color: palette.textDim,
+  },
   camCaption: {
-    ...typography.caption, color: palette.textMuted,
-    marginTop: spacing.md, lineHeight: 20,
+    ...typography.caption,
+    color: palette.textMuted,
+    marginTop: spacing.md,
+    lineHeight: 20,
   },
-  camCaptionBold: { color: palette.neon, fontWeight: '800' },
+  camCaptionBold: {
+    color: palette.neon,
+    fontWeight: '800',
+  },
+
+  recoWrap: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: palette.border,
+  },
 
   predCard: {
     backgroundColor: palette.surface,
@@ -132,15 +218,31 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
   },
   predRow: {
-    flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
-  predLabel: { ...typography.body, color: palette.text, fontWeight: '600', flex: 1 },
-  predPct: { color: palette.neon, fontWeight: '800' },
+  predLabel: {
+    ...typography.body,
+    color: palette.text,
+    fontWeight: '600',
+    flex: 1,
+  },
+  predPct: {
+    color: palette.neon,
+    fontWeight: '800',
+  },
   barBg: {
-    height: 6, backgroundColor: 'rgba(0,255,136,0.12)',
-    borderRadius: 3, overflow: 'hidden',
+    height: 6,
+    backgroundColor: 'rgba(0,255,136,0.12)',
+    borderRadius: 3,
+    overflow: 'hidden',
   },
-  barFill: { height: '100%', backgroundColor: palette.neon, borderRadius: 3 },
+  barFill: {
+    height: '100%',
+    backgroundColor: palette.neon,
+    borderRadius: 3,
+  },
 
   backBtn: {
     paddingVertical: 18,
@@ -149,6 +251,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtnText: {
-    color: '#000', fontSize: 16, fontWeight: '900', letterSpacing: 1,
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 });

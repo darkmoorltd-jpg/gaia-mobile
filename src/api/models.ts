@@ -15,6 +15,7 @@ export interface DiagnosisResult {
   scansRemaining?: number;
   gradcam_image?: string | null;
   top_class_index?: number;
+  recommendations?: string | null;
 }
 
 export class DiagnosisError extends Error {
