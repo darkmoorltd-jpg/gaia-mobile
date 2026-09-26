@@ -36,8 +36,10 @@
         "ACCESS_FINE_LOCATION",
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
-        "POST_NOTIFICATIONS"
-      ]
+        "POST_NOTIFICATIONS",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "versionCode": 1
     },
     "plugins": [
       "expo-router",
@@ -46,7 +48,13 @@
       "expo-local-authentication",
       "expo-notifications",
       "expo-secure-store",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "GAIA uses GPS to map your farm."
+        }
+      ]
     ],
     "extra": {
       "router": {

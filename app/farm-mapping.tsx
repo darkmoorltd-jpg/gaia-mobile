@@ -249,7 +249,7 @@ export default function FarmMapping() {
   const html = useMemo(() => {
     if (!pos) return '';
     const trail = JSON.stringify(pts.map((p) => [p.lat, p.lon]));
-    const h = [
+    const parts = [
       '<!DOCTYPE html><html><head><meta charset="utf-8"/>',
       '<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>',
       '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>',
@@ -271,8 +271,8 @@ export default function FarmMapping() {
       'if(trail.length>=3){if(poly)poly.setLatLngs(trail);else poly=L.polygon(trail,{color:"#00ff88",weight:3,fillColor:"#00ff88",fillOpacity:0.2}).addTo(map);}',
       'map.panTo([lat,lon],{animate:false});};',
       '</scr' + 'ipt></body></html>',
-    ].join('');
-    return h;
+    ];
+    return parts.join('');
   }, [pos, layer.key, pts.length]);
 
   return (
