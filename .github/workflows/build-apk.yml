@@ -10,16 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
 
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -28,10 +25,19 @@ jobs:
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Prebuild Android
-        run: npx expo prebuild --platform android --no-install
+        run: npx expo prebuild --platform android --clean --no-install
 
-      - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+      - name: Configure Gradle
+        run: |
+          cd android
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" >> gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          echo "android.enableHermes=true" >> gradle.properties
+          if [ -f build.gradle ]; then
+            sed -i 's/kotlinVersion = .*/kotlinVersion = "1.9.25"/' build.gradle || true
+            sed -i 's/ext.kotlinVersion = .*/ext.kotlinVersion = "1.9.25"/' build.gradle || true
+          fi
 
       - name: Build debug APK
         run: |
