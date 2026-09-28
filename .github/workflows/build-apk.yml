@@ -41,9 +41,26 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android --no-install --clean
 
+      - name: Patch React Native Gradle plugin (serviceOf workaround)
+        run: |
+          FILE="node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/build.gradle.kts"
+          if [ -f "$FILE" ]; then
+            echo "Patching: $FILE"
+            # Remove the import that no longer exists in modern Gradle
+            sed -i '/import org.gradle.configurationcache.extensions.serviceOf/d' "$FILE"
+            # Replace serviceOf<ModuleRegistry>() with the modern equivalent
+            sed -i 's|serviceOf<ModuleRegistry>()|(project as org.gradle.api.internal.project.ProjectInternal).services.get(ModuleRegistry::class.java)|g' "$FILE"
+            echo "----- patched file (first 60 lines) -----"
+            head -60 "$FILE"
+          else
+            echo "File not found: $FILE"
+            exit 1
+          fi
+
       - name: Pin Gradle 8.14.3
         run: |
           cd android
+          mkdir -p gradle/wrapper
           cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -70,7 +87,7 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --warning-mode none
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         if: always()
