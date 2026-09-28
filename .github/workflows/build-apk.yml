@@ -25,18 +25,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006 cmake;3.22.1'
-
-      - name: Cache npm
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+      - name: Install Android packages
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.1.12297006" \
+            "cmake;3.22.1" || true
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
@@ -44,42 +41,41 @@ jobs:
       - name: Prebuild Android
         run: npx expo prebuild --platform android --no-install --clean
 
-      - name: Create local.properties
+      - name: Pin Gradle 8.14.3
+        run: |
+          cd android
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-all.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+
+      - name: Write local.properties
         run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
 
-      - name: Patch Gradle (SDK 57 namespace fix)
+      - name: Tune gradle.properties
         run: |
           cat >> android/gradle.properties << 'EOF'
           org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g
-          org.gradle.daemon=false
-          org.gradle.parallel=true
-          org.gradle.caching=true
           android.ndkVersion=27.1.12297006
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
       - name: Build Debug APK
+        working-directory: android
         run: |
-          cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --warning-mode none
 
-      - name: Build Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace
-
-      - name: Upload Debug APK
+      - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gaia-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 30
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: gaia-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 30
+          if-no-files-found: warn
