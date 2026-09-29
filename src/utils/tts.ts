@@ -1,114 +1,72 @@
 import * as Speech from 'expo-speech';
-import { findLanguage } from './languages';
 
-// Common agricultural terms that TTS engines often mispronounce.
-// We map English spellings to phonetic versions per language.
-const PHONETIC_MAP: Record<string, Record<string, string>> = {
-  ha: {
-    cassava: 'rogo',
-    maize: 'masara',
-    rice: 'shinkafa',
-    yam: 'doya',
-    fertilizer: 'takin zamani',
-    pesticide: 'maganin kwari',
-    leaf: 'ganye',
-    disease: 'ciwo',
-    healthy: 'lafiya',
-  },
-  yo: {
-    cassava: 'ege',
-    maize: 'agbado',
-    rice: 'iresi',
-    yam: 'isu',
-    fertilizer: 'ajile',
-    pesticide: 'oogun kokoro',
-    leaf: 'ewe',
-    disease: 'aisan',
-    healthy: 'ni ilera',
-  },
-  ig: {
-    cassava: 'akpu',
-    maize: 'ọka',
-    rice: 'osikapa',
-    yam: 'ji',
-    fertilizer: 'fatịlaịza',
-    pesticide: 'ọgwụ ahụhụ',
-    leaf: 'akwụkwọ',
-    disease: 'ọrịa',
-    healthy: 'dị mma',
-  },
-  sw: {
-    cassava: 'muhogo',
-    maize: 'mahindi',
-    rice: 'mchele',
-    yam: 'viazi vikuu',
-    fertilizer: 'mbolea',
-    pesticide: 'dawa ya wadudu',
-    leaf: 'jani',
-    disease: 'ugonjwa',
-    healthy: 'afya',
-  },
+const LANG_MAP = {
+  english: 'en-GB',
+  hausa: 'ha-NG',
+  yoruba: 'yo-NG',
+  igbo: 'ig-NG',
+  pidgin: 'en-NG',
+  french: 'fr-FR',
 };
 
-function preprocess(text: string, langCode: string): string {
-  const map = PHONETIC_MAP[langCode];
-  if (!map) return text;
+let currentUtterance = null;
 
-  let out = text;
-  Object.entries(map).forEach(([eng, local]) => {
-    const re = new RegExp('\\b' + eng + '\\b', 'gi');
-    out = out.replace(re, local);
-  });
-  return out;
+export function isSpeaking() {
+  return currentUtterance !== null;
 }
 
-// Strip markdown formatting characters
-function cleanMarkdown(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, ' code block ')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/#+\s?/g, '')
-    .replace(/\|/g, ' ')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/\n{2,}/g, '. ');
-}
+export async function speak(text, language = 'english', options = {}) {
+  // Stop any ongoing speech
+  await stopSpeaking();
 
-export interface SpeakOptions {
-  language: string;
-  rate?: number;
-  pitch?: number;
-  onDone?: () => void;
-  onStart?: () => void;
-  onError?: (e: any) => void;
-}
+  if (!text || !text.trim()) return;
 
-export function speakText(text: string, opts: SpeakOptions) {
-  const lang = findLanguage(opts.language);
-  const cleaned = cleanMarkdown(text);
-  const localized = preprocess(cleaned, lang.code);
+  const lang = LANG_MAP[language] || 'en-GB';
 
-  Speech.stop();
-  Speech.speak(localized, {
-    language: lang.ttsCode,
-    rate: opts.rate ?? 0.95,
-    pitch: opts.pitch ?? 1.0,
-    onDone: opts.onDone,
-    onStopped: opts.onDone,
-    onError: opts.onError,
-    onStart: opts.onStart,
+  return new Promise((resolve) => {
+    currentUtterance = text;
+
+    Speech.speak(text, {
+      language: lang,
+      pitch: options.pitch ?? 1.0,
+      rate: options.rate ?? 0.92,
+      onDone: () => {
+        currentUtterance = null;
+        resolve();
+      },
+      onStopped: () => {
+        currentUtterance = null;
+        resolve();
+      },
+      onError: (err) => {
+        console.warn('TTS error:', err);
+        currentUtterance = null;
+        resolve();
+      },
+    });
   });
 }
 
-export function stopSpeaking() {
-  Speech.stop();
+export async function stopSpeaking() {
+  try {
+    const speaking = await Speech.isSpeakingAsync();
+    if (speaking) {
+      await Speech.stop();
+    }
+  } catch (e) {
+    // ignore
+  }
+  currentUtterance = null;
 }
 
-export async function listAvailableVoices() {
+export async function getAvailableVoices() {
   try {
     return await Speech.getAvailableVoicesAsync();
   } catch {
     return [];
   }
+}
+
+export function supportsLanguage(language) {
+  return language in LANG_MAP;
 }
