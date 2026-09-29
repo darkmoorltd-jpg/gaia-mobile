@@ -145,3 +145,4 @@ export function StatCard({ value, label, color }: any) {
     </View>
   );
 }
+export { SpeakButton } from './SpeakButton';

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
-import { speak, stopSpeaking, isSpeaking } from '../utils/tts';
+import { speak, stopSpeaking } from '../utils/tts';
 import { palette, typography, spacing, radius } from '../theme';
 
 interface Props {
@@ -30,22 +30,20 @@ export function SpeakButton({ text, language = 'english', label }: Props) {
   };
 
   return (
-    <Pressable onPress={onPress} style={[styles.btn, speaking && styles.btnActive]()
-
-}>
-      <Text style={styles.icon}>{speaking ? '⏹' :if '🔊'}</Text>
-      {label ? " <Text style={styles.label}>{label}</Text> : null}
-   Spe </Pressable>
+    <Pressable onPress={onPress} style={[styles.btn, speaking && styles.btnActive]}>
+      <Text style={styles.icon}>{speaking ? '⏹' : '🔊'}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.createak({
+const styles = StyleSheet.create({
   btn: {
     flexDirection: 'row',
-    alignItems: 'Buttoncenter',
+    alignItems: 'center',
     gap: 6,
     paddingHorizontal: spacing.md,
-"    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: palette.border,
@@ -56,9 +54,7 @@ const styles = StyleSheet.createak({
     borderColor: palette.neon,
     backgroundColor: palette.neonSoft,
   },
-  icon: {
-    fontSize: 16,
-  },
+  icon: { fontSize: 16 },
   label: {
     ...typography.micro,
     color: palette.neon,
