@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Modal, Alert, ActivityIndicator,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
@@ -30,42 +30,54 @@ export default function AdminUsers() {
   const [busy, setBusy] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
+  // ---- Fetch ALL users via API ----
   const load = useCallback(async () => {
     if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) return;
+    if (!session?.access_token) return;
     setBusy(true);
     try {
-      const [scans, profiles, presence] = await Promise.all([
-        supabase.from('user_scans').select('*').limit(500),
-        supabase.from('user_profiles').select('*').limit(500),
-        supabase.from('user_presence').select('*').limit(500),
-      ]);
-      const pMap: Record<string, any> = {};
-      (profiles.data || []).forEach((p: any) => { pMap[p.user_id] = p; });
-      const prMap: Record<string, any> = {};
-      (presence.data || []).forEach((p: any) => { prMap[p.user_id] = p; });
-      const merged = (scans.data || []).map((s: any) => ({
-        ...s,
-        profile: pMap[s.user_id] || {},
-        presence: prMap[s.user_id] || {},
-      }));
-      setRows(merged);
-    } catch {}
+      const r = await axios.get(API + '/admin/list-users', {
+        headers: { Authorization: 'Bearer ' + session.access_token },
+        timeout: 60000,
+      });
+      setRows(r.data.users || []);
+      setLastUpdate(new Date());
+    } catch (e: any) {
+      console.warn('list-users failed:', e?.message);
+    }
     setBusy(false);
-  }, [user]);
+  }, [user, session]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Initial load
+  useEffect(() => { load(); }, [load]);
 
-  // Realtime: refresh on any presence change
+  // ---- Realtime: listen to user_presence + user_profiles + user_scans + auth signups ----
   useEffect(() => {
+    if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) return;
+
     const channel = supabase
-      .channel('admin-presence-live')
+      .channel('admin-realtime-users')
       .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'user_presence' },
-          () => { load(); })
+        { event: '*', schema: 'public', table: 'user_presence' },
+        () => { load(); })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'user_profiles' },
+        () => { load(); })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'user_scans' },
+        () => { load(); })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [load]);
+
+    // Refresh every 20s as safety net (in case realtime misses something)
+    const t = setInterval(load, 20_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(t);
+    };
+  }, [user, load]);
 
   const hdr = session?.access_token
     ? { Authorization: 'Bearer ' + session.access_token }
@@ -148,7 +160,7 @@ export default function AdminUsers() {
   const filtered = search.trim()
     ? rows.filter((r) => {
         const p = r.profile || {};
-        const hay = ((p.email || '') + ' ' + (p.first_name || '') + ' ' + (p.last_name || '') + ' ' + (p.state || '')).toLowerCase();
+        const hay = ((r.email || '') + ' ' + (p.first_name || '') + ' ' + (p.last_name || '') + ' ' + (p.state || '')).toLowerCase();
         return hay.includes(search.toLowerCase());
       })
     : rows;
@@ -161,7 +173,10 @@ export default function AdminUsers() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Users</Text>
         <Text style={styles.sub}>
-          {rows.length} total · <Text style={{ color: palette.neon }}>{onlineCount} online</Text>
+          {rows.length} total · <Text style={{ color: palette.neon }}>{onlineCount} online</Text> · {' '}
+          <Text style={{ color: palette.textDim, fontSize: 10 }}>
+            updated {lastUpdate.toLocaleTimeString()}
+          </Text>
         </Text>
 
         <View style={styles.searchWrap}>
@@ -180,19 +195,24 @@ export default function AdminUsers() {
           const p = r.profile || {};
           const online = isOnline(r.presence?.last_seen);
           const name = ((p.first_name || '') + ' ' + (p.last_name || '')).trim() || 'Farmer';
+          const scans = r.scans?.scans_remaining ?? 0;
+          const plan = r.scans?.plan || 'free';
+          const banned = r.ban?.banned_until && new Date(r.ban.banned_until) > new Date();
+
           return (
-            <Pressable key={i} onPress={() => setSelected(r)} style={styles.card}>
+            <Pressable key={r.user_id || i} onPress={() => setSelected(r)} style={styles.card}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarTxt}>{(name[0] || 'F').toUpperCase()}</Text>
                 {online ? <View style={styles.dot} /> : null}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name} numberOfLines={1}>{name}</Text>
-                <Text style={styles.email} numberOfLines={1}>{p.email || (r.user_id || '').slice(0, 16)}</Text>
+                <Text style={styles.email} numberOfLines={1}>{r.email || '—'}</Text>
                 <View style={styles.metaRow}>
                   {p.state ? <Text style={styles.meta}>📍 {p.state}</Text> : null}
-                  <Text style={styles.meta}>📉 {r.scans_remaining}</Text>
-                  <Text style={styles.meta}>{(r.plan || 'free').toUpperCase()}</Text>
+                  <Text style={styles.meta}>📉 {scans}</Text>
+                  <Text style={styles.meta}>{plan.toUpperCase()}</Text>
+                  {banned ? <Text style={[styles.meta, { color: palette.danger }]}>BANNED</Text> : null}
                 </View>
               </View>
               <Text style={styles.chevron}>›</Text>
@@ -217,7 +237,7 @@ export default function AdminUsers() {
               <Text style={styles.title}>
                 {(selected?.profile?.first_name || 'User')} {(selected?.profile?.last_name || '')}
               </Text>
-              <Text style={styles.sub}>{selected?.profile?.email}</Text>
+              <Text style={styles.sub}>{selected?.email}</Text>
 
               <Text style={styles.sectionLabel}>PROFILE</Text>
               <Text style={styles.kv}><Text style={styles.k}>Phone: </Text>{selected?.profile?.phone || '—'}</Text>
@@ -238,8 +258,9 @@ export default function AdminUsers() {
               </Text>
 
               <Text style={styles.sectionLabel}>ACCOUNT</Text>
-              <Text style={styles.kv}><Text style={styles.k}>Plan: </Text>{(selected?.plan || 'free').toUpperCase()}</Text>
-              <Text style={styles.kv}><Text style={styles.k}>Scans remaining: </Text>{selected?.scans_remaining}</Text>
+              <Text style={styles.kv}><Text style={styles.k}>Plan: </Text>{(selected?.scans?.plan || 'free').toUpperCase()}</Text>
+              <Text style={styles.kv}><Text style={styles.k}>Scans remaining: </Text>{selected?.scans?.scans_remaining ?? 0}</Text>
+              <Text style={styles.kv}><Text style={styles.k}>Signed up: </Text>{selected?.created_at ? new Date(selected.created_at).toLocaleDateString() : '—'}</Text>
               <Text style={styles.kv}><Text style={styles.k}>User ID: </Text>{(selected?.user_id || '').slice(0, 20)}…</Text>
 
               <Text style={styles.sectionLabel}>ACTIONS</Text>

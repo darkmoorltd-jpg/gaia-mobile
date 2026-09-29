@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
+import { startPresenceHeartbeat, stopPresenceHeartbeat } from '../src/utils/presence';
 import { usePresenceHeartbeat } from '../src/utils/presence';
 import { ThemeProvider, useTheme } from '../src/theme';
 
@@ -27,7 +28,15 @@ function InnerApp() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  
   useEffect(() => {
+    if (user?.id) {
+      startPresenceHeartbeat(user.id);
+      return () => stopPresenceHeartbeat();
+    }
+  }, [user?.id]);
+
+useEffect(() => {
     if (loading) return;
     const inAuth = segments[0] === '(auth)';
     if (!user && !inAuth) router.replace('/(auth)/login');
