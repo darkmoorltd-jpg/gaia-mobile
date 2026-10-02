@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { supabase } from '../api/supabase';
 import type { User, Session } from '@supabase/supabase-js';
@@ -9,12 +8,14 @@ interface AuthState {
   loading: boolean;
   scansRemaining: number;
   plan: string;
-  setAuth: (user: User | null, session: Session | null) => void;
+
+  setUser: (u: User | null) => void;
+  setAuth: (u: User | null, s: Session | null) => void;
   setScans: (n: number, plan: string) => void;
+  refreshScans: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
-  refreshScans: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -24,44 +25,68 @@ export const useAuth = create<AuthState>((set, get) => ({
   scansRemaining: 30,
   plan: 'free',
 
-  setAuth: (user, session) => set({ user, session, loading: false }),
+  setUser: (u) => set({ user: u, loading: false }),
+
+  setAuth: (u, s) => set({ user: u, session: s, loading: false }),
+
   setScans: (n, plan) => set({ scansRemaining: n, plan }),
-
-  signIn: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
-    set({ user: data.user, session: data.session });
-    await get().refreshScans();
-    return null;
-  },
-
-  signUp: async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return error.message;
-    if (data.user) {
-      await supabase.from('user_scans').insert({
-        user_id: data.user.id,
-        scans_remaining: 30,
-        plan: 'free',
-      });
-      set({ user: data.user, session: data.session });
-    }
-    return null;
-  },
-
-  signOut: async () => {
-    await supabase.auth.signOut();
-    set({ user: null, session: null, scansRemaining: 0, plan: 'free' });
-  },
 
   refreshScans: async () => {
     const user = get().user;
     if (!user) return;
-    const { data } = await supabase
-      .from('user_scans')
-      .select('scans_remaining, plan')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (data) set({ scansRemaining: data.scans_remaining, plan: data.plan });
+    try {
+      const { data } = await supabase
+        .from('user_scans')
+        .select('scans_remaining, plan')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data) {
+        set({ scansRemaining: data.scans_remaining, plan: data.plan });
+      }
+    } catch (e) {
+      console.log('refreshScans failed', e);
+    }
+  },
+
+  signIn: async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) return error.message;
+      set({ user: data.user, session: data.session, loading: false });
+      await get().refreshScans();
+      return null;
+    } catch (e: any) {
+      return e?.message ?? 'Sign in failed';
+    }
+  },
+
+  signUp: async (email, password) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) return error.message;
+      if (data.user) {
+        try {
+          await supabase.from('user_scans').insert({
+            user_id: data.user.id,
+            scans_remaining: 30,
+            plan: 'free',
+          });
+        } catch {}
+        set({ user: data.user, session: data.session, loading: false });
+      }
+      return null;
+    } catch (e: any) {
+      return e?.message ?? 'Sign up failed';
+    }
+  },
+
+  signOut: async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    set({ user: null, session: null, scansRemaining: 0, plan: 'free' });
   },
 }));
