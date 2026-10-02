@@ -33,7 +33,9 @@ export default function RagChat() {
     setDocs(d);
   };
 
-  useEffect(() => { refreshDocs(); }, []);
+  useEffect(() => {
+    refreshDocs();
+  }, []);
 
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -41,9 +43,14 @@ export default function RagChat() {
 
   const pickFile = async () => {
     const res = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'text/plain', 'text/markdown',
-             'image/jpeg', 'image/png',
-             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      type: [
+        'application/pdf',
+        'text/plain',
+        'text/markdown',
+        'image/jpeg',
+        'image/png',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
       multiple: false,
       copyToCacheDirectory: true,
     });
@@ -72,7 +79,8 @@ export default function RagChat() {
     Alert.alert('Delete document?', 'This will remove it from your knowledge base.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive',
+        text: 'Delete',
+        style: 'destructive',
         onPress: async () => {
           const ok = await deleteDocument(id);
           if (ok) setDocs((d) => d.filter((x) => x.id !== id));
@@ -113,7 +121,6 @@ export default function RagChat() {
         <Text style={styles.title}>Ask GAIA</Text>
         <Text style={styles.subtitle}>Upload documents. Ask anything.</Text>
 
-        {/* Upload button */}
         <Pressable
           onPress={pickFile}
           disabled={uploading}
@@ -126,7 +133,6 @@ export default function RagChat() {
           )}
         </Pressable>
 
-        {/* Documents list */}
         {docs.length > 0 && (
           <Pressable onPress={() => setShowDocs((v) => !v)} style={styles.docsToggle}>
             <Text style={styles.docsToggleText}>
@@ -136,7 +142,11 @@ export default function RagChat() {
         )}
 
         {showDocs && docs.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 90, marginTop: 8 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ maxHeight: 90, marginTop: 8 }}
+          >
             <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 20 }}>
               {docs.map((d) => (
                 <Pressable
@@ -153,7 +163,6 @@ export default function RagChat() {
           </ScrollView>
         )}
 
-        {/* Chat */}
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.chat}
@@ -163,11 +172,7 @@ export default function RagChat() {
             <GlassCard>
               <Text style={styles.emptyTitle}>How it works</Text>
               <Text style={styles.emptyBody}>
-                1. Upload PDFs, docs, or images of farm manuals{'
-'}
-                2. Ask a question in plain language{'
-'}
-                3. GAIA answers using only your documents
+                {'1. Upload PDFs, docs, or images of farm manuals\n2. Ask a question in plain language\n3. GAIA answers using only your documents'}
               </Text>
             </GlassCard>
           )}
@@ -198,7 +203,6 @@ export default function RagChat() {
           )}
         </ScrollView>
 
-        {/* Input */}
         <View style={styles.inputRow}>
           <TextInput
             value={input}
@@ -220,48 +224,76 @@ export default function RagChat() {
 
 const createStyles = (p: any) => StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 56,
   },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
   title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, paddingHorizontal: 20, marginTop: 8 },
   subtitle: { fontSize: 14, color: p.textMuted, paddingHorizontal: 20, marginTop: 4 },
   uploadBtn: {
-    marginHorizontal: 20, marginTop: spacing.lg,
-    paddingVertical: 16, borderRadius: 14,
-    backgroundColor: p.neon, alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: spacing.lg,
+    paddingVertical: 16,
+    borderRadius: 14,
+    backgroundColor: p.neon,
+    alignItems: 'center',
   },
   uploadBtnText: { color: p.obsidian, fontWeight: '900', fontSize: 13, letterSpacing: 1.2 },
   docsToggle: { paddingHorizontal: 20, paddingTop: 14 },
   docsToggleText: { fontSize: 12, color: p.textMuted, fontWeight: '700' },
   docChip: {
-    width: 130, padding: 10, borderRadius: 12,
-    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    width: 130,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
   },
   docIcon: { fontSize: 22 },
   docName: { fontSize: 12, color: p.text, fontWeight: '600', marginTop: 4 },
   docMeta: { fontSize: 10, color: p.textMuted, marginTop: 2 },
   chat: { paddingHorizontal: 20, paddingBottom: 20, gap: 10 },
   bubble: { maxWidth: '85%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 18 },
-  bubbleAi: { alignSelf: 'flex-start', backgroundColor: p.surface, borderWidth: 1, borderColor: p.borderHi },
+  bubbleAi: {
+    alignSelf: 'flex-start',
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.borderHi,
+  },
   bubbleUser: { alignSelf: 'flex-end', backgroundColor: p.neon },
   bubbleText: { fontSize: 15, color: p.text, lineHeight: 21 },
   bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
   emptyTitle: { fontSize: 15, fontWeight: '800', color: p.text, marginBottom: 8 },
   emptyBody: { fontSize: 13, color: p.textMuted, lineHeight: 20 },
   inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 20, paddingBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   input: {
-    flex: 1, backgroundColor: p.surface, borderWidth: 1,
-    borderColor: p.border, borderRadius: 14,
-    paddingHorizontal: 16, paddingVertical: 12,
-    color: p.text, fontSize: 15, maxHeight: 120,
+    flex: 1,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: p.text,
+    fontSize: 15,
+    maxHeight: 120,
   },
   sendBtn: {
-    width: 50, height: 50, borderRadius: 25,
-    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: p.neon,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sendIcon: { color: p.obsidian, fontSize: 22, fontWeight: '900' },
 });
