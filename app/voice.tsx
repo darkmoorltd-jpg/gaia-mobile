@@ -1,530 +1,353 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
+  View, Text, StyleSheet, Pressable, ScrollView,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, TextInput,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { useTheme, typography, spacing, radius, shadows } from '../src/theme';
+import { useRouter } from 'expo-router';
+import { Audio } from 'expo-av';
+import { Screen, GlassCard, Pill, NeonButton } from '../src/components';
+import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { supabase } from '../src/api/supabase';
+import {
+  startRecording, stopRecording, transcribeAudio, speak, stopSpeaking,
+  askGaia, ChatTurn,
+} from '../src/utils/voice';
 
-const API_BASE = 'https://gaia-api-xuly.onrender.com';
-const MAX_EDITS = 5;
-const MAX_HISTORY_SENT = 40;
+const LANGUAGES = [
+  { code: 'en-NG', label: 'English', flag: '🇬🇧', short: 'en' },
+  { code: 'ha-NG', label: 'Hausa', flag: '🇳🇬', short: 'ha' },
+  { code: 'yo-NG', label: 'Yoruba', flag: '🇳🇬', short: 'yo' },
+  { code: 'ig-NG', label: 'Igbo', flag: '🇳🇬', short: 'ig' },
+  { code: 'fr-FR', label: 'Français', flag: '🇫🇷', short: 'fr' },
+  { code: 'sw-KE', label: 'Kiswahili', flag: '🇰🇪', short: 'sw' },
+];
 
-interface ChatMsg {
-  id?: number;         // server id once saved
-  role: 'user' | 'assistant';
-  content: string;
-  edit_count?: number;
-  created_at?: string;
-}
+const GREETINGS: Record<string, string> = {
+  'en-NG': "Hello, I'm GAIA. What can I do for you today?",
+  'ha-NG': "Sannu, ni ce GAIA. Me zan iya yi maka yau?",
+  'yo-NG': "Ẹ n lẹ, Èmi ni GAIA. Kí ni mo lè ṣe fún ọ lónìí?",
+  'ig-NG': "Ndeewo, abụ m GAIA. Gịnị ka m nwere ike imere gị taa?",
+  'fr-FR': "Bonjour, je suis GAIA. Que puis-je faire pour vous aujourd'hui ?",
+  'sw-KE': "Habari, mimi ni GAIA. Nikufanyie nini leo?",
+};
 
-function newSessionId() {
-  const s = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let out = '';
-  for (let i = 0; i < 16; i++) out += s[Math.floor(Math.random() * s.length)];
-  return 'sess-' + out;
-}
+interface Msg { role: 'user' | 'ai'; text: string; }
 
-export default function Voice() {
+export default function VoiceAgronomist() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
   const styles = createStyles(palette);
 
-  const [sessionId, setSessionId] = useState<string>(newSessionId());
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [memBusy, setMemBusy] = useState(false);
-  const [memory, setMemory] = useState<Record<string, string>>({});
-  const [showHistory, setShowHistory] = useState(false);
-  const [showMemory, setShowMemory] = useState(false);
-  const [editing, setEditing] = useState<{ idx: number; text: string } | null>(null);
+  const [language, setLanguage] = useState(LANGUAGES[0]);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [typedMode, setTypedMode] = useState(false);
+  const [typedText, setTypedText] = useState('');
 
-  const scrollRef = useRef<ScrollView>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
 
-  // ── Load memory on mount ──
+  // ---------- Greet on mount + on language change ----------
   useEffect(() => {
-    loadMemory();
-  }, [user]);
+    const greet = GREETINGS[language.code] || GREETINGS['en-NG'];
+    setMessages([{ role: 'ai', text: greet }]);
+    setSpeaking(true);
+    speak(greet, language.code, () => setSpeaking(false));
+    return () => stopSpeaking();
+  }, [language]);
 
-  const loadMemory = async () => {
-    if (!user) return;
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) return;
-      const r = await fetch(`${API_BASE}/memory`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setMemory(d.memory || {});
-      }
-    } catch {}
-  };
-
-  const loadSession = async (sid: string) => {
-    if (!user) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) return;
-    try {
-      const r = await fetch(`${API_BASE}/history/${sid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setMessages(
-          (d.messages || []).map((m: any) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            edit_count: m.edit_count,
-            created_at: m.created_at,
-          }))
-        );
-      }
-    } catch {}
-  };
-
-  // ── Save a message to Supabase ──
-  const saveMessage = async (role: string, content: string): Promise<number | null> => {
-    if (!user) return null;
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) return null;
-    try {
-      const r = await fetch(`${API_BASE}/history/save`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ session_id: sessionId, role, content }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        return d.message?.id || null;
-      }
-    } catch {}
-    return null;
-  };
-
-  // ── Delete a single message ──
-  const deleteMessage = async (msg: ChatMsg, idx: number) => {
-    Alert.alert(
-      'Delete message',
-      'This will remove the message from your history permanently.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (token && msg.id) {
-              try {
-                await fetch(`${API_BASE}/history/message/${msg.id}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-              } catch {}
-            }
-            setMessages((prev) => prev.filter((_, i) => i !== idx));
-          },
-        },
-      ]
-    );
-  };
-
-  // ── Edit a user message (≤5 times) ──
-  const beginEdit = (idx: number) => {
-    const m = messages[idx];
-    if (m.role !== 'user') {
-      Alert.alert('Only your messages can be edited');
-      return;
-    }
-    if ((m.edit_count || 0) >= MAX_EDITS) {
-      Alert.alert('Edit limit reached', 'You can edit a message up to 5 times.');
-      return;
-    }
-    setEditing({ idx, text: m.content });
-  };
-
-  const commitEdit = async () => {
-    if (!editing) return;
-    const { idx, text } = editing;
-    const m = messages[idx];
-    if (!m.id) {
-      setMessages((prev) => prev.map((x, i) => (i === idx ? { ...x, content: text } : x)));
-      setEditing(null);
-      return;
-    }
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    if (!token) return;
-    setMemBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/history/edit/${m.id}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ new_content: text }),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        Alert.alert('Edit failed', err.error || r.statusText);
-      } else {
-        const d = await r.json();
-        setMessages((prev) =>
-          prev.map((x, i) =>
-            i === idx ? { ...x, content: text, edit_count: d.edit_count } : x
-          )
-        );
-        setEditing(null);
-      }
-    } catch (e: any) {
-      Alert.alert('Edit failed', e.message || 'Try again');
-    } finally {
-      setMemBusy(false);
-    }
-  };
-
-  // ── Clear the whole session ──
-  const clearSession = () => {
-    Alert.alert(
-      'Clear conversation',
-      'All messages in this conversation will be deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (token) {
-              try {
-                await fetch(`${API_BASE}/history/session/${sessionId}`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-              } catch {}
-            }
-            setMessages([]);
-            setSessionId(newSessionId());
-          },
-        },
-      ]
-    );
-  };
-
-  // ── Send ──
-  const send = async () => {
-    if (!input.trim() || busy) return;
-    const q = input.trim();
-    setInput('');
-    setEditing(null);
-
-    const userMsg: ChatMsg = { role: 'user', content: q };
-    setMessages((prev) => [...prev, userMsg]);
-    setBusy(true);
+  // ---------- Auto-scroll ----------
+  useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [messages, thinking]);
+
+  // ---------- Handle user turn ----------
+  const handleUserUtterance = async (text: string) => {
+    if (!text.trim()) return;
+
+    setMessages((m) => [...m, { role: 'user', text }]);
+    setThinking(true);
+
+    const history: ChatTurn[] = messages.slice(-6).map((m) => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    }));
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Not authenticated');
-
-      // Save the user message
-      const userId = await saveMessage('user', q);
-      if (userId) {
-        setMessages((prev) => {
-          const copy = [...prev];
-          const last = copy.length - 1;
-          copy[last] = { ...copy[last], id: userId };
-          return copy;
-        });
-      }
-
-      // Build conversation (up to 40 turns for memory)
-      const history = messages.slice(-MAX_HISTORY_SENT);
-      const payload = {
-        messages: [
-          ...history.map((m) => ({ role: m.role, content: m.content })),
-          { role: 'user', content: q },
-        ],
-        max_tokens: 8000,
-        memory,
-        use_memory: true,
-      };
-
-      const r = await fetch(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${r.status}`);
-      }
-
-      const data = await r.json();
-      const assistantMsg: ChatMsg = { role: 'assistant', content: data.reply };
-      setMessages((prev) => [...prev, assistantMsg]);
-
-      const assistantId = await saveMessage('assistant', data.reply);
-      if (assistantId) {
-        setMessages((prev) => {
-          const copy = [...prev];
-          const last = copy.length - 1;
-          copy[last] = { ...copy[last], id: assistantId };
-          return copy;
-        });
-      }
+      const reply = await askGaia(text, language.code, history);
+      setMessages((m) => [...m, { role: 'ai', text: reply }]);
+      setThinking(false);
+      setSpeaking(true);
+      speak(reply, language.code, () => setSpeaking(false));
     } catch (e: any) {
-      Alert.alert('GAIA error', e.message || 'Please try again');
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: '⚠️ I could not reach the server. Please try again.' },
-      ]);
-    } finally {
-      setBusy(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      setThinking(false);
+      Alert.alert('GAIA could not respond', e?.message ?? 'Try again');
     }
+  };
+
+  // ---------- Mic button ----------
+  const onMicPress = async () => {
+    // If GAIA is speaking → stop and let user interrupt
+    if (speaking) {
+      stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
+
+    if (listening) {
+      // Stop recording and process
+      const uri = await stopRecording(recordingRef.current!);
+      recordingRef.current = null;
+      setListening(false);
+
+      if (!uri) return;
+      setThinking(true);
+      try {
+        const text = await transcribeAudio(uri, language.short);
+        setThinking(false);
+        if (text.trim()) await handleUserUtterance(text);
+      } catch (e: any) {
+        setThinking(false);
+        Alert.alert('Transcription failed', e?.message ?? 'Try again');
+      }
+    } else {
+      // Start recording
+      try {
+        const rec = await startRecording();
+        recordingRef.current = rec;
+        setListening(true);
+      } catch (e: any) {
+        Alert.alert('Microphone error', e?.message ?? 'Permission denied');
+      }
+    }
+  };
+
+  const onTypedSubmit = async () => {
+    const text = typedText.trim();
+    if (!text) return;
+    setTypedText('');
+    setTypedMode(false);
+    await handleUserUtterance(text);
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={10}>
-          <Text style={styles.iconText}>‹</Text>
-        </Pressable>
-        <View style={styles.headerCenter}>
-          <View style={styles.dot} />
-          <Text style={styles.headerTitle}>GAIA Agronomist</Text>
-        </View>
-        <Pressable onPress={() => setShowMemory(true)} style={styles.iconBtn} hitSlop={10}>
-          <Text style={styles.iconText}>★</Text>
-        </Pressable>
-        <Pressable onPress={() => setShowHistory(true)} style={styles.iconBtn} hitSlop={10}>
-          <Text style={styles.iconText}>≡</Text>
-        </Pressable>
-        <Pressable onPress={clearSession} style={styles.iconBtn} hitSlop={10}>
-          <Text style={[styles.iconText, { color: palette.danger }]}>␡</Text>
-        </Pressable>
-      </View>
-
-      {/* Messages */}
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
-        {messages.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Hello, I am GAIA.</Text>
-            <Text style={styles.emptyText}>
-              Ask me anything — farming, science, math, business, health, writing.
-              I remember everything you tell me.
-            </Text>
-          </View>
-        ) : (
-          messages.map((m, i) => (
-            <Pressable
-              key={i}
-              onLongPress={() => (m.role === 'user' ? beginEdit(i) : deleteMessage(m, i))}
-              style={[styles.row, m.role === 'user' ? styles.rowUser : styles.rowAi]}
-            >
-              <View style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
-                <Text style={[styles.bubbleText, m.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextAi]}>
-                  {m.content}
-                </Text>
-                {m.role === 'user' && m.edit_count != null && m.edit_count > 0 ? (
-                  <Text style={styles.editBadge}>
-                    edited · {m.edit_count}/{MAX_EDITS}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={styles.actions}>
-                {m.role === 'user' && (m.edit_count || 0) < MAX_EDITS ? (
-                  <Pressable onPress={() => beginEdit(i)} style={styles.actionBtn}>
-                    <Text style={styles.actionText}>✎</Text>
-                  </Pressable>
-                ) : null}
-                <Pressable onPress={() => deleteMessage(m, i)} style={styles.actionBtn}>
-                  <Text style={[styles.actionText, { color: palette.danger }]}>🗑</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          ))
-        )}
-        {busy ? (
-          <View style={[styles.row, styles.rowAi]}>
-            <View style={[styles.bubble, styles.bubbleAi]}>
-              <ActivityIndicator color={palette.neon} size="small" />
-            </View>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      {/* Input */}
-      <View style={styles.inputBar}>
-        <TextInput
-          value={editing ? editing.text : input}
-          onChangeText={(t) => (editing ? setEditing({ ...editing, text: t }) : setInput(t))}
-          placeholder={editing ? 'Editing…' : 'Ask GAIA anything…'}
-          placeholderTextColor={palette.textDim}
-          style={styles.input}
-          multiline
-        />
-        {editing ? (
-          <>
-            <Pressable onPress={() => setEditing(null)} style={[styles.sendBtn, { backgroundColor: palette.surface }]}>
-              <Text style={[styles.sendBtnText, { color: palette.text }]}>✕</Text>
-            </Pressable>
-            <Pressable onPress={commitEdit} disabled={memBusy} style={styles.sendBtn}>
-              {memBusy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.sendBtnText}>✓</Text>}
-            </Pressable>
-          </>
-        ) : (
-          <Pressable
-            onPress={send}
-            disabled={busy || !input.trim()}
-            style={[styles.sendBtn, (!input.trim() || busy) && { opacity: 0.4 }]}
-          >
-            <Text style={styles.sendBtnText}>Send</Text>
+    <Screen glow="livestock">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()}>
+            <Text style={styles.back}>← BACK</Text>
           </Pressable>
-        )}
-      </View>
+          <Pill label="Voice AI" color={palette.livestock} />
+        </View>
 
-      {/* History Modal */}
-      <Modal visible={showHistory} animationType="slide" transparent onRequestClose={() => setShowHistory(false)}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Conversation</Text>
-            <Text style={styles.modalSub}>{messages.length} messages</Text>
-            <Pressable
-              onPress={() => {
-                setSessionId(newSessionId());
-                setMessages([]);
-                setShowHistory(false);
-              }}
-              style={styles.modalBtn}
+        <Text style={styles.title}>Talk to GAIA</Text>
+        <Text style={styles.subtitle}>Ask anything. In your language.</Text>
+
+        {/* Language chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: spacing.lg, maxHeight: 44 }}
+        >
+          <View style={styles.langRow}>
+            {LANGUAGES.map((l) => (
+              <Pressable
+                key={l.code}
+                onPress={() => setLanguage(l)}
+                style={[
+                  styles.langChip,
+                  language.code === l.code && styles.langChipActive,
+                ]}
+              >
+                <Text style={styles.langFlag}>{l.flag}</Text>
+                <Text
+                  style={[
+                    styles.langText,
+                    language.code === l.code && styles.langTextActive,
+                  ]}
+                >
+                  {l.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Conversation */}
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.chat}
+          style={{ flex: 1, marginTop: spacing.lg }}
+        >
+          {messages.map((m, i) => (
+            <View
+              key={i}
+              style={[
+                styles.bubble,
+                m.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
+              ]}
             >
-              <Text style={styles.modalBtnText}>+ Start new conversation</Text>
-            </Pressable>
-            <Pressable onPress={() => setShowHistory(false)} style={[styles.modalBtn, styles.modalBtnGhost]}>
-              <Text style={styles.modalBtnText}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+              <Text
+                style={[
+                  styles.bubbleText,
+                  m.role === 'user' && styles.bubbleTextUser,
+                ]}
+              >
+                {m.text}
+              </Text>
+            </View>
+          ))}
 
-      {/* Memory Modal */}
-      <Modal visible={showMemory} animationType="slide" transparent onRequestClose={() => setShowMemory(false)}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Memory</Text>
-            <Text style={styles.modalSub}>Facts GAIA remembers about you</Text>
-            <ScrollView style={{ maxHeight: 300 }}>
-              {Object.entries(memory).length === 0 ? (
-                <Text style={styles.emptyText}>Nothing yet.</Text>
-              ) : (
-                Object.entries(memory).map(([k, v]) => (
-                  <View key={k} style={styles.memoryRow}>
-                    <Text style={styles.memoryKey}>{k}</Text>
-                    <Text style={styles.memoryVal}>{v}</Text>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-            <Pressable onPress={() => setShowMemory(false)} style={[styles.modalBtn, styles.modalBtnGhost]}>
-              <Text style={styles.modalBtnText}>Close</Text>
+          {thinking && (
+            <View style={[styles.bubble, styles.bubbleAi]}>
+              <ActivityIndicator color={palette.neon} />
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Typed input (fallback) */}
+        {typedMode && (
+          <View style={styles.typedRow}>
+            <TextInput
+              value={typedText}
+              onChangeText={setTypedText}
+              placeholder="Type your question…"
+              placeholderTextColor={palette.textDim}
+              style={styles.typedInput}
+              autoFocus
+              onSubmitEditing={onTypedSubmit}
+            />
+            <Pressable onPress={onTypedSubmit} style={styles.typedSend}>
+              <Text style={styles.typedSendText}>→</Text>
             </Pressable>
           </View>
+        )}
+
+        {/* Mic + controls */}
+        <View style={styles.controls}>
+          <Pressable
+            onPress={() => setTypedMode((v) => !v)}
+            style={styles.sideBtn}
+          >
+            <Text style={styles.sideBtnText}>⌨</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onMicPress}
+            style={[
+              styles.micBtn,
+              listening && styles.micBtnListening,
+              speaking && styles.micBtnSpeaking,
+            ]}
+          >
+            <Text style={styles.micIcon}>
+              {speaking ? '◼' : listening ? '●' : '🎙'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (speaking) { stopSpeaking(); setSpeaking(false); }
+              const greet = GREETINGS[language.code] || GREETINGS['en-NG'];
+              setMessages([{ role: 'ai', text: greet }]);
+              setSpeaking(true);
+              speak(greet, language.code, () => setSpeaking(false));
+            }}
+            style={styles.sideBtn}
+          >
+            <Text style={styles.sideBtnText}>↻</Text>
+          </Pressable>
         </View>
-      </Modal>
-    </KeyboardAvoidingView>
+
+        <Text style={styles.status}>
+          {speaking ? 'GAIA is speaking…' :
+           listening ? 'Listening… tap to stop' :
+           thinking ? 'Thinking…' :
+           'Tap the mic to speak'}
+        </Text>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.obsidian },
+const createStyles = (p: any) => StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: spacing.md, paddingTop: 60, paddingBottom: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: palette.border, gap: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingTop: 56,
   },
-  iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 22, color: palette.text, fontWeight: '600' },
-  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.neon },
-  headerTitle: { ...typography.body, color: palette.text, fontWeight: '800' },
-  scroll: { padding: 16, paddingBottom: 20 },
-  empty: { padding: 30, alignItems: 'center', marginTop: 60 },
-  emptyTitle: { fontSize: 22, fontWeight: '900', color: palette.text, marginBottom: 10 },
-  emptyText: { fontSize: 14, color: palette.textMuted, textAlign: 'center', lineHeight: 22 },
-  row: { marginBottom: 12, flexDirection: 'row', alignItems: 'flex-end' },
-  rowUser: { justifyContent: 'flex-end' },
-  rowAi: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
-  bubbleUser: { backgroundColor: palette.neon, borderBottomRightRadius: 6 },
-  bubbleAi: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderBottomLeftRadius: 6 },
-  bubbleText: { fontSize: 15, lineHeight: 22 },
-  bubbleTextUser: { color: palette.obsidian, fontWeight: '600' },
-  bubbleTextAi: { color: palette.text },
-  editBadge: { fontSize: 10, color: 'rgba(0,0,0,0.55)', marginTop: 4, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', marginLeft: 6, gap: 4 },
-  actionBtn: { padding: 6 },
-  actionText: { fontSize: 16, color: palette.textMuted },
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: palette.border,
-    backgroundColor: palette.obsidian,
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
+  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, paddingHorizontal: 20, marginTop: 8 },
+  subtitle: { fontSize: 14, color: p.textMuted, paddingHorizontal: 20, marginTop: 4 },
+  langRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
+  langChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 999, backgroundColor: p.surface,
+    borderWidth: 1, borderColor: p.border,
   },
-  input: {
-    flex: 1, minHeight: 44, maxHeight: 140,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 22, backgroundColor: palette.surface,
-    borderWidth: 1, borderColor: palette.border,
-    color: palette.text, fontSize: 15,
+  langChipActive: { backgroundColor: p.neonSoft, borderColor: p.borderHi },
+  langFlag: { fontSize: 14 },
+  langText: { fontSize: 12, fontWeight: '700', color: p.textMuted },
+  langTextActive: { color: p.neon },
+  chat: { paddingHorizontal: 20, paddingBottom: 20, gap: 10 },
+  bubble: {
+    maxWidth: '85%', paddingHorizontal: 16, paddingVertical: 12,
+    borderRadius: 18,
   },
-  sendBtn: {
-    paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22,
-    backgroundColor: palette.neon, minWidth: 60,
+  bubbleAi: {
+    alignSelf: 'flex-start',
+    backgroundColor: p.surface,
+    borderWidth: 1, borderColor: p.borderHi,
+  },
+  bubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: p.neon,
+  },
+  bubbleText: { fontSize: 15, color: p.text, lineHeight: 21 },
+  bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
+  typedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 20, marginBottom: 12,
+  },
+  typedInput: {
+    flex: 1, backgroundColor: p.surface, borderWidth: 1,
+    borderColor: p.border, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    color: p.text, fontSize: 15,
+  },
+  typedSend: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
+  },
+  typedSendText: { color: p.obsidian, fontSize: 22, fontWeight: '900' },
+  controls: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 20, paddingBottom: 8,
+  },
+  sideBtn: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  sendBtnText: { fontSize: 13, fontWeight: '900', color: palette.obsidian, letterSpacing: 1 },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: palette.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: spacing.xl, borderTopWidth: 1, borderColor: palette.borderHi,
+  sideBtnText: { fontSize: 20, color: p.textMuted },
+  micBtn: {
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
+    shadowColor: p.neon, shadowOpacity: 0.55, shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 }, elevation: 12,
   },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: palette.text },
-  modalSub: { ...typography.micro, color: palette.textMuted, marginTop: 4, marginBottom: spacing.lg },
-  modalBtn: {
-    paddingVertical: 16, borderRadius: radius.md,
-    backgroundColor: palette.neon, alignItems: 'center', marginTop: spacing.md,
+  micBtnListening: { backgroundColor: p.danger },
+  micBtnSpeaking: { backgroundColor: p.warning },
+  micIcon: { fontSize: 38, color: p.obsidian },
+  status: {
+    textAlign: 'center', fontSize: 12, color: p.textMuted,
+    paddingVertical: 12, fontWeight: '600', letterSpacing: 0.5,
   },
-  modalBtnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.borderHi },
-  modalBtnText: { fontSize: 14, fontWeight: '900', color: palette.obsidian, letterSpacing: 1 },
-  memoryRow: {
-    padding: 12, borderRadius: 10,
-    backgroundColor: palette.surface, marginBottom: 6,
-    borderWidth: 1, borderColor: palette.border,
-  },
-  memoryKey: { ...typography.micro, color: palette.neon },
-  memoryVal: { ...typography.body, color: palette.text, marginTop: 4 },
 });

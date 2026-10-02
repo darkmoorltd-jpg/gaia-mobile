@@ -9,26 +9,21 @@ import { useAuth } from '../src/store/auth';
 import { palette } from '../src/theme';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, refetchOnWindowFocus: false },
-  },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
 function RootNavigator() {
   const router = useRouter();
   const segments = useSegments();
 
-  // Zustand store
   const user = useAuth((s: any) => s.user);
   const setUser = useAuth((s: any) => s.setUser);
   const loading = useAuth((s: any) => s.loading);
 
   const [ready, setReady] = useState(false);
 
-  // Supabase session bootstrap
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       try {
         const { data } = await supabase.auth.getSession();
@@ -41,41 +36,29 @@ function RootNavigator() {
         if (mounted) setReady(true);
       }
     })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (setUser) setUser(session?.user ?? null);
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (setUser) setUser(s?.user ?? null);
     });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
-  // Auth-based routing
   useEffect(() => {
     if (!ready || loading) return;
-    const inAuthGroup = segments[0] === '(auth)';
-    if (!user && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (user && inAuthGroup) {
-      router.replace('/(tabs)');
-    }
+    const inAuth = segments[0] === '(auth)';
+    if (!user && !inAuth) router.replace('/(auth)/login');
+    else if (user && inAuth) router.replace('/(tabs)');
   }, [user, ready, loading, segments]);
 
-  // OTA auto-check
   useEffect(() => {
     if (__DEV__) return;
     (async () => {
       try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
+        const u = await Updates.checkForUpdateAsync();
+        if (u.isAvailable) {
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
         }
-      } catch (e) {
-        console.log('OTA check failed', e);
-      }
+      } catch (e) { console.log('OTA check failed', e); }
     })();
   }, []);
 
@@ -88,20 +71,16 @@ function RootNavigator() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: palette.obsidian },
-        animation: 'slide_from_right',
-      }}
-    >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="marketplace-sell"
-        options={{ presentation: 'modal', headerShown: false }}
-      />
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.obsidian } }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="voice" />
+      <Stack.Screen name="rag" />
+      <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="farm-mapping" />
+      <Stack.Screen name="farm-detail" />
+      <Stack.Screen name="farms" />
     </Stack>
   );
 }
@@ -116,10 +95,5 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    backgroundColor: palette.obsidian,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  splash: { flex: 1, backgroundColor: palette.obsidian, alignItems: 'center', justifyContent: 'center' },
 });
