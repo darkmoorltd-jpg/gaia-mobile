@@ -23,6 +23,9 @@
         "NSPhotoLibraryUsageDescription": "GAIA accesses your photos to analyze crops.",
         "NSLocationWhenInUseUsageDescription": "GAIA uses location for weather-based advice.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GAIA tracks your farm perimeter."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyBKmMMLYYSD6b-i3RGzufqykv6WtnEyY4w"
       }
     },
     "android": {
