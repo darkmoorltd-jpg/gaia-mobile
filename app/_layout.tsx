@@ -1,71 +1,125 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { startPresenceHeartbeat, stopPresenceHeartbeat } from '../src/utils/presence';
-import { usePresenceHeartbeat } from '../src/utils/presence';
-import { ThemeProvider, useTheme } from '../src/theme';
+import { palette } from '../src/theme';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+  },
+});
 
-function InnerApp() {
-  const { user, setAuth, loading } = useAuth();
-  usePresenceHeartbeat(user?.id);
-  const { mode } = useTheme();
-  const segments = useSegments();
+function RootNavigator() {
   const router = useRouter();
+  const segments = useSegments();
 
+  // Zustand store
+  const user = useAuth((s: any) => s.user);
+  const setUser = useAuth((s: any) => s.setUser);
+  const loading = useAuth((s: any) => s.loading);
+
+  const [ready, setReady] = useState(false);
+
+  // Supabase session bootstrap
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAuth(data.session?.user ?? null, data.session);
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (mounted) {
+          if (setUser) setUser(data.session?.user ?? null);
+          setReady(true);
+        }
+      } catch (e) {
+        console.log('session bootstrap failed', e);
+        if (mounted) setReady(true);
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (setUser) setUser(session?.user ?? null);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setAuth(session?.user ?? null, session);
-    });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  
+  // Auth-based routing
   useEffect(() => {
-    if (user?.id) {
-      startPresenceHeartbeat(user.id);
-      return () => stopPresenceHeartbeat();
+    if (!ready || loading) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/(tabs)');
     }
-  }, [user?.id]);
+  }, [user, ready, loading, segments]);
 
-useEffect(() => {
-    if (loading) return;
-    const inAuth = segments[0] === '(auth)';
-    if (!user && !inAuth) router.replace('/(auth)/login');
-    else if (user && inAuth) router.replace('/(tabs)');
-  }, [user, loading, segments]);
+  // OTA auto-check
+  useEffect(() => {
+    if (__DEV__) return;
+    (async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (e) {
+        console.log('OTA check failed', e);
+      }
+    })();
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator color={palette.neon} size="large" />
+      </View>
+    );
+  }
 
   return (
-    <>
-      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#000000' },
-        }}
-      >
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="marketplace-sell" options={{ presentation: "modal", headerShown: false }} />
-      </Stack>
-    </>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: palette.obsidian },
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="marketplace-sell"
+        options={{ presentation: 'modal', headerShown: false }}
+      />
+    </Stack>
   );
 }
 
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <InnerApp />
-      </ThemeProvider>
+      <StatusBar style="light" />
+      <RootNavigator />
     </QueryClientProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    backgroundColor: palette.obsidian,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
