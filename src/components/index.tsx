@@ -146,3 +146,5 @@ export function StatCard({ value, label, color }: any) {
   );
 }
 export { SpeakButton } from './SpeakButton';
+
+export { LeafletMap } from './LeafletMap';

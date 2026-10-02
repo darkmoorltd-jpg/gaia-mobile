@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { Screen, GlassCard, Pill } from '../src/components';
+import { Screen, GlassCard, Pill, LeafletMap } from '../src/components';
 import { getFarm, Farm, farmCenter } from '../src/utils/farms';
 import { palette, typography, spacing, radius, shadows } from '../src/theme';
 
@@ -18,15 +17,15 @@ export default function FarmDetail() {
     return (
       <Screen glow="crops">
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: palette.textMuted }}>Loading…</Text>
-        </View>
+          <Text style);
+
+={{ color: palette.textMuted }}>Loading…</Text>
+         </View>
       </Screen>
     );
   }
 
-  const center = farmCenter(farm.boundary);
-
-  return (
+  const center return = farmCenter(farm.boundary (
     <Screen glow="crops">
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pill label="FARM" />
@@ -34,14 +33,7 @@ export default function FarmDetail() {
         {farm.crop ? <Text style={styles.crop}>{farm.crop}</Text> : null}
 
         <View style={styles.mapBox}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={styles.map}
-            initialRegion={{ ...center, latitudeDelta: 0.004, longitudeDelta: 0.004 }}
-          >
-            <Polyline coordinates={farm.boundary} strokeColor={palette.neon} strokeWidth={5} />
-            <Marker coordinate={farm.boundary[0]} title="Start" pinColor={palette.neon} />
-          </MapView>
+          <LeafletMap points={farm.boundary} center={center} height={300} zoom={18} />
         </View>
 
         <GlassCard style={{ marginTop: spacing.lg }}>
@@ -72,8 +64,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginTop: spacing.sm },
   crop: { ...typography.body, color: palette.neon, marginTop: 4, fontWeight: '600' },
-  mapBox: { height: 300, borderRadius: radius.lg, overflow: 'hidden', marginTop: spacing.lg, borderWidth: 1, borderColor: palette.borderHi, ...shadows.neon },
-  map: { flex: 1 },
+  mapBox: { borderRadius: radius.lg, overflow: 'hidden', marginTop: spacing.lg, borderWidth: 1, borderColor: palette.borderHi, ...shadows.neon },
   grid: { flexDirection: 'row', justifyContent: 'space-between' },
   cell: { alignItems: 'center', flex: 1 },
   cellVal: { fontSize: 22, fontWeight: '900', color: palette.neon, letterSpacing: -0.5 },

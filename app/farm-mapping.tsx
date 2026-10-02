@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TextInput } from 'react-native';
-import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { Screen, GlassCard, NeonButton } from '../src/components';
+import { Screen, GlassCard, NeonButton, LeafletMap } from '../src/components';
 import { saveFarm, haversine, pathLength, enclosedArea } from '../src/utils/farms';
 import { palette, typography, spacing, radius, shadows } from '../src/theme';
 
@@ -18,7 +17,6 @@ export default function FarmMapping() {
   const [farmName, setFarmName] = useState('');
   const [crop, setCrop] = useState('');
   const [saving, setSaving] = useState(false);
-  const mapRef = useRef<MapView>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
@@ -30,9 +28,7 @@ export default function FarmMapping() {
       }
       setPermission(true);
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const p = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-      setCurrent(p);
-      mapRef.current?.animateToRegion({ ...p, latitudeDelta: 0.002, longitudeDelta: 0.002 }, 500);
+      setCurrent({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     })();
     return () => { watcher.current?.remove(); };
   }, []);
@@ -94,28 +90,7 @@ export default function FarmMapping() {
         </GlassCard>
 
         <View style={styles.mapBox}>
-          {current ? (
-            <MapView
-              ref={mapRef}
-              provider={PROVIDER_GOOGLE}
-              style={styles.map}
-              initialRegion={{ ...current, latitudeDelta: 0.002, longitudeDelta: 0.002 }}
-              showsUserLocation
-              showsMyLocationButton
-            >
-              {points.length > 0 && (
-                <>
-                  <Polyline coordinates={points} strokeColor={palette.neon} strokeWidth={5} />
-                  <Marker coordinate={points[0]} title="Start" pinColor={palette.neon} />
-                  <Marker coordinate={points[points.length - 1]} title="Current" pinColor={palette.warning} />
-                </>
-              )}
-            </MapView>
-          ) : (
-            <View style={styles.mapPlaceholder}>
-              <Text style={{ color: palette.textMuted }}>Waiting for GPS…</Text>
-            </View>
-          )}
+          <LeafletMap points={points} center={current || undefined} height={340} />
         </View>
 
         {recording ? (
@@ -167,9 +142,7 @@ const styles = StyleSheet.create({
   stat: { alignItems: 'center', flex: 1 },
   statVal: { fontSize: 22, fontWeight: '900', color: palette.neon, letterSpacing: -0.5 },
   statLbl: { ...typography.micro, color: palette.textMuted, marginTop: 4 },
-  mapBox: { height: 340, borderRadius: radius.lg, overflow: 'hidden', marginTop: spacing.lg, borderWidth: 1, borderColor: palette.borderHi, ...shadows.neon },
-  map: { flex: 1 },
-  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surface },
+  mapBox: { borderRadius: radius.lg, overflow: 'hidden', marginTop: spacing.lg, borderWidth: 1, borderColor: palette.borderHi, ...shadows.neon },
   recordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.lg },
   recBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.full, backgroundColor: palette.danger + '22', borderWidth: 1, borderColor: palette.danger },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.danger },
