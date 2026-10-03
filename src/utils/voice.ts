@@ -5,9 +5,7 @@ import { supabase } from '../api/supabase';
 
 const API_BASE = 'https://gaia-api.onrender.com';
 
-// ============================================
-// TEXT-TO-SPEECH
-// ============================================
+
 export function speak(text: string, langCode: string, onDone?: () => void) {
   Speech.stop();
   Speech.speak(text, {
@@ -15,10 +13,7 @@ export function speak(text: string, langCode: string, onDone?: () => void) {
     pitch: 1.0,
     rate: 0.95,
     onDone: () => onDone?.(),
-    onError: (e) => {
-      console.log('TTS error', e);
-      onDone?.();
-    },
+    onError: () => onDone?.(),
   });
 }
 
@@ -30,17 +25,13 @@ export function isSpeaking(): Promise<boolean> {
   return Speech.isSpeakingAsync();
 }
 
-// ============================================
-// SPEECH-TO-TEXT
-// ============================================
+
 let _recording: Audio.Recording | null = null;
 
 export async function startRecording(): Promise<Audio.Recording> {
-  // 1. Permission
   const perm = await Audio.requestPermissionsAsync();
   if (!perm.granted) throw new Error('Microphone permission denied');
 
-  // 2. Audio mode MUST be set BEFORE createAsync on iOS
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: true,
     playsInSilentModeIOS: true,
@@ -49,7 +40,6 @@ export async function startRecording(): Promise<Audio.Recording> {
     playThroughEarpieceAndroid: false,
   });
 
-  // 3. Small delay so iOS fully switches mode
   await new Promise((r) => setTimeout(r, 150));
 
   const { recording } = await Audio.Recording.createAsync(
@@ -63,13 +53,12 @@ export async function startRecording(): Promise<Audio.Recording> {
 export async function stopRecording(recording: Audio.Recording): Promise<string | null> {
   try {
     await recording.stopAndUnloadAsync();
-  } catch (e) {
-    console.log('stop recording error', e);
-  }
-  // Restore playback mode
+  } catch {}
+
   try {
     await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
   } catch {}
+
   _recording = null;
   return recording.getURI();
 }
@@ -79,33 +68,24 @@ export async function transcribeAudio(uri: string, language: string): Promise<st
   const token = session.data.session?.access_token;
   if (!token) throw new Error('Not authenticated');
 
-  // FileSystem.uploadAsync handles multipart correctly on iOS + Android
-  const uploadUrl = API_BASE + '/stt';
-
-  const result = await FileSystem.uploadAsync(uploadUrl, uri, {
+  const result = await FileSystem.uploadAsync(API_BASE + '/stt', uri, {
     httpMethod: 'POST',
     uploadType: FileSystem.FileSystemUploadType.MULTIPART,
     fieldName: 'audio',
     mimeType: 'audio/m4a',
-    headers: {
-      Authorization: 'Bearer ' + token,
-    },
-    parameters: {
-      language: language.slice(0, 2),
-    },
+    headers: { Authorization: 'Bearer ' + token },
+    parameters: { language: language.slice(0, 2) },
   });
 
   if (result.status !== 200 && result.status !== 201) {
-    throw new Error('STT failed: ' + result.status + ' ' + result.body?.slice(0, 100));
+    throw new Error('STT failed: ' + result.status);
   }
 
   const data = JSON.parse(result.body || '{}');
   return data.text || '';
 }
 
-// ============================================
-// ASK GAIA (chat)
-// ============================================
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;

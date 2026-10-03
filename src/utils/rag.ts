@@ -3,6 +3,7 @@ import { supabase } from '../api/supabase';
 
 const API_BASE = 'https://gaia-api.onrender.com';
 
+
 export interface Document {
   id: string;
   name: string;
@@ -12,6 +13,7 @@ export interface Document {
   chunk_count: number;
   created_at: string;
 }
+
 
 export async function uploadDocument(
   uri: string,
@@ -24,13 +26,11 @@ export async function uploadDocument(
     const userId = session.data.session?.user?.id;
     if (!token || !userId) return { doc: null, error: 'Not signed in' };
 
-    // 1. Upload original file to Supabase Storage
     const base64 = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     const cleanName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = userId + '/' + Date.now() + '-' + cleanName;
-
     const arrayBuffer = decode(base64);
 
     const { error: storageError } = await supabase.storage
@@ -46,7 +46,6 @@ export async function uploadDocument(
       .from('knowledge-base')
       .getPublicUrl(storagePath);
 
-    // 2. Send to backend for chunking + embedding
     const result = await FileSystem.uploadAsync(
       API_BASE + '/rag/upload',
       uri,
@@ -63,7 +62,7 @@ export async function uploadDocument(
     if (result.status !== 200 && result.status !== 201) {
       return {
         doc: null,
-        error: 'Processing failed: ' + result.status + ' ' + result.body?.slice(0, 120),
+        error: 'Processing failed: ' + result.status,
       };
     }
 
@@ -74,12 +73,14 @@ export async function uploadDocument(
   }
 }
 
+
 function decode(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
 }
+
 
 export async function listDocuments(): Promise<Document[]> {
   const session = await supabase.auth.getSession();
@@ -94,10 +95,12 @@ export async function listDocuments(): Promise<Document[]> {
   return data ?? [];
 }
 
+
 export async function deleteDocument(id: string): Promise<boolean> {
   const { error } = await supabase.from('documents').delete().eq('id', id);
   return !error;
 }
+
 
 export async function askRag(question: string, language: string): Promise<string> {
   const session = await supabase.auth.getSession();
