@@ -223,7 +223,7 @@ export default function Voice() {
         setMessages((p) => p.map((x, i) => (i === idx ? { ...x, content: text, edit_count: d.edit_count } : x)));
         setEditing(null);
       }
-    } catch (e: any) {(`${ Alert.alert('Edit failed', e.message || 'TryAPI again'); }
+    } catch (e: any) { Alert.alert('Edit failed', e.message || 'Try again'); }
     finally { setMem_BBusy(false); }
   };
 
@@ -302,7 +302,7 @@ export default function Voice() {
       if (!t) throw new Error('Not authenticated');
       const question = input.trim() || 'Analyze this farm image and give a full diagnosis and treatment plan.';
       setInput('');
-      const up = await FileSystem.uploadAsyncASE}/agronomist/image`, uri, {
+      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/image`, uri, {
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
         fieldName: 'image',
