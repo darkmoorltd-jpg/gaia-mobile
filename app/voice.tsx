@@ -4,134 +4,235 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Audio } from 'expo-av';
-import { Screen, GlassCard, Pill, NeonButton } from '../src/components';
+import { Screen, GlassCard, Pill } from '../src/components';
 import { useTheme, spacing, radius } from '../src/theme';
-import { useAuth } from '../src/store/auth';
 import {
-  startRecording, stopRecording, transcribeAudio, speak, stopSpeaking,
-  askGaia, ChatTurn,
+  recordUntilSilence, transcribeAudio, askGaia, speak, stopSpeaking,
+  LANGUAGES, LangOption, isStopCommand, ChatTurn,
 } from '../src/utils/voice';
 
-const LANGUAGES = [
-  { code: 'en-NG', label: 'English', flag: '🇬🇧', short: 'en' },
-  { code: 'ha-NG', label: 'Hausa', flag: '🇳🇬', short: 'ha' },
-  { code: 'yo-NG', label: 'Yoruba', flag: '🇳🇬', short: 'yo' },
-  { code: 'ig-NG', label: 'Igbo', flag: '🇳🇬', short: 'ig' },
-  { code: 'fr-FR', label: 'Français', flag: '🇫🇷', short: 'fr' },
-  { code: 'sw-KE', label: 'Kiswahili', flag: '🇰🇪', short: 'sw' },
-];
-
-const GREETINGS: Record<string, string> = {
-  'en-NG': "Hello, I'm GAIA. What can I do for you today?",
-  'ha-NG': "Sannu, ni ce GAIA. Me zan iya yi maka yau?",
-  'yo-NG': "Ẹ n lẹ, Èmi ni GAIA. Kí ni mo lè ṣe fún ọ lónìí?",
-  'ig-NG': "Ndeewo, abụ m GAIA. Gịnị ka m nwere ike imere gị taa?",
-  'fr-FR': "Bonjour, je suis GAIA. Que puis-je faire pour vous aujourd'hui ?",
-  'sw-KE': "Habari, mimi ni GAIA. Nikufanyie nini leo?",
-};
+type Mode = 'pick-language' | 'greeting' | 'listening' | 'thinking' | 'speaking' | 'paused';
 
 interface Msg { role: 'user' | 'ai'; text: string; }
 
-export default function VoiceAgronomist() {
+export default function VoiceScreen() {
   const router = useRouter();
   const { palette } = useTheme();
-  const { user } = useAuth();
   const styles = createStyles(palette);
 
-  const [language, setLanguage] = useState(LANGUAGES[0]);
+  const [mode, setMode] = useState<Mode>('pick-language');
+  const [language, setLanguage] = useState<LangOption | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [listening, setListening] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
-  const [thinking, setThinking] = useState(false);
+  const [liveText, setLiveText] = useState('');
+  const [level, setLevel] = useState(-60);
   const [typedMode, setTypedMode] = useState(false);
   const [typedText, setTypedText] = useState('');
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
-
-  // ---------- Greet on mount + on language change ----------
-  useEffect(() => {
-    const greet = GREETINGS[language.code] || GREETINGS['en-NG'];
-    setMessages([{ role: 'ai', text: greet }]);
-    setSpeaking(true);
-    speak(greet, language.code, () => setSpeaking(false));
-    return () => stopSpeaking();
-  }, [language]);
+  const sessionActive = useRef<boolean>(false);
+  const modeRef = useRef<Mode>('pick-language');
+  modeRef.current = mode;
 
   // ---------- Auto-scroll ----------
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [messages, thinking]);
+  }, [messages, liveText, mode]);
 
-  // ---------- Handle user turn ----------
-  const handleUserUtterance = async (text: string) => {
-    if (!text.trim()) return;
+  // ---------- Speak language prompt once user picks ----------
+  useEffect(() => {
+    if (mode !== 'greeting' || !language) return;
 
-    setMessages((m) => [...m, { role: 'user', text }]);
-    setThinking(true);
+    let cancelled = false;
+    (async () => {
+      const promptText = language.prompt;
+      setMessages([{ role: 'ai', text: promptText }]);
+      setMode('speaking');
+      await speak(promptText, language.ttsCode);
+      if (cancelled) return;
 
-    const history: ChatTurn[] = messages.slice(-6).map((m) => ({
-      role: m.role === 'user' ? 'user' : 'assistant',
-      content: m.text,
-    }));
+      // Ask which language — listen for spoken answer
+      setMode('listening');
+      const uri = await recordUntilSilence({
+        silenceThresholdDb: -35,
+        silenceDurationMs: 1500,
+        maxDurationMs: 12000,
+        onLevel: setLevel,
+      });
+      if (cancelled || !uri) {
+        setMode('paused');
+        return;
+      }
+      setMode('thinking');
+      try {
+        const heard = await transcribeAudio(uri, language.code);
+        if (!heard) {
+          setMode('paused');
+          return;
+        }
+        // Try to match a language from what was heard
+        const matched = matchLanguage(heard);
+        if (matched) {
+          setLanguage(matched);
+          await startSession(matched);
+        } else {
+          // Couldn't match — just start with the current language
+          await startSession(language);
+        }
+      } catch (e: any) {
+        Alert.alert('Voice error', e?.message ?? 'Try again');
+        setMode('paused');
+      }
+    })();
 
-    try {
-      const reply = await askGaia(text, language.code, history);
-      setMessages((m) => [...m, { role: 'ai', text: reply }]);
-      setThinking(false);
-      setSpeaking(true);
-      speak(reply, language.code, () => setSpeaking(false));
-    } catch (e: any) {
-      setThinking(false);
-      Alert.alert('GAIA could not respond', e?.message ?? 'Try again');
+    return () => {
+      cancelled = true;
+      stopSpeaking();
+    };
+  }, [mode === 'greeting']);
+
+  // ---------- Match spoken language ----------
+  const matchLanguage = (spoken: string): LangOption | null => {
+    const s = spoken.toLowerCase();
+    if (s.includes('english')) return LANGUAGES[0];
+    if (s.includes('hausa')) return LANGUAGES[1];
+    if (s.includes('yoruba')) return LANGUAGES[2];
+    if (s.includes('igbo')) return LANGUAGES[3];
+    if (s.includes('fran') || s.includes('french')) return LANGUAGES[4];
+    if (s.includes('swahili') || s.includes('kiswahili')) return LANGUAGES[5];
+    return null;
+  };
+
+  // ---------- Main conversational loop ----------
+  const startSession = async (lang: LangOption) => {
+    sessionActive.current = true;
+    setLanguage(lang);
+
+    // Greet
+    const greeting = lang.greeting;
+    setMessages((m) => [...m, { role: 'ai', text: greeting }]);
+    setMode('speaking');
+    await speak(greeting, lang.ttsCode);
+
+    if (!sessionActive.current) return;
+    await conversationLoop(lang);
+  };
+
+  const conversationLoop = async (lang: LangOption) => {
+    while (sessionActive.current) {
+      try {
+        // ---- Listen ----
+        setMode('listening');
+        setLiveText('');
+        const uri = await recordUntilSilence({
+          silenceThresholdDb: -35,
+          silenceDurationMs: 1300,
+          maxDurationMs: 20000,
+          onLevel: setLevel,
+          onStateChange: (s) => {
+            if (s === 'listening') setMode('listening');
+          },
+        });
+
+        if (!sessionActive.current) return;
+        if (!uri) {
+          // No speech — keep listening
+          continue;
+        }
+
+        // ---- Transcribe ----
+        setMode('thinking');
+        const heard = await transcribeAudio(uri, lang.code);
+        if (!heard) continue;
+
+        setLiveText(heard);
+        setMessages((m) => [...m, { role: 'user', text: heard }]);
+
+        // ---- Stop command? ----
+        if (isStopCommand(heard)) {
+          const bye = lang.code === 'ha' ? 'Sai an jima.' :
+                      lang.code === 'yo' ? 'Ó dàbọ̀.' :
+                      lang.code === 'ig' ? 'Ka ọ dị.' :
+                      lang.code === 'fr' ? 'Au revoir.' :
+                      lang.code === 'sw' ? 'Kwaheri.' :
+                      'Goodbye.';
+          setMessages((m) => [...m, { role: 'ai', text: bye }]);
+          setMode('speaking');
+          await speak(bye, lang.ttsCode);
+          sessionActive.current = false;
+          setMode('paused');
+          return;
+        }
+
+        // ---- Ask GAIA ----
+        const history: ChatTurn[] = messages.slice(-8).map((m) => ({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.text,
+        }));
+
+        const reply = await askGaia(heard, lang.code, history);
+
+        // ---- Speak ----
+        setMessages((m) => [...m, { role: 'ai', text: reply }]);
+        setMode('speaking');
+        await speak(reply, lang.ttsCode);
+
+        // Loop continues → listens again
+      } catch (e: any) {
+        console.log('conversation error', e);
+        await new Promise((r) => setTimeout(r, 800));
+      }
     }
   };
 
-  // ---------- Mic button ----------
+  // ---------- User taps mic to interrupt/resume ----------
   const onMicPress = async () => {
-    // If GAIA is speaking → stop and let user interrupt
-    if (speaking) {
+    if (mode === 'speaking') {
+      // Interrupt GAIA
       stopSpeaking();
-      setSpeaking(false);
       return;
     }
-
-    if (listening) {
-      // Stop recording and process
-      const uri = await stopRecording(recordingRef.current!);
-      recordingRef.current = null;
-      setListening(false);
-
-      if (!uri) return;
-      setThinking(true);
-      try {
-        const text = await transcribeAudio(uri, language.short);
-        setThinking(false);
-        if (text.trim()) await handleUserUtterance(text);
-      } catch (e: any) {
-        setThinking(false);
-        Alert.alert('Transcription failed', e?.message ?? 'Try again');
-      }
-    } else {
-      // Start recording
-      try {
-        const rec = await startRecording();
-        recordingRef.current = rec;
-        setListening(true);
-      } catch (e: any) {
-        Alert.alert('Microphone error', e?.message ?? 'Permission denied');
-      }
+    if (mode === 'paused' && language) {
+      // Resume conversation
+      await startSession(language);
     }
   };
 
+  // ---------- Typed input ----------
   const onTypedSubmit = async () => {
     const text = typedText.trim();
-    if (!text) return;
+    if (!text || !language) return;
     setTypedText('');
     setTypedMode(false);
-    await handleUserUtterance(text);
+    setMessages((m) => [...m, { role: 'user', text }]);
+    setMode('thinking');
+    try {
+      const history: ChatTurn[] = messages.slice(-8).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+      const reply = await askGaia(text, language.code, history);
+      setMessages((m) => [...m, { role: 'ai', text: reply }]);
+      setMode('speaking');
+      await speak(reply, language.ttsCode);
+      if (sessionActive.current && language) {
+        await conversationLoop(language);
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Try again');
+      setMode('paused');
+    }
   };
+
+  // ---------- Cleanup on unmount ----------
+  useEffect(() => {
+    return () => {
+      sessionActive.current = false;
+      stopSpeaking();
+    };
+  }, []);
+
+  // ---------- RENDER ----------
+  const levelPct = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
 
   return (
     <Screen glow="livestock">
@@ -141,137 +242,168 @@ export default function VoiceAgronomist() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.back}>← BACK</Text>
+          <Pressable
+            onPress={() => {
+              sessionActive.current = false;
+              stopSpeaking();
+              router.back();
+            }}
+          >
+            <Text style={styles.back}>← EXIT</Text>
           </Pressable>
-          <Pill label="Voice AI" color={palette.livestock} />
+          <Pill
+            label={language ? language.label.toUpperCase() : 'VOICE'}
+            color={palette.livestock}
+          />
         </View>
 
-        <Text style={styles.title}>Talk to GAIA</Text>
-        <Text style={styles.subtitle}>Ask anything. In your language.</Text>
+        {/* Language picker */}
+        {mode === 'pick-language' && (
+          <View style={styles.langPicker}>
+            <Text style={styles.langQuestion}>
+              Which language would you like to be served in?
+            </Text>
+            <Text style={styles.langSub}>
+              Zabi harshe / Yan ede / Họrọ asụsụ / Choose language
+            </Text>
 
-        {/* Language chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: spacing.lg, maxHeight: 44 }}
-        >
-          <View style={styles.langRow}>
-            {LANGUAGES.map((l) => (
-              <Pressable
-                key={l.code}
-                onPress={() => setLanguage(l)}
-                style={[
-                  styles.langChip,
-                  language.code === l.code && styles.langChipActive,
-                ]}
-              >
-                <Text style={styles.langFlag}>{l.flag}</Text>
-                <Text
-                  style={[
-                    styles.langText,
-                    language.code === l.code && styles.langTextActive,
-                  ]}
+            <ScrollView style={{ marginTop: spacing.xl }}>
+              {LANGUAGES.map((l) => (
+                <Pressable
+                  key={l.code}
+                  onPress={() => {
+                    setLanguage(l);
+                    setMode('greeting');
+                  }}
+                  style={styles.langRow}
                 >
-                  {l.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Conversation */}
-        <ScrollView
-          ref={scrollRef}
-          contentContainerStyle={styles.chat}
-          style={{ flex: 1, marginTop: spacing.lg }}
-        >
-          {messages.map((m, i) => (
-            <View
-              key={i}
-              style={[
-                styles.bubble,
-                m.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.bubbleText,
-                  m.role === 'user' && styles.bubbleTextUser,
-                ]}
-              >
-                {m.text}
-              </Text>
-            </View>
-          ))}
-
-          {thinking && (
-            <View style={[styles.bubble, styles.bubbleAi]}>
-              <ActivityIndicator color={palette.neon} />
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Typed input (fallback) */}
-        {typedMode && (
-          <View style={styles.typedRow}>
-            <TextInput
-              value={typedText}
-              onChangeText={setTypedText}
-              placeholder="Type your question…"
-              placeholderTextColor={palette.textDim}
-              style={styles.typedInput}
-              autoFocus
-              onSubmitEditing={onTypedSubmit}
-            />
-            <Pressable onPress={onTypedSubmit} style={styles.typedSend}>
-              <Text style={styles.typedSendText}>→</Text>
-            </Pressable>
+                  <Text style={styles.langFlag}>{l.flag}</Text>
+                  <Text style={styles.langName}>{l.label}</Text>
+                  <Text style={styles.langArrow}>›</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         )}
 
-        {/* Mic + controls */}
-        <View style={styles.controls}>
-          <Pressable
-            onPress={() => setTypedMode((v) => !v)}
-            style={styles.sideBtn}
-          >
-            <Text style={styles.sideBtnText}>⌨</Text>
-          </Pressable>
+        {/* Conversation view */}
+        {mode !== 'pick-language' && (
+          <>
+            <ScrollView
+              ref={scrollRef}
+              contentContainerStyle={styles.chat}
+              style={{ flex: 1, marginTop: spacing.lg }}
+            >
+              {messages.map((m, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.bubble,
+                    m.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      m.role === 'user' && styles.bubbleTextUser,
+                    ]}
+                  >
+                    {m.text}
+                  </Text>
+                </View>
+              ))}
 
-          <Pressable
-            onPress={onMicPress}
-            style={[
-              styles.micBtn,
-              listening && styles.micBtnListening,
-              speaking && styles.micBtnSpeaking,
-            ]}
-          >
-            <Text style={styles.micIcon}>
-              {speaking ? '◼' : listening ? '●' : '🎙'}
+              {liveText !== '' && mode === 'thinking' && (
+                <View style={[styles.bubble, styles.bubbleUser, { opacity: 0.6 }]}>
+                  <Text style={styles.bubbleTextUser}>{liveText}</Text>
+                </View>
+              )}
+
+              {mode === 'thinking' && liveText === '' && (
+                <View style={[styles.bubble, styles.bubbleAi]}>
+                  <ActivityIndicator color={palette.neon} />
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Live level meter */}
+            <View style={styles.meterWrap}>
+              <View
+                style={[
+                  styles.meterFill,
+                  {
+                    width: `${mode === 'listening' ? levelPct : 0}%`,
+                    backgroundColor: palette.neon,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Status line */}
+            <Text style={styles.status}>
+              {mode === 'speaking' && 'GAIA is speaking… tap mic to interrupt'}
+              {mode === 'listening' && 'Listening… just speak'}
+              {mode === 'thinking' && 'Thinking…'}
+              {mode === 'paused' && 'Tap the mic to resume'}
+              {mode === 'greeting' && 'Starting…'}
             </Text>
-          </Pressable>
 
-          <Pressable
-            onPress={() => {
-              if (speaking) { stopSpeaking(); setSpeaking(false); }
-              const greet = GREETINGS[language.code] || GREETINGS['en-NG'];
-              setMessages([{ role: 'ai', text: greet }]);
-              setSpeaking(true);
-              speak(greet, language.code, () => setSpeaking(false));
-            }}
-            style={styles.sideBtn}
-          >
-            <Text style={styles.sideBtnText}>↻</Text>
-          </Pressable>
-        </View>
+            {/* Typed input */}
+            {typedMode && (
+              <View style={styles.typedRow}>
+                <TextInput
+                  value={typedText}
+                  onChangeText={setTypedText}
+                  placeholder="Or type here…"
+                  placeholderTextColor={palette.textDim}
+                  style={styles.typedInput}
+                  autoFocus
+                  onSubmitEditing={onTypedSubmit}
+                />
+                <Pressable onPress={onTypedSubmit} style={styles.typedSend}>
+                  <Text style={styles.typedSendText}>→</Text>
+                </Pressable>
+              </View>
+            )}
 
-        <Text style={styles.status}>
-          {speaking ? 'GAIA is speaking…' :
-           listening ? 'Listening… tap to stop' :
-           thinking ? 'Thinking…' :
-           'Tap the mic to speak'}
-        </Text>
+            {/* Controls */}
+            <View style={styles.controls}>
+              <Pressable
+                onPress={() => setTypedMode((v) => !v)}
+                style={styles.sideBtn}
+              >
+                <Text style={styles.sideBtnText}>⌨</Text>
+              </Pressable>
+
+              <Pressable onPress={onMicPress} style={[styles.micBtn, {
+                backgroundColor:
+                  mode === 'listening' ? palette.danger :
+                  mode === 'speaking' ? palette.warning :
+                  mode === 'thinking' ? palette.textDim :
+                  palette.neon,
+              }]}>
+                <Text style={styles.micIcon}>
+                  {mode === 'listening' ? '●' :
+                   mode === 'speaking' ? '◼' :
+                   mode === 'thinking' ? '···' :
+                   '🎙'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={async () => {
+                  sessionActive.current = false;
+                  stopSpeaking();
+                  setMessages([]);
+                  setMode('pick-language');
+                }}
+                style={styles.sideBtn}
+              >
+                <Text style={styles.sideBtnText}>↻</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -279,75 +411,134 @@ export default function VoiceAgronomist() {
 
 const createStyles = (p: any) => StyleSheet.create({
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 56,
   },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
-  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, paddingHorizontal: 20, marginTop: 8 },
-  subtitle: { fontSize: 14, color: p.textMuted, paddingHorizontal: 20, marginTop: 4 },
-  langRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
-  langChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 999, backgroundColor: p.surface,
-    borderWidth: 1, borderColor: p.border,
+  // Language picker
+  langPicker: { flex: 1, paddingHorizontal: 24, paddingTop: 40 },
+  langQuestion: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: p.text,
+    letterSpacing: -0.8,
+    lineHeight: 34,
   },
-  langChipActive: { backgroundColor: p.neonSoft, borderColor: p.borderHi },
-  langFlag: { fontSize: 14 },
-  langText: { fontSize: 12, fontWeight: '700', color: p.textMuted },
-  langTextActive: { color: p.neon },
+  langSub: {
+    fontSize: 13,
+    color: p.textMuted,
+    marginTop: 12,
+    lineHeight: 20,
+  },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
+    marginBottom: 10,
+  },
+  langFlag: { fontSize: 28 },
+  langName: { fontSize: 17, color: p.text, fontWeight: '700', flex: 1 },
+  langArrow: { fontSize: 24, color: p.textMuted },
+  // Chat
   chat: { paddingHorizontal: 20, paddingBottom: 20, gap: 10 },
   bubble: {
-    maxWidth: '85%', paddingHorizontal: 16, paddingVertical: 12,
+    maxWidth: '85%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 18,
   },
   bubbleAi: {
     alignSelf: 'flex-start',
     backgroundColor: p.surface,
-    borderWidth: 1, borderColor: p.borderHi,
+    borderWidth: 1,
+    borderColor: p.borderHi,
   },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    backgroundColor: p.neon,
-  },
+  bubbleUser: { alignSelf: 'flex-end', backgroundColor: p.neon },
   bubbleText: { fontSize: 15, color: p.text, lineHeight: 21 },
   bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
+  // Meter
+  meterWrap: {
+    height: 4,
+    backgroundColor: p.surface,
+    marginHorizontal: 20,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  meterFill: { height: '100%', borderRadius: 2 },
+  status: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: p.textMuted,
+    paddingVertical: 8,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   typedRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 20, marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
   typedInput: {
-    flex: 1, backgroundColor: p.surface, borderWidth: 1,
-    borderColor: p.border, borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    color: p.text, fontSize: 15,
+    flex: 1,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: p.text,
+    fontSize: 15,
   },
   typedSend: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: p.neon,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   typedSendText: { color: p.obsidian, fontSize: 22, fontWeight: '900' },
   controls: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 20, paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    paddingBottom: 24,
   },
   sideBtn: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
-    alignItems: 'center', justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sideBtnText: { fontSize: 20, color: p.textMuted },
   micBtn: {
-    width: 84, height: 84, borderRadius: 42,
-    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
-    shadowColor: p.neon, shadowOpacity: 0.55, shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 }, elevation: 12,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: p.neon,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
   },
-  micBtnListening: { backgroundColor: p.danger },
-  micBtnSpeaking: { backgroundColor: p.warning },
   micIcon: { fontSize: 38, color: p.obsidian },
-  status: {
-    textAlign: 'center', fontSize: 12, color: p.textMuted,
-    paddingVertical: 12, fontWeight: '600', letterSpacing: 0.5,
-  },
 });

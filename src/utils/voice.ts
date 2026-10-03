@@ -3,66 +3,11 @@ import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../api/supabase';
 
-const API_BASE = 'https://gaia-api.onrender.com';
+const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
-
-export function speak(text: string, langCode: string, onDone?: () => void) {
-  Speech.stop();
-  Speech.speak(text, {
-    language: langCode,
-    pitch: 1.0,
-    rate: 0.95,
-    onDone: () => onDone?.(),
-    onError: () => onDone?.(),
-  });
-}
-
-export function stopSpeaking() {
-  Speech.stop();
-}
-
-export function isSpeaking(): Promise<boolean> {
-  return Speech.isSpeakingAsync();
-}
-
-
-let _recording: Audio.Recording | null = null;
-
-export async function startRecording(): Promise<Audio.Recording> {
-  const perm = await Audio.requestPermissionsAsync();
-  if (!perm.granted) throw new Error('Microphone permission denied');
-
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: false,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
-
-  await new Promise((r) => setTimeout(r, 150));
-
-  const { recording } = await Audio.Recording.createAsync(
-    Audio.RecordingOptionsPresets.HIGH_QUALITY,
-  );
-
-  _recording = recording;
-  return recording;
-}
-
-export async function stopRecording(recording: Audio.Recording): Promise<string | null> {
-  try {
-    await recording.stopAndUnloadAsync();
-  } catch {}
-
-  try {
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-  } catch {}
-
-  _recording = null;
-  return recording.getURI();
-}
-
+// ============================================
+// SPEECH-TO-TEXT (Whisper via Groq)
+// ============================================
 export async function transcribeAudio(uri: string, language: string): Promise<string> {
   const session = await supabase.auth.getSession();
   const token = session.data.session?.access_token;
@@ -82,10 +27,12 @@ export async function transcribeAudio(uri: string, language: string): Promise<st
   }
 
   const data = JSON.parse(result.body || '{}');
-  return data.text || '';
+  return (data.text || '').trim();
 }
 
-
+// ============================================
+// ASK GAIA (chat with history)
+// ============================================
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
@@ -109,7 +56,7 @@ export async function askGaia(
     body: JSON.stringify({
       message,
       language,
-      history: history.slice(-6),
+      history: history.slice(-8),
     }),
   });
 
@@ -119,5 +66,274 @@ export async function askGaia(
   }
 
   const data = await res.json();
-  return data.reply || '';
+  return (data.reply || '').trim();
+}
+
+// ============================================
+// TEXT-TO-SPEECH
+// ============================================
+export function speak(
+  text: string,
+  langCode: string,
+  onDone?: () => void,
+): Promise<void> {
+  return new Promise((resolve) => {
+    Speech.stop();
+    Speech.speak(text, {
+      language: langCode,
+      pitch: 1.0,
+      rate: 0.95,
+      onDone: () => {
+        onDone?.();
+        resolve();
+      },
+      onStopped: () => {
+        onDone?.();
+        resolve();
+      },
+      onError: () => {
+        onDone?.();
+        resolve();
+      },
+    });
+  });
+}
+
+export function stopSpeaking() {
+  Speech.stop();
+}
+
+export async function isSpeaking(): Promise<boolean> {
+  return Speech.isSpeakingAsync();
+}
+
+// ============================================
+// RECORDING WITH VOICE ACTIVITY DETECTION
+// ============================================
+let _recording: Audio.Recording | null = null;
+let _meteringInterval: any = null;
+
+export async function prepareAudioMode() {
+  const perm = await Audio.requestPermissionsAsync();
+  if (!perm.granted) throw new Error('Microphone permission denied');
+
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: true,
+    playsInSilentModeIOS: true,
+    staysActiveInBackground: false,
+    shouldDuckAndroid: true,
+    playThroughEarpieceAndroid: false,
+  });
+}
+
+export async function startRecording(): Promise<Audio.Recording> {
+  await prepareAudioMode();
+  await new Promise((r) => setTimeout(r, 150));
+
+  const { recording } = await Audio.Recording.createAsync({
+    isMeteringEnabled: true,
+    android: {
+      extension: '.m4a',
+      outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+      audioEncoder: Audio.AndroidAudioEncoder.AAC,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 64000,
+    },
+    ios: {
+      extension: '.m4a',
+      outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+      audioQuality: Audio.IOSAudioQuality.HIGH,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 64000,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+    },
+    web: { mimeType: 'audio/webm', bitsPerSecond: 64000 },
+  });
+
+  _recording = recording;
+  return recording;
+}
+
+export async function stopRecording(recording: Audio.Recording): Promise<string | null> {
+  try {
+    await recording.stopAndUnloadAsync();
+  } catch {}
+  try {
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+  } catch {}
+  _recording = null;
+  return recording.getURI();
+}
+
+/**
+ * Records until the user stops speaking (silence detected).
+ * Returns the URI of the recorded audio.
+ *
+ * @param opts.silenceThresholdDb  dB below which we consider silent (default -35)
+ * @param opts.silenceDurationMs   how long silence must last to stop (default 1200ms)
+ * @param opts.maxDurationMs       hard cap (default 20000ms)
+ * @param opts.minDurationMs       ignore recordings shorter than this (default 400ms)
+ * @param opts.onLevel             callback with current level (for UI meter)
+ */
+export async function recordUntilSilence(opts: {
+  silenceThresholdDb?: number;
+  silenceDurationMs?: number;
+  maxDurationMs?: number;
+  minDurationMs?: number;
+  onLevel?: (db: number) => void;
+  onStateChange?: (state: 'listening' | 'silence' | 'done') => void;
+}): Promise<string | null> {
+  const silenceThresholdDb = opts.silenceThresholdDb ?? -35;
+  const silenceDurationMs = opts.silenceDurationMs ?? 1200;
+  const maxDurationMs = opts.maxDurationMs ?? 20000;
+  const minDurationMs = opts.minDurationMs ?? 400;
+
+  const recording = await startRecording();
+  const startedAt = Date.now();
+  let silentSince: number | null = null;
+  let hasSpoken = false;
+
+  opts.onStateChange?.('listening');
+
+  return new Promise((resolve) => {
+    const finish = async (uri: string | null) => {
+      if (_meteringInterval) {
+        clearInterval(_meteringInterval);
+        _meteringInterval = null;
+      }
+      opts.onStateChange?.('done');
+      const finalUri = await stopRecording(recording);
+      resolve(finalUri);
+    };
+
+    _meteringInterval = setInterval(async () => {
+      try {
+        const status = await recording.getStatusAsync();
+        if (!status.isRecording) return;
+
+        const db = status.metering ?? -160;
+        opts.onLevel?.(db);
+
+        const elapsed = Date.now() - startedAt;
+
+        // Hard cap
+        if (elapsed > maxDurationMs) {
+          return finish(null);
+        }
+
+        const isSilent = db < silenceThresholdDb;
+
+        if (!isSilent) {
+          hasSpoken = true;
+          silentSince = null;
+          return;
+        }
+
+        // Silence begins
+        if (silentSince === null) {
+          silentSince = Date.now();
+          return;
+        }
+
+        const silentFor = Date.now() - silentSince;
+
+        // If user has spoken and then goes silent long enough → stop
+        if (hasSpoken && silentFor >= silenceDurationMs) {
+          opts.onStateChange?.('silence');
+          return finish(null);
+        }
+
+        // If user never spoke and we've been waiting too long → abort
+        if (!hasSpoken && elapsed > 7000) {
+          return finish(null);
+        }
+      } catch (e) {
+        // status error — keep polling
+      }
+    }, 100);
+  });
+}
+
+// ============================================
+// LANGUAGE OPTIONS
+// ============================================
+export interface LangOption {
+  code: string;
+  label: string;
+  ttsCode: string;
+  flag: string;
+  prompt: string;   // "What language would you like?" in that language
+  greeting: string; // "What can I do for you?" in that language
+}
+
+export const LANGUAGES: LangOption[] = [
+  {
+    code: 'en',
+    label: 'English',
+    ttsCode: 'en-NG',
+    flag: '🇬🇧',
+    prompt: 'Welcome to GAIA. Which language would you like to be served in?',
+    greeting: 'Hello, I am GAIA. What can I do for you today?',
+  },
+  {
+    code: 'ha',
+    label: 'Hausa',
+    ttsCode: 'ha-NG',
+    flag: '🇳🇬',
+    prompt: 'Barka da zuwa GAIA. Wane harshe kuke so a yi muku hidima da shi?',
+    greeting: 'Sannu, ni ce GAIA. Me zan iya yi muku yau?',
+  },
+  {
+    code: 'yo',
+    label: 'Yoruba',
+    ttsCode: 'yo-NG',
+    flag: '🇳🇬',
+    prompt: 'Ẹ ku abọ si GAIA. Èdè wo ni ẹ fẹ́ kí a lò fún yín?',
+    greeting: 'Ẹ n lẹ, èmi ni GAIA. Kí ni mo lè ṣe fún yín lónìí?',
+  },
+  {
+    code: 'ig',
+    label: 'Igbo',
+    ttsCode: 'ig-NG',
+    flag: '🇳🇬',
+    prompt: 'Nnọọ na GAIA. Kedu asụsụ ị chọrọ ka e jiri nye gị ọrụ?',
+    greeting: 'Ndeewo, abụ m GAIA. Gịnị ka m ga-emere gị taa?',
+  },
+  {
+    code: 'fr',
+    label: 'Français',
+    ttsCode: 'fr-FR',
+    flag: '🇫🇷',
+    prompt: 'Bienvenue sur GAIA. Dans quelle langue souhaitez-vous être servi ?',
+    greeting: 'Bonjour, je suis GAIA. Que puis-je faire pour vous aujourd\'hui ?',
+  },
+  {
+    code: 'sw',
+    label: 'Kiswahili',
+    ttsCode: 'sw-KE',
+    flag: '🇰🇪',
+    prompt: 'Karibu GAIA. Ungependa kuhudumiwa kwa lugha gani?',
+    greeting: 'Habari, mimi ni GAIA. Nikufanyie nini leo?',
+  },
+];
+
+// ============================================
+// STOP WORDS — end continuous mode
+// ============================================
+export const STOP_WORDS = [
+  'stop', 'goodbye', 'bye', 'exit', 'end', 'quit',
+  'tsaya', 'kada', 'sai an jima',           // Hausa
+  'dúró', 'o daabọ',                        // Yoruba
+  'kwụsị', 'ka ọ dị',                       // Igbo
+  'arrête', 'au revoir',                    // French
+  'acha', 'kwaheri',                        // Kiswahili
+];
+
+export function isStopCommand(text: string): boolean {
+  const lower = text.toLowerCase().trim();
+  return STOP_WORDS.some((w) => lower === w || lower.startsWith(w + ' ') || lower.endsWith(' ' + w));
 }
