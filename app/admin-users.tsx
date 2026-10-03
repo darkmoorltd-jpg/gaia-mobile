@@ -278,8 +278,8 @@ export default function AdminUsers() {
                     <Text style={styles.kv}><Text style={styles.k}>KYC: </Text>{detail.verification?.status || detail.profile?.verification_status || 'pending'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>Active badge: </Text>{
                       (() => {
-                        const active = (detail.badges || []).find((b: any) => b.expiry && new Date(b.expiry) > new Date());
-                        return active ? `${(active.plan || '').toUpperCase()} until ${fmtDate(active.expiry)}` : 'none';
+                        const active = (detail.badges || []).find((b: any) => b.expires_at && new Date(b.expires_at) > new Date());
+                        return active ? `${(active.badge_tier || '').toUpperCase()} until ${fmtDate(active.expires_at)}` : 'none';
                       })()
                     }</Text>
 
@@ -306,10 +306,10 @@ export default function AdminUsers() {
                     {(detail.listings || []).length === 0 ? <Text style={styles.kv}>No listings.</Text> :
                       (detail.listings || []).map((l: any, i: number) => (
                         <View key={i} style={styles.card2}>
-                          <Text style={styles.card2Title}>{l.crop || 'Item'} {l.variety ? `· ${l.variety}` : ''}</Text>
-                          <Text style={styles.card2Meta}>₦{Number(l.price || 0).toLocaleString()} / {l.unit || 'unit'} · qty {l.quantity || 0}</Text>
-                          <Text style={styles.card2Meta}>Status: {(l.status || '').toUpperCase()} · {fmtDate(l.created_at)}</Text>
-                          {l.state ? <Text style={styles.card2Meta}>📍 {l.location}, {l.state}</Text> : null}
+                          <Text style={styles.card2Title}>{l.title || 'Item'}</Text>
+                          <Text style={styles.card2Meta}>₦{Number(l.price || 0).toLocaleString()} / {l.unit || 'unit'} · qty {l.quantity || 0} · sold {l.sold || 0}</Text>
+                          <Text style={styles.card2Meta}>Category: {l.category || '—'} · {fmtDate(l.created_at)}</Text>
+                          {l.state ? <Text style={styles.card2Meta}>📍 {l.location || '—'}</Text> : null}
                         </View>
                       ))}
 
@@ -317,10 +317,10 @@ export default function AdminUsers() {
                     {(detail.buy_orders || []).length === 0 ? <Text style={styles.kv}>No purchases.</Text> :
                       (detail.buy_orders || []).map((o: any, i: number) => (
                         <View key={i} style={styles.card2}>
-                          <Text style={styles.card2Title}>₦{Number(o.total_amount || 0).toLocaleString()}</Text>
+                          <Text style={styles.card2Title}>₦{Number(o.total || 0).toLocaleString()}</Text>
                           <Text style={styles.card2Meta}>Qty: {o.quantity} · Status: {(o.status || '').toUpperCase()}</Text>
-                          <Text style={styles.card2Meta}>Delivery: {o.delivery_method || 'pickup'} · Fee ₦{o.delivery_fee || 0}</Text>
-                          <Text style={styles.card2Meta}>Ref: {(o.payment_reference || '').slice(0, 22)}</Text>
+                          <Text style={styles.card2Meta}>Delivery: {o.delivery_method || 'pickup'} · Fee ₦{o.delivery_fee || 0} · {o.listing_title || ''}</Text>
+                          <Text style={styles.card2Meta}>Ref: {(o.payment_ref || o.order_ref || '').slice(0, 22)}</Text>
                           <Text style={styles.card2Meta}>{fmtDate(o.created_at)}</Text>
                         </View>
                       ))}
@@ -329,9 +329,9 @@ export default function AdminUsers() {
                     {(detail.sell_orders || []).length === 0 ? <Text style={styles.kv}>No sales.</Text> :
                       (detail.sell_orders || []).map((o: any, i: number) => (
                         <View key={i} style={styles.card2}>
-                          <Text style={styles.card2Title}>₦{Number(o.total_amount || 0).toLocaleString()}</Text>
+                          <Text style={styles.card2Title}>₦{Number(o.total || 0).toLocaleString()}</Text>
                           <Text style={styles.card2Meta}>Qty: {o.quantity} · Status: {(o.status || '').toUpperCase()}</Text>
-                          <Text style={styles.card2Meta}>Ref: {(o.payment_reference || '').slice(0, 22)}</Text>
+                          <Text style={styles.card2Meta}>Ref: {(o.payment_ref || o.order_ref || '').slice(0, 22)}</Text>
                           <Text style={styles.card2Meta}>{fmtDate(o.created_at)}</Text>
                         </View>
                       ))}
@@ -395,14 +395,14 @@ export default function AdminUsers() {
                     <Text style={styles.sectionLabel}>SUBSCRIPTIONS ({(detail.badges || []).length})</Text>
                     {(detail.badges || []).length === 0 ? <Text style={styles.kv}>No badge subscriptions.</Text> :
                       (detail.badges || []).map((b: any, i: number) => {
-                        const active = b.expiry && new Date(b.expiry) > new Date();
+                        const active = b.expires_at && new Date(b.expires_at) > new Date();
                         return (
                           <View key={i} style={[styles.card2, { borderColor: active ? palette.neon : palette.border }]}>
                             <Text style={[styles.card2Title, { color: active ? palette.neon : palette.text }]}>
-                              {(b.plan || '').toUpperCase()} {active ? '· ACTIVE' : '· EXPIRED'}
+                              {(b.badge_tier || '').toUpperCase()} {active ? '· ACTIVE' : '· EXPIRED'}
                             </Text>
-                            <Text style={styles.card2Meta}>Start: {fmtDate(b.start_date)}</Text>
-                            <Text style={styles.card2Meta}>Expires: {fmtDate(b.expiry)}</Text>
+                            <Text style={styles.card2Meta}>Subscribed: {fmtDate(b.subscribed_at)}</Text>
+                            <Text style={styles.card2Meta}>Expires: {fmtDate(b.expires_at)}</Text>
                             <Text style={styles.card2Meta}>Status: {b.status || '—'}</Text>
                           </View>
                         );
