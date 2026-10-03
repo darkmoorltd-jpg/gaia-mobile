@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../api/supabase';
 
 const API_BASE = 'https://gaia-api.onrender.com';
