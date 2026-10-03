@@ -22,7 +22,9 @@
         "NSCameraUsageDescription": "GAIA uses your camera to diagnose crop diseases.",
         "NSPhotoLibraryUsageDescription": "GAIA accesses your photos to analyze crops.",
         "NSLocationWhenInUseUsageDescription": "GAIA uses location for weather-based advice.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "GAIA tracks your farm perimeter."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GAIA tracks your farm perimeter.",
+        "NSMicrophoneUsageDescription": "GAIA needs microphone access to record voice questions for your agronomist.",
+        "UIBackgroundModes": ["audio"]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyBKmMMLYYSD6b-i3RGzufqykv6WtnEyY4w"
@@ -74,29 +76,15 @@
           "locationAlwaysAndWhenInUsePermission": "GAIA tracks your farm perimeter."
         }
       ],
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "GAIA needs microphone access to record voice questions for your agronomist."
+        }
+      ],
       "expo-router",
       "expo-updates",
-      "expo-av",
-      "expo-document-picker",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "GAIA needs camera access to diagnose crops."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "GAIA needs photo access to analyse leaves."
-        }
-      ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": "GAIA needs mic access to hear you."
-        }
-      ]
+      "expo-document-picker"
     ],
     "experiments": {
       "typedRoutes": true

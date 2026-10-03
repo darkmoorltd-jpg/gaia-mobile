@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Modal,
 } from 'react-native';
-import { useAudioRecorder, RecordingPresets, AudioModule } from 'expo-audio';
+import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
@@ -235,18 +236,22 @@ export default function Voice() {
     try {
       const t = await token();
       if (!t) throw new Error('Not authenticated');
-      const form = new FormData();
-      // @ts-ignore
-      form.append('image', { uri, name: 'photo.jpg', type: 'image/jpeg' });
-      form.append('question', input.trim() || 'Analyze this farm image and give a full diagnosis and treatment plan.');
+      const question = input.trim() || 'Analyze this farm image and give a full diagnosis and treatment plan.';
       setInput('');
-      const r = await fetch(`${API_BASE}/agronomist/image`, {
-        method: 'POST',
+      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/image`, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'image',
+        mimeType: 'image/jpeg',
         headers: { Authorization: `Bearer ${t}` },
-        body: form,
+        parameters: { question },
       });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
-      const data = await r.json();
+      if (up.status < 200 || up.status >= 300) {
+        let m = `HTTP ${up.status}`;
+        try { m = JSON.parse(up.body).error || m; } catch {}
+        throw new Error(m);
+      }
+      const data = JSON.parse(up.body || '{}');
       await appendAssistant(data.answer || '(no response)');
     } catch (e: any) {
       Alert.alert('GAIA error', e.message || 'Try again');
@@ -274,6 +279,8 @@ export default function Voice() {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) { Alert.alert('Microphone permission required'); return; }
+      // REQUIRED on iOS before record() — else RecordingDisabledException
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
       setIsRecording(true);
@@ -285,6 +292,7 @@ export default function Voice() {
     try {
       await recorder.stop();
       const uri = recorder.uri;
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
       if (!uri) return;
       sendVoice(uri);
     } catch (e: any) { Alert.alert('Stop error', e.message); }
@@ -297,16 +305,19 @@ export default function Voice() {
     try {
       const t = await token();
       if (!t) throw new Error('Not authenticated');
-      const form = new FormData();
-      // @ts-ignore
-      form.append('audio', { uri, name: 'question.m4a', type: 'audio/m4a' });
-      const r = await fetch(`${API_BASE}/agronomist/audio`, {
-        method: 'POST',
+      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/audio`, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'audio',
+        mimeType: 'audio/m4a',
         headers: { Authorization: `Bearer ${t}` },
-        body: form,
       });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
-      const data = await r.json();
+      if (up.status < 200 || up.status >= 300) {
+        let m = `HTTP ${up.status}`;
+        try { m = JSON.parse(up.body).error || m; } catch {}
+        throw new Error(m);
+      }
+      const data = JSON.parse(up.body || '{}');
       if (data.transcript) {
         setMessages((prev) => {
           const c = [...prev];
@@ -340,18 +351,22 @@ export default function Voice() {
     try {
       const t = await token();
       if (!t) throw new Error('Not authenticated');
-      const form = new FormData();
-      // @ts-ignore
-      form.append('file', { uri, name, type: mime });
-      form.append('question', input.trim() || 'Analyze this document and advise me.');
+      const question = input.trim() || 'Analyze this document and advise me.';
       setInput('');
-      const r = await fetch(`${API_BASE}/agronomist/file`, {
-        method: 'POST',
+      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/file`, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType: mime,
         headers: { Authorization: `Bearer ${t}` },
-        body: form,
+        parameters: { question },
       });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
-      const data = await r.json();
+      if (up.status < 200 || up.status >= 300) {
+        let m = `HTTP ${up.status}`;
+        try { m = JSON.parse(up.body).error || m; } catch {}
+        throw new Error(m);
+      }
+      const data = JSON.parse(up.body || '{}');
       await appendAssistant(data.answer || '(no response)');
     } catch (e: any) {
       Alert.alert('GAIA error', e.message || 'Try again');
