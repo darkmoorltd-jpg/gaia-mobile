@@ -21,7 +21,7 @@ function fmtDate(iso?: string) {
   try { return new Date(iso).toLocaleString(); } catch { return '—'; }
 }
 
-type Tab = 'profile' | 'market' | 'kyc' | 'badges' | 'support' | 'payments' | 'chats';
+type Tab = 'profile' | 'market' | 'kyc' | 'badges' | 'memory' | 'support' | 'payments' | 'chats';
 
 export default function AdminUsers() {
   const router = useRouter();
@@ -127,6 +127,77 @@ export default function AdminUsers() {
     ]);
   };
 
+  const promptWallet = (row: any, amount: number) => {
+    Alert.alert(
+      (amount > 0 ? 'Credit ' : 'Debit ') + '₦' + Math.abs(amount).toLocaleString(),
+      'For ' + row.email + '?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Confirm', onPress: async () => {
+          setActionBusy(true);
+          const { data, error } = await supabase.rpc('admin_adjust_wallet', {
+            p_user_id: row.user_id, p_amount: amount, p_note: 'admin panel',
+          });
+          setActionBusy(false);
+          if (error) Alert.alert('Failed', error.message);
+          else { Alert.alert('Done', 'New balance: ₦' + Number(data || 0).toLocaleString()); refreshDetail(); }
+        }},
+      ],
+    );
+  };
+
+  const grantBadge = (row: any, tier: string, days: number) => {
+    Alert.alert('Grant ' + tier + ' for ' + days + 'd?', 'For ' + row.email, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Grant', onPress: async () => {
+        setActionBusy(true);
+        const { error } = await supabase.rpc('admin_grant_badge', { p_user_id: row.user_id, p_tier: tier, p_days: days });
+        setActionBusy(false);
+        if (error) Alert.alert('Failed', error.message); else refreshDetail();
+      }},
+    ]);
+  };
+
+  const revokeBadge = (row: any) => {
+    Alert.alert('Revoke badge?', 'Removes current badge for ' + row.email, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Revoke', style: 'destructive', onPress: async () => {
+        setActionBusy(true);
+        const { error } = await supabase.rpc('admin_revoke_badge', { p_user_id: row.user_id });
+        setActionBusy(false);
+        if (error) Alert.alert('Failed', error.message); else refreshDetail();
+      }},
+    ]);
+  };
+
+  const promptBan = (row: any, hours: number) => {
+    const label = hours >= 999999 ? 'forever' : hours + 'h';
+    Alert.alert('Ban ' + row.email + ' ' + label + '?', 'They will be signed out.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'BAN', style: 'destructive', onPress: async () => {
+        setActionBusy(true);
+        const { error } = await supabase.rpc('admin_ban_user', {
+          p_user_id: row.user_id, p_hours: hours, p_reason: 'admin action',
+        });
+        setActionBusy(false);
+        if (error) Alert.alert('Failed', error.message);
+        else { Alert.alert('Banned', 'Until ' + (hours >= 999999 ? 'forever' : hours + 'h from now')); refreshDetail(); }
+      }},
+    ]);
+  };
+
+  const unban = (row: any) => {
+    Alert.alert('Unban ' + row.email + '?', '', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Unban', onPress: async () => {
+        setActionBusy(true);
+        const { error } = await supabase.rpc('admin_unban_user', { p_user_id: row.user_id });
+        setActionBusy(false);
+        if (error) Alert.alert('Failed', error.message); else refreshDetail();
+      }},
+    ]);
+  };
+
   const sendDM = (row: any) => {
     router.push(('/chat-room?uid=' + row.user_id) as any);
   };
@@ -168,6 +239,7 @@ export default function AdminUsers() {
     { key: 'market',   label: 'Market' },
     { key: 'kyc',      label: 'KYC' },
     { key: 'badges',   label: 'Badges' },
+    { key: 'memory',   label: 'Memory' },
     { key: 'support',  label: 'Support' },
     { key: 'payments', label: 'Payments' },
     { key: 'chats',    label: 'Chats' },
@@ -410,7 +482,38 @@ export default function AdminUsers() {
                   </>
                 ) : null}
 
-                {/* ============ SUPPORT ============ */}
+                {/* ============ MEMORY ============ */}
+                
+                {tab === 'memory' ? (
+                  <>
+                    <Text style={styles.sectionLabel}>WHAT GAIA REMEMBERS</Text>
+                    {!detail.memory || (detail.memory || []).length === 0 ? (
+                      <Text style={styles.kv}>No memory entries yet.</Text>
+                    ) : (
+                      (detail.memory || []).map((m: any, i: number) => (
+                        <View key={i} style={styles.card2}>
+                          <Text style={styles.card2Title}>{m.key}</Text>
+                          <Text style={styles.card2Meta}>{m.value}</Text>
+                          <Text style={styles.card2Meta}>Updated {fmtDate(m.updated_at)}</Text>
+                        </View>
+                      ))
+                    )}
+                    <Pressable disabled={actionBusy} onPress={() => {
+                      Alert.alert('Wipe memory?', 'Deletes every fact GAIA remembers about this user.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'WIPE', style: 'destructive', onPress: async () => {
+                          setActionBusy(true);
+                          const { error } = await supabase.rpc('admin_wipe_memory', { p_user_id: selected.user_id });
+                          setActionBusy(false);
+                          if (error) Alert.alert('Failed', error.message); else refreshDetail();
+                        }},
+                      ]);
+                    }} style={[styles.actionBtn, { borderColor: palette.warning }]}>
+                      <Text style={[styles.actionTxt, { color: palette.warning }]}>WIPE MEMORY</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+
                 {tab === 'support' ? (
                   <>
                     <Text style={styles.sectionLabel}>TICKETS ({(detail.support_tickets || []).length})</Text>
@@ -492,7 +595,7 @@ export default function AdminUsers() {
                   </>
                 ) : null}
 
-                <Text style={styles.sectionLabel}>ADMIN ACTIONS</Text>
+                <Text style={styles.sectionLabel}>SCANS</Text>
                 <Pressable disabled={actionBusy} onPress={() => changeScans(selected, 50)} style={styles.actionBtn}>
                   <Text style={styles.actionTxt}>+50 SCANS</Text>
                 </Pressable>
@@ -502,6 +605,53 @@ export default function AdminUsers() {
                 <Pressable disabled={actionBusy} onPress={() => changeScans(selected, -50)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
                   <Text style={[styles.actionTxt, { color: palette.warning }]}>-50 SCANS</Text>
                 </Pressable>
+
+                <Text style={styles.sectionLabel}>WALLET</Text>
+                <Pressable disabled={actionBusy} onPress={() => promptWallet(selected, 1000)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>CREDIT ₦1,000</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => promptWallet(selected, 5000)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>CREDIT ₦5,000</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => promptWallet(selected, -1000)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
+                  <Text style={[styles.actionTxt, { color: palette.warning }]}>DEBIT ₦1,000</Text>
+                </Pressable>
+
+                <Text style={styles.sectionLabel}>BADGES</Text>
+                <Pressable disabled={actionBusy} onPress={() => grantBadge(selected, 'bronze', 30)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>GRANT BRONZE (30d)</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => grantBadge(selected, 'silver', 30)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>GRANT SILVER (30d)</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => grantBadge(selected, 'gold', 30)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>GRANT GOLD (30d)</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => grantBadge(selected, 'platinum', 30)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>GRANT PLATINUM (30d)</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => revokeBadge(selected)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
+                  <Text style={[styles.actionTxt, { color: palette.warning }]}>REVOKE BADGE</Text>
+                </Pressable>
+
+                <Text style={styles.sectionLabel}>SAFETY</Text>
+                <Pressable disabled={actionBusy} onPress={() => promptBan(selected, 24)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
+                  <Text style={[styles.actionTxt, { color: palette.warning }]}>BAN 24H</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => promptBan(selected, 24*7)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
+                  <Text style={[styles.actionTxt, { color: palette.warning }]}>BAN 7D</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => promptBan(selected, 24*30)} style={[styles.actionBtn, { borderColor: palette.danger }]}>
+                  <Text style={[styles.actionTxt, { color: palette.danger }]}>BAN 30D</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => promptBan(selected, 999999)} style={[styles.actionBtn, { borderColor: palette.danger }]}>
+                  <Text style={[styles.actionTxt, { color: palette.danger }]}>BAN FOREVER</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => unban(selected)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>UNBAN</Text>
+                </Pressable>
+
+                <Text style={styles.sectionLabel}>ACCOUNT</Text>
                 <Pressable disabled={actionBusy} onPress={() => resetPassword(selected)} style={styles.actionBtn}>
                   <Text style={styles.actionTxt}>SEND PASSWORD RESET EMAIL</Text>
                 </Pressable>

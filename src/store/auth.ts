@@ -55,6 +55,21 @@ export const useAuth = create<AuthState>((set, get) => ({
         password,
       });
       if (error) return error.message;
+
+      // BAN CHECK
+      try {
+        const { data: prof } = await supabase
+          .from('user_profiles')
+          .select('banned_until, banned_reason')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        if (prof?.banned_until && new Date(prof.banned_until) > new Date()) {
+          await supabase.auth.signOut();
+          const until = new Date(prof.banned_until).toLocaleString();
+          return `Your account is suspended until ${until}. ${prof.banned_reason || ''}`;
+        }
+      } catch {}
+
       set({ user: data.user, session: data.session, loading: false });
       await get().refreshScans();
       return null;
