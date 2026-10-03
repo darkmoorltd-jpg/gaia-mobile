@@ -655,6 +655,9 @@ export default function AdminUsers() {
                 <Pressable disabled={actionBusy} onPress={() => resetPassword(selected)} style={styles.actionBtn}>
                   <Text style={styles.actionTxt}>SEND PASSWORD RESET EMAIL</Text>
                 </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => router.push(('/admin-scans?user_id=' + selected.user_id) as any)} style={[styles.actionBtn, { borderColor: palette.neon }]}>
+                  <Text style={[styles.actionTxt, { color: palette.neon }]}>VIEW SCAN HISTORY</Text>
+                </Pressable>
                 <Pressable disabled={actionBusy} onPress={() => deleteUser(selected)} style={[styles.actionBtn, { borderColor: palette.danger }]}>
                   <Text style={[styles.actionTxt, { color: palette.danger }]}>DELETE USER</Text>
                 </Pressable>

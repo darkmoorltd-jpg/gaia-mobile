@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { saveScan } from '../utils/saveScan';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
@@ -26,10 +27,19 @@ export class DiagnosisError extends Error {
   }
 }
 
+export interface DiagnoseContext {
+  scanType?: 'crop' | 'pest' | 'soil' | 'livestock' | 'video' | 'image-qa';
+  crop?: string;
+  animal?: string;
+  notes?: string;
+  saveToHistory?: boolean;
+}
+
 export async function diagnose(
   imageUri: string,
   modelKey: string,
   token: string,
+  context: DiagnoseContext = {},
 ): Promise<DiagnosisResult> {
   if (!token) throw new DiagnosisError('Not authenticated', 401);
   try {
