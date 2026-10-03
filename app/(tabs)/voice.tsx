@@ -5,8 +5,6 @@ import {
 } from 'react-native';
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Speech from 'expo-speech';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../../src/theme';
@@ -15,26 +13,24 @@ import { supabase } from '../../src/api/supabase';
 import { MarkdownOutput } from '../../src/components/MarkdownOutput';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
-const MAX_EDITS = 5;
 const MAX_HISTORY_SENT = 40;
 const LISTEN_WINDOW_MS = 6500;
 
-type Tab = 'text' | 'image' | 'voice' | 'file' | 'history';
+type Tab = 'text' | 'voice' | 'history';
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
 interface ChatMsg {
-  id?: number;
+  msg_id: string;
   role: 'user' | 'assistant';
   content: string;
-  edit_count?: number;
-  created_at?: string;
+  created_at: string;
 }
 
-interface Session {
+interface SessionRow {
   session_id: string;
   preview: string;
   count: number;
-  last_at: string;
+  updated_at: string;
 }
 
 function newSessionId() {
@@ -44,11 +40,15 @@ function newSessionId() {
   return 'sess-' + out;
 }
 
+function newMsgId() {
+  return 'm-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 function detectLanguage(text: string): string {
   const t = ' ' + text.toLowerCase() + ' ';
   if (/\b(barka|sannu|yaya|ina|nawa|zan|yau|gobe|kadai|dama|toh|nagode|madalla)\b/.test(t)) return 'ha-NG';
-  if (/\b(bawo|ore|jowo|pele|abi|eki|eshey|jare|kilode|o da)\b/.test(t)) return 'yo-NG';
-  if (/\b(kedu|nnoo|ndewo|gini|bia|nwanne|maka|daalu|ka o di)\b/.test(t)) return 'ig-NG';
+  if (/\b(bawo|ore|jowo|pele|abi|eki|eshey|jare|kilode)\b/.test(t)) return 'yo-NG';
+  if (/\b(kedu|nnoo|ndewo|gini|bia|nwanne|maka|daalu)\b/.test(t)) return 'ig-NG';
   if (/\b(wetin|dey|sabi|chop|waka|shey)\b/.test(t)) return 'en-NG';
   if (/\b(bonjour|merci|oui|salut|comment)\b/.test(t)) return 'fr-FR';
   if (/\b(habari|asante|karibu|kwaheri|jambo|ndiyo)\b/.test(t)) return 'sw-KE';
@@ -56,19 +56,19 @@ function detectLanguage(text: string): string {
 }
 
 const STOP_WORDS = [
-  'stop','goodbye','bye','exit','end','quit',
-  'thank you','thanks','that is all','that is enough','i am done','im done','done','ok thanks','okay thanks',
-  'sai anjima','sai an jima','nagode','na gode','ban gajiya',
-  'o da bo','o daabo','ese','o se','mo ti de',
-  'ka o di','daalu','nnoo',
-  'au revoir','merci','arrete','arret',
-  'kwaheri','asante',
+  'stop', 'goodbye', 'bye', 'exit', 'end', 'quit',
+  'thank you', 'thanks', 'that is all', 'that is enough',
+  'i am done', 'im done', 'done', 'ok thanks', 'okay thanks',
+  'sai anjima', 'sai an jima', 'nagode', 'na gode',
+  'o da bo', 'o daabo', 'ese', 'o se',
+  'ka o di', 'daalu', 'nnoo',
+  'au revoir', 'merci', 'arrete',
+  'kwaheri', 'asante',
 ];
 
 function isStopPhrase(text: string): boolean {
   const words = text.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return false;
-  if (words.length > 8) return false;
+  if (words.length === 0 || words.length > 8) return false;
   const l = words.join(' ');
   return STOP_WORDS.some((w) => l === w || l.endsWith(' ' + w) || l === w + '.');
 }
@@ -93,12 +93,10 @@ export default function Voice() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [memBusy, setMemBusy] = useState(false);
-  const [memory, setMemory] = useState<Record<string, string>>({});
-  const [showMemory, setShowMemory] = useState(false);
-  const [editing, setEditing] = useState<{ idx: number; text: string } | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionsBusy, setSessionsBusy] = useState(false);
+  const [showMemory, setShowMemory] = useState(false);
+  const [memory, setMemory] = useState<Record<string, string>>({});
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
@@ -108,291 +106,203 @@ export default function Voice() {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => { msgRef.current = messages; }, [messages]);
-  useEffect(() => { loadMemory(); }, [user]);
 
-  const token = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token;
-  };
-
-  const loadMemory = async () => {
+  // ---- load memory ----
+  useEffect(() => {
     if (!user) return;
-    const t = await token();
-    if (!t) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('agronomist_memory')
+          .select('key,value')
+          .eq('user_id', user.id);
+        const m: Record<string, string> = {};
+        (data || []).forEach((r: any) => { m[r.key] = r.value; });
+        setMemory(m);
+      } catch {}
+    })();
+  }, [user]);
+
+  // ---- persistence ----
+  const persistSession = async (msgs: ChatMsg[]) => {
+    if (!user) return;
     try {
-      const r = await fetch(`${API_BASE}/memory`, { headers: { Authorization: `Bearer ${t}` } });
-      if (r.ok) { const d = await r.json(); setMemory(d.memory || {}); }
-    } catch {}
+      await supabase.from('agronomist_sessions').upsert(
+        {
+          user_id: user.id,
+          session_id: sessionId,
+          messages: msgs,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,session_id' },
+      );
+    } catch (e) {
+      console.log('persist failed', e);
+    }
   };
 
+  const appendMsg = async (role: 'user' | 'assistant', content: string) => {
+    const msg: ChatMsg = {
+      msg_id: newMsgId(),
+      role,
+      content,
+      created_at: new Date().toISOString(),
+    };
+    const next = [...msgRef.current, msg];
+    setMessages(next);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    await persistSession(next);
+    return msg;
+  };
+
+  const deleteMessage = (idx: number) => {
+    Alert.alert('Delete message', 'Remove from history?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const next = messages.filter((_, i) => i !== idx);
+          setMessages(next);
+          await persistSession(next);
+        },
+      },
+    ]);
+  };
+
+  // ---- history tab ----
   const loadSessions = async () => {
-    const t = await token();
-    if (!t) return;
+    if (!user) return;
     setSessionsBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/history/sessions`, { headers: { Authorization: `Bearer ${t}` } });
-      if (r.ok) { const d = await r.json(); setSessions(d.sessions || []); }
+      const { data } = await supabase
+        .from('agronomist_sessions')
+        .select('session_id,messages,updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      const rows: SessionRow[] = (data || []).map((r: any) => {
+        const msgs = Array.isArray(r.messages) ? r.messages : [];
+        const first = msgs.find((m: any) => m.role === 'user');
+        return {
+          session_id: r.session_id,
+          preview: first?.content?.slice(0, 80) || '(empty)',
+          count: msgs.length,
+          updated_at: r.updated_at,
+        };
+      });
+      setSessions(rows);
     } catch {}
     setSessionsBusy(false);
   };
 
   useEffect(() => { if (tab === 'history') loadSessions(); }, [tab]);
 
-  const loadSession = async (sid: string) => {
-    const t = await token();
-    if (!t) return;
-    try {
-      const r = await fetch(`${API_BASE}/history/${sid}`, { headers: { Authorization: `Bearer ${t}` } });
-      if (r.ok) {
-        const d = await r.json();
-        setMessages((d.messages || []).map((m: any) => ({
-          id: m.id, role: m.role, content: m.content,
-          edit_count: m.edit_count, created_at: m.created_at,
-        })));
-        setSessionId(sid);
-        setTab('text');
-      }
-    } catch {}
+  const openSession = async (sid: string) => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('agronomist_sessions')
+      .select('messages')
+      .eq('user_id', user.id)
+      .eq('session_id', sid)
+      .maybeSingle();
+    const msgs = (data?.messages as ChatMsg[]) || [];
+    setMessages(msgs);
+    setSessionId(sid);
+    setTab('text');
   };
 
-  const saveMessage = async (role: string, content: string) => {
-    const t = await token();
-    if (!t) return null;
-    try {
-      const r = await fetch(`${API_BASE}/history/save`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, role, content }),
-      });
-      if (r.ok) { const d = await r.json(); return d.message?.id || null; }
-    } catch {}
-    return null;
-  };
-
-  const deleteMessage = async (msg: ChatMsg, idx: number) => {
-    Alert.alert('Delete message', 'Remove it from your history permanently?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        const t = await token();
-        if (t && msg.id) {
-          try { await fetch(`${API_BASE}/history/message/${msg.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } }); } catch {}
-        }
-        setMessages((prev) => prev.filter((_, i) => i !== idx));
-      }},
-    ]);
-  };
-
-  const deleteSession = async (sid: string) => {
+  const deleteSession = (sid: string) => {
     Alert.alert('Delete conversation', 'Remove this entire conversation?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        const t = await token();
-        if (t) {
-          try { await fetch(`${API_BASE}/history/session/${sid}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } }); } catch {}
-        }
-        setSessions((prev) => prev.filter((s) => s.session_id !== sid));
-        if (sid === sessionId) { setMessages([]); setSessionId(newSessionId()); }
-      }},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (!user) return;
+          await supabase
+            .from('agronomist_sessions')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('session_id', sid);
+          setSessions((prev) => prev.filter((s) => s.session_id !== sid));
+          if (sid === sessionId) {
+            setMessages([]);
+            setSessionId(newSessionId());
+          }
+        },
+      },
     ]);
-  };
-
-  const beginEdit = (idx: number) => {
-    const m = messages[idx];
-    if (m.role !== 'user') { Alert.alert('Only your messages can be edited'); return; }
-    if ((m.edit_count || 0) >= MAX_EDITS) { Alert.alert('Edit limit reached', 'Up to 5 edits.'); return; }
-    setEditing({ idx, text: m.content });
-  };
-
-  const commitEdit = async () => {
-    if (!editing) return;
-    const { idx, text } = editing;
-    const m = messages[idx];
-    if (!m.id) { setMessages((p) => p.map((x, i) => (i === idx ? { ...x, content: text } : x))); setEditing(null); return; }
-    const t = await token();
-    if (!t) return;
-    setMemBusy(true);
-    try {
-      const r = await fetch(`${API_BASE}/history/edit/${m.id}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_content: text }),
-      });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); Alert.alert('Edit failed', e.error || r.statusText); }
-      else {
-        const d = await r.json();
-        setMessages((p) => p.map((x, i) => (i === idx ? { ...x, content: text, edit_count: d.edit_count } : x)));
-        setEditing(null);
-      }
-    } catch (e: any) { Alert.alert('Edit failed', e.message || 'Try again'); }
-    finally { setMem_BBusy(false); }
   };
 
   const clearSession = () => {
-    Alert.alert('Clear conversation', 'All messages will be deleted.', [
+    Alert.alert('Clear conversation', 'Delete all messages in this conversation?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        const t = await token();
-        if (t) { try { await fetch(`${API_BASE}/history/session/${sessionId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } }); } catch {} }
-        setMessages([]);
-        setSessionId(newSessionId());
-      }},
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (user) {
+            await supabase
+              .from('agronomist_sessions')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('session_id', sessionId);
+          }
+          setMessages([]);
+          setSessionId(newSessionId());
+        },
+      },
     ]);
   };
 
-  const appendAssistant = async (content: string) => {
-    setMessages((prev) => [...prev, { role: 'assistant', content }]);
-    const id = await saveMessage('assistant', content);
-    if (id) {
-      setMessages((prev) => {
-        const c = [...prev];
-        c[c.length - 1] = { ...c[c.length - 1], id };
-        return c;
+  // ---- ask AI (uses /chat) ----
+  const askAI = async (question: string, lang: string): Promise<string> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const t = session?.access_token;
+    if (!t) return '';
+    try {
+      const history = msgRef.current
+        .slice(-MAX_HISTORY_SENT)
+        .map((m) => ({ role: m.role, content: m.content }));
+      const r = await fetch(API_BASE + '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+        body: JSON.stringify({ message: question, language: lang, history }),
       });
+      if (!r.ok) return '';
+      const d = await r.json();
+      return d.reply || d.answer || '';
+    } catch {
+      return '';
     }
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
   };
 
-  // ============================================================
-  // TEXT
-  // ============================================================
+  // ---- text tab ----
   const sendText = async () => {
     if (!input.trim() || busy) return;
     const q = input.trim();
     setInput('');
-    setEditing(null);
-    setMessages((prev) => [...prev, { role: 'user', content: q }]);
     setBusy(true);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     try {
-      const t = await token();
-      if (!t) throw new Error('Not authenticated');
-      const uid = await saveMessage('user', q);
-      if (uid) {
-        setMessages((prev) => {
-          const c = [...prev];
-          c[c.length - 1] = { ...c[c.length - 1], id: uid };
-          return c;
-        });
-      }
-      const history = msgRef.current.slice(-MAX_HISTORY_SENT).map((m) => ({ role: m.role, content: m.content }));
+      await appendMsg('user', q);
       const lang = detectLanguage(q);
-      const r = await fetch(`${API_BASE}/agronomist/text`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, history, language: lang }),
-      });
-      if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || `HTTP ${r.status}`); }
-      const data = await r.json();
-      await appendAssistant(data.answer || data.reply || '(no response)');
+      const reply = await askAI(q, lang);
+      await appendMsg('assistant', reply || 'Sorry, I could not reach the server.');
     } catch (e: any) {
-      Alert.alert('GAIA error', e.message || 'Try again');
-      await appendAssistant('Could not reach the server. Please try again.');
-    } finally { setBusy(false); }
+      Alert.alert('GAIA error', e?.message || 'Try again');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // ============================================================
-  // IMAGE
-  // ============================================================
-  const sendImage = async (uri: string) => {
-    setBusy(true);
-    setMessages((prev) => [...prev, { role: 'user', content: '[Image uploaded]' }]);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    try {
-      const t = await token();
-      if (!t) throw new Error('Not authenticated');
-      const question = input.trim() || 'Analyze this farm image and give a full diagnosis and treatment plan.';
-      setInput('');
-      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/image`, uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-        fieldName: 'image',
-        mimeType: 'image/jpeg',
-        headers: { Authorization: `Bearer ${t}` },
-        parameters: { question },
-      });
-      if (up.status < 200 || up.status >= 300) {
-        let m = `HTTP ${up.status}`;
-        try { m = JSON.parse(up.body).error || m; } catch {}
-        throw new Error(m);
-      }
-      const data = JSON.parse(up.body || '{}');
-      await appendAssistant(data.answer || '(no response)');
-    } catch (e: any) {
-      Alert.alert('GAIA error', e.message || 'Try again');
-      await appendAssistant('Could not analyze the image.');
-    } finally { setBusy(false); }
-  };
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('Camera permission required'); return; }
-    Alert.alert('Add image', 'Choose a source', [
-      { text: 'Camera', onPress: async () => {
-        const r = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
-        if (!r.canceled) sendImage(r.assets[0].uri);
-      }},
-      { text: 'Gallery', onPress: async () => {
-        const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true });
-        if (!r.canceled) sendImage(r.assets[0].uri);
-      }},
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  };
-
-  // ============================================================
-  // FILE
-  // ============================================================
-  const pickFile = async () => {
-    try {
-      const res = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'text/*', 'image/*'],
-        copyToCacheDirectory: true,
-      });
-      if (res.canceled) return;
-      const f = res.assets[0];
-      sendFile(f.uri, f.name, f.mimeType || 'application/octet-stream');
-    } catch (e: any) { Alert.alert('File error', e.message); }
-  };
-
-  const sendFile = async (uri: string, name: string, mime: string) => {
-    setBusy(true);
-    setMessages((prev) => [...prev, { role: 'user', content: '[File] ' + name }]);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    try {
-      const t = await token();
-      if (!t) throw new Error('Not authenticated');
-      const question = input.trim() || 'Analyze this document and advise me.';
-      setInput('');
-      const up = await FileSystem.uploadAsync(`${API_BASE}/agronomist/file`, uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-        fieldName: 'file',
-        mimeType: mime,
-        headers: { Authorization: `Bearer ${t}` },
-        parameters: { question },
-      });
-      if (up.status < 200 || up.status >= 300) {
-        let m = `HTTP ${up.status}`;
-        try { m = JSON.parse(up.body).error || m; } catch {}
-        throw new Error(m);
-      }
-      const data = JSON.parse(up.body || '{}');
-      await appendAssistant(data.answer || '(no response)');
-    } catch (e: any) {
-      Alert.alert('GAIA error', e.message || 'Try again');
-      await appendAssistant('Could not process the file.');
-    } finally { setBusy(false); }
-  };
-
-  // ============================================================
-  // VOICE — CONVERSATION LOOP
-  // ============================================================
+  // ---- voice loop ----
   const startConversation = async () => {
     if (!user) { Alert.alert('Sign in required'); return; }
     if (activeRef.current) return;
     activeRef.current = true;
     setActiveConv(true);
-    runConversationLoop();
+    runLoop();
   };
 
   const stopConversation = async () => {
@@ -404,14 +314,13 @@ export default function Voice() {
     try { await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); } catch {}
   };
 
-  const recordOneTurn = async (): Promise<string | null> => {
+  const recordTurn = async (): Promise<string | null> => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) { Alert.alert('Microphone permission required'); return null; }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
-
       const started = Date.now();
       while (activeRef.current && Date.now() - started < LISTEN_WINDOW_MS) {
         await new Promise((r) => setTimeout(r, 200));
@@ -421,65 +330,34 @@ export default function Voice() {
       try { await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }); } catch {}
       return uri;
     } catch (e) {
-      console.log('recordOneTurn failed', e);
+      console.log('record failed', e);
       return null;
     }
   };
 
   const transcribeTurn = async (uri: string): Promise<{ text: string; lang: string }> => {
-    const t = await token();
+    const { data: { session } } = await supabase.auth.getSession();
+    const t = session?.access_token;
     if (!t) return { text: '', lang: 'en-NG' };
     try {
-      const res = await FileSystem.uploadAsync(`${API_BASE}/transcribe`, uri, {
+      const res = await FileSystem.uploadAsync(API_BASE + '/stt', uri, {
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
         fieldName: 'audio',
         mimeType: 'audio/m4a',
-        headers: { Authorization: `Bearer ${t}` },
-        parameters: { language: 'auto' },
+        headers: { Authorization: 'Bearer ' + t },
+        parameters: { language: 'en' },
       });
       if (res.status < 200 || res.status >= 300) return { text: '', lang: 'en-NG' };
-      const data = JSON.parse(res.body || '{}');
-      const text = (data.text || '').trim();
-      const lang = data.language || detectLanguage(text);
-      return { text, lang };
+      const d = JSON.parse(res.body || '{}');
+      const text = (d.text || '').trim();
+      return { text, lang: detectLanguage(text) };
     } catch {
       return { text: '', lang: 'en-NG' };
     }
   };
 
-  const askAI = async (question: string, lang: string): Promise<string> => {
-    const t = await token();
-    if (!t) return '';
-    try {
-      const history = msgRef.current.slice(-MAX_HISTORY_SENT).map((m) => ({ role: m.role, content: m.content }));
-      const res = await fetch(`${API_BASE}/agronomist/text`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, history, language: lang }),
-      });
-      if (!res.ok) return '';
-      const data = await res.json();
-      return data.answer || data.reply || '';
-    } catch {
-      return '';
-    }
-  };
-
-  const appendUser = async (content: string) => {
-    setMessages((prev) => [...prev, { role: 'user', content }]);
-    const id = await saveMessage('user', content);
-    if (id) {
-      setMessages((prev) => {
-        const c = [...prev];
-        c[c.length - 1] = { ...c[c.length - 1], id };
-        return c;
-      });
-    }
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
-  };
-
-  const speakReply = async (text: string, lang: string): Promise<void> => {
+  const speak = (text: string, lang: string): Promise<void> => {
     return new Promise((resolve) => {
       try {
         Speech.stop();
@@ -495,57 +373,42 @@ export default function Voice() {
     });
   };
 
-  const runConversationLoop = async () => {
+  const runLoop = async () => {
     while (activeRef.current) {
-      // 1) LISTEN
       setVoiceState('listening');
-      const uri = await recordOneTurn();
+      const uri = await recordTurn();
       if (!activeRef.current) break;
       if (!uri) continue;
 
-      // 2) TRANSCRIBE
       setVoiceState('thinking');
-      const { text: transcript, lang } = await transcribeTurn(uri);
+      const { text, lang } = await transcribeTurn(uri);
       if (!activeRef.current) break;
-      if (!transcript) continue;
+      if (!text) continue;
 
-      await appendUser('(voice) ' + transcript);
+      await appendMsg('user', '(voice) ' + text);
 
-      // 3) STOP PHRASE?
-      if (isStopPhrase(transcript)) {
+      if (isStopPhrase(text)) {
         const bye = goodbyeFor(lang);
-        const bid = await saveMessage('assistant', bye);
-        setMessages((prev) => [...prev, { role: 'assistant', content: bye, id: bid || undefined }]);
+        await appendMsg('assistant', bye);
         setVoiceState('speaking');
-        await speakReply(bye, lang);
+        await speak(bye, lang);
         break;
       }
 
-      // 4) ASK AI
-      const reply = await askAI(transcript, lang);
-      if (!activeRef.current) break;
+      const reply = await askAI(text, lang);
       const finalReply = reply || 'Sorry, I did not catch that. Please say it again.';
-      const aid = await saveMessage('assistant', finalReply);
-      setMessages((prev) => [...prev, { role: 'assistant', content: finalReply, id: aid || undefined }]);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+      await appendMsg('assistant', finalReply);
 
-      // 5) SPEAK
       setVoiceState('speaking');
-      await speakReply(finalReply, lang);
+      await speak(finalReply, lang);
     }
     activeRef.current = false;
     setActiveConv(false);
     setVoiceState('idle');
   };
 
-  const onMicPress = () => {
-    if (activeConv) stopConversation();
-    else startConversation();
-  };
+  const onMicPress = () => { if (activeConv) stopConversation(); else startConversation(); };
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   const statusLabel =
     voiceState === 'listening' ? 'Listening...'
     : voiceState === 'thinking' ? 'Thinking...'
@@ -563,18 +426,18 @@ export default function Voice() {
           <Text style={styles.headerTitle}>GAIA Agronomist</Text>
         </View>
         <Pressable onPress={() => setShowMemory(true)} style={styles.iconBtn} hitSlop={10}>
-          <Text style={styles.iconText}>*</Text>
+          <Text style={styles.iconText}>MEM</Text>
         </Pressable>
         <Pressable onPress={clearSession} style={styles.iconBtn} hitSlop={10}>
-          <Text style={[styles.iconText, { color: palette.danger }]}>X</Text>
+          <Text style={[styles.iconText, { color: palette.danger }]}>CLR</Text>
         </Pressable>
       </View>
 
       <View style={styles.tabBar}>
-        {(['text','image','voice','file','history'] as Tab[]).map((t) => (
+        {(['text', 'voice', 'history'] as Tab[]).map((t) => (
           <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'text' ? 'Text' : t === 'image' ? 'Image' : t === 'voice' ? 'Voice' : t === 'file' ? 'File' : 'History'}
+              {t === 'text' ? 'Text' : t === 'voice' ? 'Voice' : 'History'}
             </Text>
           </Pressable>
         ))}
@@ -590,13 +453,13 @@ export default function Voice() {
             sessions.map((s) => (
               <Pressable
                 key={s.session_id}
-                onPress={() => loadSession(s.session_id)}
+                onPress={() => openSession(s.session_id)}
                 onLongPress={() => deleteSession(s.session_id)}
                 delayLongPress={400}
                 style={styles.sessionCard}
               >
-                <Text style={styles.sessionPreview} numberOfLines={2}>{s.preview || '(no preview)'}</Text>
-                <Text style={styles.sessionMeta}>{s.count} messages - {new Date(s.last_at).toLocaleDateString()}</Text>
+                <Text style={styles.sessionPreview} numberOfLines={2}>{s.preview}</Text>
+                <Text style={styles.sessionMeta}>{s.count} messages - {new Date(s.updated_at).toLocaleDateString()}</Text>
               </Pressable>
             ))
           )}
@@ -607,15 +470,16 @@ export default function Voice() {
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>Hello, I am GAIA.</Text>
               <Text style={styles.emptyText}>
-                Ask in text, upload a photo, or tap Voice to have a full hands-free conversation.
+                Type a question, or tap Voice to have a hands-free conversation.
                 I remember everything you tell me.
               </Text>
             </View>
           ) : (
             messages.map((m, i) => (
               <Pressable
-                key={i}
-                onLongPress={() => (m.role === 'user' ? beginEdit(i) : deleteMessage(m, i))}
+                key={m.msg_id}
+                onLongPress={() => deleteMessage(i)}
+                delayLongPress={350}
                 style={[styles.row, m.role === 'user' ? styles.rowUser : styles.rowAi]}
               >
                 <View style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
@@ -624,20 +488,10 @@ export default function Voice() {
                   ) : (
                     <Text style={styles.bubbleTextUser}>{m.content}</Text>
                   )}
-                  {m.role === 'user' && m.edit_count != null && m.edit_count > 0 ? (
-                    <Text style={styles.editBadge}>edited - {m.edit_count}/{MAX_EDITS}</Text>
-                  ) : null}
                 </View>
-                <View style={styles.actions}>
-                  {m.role === 'user' && (m.edit_count || 0) < MAX_EDITS ? (
-                    <Pressable onPress={() => beginEdit(i)} style={styles.actionBtn}>
-                      <Text style={styles.actionText}>E</Text>
-                    </Pressable>
-                  ) : null}
-                  <Pressable onPress={() => deleteMessage(m, i)} style={styles.actionBtn}>
-                    <Text style={[styles.actionText, { color: palette.danger }]}>D</Text>
-                  </Pressable>
-                </View>
+                <Pressable onPress={() => deleteMessage(i)} style={styles.actionBtn}>
+                  <Text style={[styles.actionText, { color: palette.danger }]}>X</Text>
+                </Pressable>
               </Pressable>
             ))
           )}
@@ -651,76 +505,49 @@ export default function Voice() {
         </ScrollView>
       )}
 
-      {tab !== 'history' && (
+      {tab === 'voice' ? (
         <View style={styles.inputBar}>
-          {tab === 'image' && (
-            <Pressable onPress={pickImage} style={styles.iconBtn}>
-              <Text style={styles.iconText}>Img</Text>
-            </Pressable>
-          )}
-          {tab === 'file' && (
-            <Pressable onPress={pickFile} style={styles.iconBtn}>
-              <Text style={styles.iconText}>File</Text>
-            </Pressable>
-          )}
-          {tab === 'voice' ? (
-            <View style={styles.voiceWrap}>
-              <Pressable
-                onPress={onMicPress}
-                style={[
-                  styles.micBtn,
-                  activeConv && styles.micBtnActive,
-                  voiceState === 'listening' && styles.micBtnListening,
-                  voiceState === 'speaking' && styles.micBtnSpeaking,
-                ]}
-              >
-                {voiceState === 'thinking' ? (
-                  <ActivityIndicator color={palette.obsidian} />
-                ) : (
-                  <Text style={styles.micGlyph}>{activeConv ? 'STOP' : 'MIC'}</Text>
-                )}
-              </Pressable>
-              <Text style={styles.voiceStatus}>{statusLabel}</Text>
-              {activeConv ? (
-                <Text style={styles.voiceHint}>
-                  Speak naturally. Say "thank you", "goodbye", or "stop" to end.
-                </Text>
+          <View style={styles.voiceWrap}>
+            <Pressable
+              onPress={onMicPress}
+              style={[
+                styles.micBtn,
+                activeConv && styles.micBtnActive,
+                voiceState === 'listening' && styles.micBtnListening,
+                voiceState === 'speaking' && styles.micBtnSpeaking,
+              ]}
+            >
+              {voiceState === 'thinking' ? (
+                <ActivityIndicator color={palette.obsidian} />
               ) : (
-                <Text style={styles.voiceHint}>
-                  Tap once and GAIA will keep the conversation going hands-free.
-                </Text>
+                <Text style={styles.micGlyph}>{activeConv ? 'STOP' : 'MIC'}</Text>
               )}
-            </View>
-          ) : (
-            <>
-              <TextInput
-                value={editing ? editing.text : input}
-                onChangeText={(t) => (editing ? setEditing({ ...editing, text: t }) : setInput(t))}
-                placeholder={editing ? 'Editing...' : 'Ask GAIA anything...'}
-                placeholderTextColor={palette.textDim}
-                style={styles.input}
-                multiline
-              />
-              {editing ? (
-                <>
-                  <Pressable onPress={() => setEditing(null)} style={[styles.sendBtn, { backgroundColor: palette.surface }]}>
-                    <Text style={[styles.sendBtnText, { color: palette.text }]}>X</Text>
-                  </Pressable>
-                  <Pressable onPress={commitEdit} disabled={memBusy} style={styles.sendBtn}>
-                    {memBusy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.sendBtnText}>OK</Text>}
-                  </Pressable>
-                </>
-              ) : (
-                <Pressable
-                  onPress={sendText}
-                  disabled={busy || !input.trim()}
-                  style={[styles.sendBtn, (!input.trim() || busy) && { opacity: 0.4 }]}
-                >
-                  <Text style={styles.sendBtnText}>Send</Text>
-                </Pressable>
-              )}
-            </>
-          )}
+            </Pressable>
+            <Text style={styles.voiceStatus}>{statusLabel}</Text>
+            <Text style={styles.voiceHint}>
+              {activeConv
+                ? 'Speak naturally. Say "thank you", "goodbye", or "stop" to end.'
+                : 'Tap once and GAIA will keep the conversation going hands-free.'}
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.inputBar}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask GAIA anything..."
+            placeholderTextColor={palette.textDim}
+            style={styles.input}
+            multiline
+          />
+          <Pressable
+            onPress={sendText}
+            disabled={busy || !input.trim()}
+            style={[styles.sendBtn, (!input.trim() || busy) && { opacity: 0.4 }]}
+          >
+            <Text style={styles.sendBtnText}>Send</Text>
+          </Pressable>
         </View>
       )}
 
@@ -731,7 +558,7 @@ export default function Voice() {
             <Text style={styles.modalSub}>Facts GAIA remembers about you</Text>
             <ScrollView style={{ maxHeight: 300 }}>
               {Object.entries(memory).length === 0 ? (
-                <Text style={styles.emptyText}>Nothing yet.</Text>
+                <Text style={styles.emptyText}>Nothing yet. Tell GAIA about yourself in a chat.</Text>
               ) : (
                 Object.entries(memory).map(([k, v]) => (
                   <View key={k} style={styles.memoryRow}>
@@ -758,8 +585,8 @@ const createStyles = (palette: any) => StyleSheet.create({
     paddingHorizontal: spacing.md, paddingTop: 60, paddingBottom: spacing.md,
     borderBottomWidth: 1, borderBottomColor: palette.border, gap: 6,
   },
-  iconBtn: { minWidth: 36, height: 36, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 16, color: palette.text, fontWeight: '800' },
+  iconBtn: { minWidth: 40, height: 36, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  iconText: { fontSize: 11, color: palette.text, fontWeight: '800', letterSpacing: 1 },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.neon },
   headerTitle: { ...typography.body, color: palette.text, fontWeight: '800' },
@@ -769,12 +596,9 @@ const createStyles = (palette: any) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: palette.border,
     backgroundColor: palette.obsidian,
   },
-  tabBtn: {
-    flex: 1, paddingVertical: 8, borderRadius: radius.sm,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   tabBtnActive: { backgroundColor: 'rgba(0,255,136,0.12)' },
-  tabText: { fontSize: 11, color: palette.textDim, fontWeight: '700' },
+  tabText: { fontSize: 12, color: palette.textDim, fontWeight: '700' },
   tabTextActive: { color: palette.neon },
 
   scroll: { padding: 16, paddingBottom: 20 },
@@ -784,14 +608,12 @@ const createStyles = (palette: any) => StyleSheet.create({
   row: { marginBottom: 12, flexDirection: 'row', alignItems: 'flex-end' },
   rowUser: { justifyContent: 'flex-end' },
   rowAi: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '86%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
+  bubble: { maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18 },
   bubbleUser: { backgroundColor: palette.neon, borderBottomRightRadius: 6 },
   bubbleAi: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderBottomLeftRadius: 6 },
   bubbleTextUser: { fontSize: 15, lineHeight: 22, color: palette.obsidian, fontWeight: '600' },
-  editBadge: { fontSize: 10, color: 'rgba(0,0,0,0.55)', marginTop: 4, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', marginLeft: 6, gap: 4 },
-  actionBtn: { padding: 6 },
-  actionText: { fontSize: 14, fontWeight: '800', color: palette.textMuted },
+  actionBtn: { padding: 8, marginLeft: 4 },
+  actionText: { fontSize: 12, fontWeight: '900' },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,

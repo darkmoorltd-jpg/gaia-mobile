@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { findLanguage } from './languages';
+import { supabase } from '../api/supabase';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
@@ -11,18 +11,22 @@ export interface TranscribeResult {
 export async function transcribeAudio(
   audioUri: string,
   languageCode: string,
-  token: string,
+  _token?: string,
 ): Promise<TranscribeResult> {
   try {
-    const lang = findLanguage(languageCode);
-    const res = await FileSystem.uploadAsync(API_BASE + '/transcribe', audioUri, {
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token || _token || '';
+    if (!token) return { text: '', error: 'Not authenticated' };
+
+    const res = await FileSystem.uploadAsync(API_BASE + '/stt', audioUri, {
       httpMethod: 'POST',
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName: 'audio',
       mimeType: 'audio/m4a',
       headers: { Authorization: 'Bearer ' + token },
-      parameters: { language: lang.whisperCode },
+      parameters: { language: languageCode.slice(0, 2) || 'en' },
     });
+
     if (res.status < 200 || res.status >= 300) {
       return { text: '', error: 'Server ' + res.status };
     }
