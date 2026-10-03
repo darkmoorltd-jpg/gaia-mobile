@@ -1,8 +1,12 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-const API_BASE = "https://gaia-api-xuly.onrender.com";
+const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
-export interface Prediction { label: string; confidence: number; }
+export interface Prediction {
+  label: string;
+  confidence: number;
+}
+
 export interface DiagnosisResult {
   predictions: Prediction[];
   top: Prediction;
@@ -13,9 +17,13 @@ export interface DiagnosisResult {
   top_class_index?: number;
   recommendations?: string | null;
 }
+
 export class DiagnosisError extends Error {
   status: number;
-  constructor(message: string, status: number) { super(message); this.status = status; }
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
 export async function diagnose(
@@ -25,7 +33,7 @@ export async function diagnose(
 ): Promise<DiagnosisResult> {
   if (!token) throw new DiagnosisError('Not authenticated', 401);
   try {
-    const up = await FileSystem.uploadAsync(API_BASE + '/diagnose', imageUri, {
+    const res = await FileSystem.uploadAsync(API_BASE + '/diagnose', imageUri, {
       httpMethod: 'POST',
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName: 'image',
@@ -33,12 +41,12 @@ export async function diagnose(
       headers: { Authorization: 'Bearer ' + token },
       parameters: { model: modelKey },
     });
-    if (up.status < 200 || up.status >= 300) {
-      let m = 'Diagnosis failed';
-      try { m = JSON.parse(up.body).error || m; } catch {}
-      throw new DiagnosisError(m, up.status);
+    if (res.status < 200 || res.status >= 300) {
+      let msg = 'Diagnosis failed';
+      try { msg = JSON.parse(res.body).error || msg; } catch (e) {}
+      throw new DiagnosisError(msg, res.status);
     }
-    return JSON.parse(up.body) as DiagnosisResult;
+    return JSON.parse(res.body) as DiagnosisResult;
   } catch (e: any) {
     if (e instanceof DiagnosisError) throw e;
     throw new DiagnosisError(e?.message || 'Network error', 0);

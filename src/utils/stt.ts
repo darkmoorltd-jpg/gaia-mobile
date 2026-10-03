@@ -2,7 +2,11 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { findLanguage } from './languages';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
-export interface TranscribeResult { text: string; error?: string; }
+
+export interface TranscribeResult {
+  text: string;
+  error?: string;
+}
 
 export async function transcribeAudio(
   audioUri: string,
@@ -11,7 +15,7 @@ export async function transcribeAudio(
 ): Promise<TranscribeResult> {
   try {
     const lang = findLanguage(languageCode);
-    const up = await FileSystem.uploadAsync(API_BASE + '/transcribe', audioUri, {
+    const res = await FileSystem.uploadAsync(API_BASE + '/transcribe', audioUri, {
       httpMethod: 'POST',
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName: 'audio',
@@ -19,11 +23,11 @@ export async function transcribeAudio(
       headers: { Authorization: 'Bearer ' + token },
       parameters: { language: lang.whisperCode },
     });
-    if (up.status < 200 || up.status >= 300) {
-      return { text: '', error: 'Server ' + up.status };
+    if (res.status < 200 || res.status >= 300) {
+      return { text: '', error: 'Server ' + res.status };
     }
-    const d = JSON.parse(up.body || '{}');
-    return { text: (d.text || '').trim() };
+    const data = JSON.parse(res.body || '{}');
+    return { text: (data.text || '').trim() };
   } catch (e: any) {
     return { text: '', error: e?.message || 'Transcription failed' };
   }
