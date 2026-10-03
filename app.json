@@ -73,7 +73,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "GAIA tracks your farm perimeter."
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
