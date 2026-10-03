@@ -10,6 +10,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import {
+  blockUser, unblockUser, hideConversation, getBlockState,
+  type BlockState,
+} from '../src/utils/friends';
 
 interface Msg {
   id: number | string;
@@ -37,6 +41,7 @@ export default function ChatRoom() {
   const [busy, setBusy] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [blockState, setBlockState] = useState<BlockState>('none');
   const listRef = useRef<FlatList<Msg>>(null);
 
   const markRead = useCallback(async (rid: string) => {
@@ -88,6 +93,9 @@ export default function ChatRoom() {
 
       setMessages((msgs || []) as Msg[]);
       await markRead(roomIdValue);
+
+      const bs = await getBlockState(user.id, uid);
+      setBlockState(bs);
     } catch (e) {
       console.log('room load error', e);
     } finally {
@@ -223,6 +231,83 @@ export default function ChatRoom() {
       );
     } catch (e) {
       console.log('file pick error', e);
+    }
+  };
+
+  const confirmBlock = () => {
+    Alert.alert(
+      'Block ' + otherName + '?',
+      'They will be removed from your friends and cannot message you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user || !uid) return;
+            const err = await blockUser(user.id, uid);
+            if (err) { Alert.alert('Failed', err); return; }
+            setBlockState('blocked_by_me');
+            Alert.alert('Blocked', 'You will no longer receive messages from ' + otherName + '.');
+          },
+        },
+      ],
+    );
+  };
+
+  const confirmUnblock = () => {
+    Alert.alert('Unblock ' + otherName + '?', 'You will be able to message each other again.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unblock',
+        onPress: async () => {
+          if (!user || !uid) return;
+          const err = await unblockUser(user.id, uid);
+          if (err) { Alert.alert('Failed', err); return; }
+          setBlockState('none');
+        },
+      },
+    ]);
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete chat?',
+      'This removes the conversation from your list. The other person keeps their copy.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user || !uid) return;
+            const err = await hideConversation(user.id, uid);
+            if (err) { Alert.alert('Failed', err); return; }
+            router.back();
+          },
+        },
+      ],
+    );
+  };
+
+  const openMenu = () => {
+    if (blockState === 'blocked_by_me') {
+      Alert.alert(otherName, 'You blocked this user.', [
+        { text: 'Unblock', onPress: confirmUnblock },
+        { text: 'Delete chat', style: 'destructive', onPress: confirmDelete },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } else if (blockState === 'blocked_by_them') {
+      Alert.alert(otherName, 'This user blocked you.', [
+        { text: 'Delete chat', style: 'destructive', onPress: confirmDelete },
+        { text: 'OK', style: 'cancel' },
+      ]);
+    } else {
+      Alert.alert(otherName, 'Chat options', [
+        { text: 'Delete chat', style: 'destructive', onPress: confirmDelete },
+        { text: 'Block user', style: 'destructive', onPress: confirmBlock },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   };
 
@@ -392,8 +477,17 @@ export default function ChatRoom() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.name} numberOfLines={1}>{otherName}</Text>
-          <Text style={styles.sub}>Tap for info</Text>
+          <Text style={styles.sub}>
+            {blockState === 'blocked_by_me'
+              ? 'Blocked'
+              : blockState === 'blocked_by_them'
+                ? 'You are blocked'
+                : 'Tap for info'}
+          </Text>
         </View>
+        <Pressable onPress={openMenu} style={styles.backBtn} hitSlop={10}>
+          <Text style={styles.backText}>⋮</Text>
+        </Pressable>
       </View>
 
       {busy ? (
@@ -420,6 +514,15 @@ export default function ChatRoom() {
         />
       )}
 
+      {blockState !== 'none' ? (
+        <View style={styles.inputBar}>
+          <Text style={{ flex: 1, color: palette.textMuted, fontSize: 13, textAlign: 'center', paddingVertical: 10 }}>
+            {blockState === 'blocked_by_me'
+              ? 'You blocked this user. Tap ⋮ to unblock.'
+              : 'You cannot send messages to this user.'}
+          </Text>
+        </View>
+      ) : (
       <View style={styles.inputBar}>
         <Pressable onPress={pickImage} style={styles.attachBtn}>
           <Text style={styles.attachIcon}>I</Text>
@@ -450,6 +553,7 @@ export default function ChatRoom() {
           )}
         </Pressable>
       </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -473,7 +577,7 @@ const createStyles = (palette: any) =>
       backgroundColor: palette.surface,
       borderWidth: 1, borderColor: palette.border,
     },
-    backText: { fontSize: 26, color: palette.neon, lineHeight: 28, fontWeight: '300' },
+    backText: { fontSize: 22, color: palette.neon, lineHeight: 26, fontWeight: '900' },
     avatarWrap: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
     avatar: { width: 40, height: 40, borderRadius: 20 },
     avatarFallback: {

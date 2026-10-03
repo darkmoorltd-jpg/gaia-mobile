@@ -79,6 +79,7 @@ const SECTIONS: Section[] = [
       { label: 'Verification',       route: '/verification' },
       { label: 'Badges',             route: '/badges' },
       { label: 'Farming Calendar',   route: '/calendar' },
+      { label: 'Blocked Users',      route: '/blocked-users' },
     ],
   },
   {

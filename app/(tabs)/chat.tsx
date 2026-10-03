@@ -1,17 +1,21 @@
 import { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, TextInput,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Image, Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
+import {
+  blockUser, hideConversation, listBlockedIds, listHiddenIds,
+} from '../../src/utils/friends';
 
 interface Row {
   user_id: string;
   name: string;
   email: string;
+  avatar_url: string | null;
   room_id: string | null;
   last_message: string;
   last_at: string | null;
@@ -33,7 +37,15 @@ export default function ChatTab() {
     if (!user) { setBusy(false); return; }
     setBusy(true);
     try {
-      // 1. My accepted friendships
+      // Hidden + blocked for me
+      const [blockedIds, hiddenIds] = await Promise.all([
+        listBlockedIds(user.id),
+        listHiddenIds(user.id),
+      ]);
+      const blockedSet = new Set(blockedIds);
+      const hiddenSet = new Set(hiddenIds);
+
+      // My accepted friendships
       const { data: fships } = await supabase
         .from('friendships')
         .select('sender_id,receiver_id')
@@ -52,13 +64,13 @@ export default function ChatTab() {
         return;
       }
 
-      // 2. Friend profiles
+      // Friend profiles (with avatar)
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('user_id,email,first_name,last_name')
+        .select('user_id,email,first_name,last_name,avatar_url')
         .in('user_id', friendIds);
 
-      // 3. My chat rooms (DM only)
+      // My chat memberships
       const { data: mems } = await supabase
         .from('chat_members')
         .select('room_id,last_read_at')
@@ -71,7 +83,10 @@ export default function ChatTab() {
       const result: Row[] = [];
 
       for (const f of (profiles || [])) {
-        // find room shared between me and this friend
+        // Skip blocked or hidden
+        if (blockedSet.has(f.user_id)) continue;
+        if (hiddenSet.has(f.user_id)) continue;
+
         let roomId: string | null = null;
         let lastMessage = '';
         let lastAt: string | null = null;
@@ -117,6 +132,7 @@ export default function ChatTab() {
           user_id: f.user_id,
           name: fullName,
           email: f.email || '',
+          avatar_url: f.avatar_url || null,
           room_id: roomId,
           last_message: lastMessage,
           last_at: lastAt,
@@ -124,7 +140,6 @@ export default function ChatTab() {
         });
       }
 
-      // Sort by last message time, most recent first, nulls last
       result.sort((a, b) => {
         if (!a.last_at && !b.last_at) return 0;
         if (!a.last_at) return 1;
@@ -162,6 +177,94 @@ export default function ChatTab() {
     return new Date(iso).toLocaleDateString();
   };
 
+  // ---------- Row menu (long-press) ----------
+  const openRowMenu = (row: Row) => {
+    Alert.alert(
+      row.name,
+      'Choose an action',
+      [
+        {
+          text: 'Delete chat',
+          style: 'destructive',
+          onPress: () => confirmDeleteChat(row),
+        },
+        {
+          text: 'Block user',
+          style: 'destructive',
+          onPress: () => confirmBlock(row),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true },
+    );
+  };
+
+  const confirmDeleteChat = (row: Row) => {
+    Alert.alert(
+      'Delete chat?',
+      'This removes the conversation from your list. The other person will still see it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            const err = await hideConversation(user.id, row.user_id);
+            if (err) { Alert.alert('Failed', err); return; }
+            setRows((prev) => prev.filter((r) => r.user_id !== row.user_id));
+          },
+        },
+      ],
+    );
+  };
+
+  const confirmBlock = (row: Row) => {
+    Alert.alert(
+      'Block ' + row.name + '?',
+      'They will be removed from your friends and cannot message you.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            const err = await blockUser(user.id, row.user_id);
+            if (err) { Alert.alert('Failed', err); return; }
+            setRows((prev) => prev.filter((r) => r.user_id !== row.user_id));
+            Alert.alert('Blocked', row.name + ' has been blocked.');
+          },
+        },
+      ],
+    );
+  };
+
+  const Avatar = ({ uri, name, size = 52 }: { uri: string | null; name: string; size?: number }) => {
+    if (uri) {
+      return (
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+        />
+      );
+    }
+    return (
+      <View
+        style={{
+          width: size, height: size, borderRadius: size / 2,
+          backgroundColor: palette.neonSoft,
+          borderWidth: 1, borderColor: palette.borderHi,
+          alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: size * 0.42, fontWeight: '900', color: palette.neon }}>
+          {name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -171,6 +274,12 @@ export default function ChatTab() {
             <Text style={styles.brand}>Chats</Text>
           </View>
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/blocked-users' as any)}
+              style={styles.iconBtn}
+            >
+              <Text style={styles.iconBtnText}>X</Text>
+            </Pressable>
             <Pressable
               onPress={() => router.push('/friend-requests' as any)}
               style={styles.iconBtn}
@@ -240,19 +349,13 @@ export default function ChatTab() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() =>
-                router.push(
-                  ('/chat-room?uid=' + item.user_id) as any,
-                )
+                router.push(('/chat-room?uid=' + item.user_id) as any)
               }
+              onLongPress={() => openRowMenu(item)}
+              delayLongPress={350}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
-              <View style={styles.avatarWrap}>
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarText}>
-                    {item.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              </View>
+              <Avatar uri={item.avatar_url} name={item.name} />
 
               <View style={styles.rowBody}>
                 <View style={styles.rowTop}>
@@ -304,11 +407,8 @@ const createStyles = (palette: any) =>
     },
     kicker: { ...typography.micro, color: palette.neon },
     brand: {
-      fontSize: 34,
-      fontWeight: '900',
-      letterSpacing: -1,
-      color: palette.text,
-      marginTop: 4,
+      fontSize: 34, fontWeight: '900', letterSpacing: -1,
+      color: palette.text, marginTop: 4,
     },
     headerActions: { flexDirection: 'row', gap: spacing.sm },
     iconBtn: {
@@ -317,7 +417,7 @@ const createStyles = (palette: any) =>
       borderWidth: 1, borderColor: palette.border,
       alignItems: 'center', justifyContent: 'center',
     },
-    iconBtnText: { fontSize: 16, fontWeight: '900', color: palette.neon },
+    iconBtnText: { fontSize: 14, fontWeight: '900', color: palette.neon },
     iconBtnSolid: {
       width: 44, height: 44, borderRadius: 22,
       backgroundColor: palette.neon,
@@ -347,8 +447,7 @@ const createStyles = (palette: any) =>
     },
     centerText: { ...typography.caption, color: palette.textMuted },
     empty: {
-      alignItems: 'center',
-      paddingVertical: 60,
+      alignItems: 'center', paddingVertical: 60,
       paddingHorizontal: spacing.xl,
     },
     emptyIcon: {
@@ -361,33 +460,21 @@ const createStyles = (palette: any) =>
       marginTop: 6, textAlign: 'center', lineHeight: 22,
     },
     emptyBtn: {
-      marginTop: spacing.xl,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: 14,
-      borderRadius: radius.md,
+      marginTop: spacing.xl, paddingHorizontal: spacing.xl,
+      paddingVertical: 14, borderRadius: radius.md,
       backgroundColor: palette.neon,
     },
     emptyBtnText: {
       ...typography.micro, color: palette.obsidian, fontWeight: '900',
     },
     row: {
-      flexDirection: 'row', alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.lg,
-      borderRadius: radius.lg,
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      padding: spacing.lg, borderRadius: radius.lg,
       backgroundColor: palette.surface,
       borderWidth: 1, borderColor: palette.border,
       marginBottom: spacing.sm,
     },
     rowPressed: { opacity: 0.75 },
-    avatarWrap: { width: 52, height: 52, borderRadius: 26 },
-    avatarFallback: {
-      width: 52, height: 52, borderRadius: 26,
-      backgroundColor: palette.neonSoft,
-      borderWidth: 1, borderColor: palette.borderHi,
-      alignItems: 'center', justifyContent: 'center',
-    },
-    avatarText: { fontSize: 22, fontWeight: '900', color: palette.neon },
     rowBody: { flex: 1 },
     rowTop: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -399,20 +486,16 @@ const createStyles = (palette: any) =>
     time: { ...typography.micro, color: palette.textDim },
     rowBottom: {
       flexDirection: 'row', alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 4,
+      justifyContent: 'space-between', marginTop: 4,
     },
     lastMessage: {
       ...typography.caption, color: palette.textMuted,
       flex: 1, marginRight: spacing.sm,
     },
     badge: {
-      backgroundColor: palette.neon,
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      minWidth: 22,
-      alignItems: 'center',
+      backgroundColor: palette.neon, borderRadius: 10,
+      paddingHorizontal: 8, paddingVertical: 2,
+      minWidth: 22, alignItems: 'center',
     },
     badgeText: { fontSize: 10, fontWeight: '900', color: palette.obsidian },
   });
