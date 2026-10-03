@@ -74,7 +74,29 @@
           "locationAlwaysAndWhenInUsePermission": "GAIA tracks your farm perimeter."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-router",
+      "expo-updates",
+      "expo-av",
+      "expo-document-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GAIA needs camera access to diagnose crops."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GAIA needs photo access to analyse leaves."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "GAIA needs mic access to hear you."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -4,8 +4,8 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, GlassCard, Pill } from '../src/components';
-import { useTheme, spacing, radius } from '../src/theme';
+import { Screen, Pill } from '../src/components';
+import { useTheme, spacing } from '../src/theme';
 import {
   recordUntilSilence, transcribeAudio, askGaia, speak, stopSpeaking,
   LANGUAGES, LangOption, isStopCommand, ChatTurn,
@@ -30,15 +30,11 @@ export default function VoiceScreen() {
 
   const scrollRef = useRef<ScrollView | null>(null);
   const sessionActive = useRef<boolean>(false);
-  const modeRef = useRef<Mode>('pick-language');
-  modeRef.current = mode;
 
-  // ---------- Auto-scroll ----------
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   }, [messages, liveText, mode]);
 
-  // ---------- Speak language prompt once user picks ----------
   useEffect(() => {
     if (mode !== 'greeting' || !language) return;
 
@@ -50,7 +46,6 @@ export default function VoiceScreen() {
       await speak(promptText, language.ttsCode);
       if (cancelled) return;
 
-      // Ask which language — listen for spoken answer
       setMode('listening');
       const uri = await recordUntilSilence({
         silenceThresholdDb: -35,
@@ -69,15 +64,8 @@ export default function VoiceScreen() {
           setMode('paused');
           return;
         }
-        // Try to match a language from what was heard
-        const matched = matchLanguage(heard);
-        if (matched) {
-          setLanguage(matched);
-          await startSession(matched);
-        } else {
-          // Couldn't match — just start with the current language
-          await startSession(language);
-        }
+        const matched = matchLanguage(heard) || language;
+        await startSession(matched);
       } catch (e: any) {
         Alert.alert('Voice error', e?.message ?? 'Try again');
         setMode('paused');
@@ -90,7 +78,6 @@ export default function VoiceScreen() {
     };
   }, [mode === 'greeting']);
 
-  // ---------- Match spoken language ----------
   const matchLanguage = (spoken: string): LangOption | null => {
     const s = spoken.toLowerCase();
     if (s.includes('english')) return LANGUAGES[0];
@@ -102,12 +89,10 @@ export default function VoiceScreen() {
     return null;
   };
 
-  // ---------- Main conversational loop ----------
   const startSession = async (lang: LangOption) => {
     sessionActive.current = true;
     setLanguage(lang);
 
-    // Greet
     const greeting = lang.greeting;
     setMessages((m) => [...m, { role: 'ai', text: greeting }]);
     setMode('speaking');
@@ -120,7 +105,6 @@ export default function VoiceScreen() {
   const conversationLoop = async (lang: LangOption) => {
     while (sessionActive.current) {
       try {
-        // ---- Listen ----
         setMode('listening');
         setLiveText('');
         const uri = await recordUntilSilence({
@@ -128,18 +112,11 @@ export default function VoiceScreen() {
           silenceDurationMs: 1300,
           maxDurationMs: 20000,
           onLevel: setLevel,
-          onStateChange: (s) => {
-            if (s === 'listening') setMode('listening');
-          },
         });
 
         if (!sessionActive.current) return;
-        if (!uri) {
-          // No speech — keep listening
-          continue;
-        }
+        if (!uri) continue;
 
-        // ---- Transcribe ----
         setMode('thinking');
         const heard = await transcribeAudio(uri, lang.code);
         if (!heard) continue;
@@ -147,7 +124,6 @@ export default function VoiceScreen() {
         setLiveText(heard);
         setMessages((m) => [...m, { role: 'user', text: heard }]);
 
-        // ---- Stop command? ----
         if (isStopCommand(heard)) {
           const bye = lang.code === 'ha' ? 'Sai an jima.' :
                       lang.code === 'yo' ? 'Ó dàbọ̀.' :
@@ -163,20 +139,15 @@ export default function VoiceScreen() {
           return;
         }
 
-        // ---- Ask GAIA ----
         const history: ChatTurn[] = messages.slice(-8).map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.text,
         }));
 
         const reply = await askGaia(heard, lang.code, history);
-
-        // ---- Speak ----
         setMessages((m) => [...m, { role: 'ai', text: reply }]);
         setMode('speaking');
         await speak(reply, lang.ttsCode);
-
-        // Loop continues → listens again
       } catch (e: any) {
         console.log('conversation error', e);
         await new Promise((r) => setTimeout(r, 800));
@@ -184,20 +155,16 @@ export default function VoiceScreen() {
     }
   };
 
-  // ---------- User taps mic to interrupt/resume ----------
   const onMicPress = async () => {
     if (mode === 'speaking') {
-      // Interrupt GAIA
       stopSpeaking();
       return;
     }
     if (mode === 'paused' && language) {
-      // Resume conversation
       await startSession(language);
     }
   };
 
-  // ---------- Typed input ----------
   const onTypedSubmit = async () => {
     const text = typedText.trim();
     if (!text || !language) return;
@@ -214,16 +181,13 @@ export default function VoiceScreen() {
       setMessages((m) => [...m, { role: 'ai', text: reply }]);
       setMode('speaking');
       await speak(reply, language.ttsCode);
-      if (sessionActive.current && language) {
-        await conversationLoop(language);
-      }
+      if (sessionActive.current) await conversationLoop(language);
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Try again');
       setMode('paused');
     }
   };
 
-  // ---------- Cleanup on unmount ----------
   useEffect(() => {
     return () => {
       sessionActive.current = false;
@@ -231,7 +195,6 @@ export default function VoiceScreen() {
     };
   }, []);
 
-  // ---------- RENDER ----------
   const levelPct = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
 
   return (
@@ -240,7 +203,6 @@ export default function VoiceScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Pressable
             onPress={() => {
@@ -257,7 +219,6 @@ export default function VoiceScreen() {
           />
         </View>
 
-        {/* Language picker */}
         {mode === 'pick-language' && (
           <View style={styles.langPicker}>
             <Text style={styles.langQuestion}>
@@ -286,7 +247,6 @@ export default function VoiceScreen() {
           </View>
         )}
 
-        {/* Conversation view */}
         {mode !== 'pick-language' && (
           <>
             <ScrollView
@@ -326,7 +286,6 @@ export default function VoiceScreen() {
               )}
             </ScrollView>
 
-            {/* Live level meter */}
             <View style={styles.meterWrap}>
               <View
                 style={[
@@ -339,7 +298,6 @@ export default function VoiceScreen() {
               />
             </View>
 
-            {/* Status line */}
             <Text style={styles.status}>
               {mode === 'speaking' && 'GAIA is speaking… tap mic to interrupt'}
               {mode === 'listening' && 'Listening… just speak'}
@@ -348,7 +306,6 @@ export default function VoiceScreen() {
               {mode === 'greeting' && 'Starting…'}
             </Text>
 
-            {/* Typed input */}
             {typedMode && (
               <View style={styles.typedRow}>
                 <TextInput
@@ -366,7 +323,6 @@ export default function VoiceScreen() {
               </View>
             )}
 
-            {/* Controls */}
             <View style={styles.controls}>
               <Pressable
                 onPress={() => setTypedMode((v) => !v)}
@@ -375,13 +331,19 @@ export default function VoiceScreen() {
                 <Text style={styles.sideBtnText}>⌨</Text>
               </Pressable>
 
-              <Pressable onPress={onMicPress} style={[styles.micBtn, {
-                backgroundColor:
-                  mode === 'listening' ? palette.danger :
-                  mode === 'speaking' ? palette.warning :
-                  mode === 'thinking' ? palette.textDim :
-                  palette.neon,
-              }]}>
+              <Pressable
+                onPress={onMicPress}
+                style={[
+                  styles.micBtn,
+                  {
+                    backgroundColor:
+                      mode === 'listening' ? palette.danger :
+                      mode === 'speaking' ? palette.warning :
+                      mode === 'thinking' ? palette.textDim :
+                      palette.neon,
+                  },
+                ]}
+              >
                 <Text style={styles.micIcon}>
                   {mode === 'listening' ? '●' :
                    mode === 'speaking' ? '◼' :
@@ -418,7 +380,6 @@ const createStyles = (p: any) => StyleSheet.create({
     paddingTop: 56,
   },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
-  // Language picker
   langPicker: { flex: 1, paddingHorizontal: 24, paddingTop: 40 },
   langQuestion: {
     fontSize: 26,
@@ -427,12 +388,7 @@ const createStyles = (p: any) => StyleSheet.create({
     letterSpacing: -0.8,
     lineHeight: 34,
   },
-  langSub: {
-    fontSize: 13,
-    color: p.textMuted,
-    marginTop: 12,
-    lineHeight: 20,
-  },
+  langSub: { fontSize: 13, color: p.textMuted, marginTop: 12, lineHeight: 20 },
   langRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,7 +404,6 @@ const createStyles = (p: any) => StyleSheet.create({
   langFlag: { fontSize: 28 },
   langName: { fontSize: 17, color: p.text, fontWeight: '700', flex: 1 },
   langArrow: { fontSize: 24, color: p.textMuted },
-  // Chat
   chat: { paddingHorizontal: 20, paddingBottom: 20, gap: 10 },
   bubble: {
     maxWidth: '85%',
@@ -465,7 +420,6 @@ const createStyles = (p: any) => StyleSheet.create({
   bubbleUser: { alignSelf: 'flex-end', backgroundColor: p.neon },
   bubbleText: { fontSize: 15, color: p.text, lineHeight: 21 },
   bubbleTextUser: { color: p.obsidian, fontWeight: '600' },
-  // Meter
   meterWrap: {
     height: 4,
     backgroundColor: p.surface,
