@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import { supabase } from '../api/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -72,6 +73,16 @@ export const useAuth = create<AuthState>((set, get) => ({
 
       set({ user: data.user, session: data.session, loading: false });
       await get().refreshScans();
+
+      // Log this sign-in for admin audit
+      try {
+        await supabase.from('login_history').insert({
+          user_id: data.user.id,
+          email: data.user.email,
+          platform: Platform.OS,
+        });
+      } catch {}
+
       return null;
     } catch (e: any) {
       return e?.message ?? 'Sign in failed';

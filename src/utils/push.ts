@@ -84,3 +84,30 @@ export function listenToNotificationTaps(
   const sub = Notifications.addNotificationResponseReceivedListener(onTap);
   return () => sub.remove();
 }
+
+
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import { supabase } from '../api/supabase';
+
+export async function registerPushToken(userId: string) {
+  if (!userId) return;
+  try {
+    const Notifications = await import('expo-notifications');
+    const perm = await Notifications.requestPermissionsAsync();
+    if (!perm.granted) return;
+    if (Device.isDevice === false) return;
+    const tok = (await Notifications.getExpoPushTokenAsync()).data;
+    if (!tok) return;
+    await supabase.from('push_tokens').upsert(
+      {
+        user_id: userId,
+        token: tok,
+        platform: Platform.OS,
+        device_model: Device.modelName || 'unknown',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,token' },
+    );
+  } catch {}
+}

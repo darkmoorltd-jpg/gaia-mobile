@@ -6,6 +6,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
+import { registerPushToken } from '../src/utils/push';
 import { palette } from '../src/theme';
 
 const queryClient = new QueryClient({
