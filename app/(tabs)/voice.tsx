@@ -12,6 +12,7 @@ import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
 import { MarkdownOutput } from '../../src/components/MarkdownOutput';
 import { speak as speakSmart } from '../../src/utils/voice';
+import { LANGUAGES } from '../../src/utils/voice';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -101,6 +102,7 @@ export default function Voice() {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [voiceLang, setVoiceLang] = useState<string>('en');
   const [activeConv, setActiveConv] = useState(false);
   const activeRef = useRef(false);
   const msgRef = useRef<ChatMsg[]>([]);
@@ -269,7 +271,7 @@ export default function Voice() {
       const r = await fetch(API_BASE + '/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-        body: JSON.stringify({ message: question, language: lang, history }),
+        body: JSON.stringify({ message: question, language: voiceLang, history }),
       });
       if (!r.ok) return '';
       const d = await r.json();
@@ -361,7 +363,7 @@ export default function Voice() {
     // speakSmart tries the backend /tts (native Nigerian voices) first,
     // then falls back to device Speech.speak with the best matching voice.
     try {
-      await speakSmart(text, lang);
+      await speakSmart(text, voiceLang);
     } catch {
       try { Speech.stop(); } catch {}
     }
@@ -427,6 +429,20 @@ export default function Voice() {
         </Pressable>
       </View>
 
+
+        <View style={styles.langRow}>
+          {LANGUAGES.map((L: any) => (
+            <Pressable
+              key={L.code}
+              onPress={() => setVoiceLang(L.code)}
+              style={[styles.langChip, voiceLang === L.code && styles.langChipActive]}
+            >
+              <Text style={[styles.langChipText, voiceLang === L.code && styles.langChipTextActive]}>
+                {L.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       <View style={styles.tabBar}>
         {(['text', 'voice', 'history'] as Tab[]).map((t) => (
           <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
@@ -585,6 +601,11 @@ const createStyles = (palette: any) => StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: palette.neon },
   headerTitle: { ...typography.body, color: palette.text, fontWeight: '800' },
 
+  langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border },
+  langChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
+  langChipActive: { borderColor: palette.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  langChipText: { fontSize: 11, fontWeight: '700', color: palette.textDim },
+  langChipTextActive: { color: palette.neon },
   tabBar: {
     flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 6,
     borderBottomWidth: 1, borderBottomColor: palette.border,
