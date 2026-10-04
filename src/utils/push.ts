@@ -86,9 +86,6 @@ export function listenToNotificationTaps(
 }
 
 
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
-import { supabase } from '../api/supabase';
 
 export async function registerPushToken(userId: string) {
   if (!userId) return;
