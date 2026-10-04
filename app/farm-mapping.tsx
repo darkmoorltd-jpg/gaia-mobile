@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Alert, TextInput,
+  View, Text, StyleSheet, ScrollView, Alert, TextInput, Pressable,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -8,46 +8,65 @@ import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { GoogleMap } from '../src/components/GoogleMap';
 import {
   saveFarm, haversine, pathLength, enclosedArea,
-  isNearStart, distanceToStart,
+  isNearStart, distanceToStart, accuracyAverage,
+  filterByAccuracy, simplifyPath,
+  type FarmPoint,
 } from '../src/utils/farms';
-import { useTheme, spacing, radius } from '../src/theme';
+import { useTheme, spacing } from '../src/theme';
 
-interface P { latitude: number; longitude: number; }
+const MOVE_THRESHOLD_MS = 0.4;
+const MIN_DISTANCE_M = 3;
+const MAX_ACCURACY_M = 15;
+const PAUSE_AFTER_MS = 4000;
+const CLOSE_LOOP_M = 10;
 
-const MOVE_THRESHOLD_MS = 0.4;   // m/s — below this = "stopped"
-const MIN_DISTANCE_M = 3;       // don't add point if moved < 3m
-const PAUSE_AFTER_MS = 3000;    // 3s of no movement = paused
-const CLOSE_LOOP_M = 8;         // within 8m of start = loop closed
+type ViewMode = 'standard' | 'satellite' | 'hybrid' | 'terrain';
+type DisplayMode = 'line' | 'points';
+
+const VIEWS: { key: ViewMode; label: string }[] = [
+  { key: 'standard', label: 'Dark' },
+  { key: 'satellite', label: 'Satellite' },
+  { key: 'terrain', label: 'Terrain' },
+  { key: 'hybrid', label: 'Hybrid' },
+];
+
+const DISPLAYS: { key: DisplayMode; label: string }[] = [
+  { key: 'line', label: 'Line' },
+  { key: 'points', label: 'Points' },
+];
 
 export default function FarmMapping() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
-  const [points, setPoints] = useState<P[]>([]);
+  const [points, setPoints] = useState<FarmPoint[]>([]);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [current, setCurrent] = useState<P | null>(null);
+  const [current, setCurrent] = useState<FarmPoint | null>(null);
   const [permission, setPermission] = useState(false);
   const [farmName, setFarmName] = useState('');
   const [crop, setCrop] = useState('');
+  const [state, setState] = useState('');
+  const [lga, setLga] = useState('');
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('standard');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('line');
 
   const watcher = useRef<Location.LocationSubscription | null>(null);
   const lastMoveTime = useRef<number>(Date.now());
-  const lastPoint = useRef<P | null>(null);
+  const lastPoint = useRef<FarmPoint | null>(null);
+  const pointsRef = useRef<FarmPoint[]>([]);
 
-  // ---------- Initial position ----------
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
         Alert.alert('Permission needed', 'GAIA needs location access to map your farm.');
         return;
       }
       setPermission(true);
       try {
-        // Enable network provider for better accuracy when GPS is weak
         await Location.enableNetworkProviderAsync().catch(() => {});
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.BestForNavigation,
@@ -57,12 +76,16 @@ export default function FarmMapping() {
         console.log('initial location failed', e);
       }
     })();
-    return () => { watcher.current?.remove(); };
+    return () => {
+      watcher.current?.remove();
+    };
   }, []);
 
-  // ---------- Recording ----------
   const startRecording = async () => {
-    if (!permission) return;
+    if (!permission) {
+      Alert.alert('Permission denied', 'Enable location in settings.');
+      return;
+    }
     setRecording(true);
     setPaused(false);
     lastMoveTime.current = Date.now();
@@ -70,37 +93,39 @@ export default function FarmMapping() {
     watcher.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
-        distanceInterval: 1,     // check every 1m of movement
-        timeInterval: 1500,      // or every 1.5s
+        distanceInterval: 1,
+        timeInterval: 1500,
       },
       (loc) => {
-        const p: P = {
+        const acc = loc.coords.accuracy ?? 999;
+        const p: FarmPoint = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
+          accuracy: acc,
+          timestamp: loc.timestamp,
         };
         setCurrent(p);
 
-        const speed = Math.max(0, loc.coords.speed ?? 0); // m/s
+        if (acc > MAX_ACCURACY_M) return;
+
+        const speed = Math.max(0, loc.coords.speed ?? 0);
 
         if (speed < MOVE_THRESHOLD_MS) {
-          // Stopped — check if we should mark as paused
-          if (Date.now() - lastMoveTime.current > PAUSE_AFTER_MS) {
-            setPaused(true);
-          }
-          return; // don't add point while stopped
+          if (Date.now() - lastMoveTime.current > PAUSE_AFTER_MS) setPaused(true);
+          return;
         }
 
-        // Moving again — clear pause
         setPaused(false);
         lastMoveTime.current = Date.now();
 
-        // Only add point if we've moved far enough from the last one
         if (lastPoint.current && haversine(lastPoint.current, p) < MIN_DISTANCE_M) {
           return;
         }
 
         lastPoint.current = p;
-        setPoints((prev) => [...prev, p]);
+        const next = pointsRef.current.concat([p]);
+        pointsRef.current = next;
+        setPoints(next);
       },
     );
   };
@@ -115,30 +140,47 @@ export default function FarmMapping() {
   const resetPath = () => {
     stopRecording();
     setPoints([]);
+    pointsRef.current = [];
     lastPoint.current = null;
   };
 
   const save = async () => {
-    if (!farmName.trim()) { Alert.alert('Name required'); return; }
-    if (points.length < 3) { Alert.alert('Need more points', 'Walk at least 3 corners.'); return; }
+    if (!farmName.trim()) {
+      Alert.alert('Name required', 'Enter a name for this farm.');
+      return;
+    }
+    if (points.length < 3) {
+      Alert.alert('Need more points', 'Walk at least 3 corners.');
+      return;
+    }
     setSaving(true);
     stopRecording();
-    const { error } = await saveFarm({
+    const res = await saveFarm({
       name: farmName.trim(),
       crop: crop.trim() || undefined,
+      state: state.trim() || undefined,
+      lga: lga.trim() || undefined,
       boundary: points,
     });
     setSaving(false);
-    if (error) { Alert.alert('Save failed', error); return; }
+    if (res.error) {
+      Alert.alert('Save failed', res.error);
+      return;
+    }
     Alert.alert('Saved', 'Farm boundary mapped.', [
       { text: 'OK', onPress: () => router.replace('/farms') },
     ]);
   };
 
-  const meters = pathLength(points);
-  const acres = enclosedArea(points) / 4046.86;
-  const closed = isNearStart(points, CLOSE_LOOP_M);
-  const distToStart = distanceToStart(points);
+  const cleaned = filterByAccuracy(points, MAX_ACCURACY_M);
+  const simplified = simplifyPath(cleaned, 2.5);
+  const meters = pathLength(simplified);
+  const sqm = enclosedArea(simplified);
+  const acres = sqm / 4046.86;
+  const hectares = sqm / 10000;
+  const closed = isNearStart(cleaned, CLOSE_LOOP_M);
+  const distToStart = distanceToStart(cleaned);
+  const accAvg = accuracyAverage(cleaned);
 
   return (
     <Screen glow="crops">
@@ -147,20 +189,19 @@ export default function FarmMapping() {
         keyboardShouldPersistTaps="handled"
       >
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>← BACK</Text>
+          <Text style={styles.back}>BACK</Text>
         </Pressable>
 
         <Pill label="GPS Mapping" />
         <Text style={styles.title}>Map Farm</Text>
         <Text style={styles.subtitle}>
-          Walk the boundary. Recording pauses when you stop. Resumes when you move.
+          Walk the boundary. The line draws as you move and pauses when you stop. Finish where you started.
         </Text>
 
-        {/* Stats */}
         <GlassCard style={{ marginTop: spacing.lg }}>
           <View style={styles.statRow}>
             <View style={styles.stat}>
-              <Text style={styles.statVal}>{points.length}</Text>
+              <Text style={styles.statVal}>{cleaned.length}</Text>
               <Text style={styles.statLbl}>POINTS</Text>
             </View>
             <View style={styles.stat}>
@@ -168,40 +209,75 @@ export default function FarmMapping() {
               <Text style={styles.statLbl}>METERS</Text>
             </View>
             <View style={styles.stat}>
+              <Text style={styles.statVal}>{hectares.toFixed(3)}</Text>
+              <Text style={styles.statLbl}>HECTARES</Text>
+            </View>
+          </View>
+          <View style={[styles.statRow, { marginTop: 12 }]}>
+            <View style={styles.stat}>
               <Text style={styles.statVal}>{acres.toFixed(3)}</Text>
               <Text style={styles.statLbl}>ACRES</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>{accAvg != null ? accAvg.toFixed(1) : '--'}</Text>
+              <Text style={styles.statLbl}>ACCURACY m</Text>
+            </View>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>{distToStart.toFixed(0)}</Text>
+              <Text style={styles.statLbl}>TO START m</Text>
             </View>
           </View>
         </GlassCard>
 
-        {/* Status banner */}
-        {recording && (
+        {recording ? (
           <GlassCard style={{ marginTop: spacing.md }}>
             {paused ? (
-              <Text style={styles.pausedText}>⏸ PAUSED — stopped moving. Walk to resume.</Text>
+              <Text style={styles.pausedText}>PAUSED - stopped moving. Walk to resume.</Text>
             ) : closed ? (
-              <Text style={styles.closedText}>✅ LOOP CLOSED — back at start</Text>
-            ) : points.length > 2 ? (
-              <Text style={styles.hintText}>
-                ↻ Recording · {distToStart.toFixed(0)} m from start
-              </Text>
+              <Text style={styles.closedText}>LOOP CLOSED - back at start</Text>
+            ) : cleaned.length > 2 ? (
+              <Text style={styles.hintText}>RECORDING - {distToStart.toFixed(0)} m from start</Text>
             ) : (
-              <Text style={styles.hintText}>▶ RECORDING — keep walking</Text>
+              <Text style={styles.hintText}>RECORDING - keep walking</Text>
             )}
           </GlassCard>
-        )}
+        ) : null}
 
-        {/* Map */}
+        <View style={styles.chipRow}>
+          {VIEWS.map((v) => (
+            <Pressable
+              key={v.key}
+              onPress={() => setViewMode(v.key)}
+              style={[styles.chip, viewMode === v.key && styles.chipOn]}
+            >
+              <Text style={[styles.chipText, viewMode === v.key && styles.chipTextOn]}>{v.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.chipRow}>
+          {DISPLAYS.map((d) => (
+            <Pressable
+              key={d.key}
+              onPress={() => setDisplayMode(d.key)}
+              style={[styles.chip, displayMode === d.key && styles.chipOn]}
+            >
+              <Text style={[styles.chipText, displayMode === d.key && styles.chipTextOn]}>{d.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
         <View style={styles.mapBox}>
           <GoogleMap
-            points={points}
+            points={cleaned}
             center={current || undefined}
             height={340}
             closed={closed}
+            mapType={viewMode}
+            display={displayMode}
           />
         </View>
 
-        {/* Controls */}
         {recording ? (
           <View style={styles.recordRow}>
             <View style={styles.recBadge}>
@@ -236,23 +312,45 @@ export default function FarmMapping() {
           style={styles.input}
         />
 
+        <View style={styles.twoCol}>
+          <View style={styles.col}>
+            <Text style={styles.label}>STATE</Text>
+            <TextInput
+              value={state}
+              onChangeText={setState}
+              placeholder="e.g. Kaduna"
+              placeholderTextColor={palette.textDim}
+              style={styles.input}
+            />
+          </View>
+          <View style={styles.col}>
+            <Text style={styles.label}>LGA</Text>
+            <TextInput
+              value={lga}
+              onChangeText={setLga}
+              placeholder="e.g. Zaria"
+              placeholderTextColor={palette.textDim}
+              style={styles.input}
+            />
+          </View>
+        </View>
+
         <View style={{ height: spacing.lg }} />
 
-        {points.length > 2 && !recording && (
+        {points.length > 2 && !recording ? (
           <NeonButton
-            label={saving ? '' : closed ? 'SAVE FARM (LOOP CLOSED)' : 'SAVE FARM'}
+            label={saving ? 'SAVING...' : closed ? 'SAVE FARM (LOOP CLOSED)' : 'SAVE FARM'}
             onPress={save}
             loading={saving}
             disabled={saving}
           />
-        )}
+        ) : null}
 
-        {points.length > 0 && !recording && (
-          <>
-            <View style={{ height: spacing.sm }} />
+        {points.length > 0 && !recording ? (
+          <View style={{ marginTop: spacing.sm }}>
             <NeonButton label="CLEAR PATH" variant="ghost" onPress={resetPath} />
-          </>
-        )}
+          </View>
+        ) : null}
 
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -267,15 +365,27 @@ const createStyles = (p: any) => StyleSheet.create({
   subtitle: { fontSize: 13, color: p.textMuted, marginTop: 6, lineHeight: 18 },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   stat: { alignItems: 'center', flex: 1 },
-  statVal: { fontSize: 22, fontWeight: '900', color: p.neon, letterSpacing: -0.5 },
-  statLbl: { fontSize: 10, color: p.textMuted, marginTop: 4, fontWeight: '700', letterSpacing: 1.5 },
+  statVal: { fontSize: 20, fontWeight: '900', color: p.neon, letterSpacing: -0.5 },
+  statLbl: { fontSize: 9, color: p.textMuted, marginTop: 4, fontWeight: '700', letterSpacing: 1.5 },
   pausedText: { fontSize: 12, color: p.warning, textAlign: 'center', fontWeight: '800', letterSpacing: 0.5 },
   closedText: { fontSize: 12, color: p.neon, textAlign: 'center', fontWeight: '800', letterSpacing: 0.5 },
   hintText: { fontSize: 12, color: p.textMuted, textAlign: 'center', fontWeight: '600' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
+  chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
+  chipTextOn: { color: p.neon },
   mapBox: {
-    borderRadius: 20, overflow: 'hidden', marginTop: 16,
-    borderWidth: 1, borderColor: p.borderHi,
-    shadowColor: p.neon, shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: p.borderHi,
+    shadowColor: p.neon,
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
   },
   recordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   recBadge: {
@@ -287,8 +397,15 @@ const createStyles = (p: any) => StyleSheet.create({
   recText: { fontSize: 10, color: p.danger, fontWeight: '900', letterSpacing: 1.2 },
   label: { fontSize: 10, color: p.textMuted, marginTop: 16, marginBottom: 6, fontWeight: '800', letterSpacing: 1.5 },
   input: {
-    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    color: p.text, fontSize: 15,
+    backgroundColor: p.surface,
+    borderWidth: 1,
+    borderColor: p.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: p.text,
+    fontSize: 15,
   },
+  twoCol: { flexDirection: 'row', gap: 12 },
+  col: { flex: 1 },
 });

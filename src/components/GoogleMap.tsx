@@ -1,21 +1,22 @@
-
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 
 interface P { latitude: number; longitude: number; }
 
+type ViewMode = 'standard' | 'satellite' | 'hybrid' | 'terrain';
+type DisplayMode = 'line' | 'points';
+
 interface Props {
   points: P[];
   center?: P;
   height?: number;
   closed?: boolean;
+  mapType?: ViewMode;
+  display?: DisplayMode;
 }
 
-// ============================================
-// GAIA DARK MAP STYLE — Obsidian + Neon
-// ============================================
-const MAP_STYLE = [
+const DARK_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#0a0e0c' }] },
   { elementType: 'labels.text.fill', stylers: [{ color: '#4a5350' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#000000' }] },
@@ -39,6 +40,8 @@ export function GoogleMap({
   center,
   height = 340,
   closed = false,
+  mapType = 'standard',
+  display = 'line',
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
 
@@ -51,22 +54,20 @@ export function GoogleMap({
     longitudeDelta: 0.002,
   };
 
-  // Auto-fit bounds whenever points change
   useEffect(() => {
     if (!mapRef.current || points.length < 2) return;
-
     const timeout = setTimeout(() => {
       mapRef.current?.fitToCoordinates(points, {
         edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
         animated: true,
       });
     }, 400);
-
     return () => clearTimeout(timeout);
   }, [points.length]);
 
   const start = points[0];
   const current = points[points.length - 1];
+  const useDarkStyle = mapType === 'standard';
 
   return (
     <View style={[styles.wrap, { height }]}>
@@ -75,11 +76,12 @@ export function GoogleMap({
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region}
-        customMapStyle={MAP_STYLE}
+        mapType={mapType}
+        customMapStyle={useDarkStyle ? DARK_STYLE : undefined}
         showsUserLocation={true}
         showsMyLocationButton={false}
-        showsCompass={false}
-        showsScale={false}
+        showsCompass={true}
+        showsScale={true}
         toolbarEnabled={false}
         pitchEnabled={false}
         rotateEnabled={false}
@@ -87,8 +89,7 @@ export function GoogleMap({
         loadingBackgroundColor="#0a0e0c"
         loadingIndicatorColor="#00ff88"
       >
-        {/* ---- The trail (line only, no fill) ---- */}
-        {points.length > 1 && (
+        {display === 'line' && points.length > 1 && (
           <Polyline
             coordinates={points}
             strokeColor="#00ff88"
@@ -99,8 +100,7 @@ export function GoogleMap({
           />
         )}
 
-        {/* ---- Closed loop: draw the final segment back to start ---- */}
-        {closed && points.length > 2 && (
+        {display === 'line' && closed && points.length > 2 && (
           <Polyline
             coordinates={[current, start]}
             strokeColor="#00ff88"
@@ -110,8 +110,7 @@ export function GoogleMap({
           />
         )}
 
-        {/* ---- Dashed preview to start when nearly closed ---- */}
-        {!closed && points.length > 3 && (
+        {display === 'line' && !closed && points.length > 3 && (
           <Polyline
             coordinates={[current, start]}
             strokeColor="#00ff88"
@@ -120,7 +119,16 @@ export function GoogleMap({
           />
         )}
 
-        {/* ---- START marker ---- */}
+        {display === 'points' && points.map((pt, idx) => (
+          <Marker
+            key={String(idx)}
+            coordinate={pt}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.dot} />
+          </Marker>
+        ))}
+
         {start && (
           <Marker
             coordinate={start}
@@ -130,7 +138,6 @@ export function GoogleMap({
           />
         )}
 
-        {/* ---- CURRENT position marker ---- */}
         {current && points.length > 1 && (
           <Marker
             coordinate={current}
@@ -151,4 +158,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   map: { width: '100%', height: '100%' },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#00ff88',
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
 });
