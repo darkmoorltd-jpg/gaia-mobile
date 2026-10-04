@@ -39,11 +39,7 @@ const SECTIONS: Section[] = [
     icon: 'FM',
     items: [
       { label: 'Farm Mapping',       route: '/farm-mapping' },
-      { label: 'Yield Estimator',    route: '/yield-estimator' },
-      { label: 'Fertilizer Calculator', route: '/input-calculator' },
-      { label: 'Profit Calculator',  route: '/profit-calculator' },
-      { label: 'Planting Calendar',  route: '/planting-calendar' },
-      { label: 'Seed Recommender',   route: '/seed-recommender' },
+      { label: 'Agro Tools',         route: '/agro-tools' },
       { label: 'Farm Journal',       route: '/journal' },
       { label: 'Satellite Monitor',  route: '/satellite' },
     ],
