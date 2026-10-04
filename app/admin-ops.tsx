@@ -38,12 +38,12 @@ export default function AdminOps() {
 
   useEffect(() => { load(); }, [load]);
 
-  const settle = (w: any, status: string) => {
-    Alert.alert(status === 'paid' ? 'Mark as paid?' : 'Reject?', '₦' + Number(w.amount).toLocaleString() + ' for ' + w.email, [
+  const settle = (x: any, status: string) => {
+    Alert.alert(status === 'paid' ? 'Mark as paid?' : 'Reject?', 'N' + Number(x.amount).toLocaleString() + ' for ' + x.email, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Confirm', onPress: async () => {
         setAct(true);
-        const { error } = await supabase.rpc('admin_settle_withdrawal', { p_id: w.id, p_status: status, p_note: null });
+        const { error } = await supabase.rpc('admin_settle_withdrawal', { p_id: x.id, p_status: status, p_note: null });
         setAct(false);
         if (error) Alert.alert('Failed', error.message); else load();
       }},
@@ -66,13 +66,17 @@ export default function AdminOps() {
 
   const kycAction = async (v: any, status: string) => {
     setAct(true);
-    await supabase.from('farmer_verifications').update({ status, rejection_reason: status === 'rejected' ? 'Rejected by admin' : null }).eq('id', v.id);
-    await supabase.from('user_profiles').update({ verification_status: status }).eq('user_id', v.user_id);
+    await supabase.from('farmer_verifications')
+      .update({ status, rejection_reason: status === 'rejected' ? 'Rejected by admin' : null, updated_at: new Date().toISOString() })
+      .eq('id', v.id);
+    await supabase.from('user_profiles')
+      .update({ verification_status: status })
+      .eq('user_id', v.user_id);
     setAct(false);
     load();
   };
 
-  if (!isAdmin) return <View style={s.blocked}><Text style={s.blockedText}>Access denied</Text></View>;
+  if (!isAdmin) return (<View style={s.blocked}><Text style={s.blockedText}>Access denied</Text></View>);
 
   return (
     <View style={s.container}>
@@ -83,14 +87,14 @@ export default function AdminOps() {
         <Text style={s.sub}>{wd.length} withdrawals · {disp.length} disputes · {kyc.length} pending KYC</Text>
 
         <View style={s.tabBar}>
-          <Pressable onPress={() => setTab('withdrawals')} style={[s.tabBtn, tab==='withdrawals' && s.tabBtnActive]}>
-            <Text style={[s.tabText, tab==='withdrawals' && s.tabTextActive]}>Withdrawals</Text>
+          <Pressable onPress={() => setTab('withdrawals')} style={[s.tabBtn, tab === 'withdrawals' && s.tabBtnActive]}>
+            <Text style={[s.tabText, tab === 'withdrawals' && s.tabTextActive]}>Withdrawals</Text>
           </Pressable>
-          <Pressable onPress={() => setTab('disputes')} style={[s.tabBtn, tab==='disputes' && s.tabBtnActive]}>
-            <Text style={[s.tabText, tab==='disputes' && s.tabTextActive]}>Disputes</Text>
+          <Pressable onPress={() => setTab('disputes')} style={[s.tabBtn, tab === 'disputes' && s.tabBtnActive]}>
+            <Text style={[s.tabText, tab === 'disputes' && s.tabTextActive]}>Disputes</Text>
           </Pressable>
-          <Pressable onPress={() => setTab('kyc')} style={[s.tabBtn, tab==='kyc' && s.tabBtnActive]}>
-            <Text style={[s.tabText, tab==='kyc' && s.tabTextActive]}>KYC ({kyc.length})</Text>
+          <Pressable onPress={() => setTab('kyc')} style={[s.tabBtn, tab === 'kyc' && s.tabBtnActive]}>
+            <Text style={[s.tabText, tab === 'kyc' && s.tabTextActive]}>KYC ({kyc.length})</Text>
           </Pressable>
         </View>
 
@@ -98,16 +102,16 @@ export default function AdminOps() {
 
         {tab === 'withdrawals' ? (
           wd.length === 0 ? <Text style={s.empty}>No pending withdrawals.</Text> :
-          wd.map((w) => (
-            <View key={w.id} style={s.card}>
-              <Text style={s.cardTitle}>₦{Number(w.amount).toLocaleString()}</Text>
-              <Text style={s.meta}>{w.email}</Text>
-              <Text style={s.meta}>{new Date(w.requested_at).toLocaleString()}</Text>
+          wd.map((x) => (
+            <View key={x.id} style={s.card}>
+              <Text style={s.cardTitle}>N{Number(x.amount).toLocaleString()}</Text>
+              <Text style={s.meta}>{x.email}</Text>
+              <Text style={s.meta}>{new Date(x.requested_at).toLocaleString()}</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <Pressable disabled={act} onPress={() => settle(w, 'paid')} style={[s.small, { borderColor: palette.neon }]}>
+                <Pressable disabled={act} onPress={() => settle(x, 'paid')} style={[s.small, { borderColor: palette.neon }]}>
                   <Text style={[s.smallText, { color: palette.neon }]}>MARK PAID</Text>
                 </Pressable>
-                <Pressable disabled={act} onPress={() => settle(w, 'rejected')} style={[s.small, { borderColor: palette.danger }]}>
+                <Pressable disabled={act} onPress={() => settle(x, 'rejected')} style={[s.small, { borderColor: palette.danger }]}>
                   <Text style={[s.smallText, { color: palette.danger }]}>REJECT</Text>
                 </Pressable>
               </View>
@@ -119,7 +123,7 @@ export default function AdminOps() {
           disp.length === 0 ? <Text style={s.empty}>No open disputes.</Text> :
           disp.map((d) => (
             <View key={d.id} style={s.card}>
-              <Text style={s.cardTitle}>Order {(d.order_id || '').slice(0, 8)}…</Text>
+              <Text style={s.cardTitle}>Order {(d.order_id || '').slice(0, 8)}</Text>
               <Text style={s.meta}>Reason: {d.reason || '—'}</Text>
               <Text style={s.meta}>{new Date(d.created_at).toLocaleString()}</Text>
               <Pressable disabled={act} onPress={() => resolve(d)} style={[s.small, { borderColor: palette.neon, marginTop: 10 }]}>
@@ -138,34 +142,34 @@ export default function AdminOps() {
                 {v.user_email || '—'}
               </Text>
               <Text style={[s.meta, { fontFamily: 'monospace' }]} numberOfLines={1}>
-                ID: {v.user_id ? v.user_id.slice(0, 18) + '…' : '—'}
+                ID: {v.user_id ? v.user_id.slice(0, 20) + '...' : '—'}
               </Text>
-              <Text style={s.meta}>{v.phone} · {v.state || v.profile_state || '—'}</Text>
-              <Text style={s.meta}>Crops: {v.crops || '—'}</Text>
+              <Text style={s.meta}>{v.phone || '—'} · {v.state || v.profile_state || '—'}{v.lga ? ' · ' + v.lga : ''}</Text>
+              <Text style={s.meta}>Crops: {v.crops || v.crop || '—'}{v.farm_size ? ' · ' + v.farm_size : ''}</Text>
+              <Text style={s.meta}>BVN: {v.bvn || '—'} · NIN: {v.nin || '—'}</Text>
               <Text style={s.meta}>
-                Payment: <Text style={{ color: v.payment_status === 'paid' ? palette.neon : palette.warning }}>
+                Payment: <Text style={{ color: (v.payment_status === 'paid') ? palette.neon : palette.warning, fontWeight: '800' }}>
                   {(v.payment_status || 'pending').toUpperCase()}
-                </Text> · Fee ₦{v.fee_naira || 2000}
+                </Text> · Fee N{v.fee_naira || 2000}
               </Text>
-              <Text style={s.meta}>Ref: {(v.payment_reference || '').slice(0, 26)}</Text>
-              <Text style={s.meta}>Submitted {new Date(v.created_at).toLocaleString()}</Text>
-              {v.scans_remaining != null ? (
-                <Text style={s.meta}>Scans left: {v.scans_remaining}</Text>
-              ) : null}
+              <Text style={s.meta}>Ref: {(v.payment_reference || '—').slice(0, 30)}</Text>
+              <Text style={s.meta}>Submitted {v.created_at ? new Date(v.created_at).toLocaleString() : '—'}</Text>
+              {v.scans_remaining != null ? <Text style={s.meta}>Scans left: {v.scans_remaining}</Text> : null}
 
-              {v.id_image_url ? (
+              {(v.id_photo_url || v.id_image_url) ? (
                 <View style={{ marginTop: 10 }}>
-                  <Text style={s.imgLabel}>ID</Text>
-                  <Image source={{ uri: v.id_image_url }} style={s.img} resizeMode="contain" />
-                  <Pressable onPress={() => Linking.openURL(v.id_image_url)}>
+                  <Text style={s.imgLabel}>ID DOCUMENT</Text>
+                  <Image source={{ uri: v.id_photo_url || v.id_image_url }} style={s.img} resizeMode='contain' />
+                  <Pressable onPress={() => Linking.openURL(v.id_photo_url || v.id_image_url)}>
                     <Text style={s.link}>Open full</Text>
                   </Pressable>
                 </View>
               ) : null}
+
               {v.selfie_url ? (
                 <View style={{ marginTop: 10 }}>
                   <Text style={s.imgLabel}>SELFIE</Text>
-                  <Image source={{ uri: v.selfie_url }} style={s.img} resizeMode="contain" />
+                  <Image source={{ uri: v.selfie_url }} style={s.img} resizeMode='contain' />
                   <Pressable onPress={() => Linking.openURL(v.selfie_url)}>
                     <Text style={s.link}>Open full</Text>
                   </Pressable>
@@ -207,8 +211,8 @@ const createStyles = (p: any) => StyleSheet.create({
   empty: { fontSize: 13, color: p.textMuted, textAlign: 'center', paddingVertical: 40 },
   small: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1.5, alignItems: 'center' },
   smallText: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  img: { width: '100%', height: 180, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.15)' },
   imgLabel: { fontSize: 10, fontWeight: '900', color: p.textMuted, letterSpacing: 1, marginBottom: 6 },
+  img: { width: '100%', height: 180, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.15)' },
   link: { fontSize: 11, fontWeight: '800', color: p.neon, marginTop: 6 },
   blocked: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   blockedText: { fontSize: 20, fontWeight: '900', color: p.danger },
