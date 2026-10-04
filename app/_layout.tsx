@@ -7,6 +7,7 @@ import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { registerPushToken } from '../src/utils/push';
+import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
 
 const queryClient = new QueryClient({
@@ -16,6 +17,11 @@ const queryClient = new QueryClient({
 function RootNavigator() {
   const router = useRouter();
   const segments = useSegments();
+
+  useEffect(() => {
+    useLocation.getState().start();
+  }, []);
+
 
   const user = useAuth((s: any) => s.user);
   const setUser = useAuth((s: any) => s.setUser);
