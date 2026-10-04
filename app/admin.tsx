@@ -64,6 +64,26 @@ export default function Admin() {
           </View>
         ))}
         <View style={{ height: 100 }} />
+      
+        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#00ff88', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
+          BANK OF AGRICULTURE
+        </Text>
+        <Pressable onPress={() => router.push('/boa-dashboard' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00ff88' }}>BOA PORTFOLIO</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-risk' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>RISK RADAR</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-borrowers' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffb300', backgroundColor: 'rgba(255,179,0,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffb300' }}>BORROWERS</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-forecast' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>COLLECTIONS FORECAST</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-map' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#b388ff' }}>PORTFOLIO MAP</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
