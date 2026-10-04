@@ -178,7 +178,7 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
-  avatar: { width: 56, height: :56, borderRadius: 28 ', borderWidth: 2.5, alignItemscenter: 'center', justifyContent' },
+  avatar: { width: 56, height: 56, borderRadius: 28, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { fontSize: 22, fontWeight: '900' },
   name: { fontSize: 20, fontWeight: '900', color: p.text, letterSpacing: -0.4 },
   email: { fontSize: 11, color: p.textMuted, marginTop: 2 },
