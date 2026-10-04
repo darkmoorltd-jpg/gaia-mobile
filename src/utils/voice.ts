@@ -1,3 +1,4 @@
+import { fromByteArray } from 'base64-js';
 import { AudioModule, setAudioModeAsync, RecordingPresets } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -82,10 +83,12 @@ async function tryServerTTS(text: string, langCode: string): Promise<boolean> {
     const buf = await res.arrayBuffer();
     if (!buf || buf.byteLength < 500) return false;
     const bytes = new Uint8Array(buf);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    const B = (globalThis as any);
-    const b64 = B.btoa ? B.btoa(bin) : '';
+    let b64 = '';
+    try {
+      b64 = fromByteArray(bytes);
+    } catch {
+      return false;
+    }
     if (!b64) return false;
     const path = FileSystem.cacheDirectory + 'tts_' + Date.now() + '.mp3';
     await FileSystem.writeAsStringAsync(path, b64, { encoding: FileSystem.EncodingType.Base64 });

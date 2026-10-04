@@ -346,8 +346,7 @@ export default function Voice() {
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
         fieldName: 'audio',
         mimeType: 'audio/m4a',
-        headers: { Authorization: 'Bearer ' + t },
-        parameters: { language: 'auto' },
+        headers: { Authorization: 'Bearer ' + t }
       });
       if (res.status < 200 || res.status >= 300) return { text: '', lang: 'en-NG' };
       const d = JSON.parse(res.body || '{}');
