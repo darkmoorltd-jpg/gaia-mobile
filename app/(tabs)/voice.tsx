@@ -11,6 +11,7 @@ import { useTheme, typography, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
 import { MarkdownOutput } from '../../src/components/MarkdownOutput';
+import { speak as speakSmart } from '../../src/utils/voice';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -357,20 +358,14 @@ export default function Voice() {
     }
   };
 
-  const speak = (text: string, lang: string): Promise<void> => {
-    return new Promise((resolve) => {
-      try {
-        Speech.stop();
-        Speech.speak(text, {
-          language: lang,
-          pitch: 1.0,
-          rate: 0.96,
-          onDone: () => resolve(),
-          onStopped: () => resolve(),
-          onError: () => resolve(),
-        });
-      } catch { resolve(); }
-    });
+  const speak = async (text: string, lang: string): Promise<void> => {
+    // speakSmart tries the backend /tts (native Nigerian voices) first,
+    // then falls back to device Speech.speak with the best matching voice.
+    try {
+      await speakSmart(text, lang);
+    } catch {
+      try { Speech.stop(); } catch {}
+    }
   };
 
   const runLoop = async () => {
