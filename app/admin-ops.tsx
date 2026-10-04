@@ -28,7 +28,7 @@ export default function AdminOps() {
     const [a, b, c] = await Promise.all([
       supabase.rpc('admin_list_withdrawals', { p_status: 'pending' }),
       supabase.rpc('admin_list_disputes', { p_status: 'open' }),
-      supabase.from('farmer_verifications').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.rpc('admin_list_pending_kyc'),
     ]);
     setWd(a.data || []);
     setDisp(b.data || []);
@@ -133,10 +133,25 @@ export default function AdminOps() {
           kyc.length === 0 ? <Text style={s.empty}>No pending KYC.</Text> :
           kyc.map((v) => (
             <View key={v.id} style={s.card}>
-              <Text style={s.cardTitle}>{v.full_name || 'Unnamed'}</Text>
-              <Text style={s.meta}>{v.phone} · {v.state}</Text>
+              <Text style={s.cardTitle}>{v.full_name || v.profile_name || 'Unnamed'}</Text>
+              <Text style={[s.meta, { color: palette.neon, fontWeight: '700' }]} numberOfLines={1}>
+                {v.user_email || '—'}
+              </Text>
+              <Text style={[s.meta, { fontFamily: 'monospace' }]} numberOfLines={1}>
+                ID: {v.user_id ? v.user_id.slice(0, 18) + '…' : '—'}
+              </Text>
+              <Text style={s.meta}>{v.phone} · {v.state || v.profile_state || '—'}</Text>
               <Text style={s.meta}>Crops: {v.crops || '—'}</Text>
+              <Text style={s.meta}>
+                Payment: <Text style={{ color: v.payment_status === 'paid' ? palette.neon : palette.warning }}>
+                  {(v.payment_status || 'pending').toUpperCase()}
+                </Text> · Fee ₦{v.fee_naira || 2000}
+              </Text>
+              <Text style={s.meta}>Ref: {(v.payment_reference || '').slice(0, 26)}</Text>
               <Text style={s.meta}>Submitted {new Date(v.created_at).toLocaleString()}</Text>
+              {v.scans_remaining != null ? (
+                <Text style={s.meta}>Scans left: {v.scans_remaining}</Text>
+              ) : null}
 
               {v.id_image_url ? (
                 <View style={{ marginTop: 10 }}>
