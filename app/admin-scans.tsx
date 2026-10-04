@@ -111,7 +111,7 @@ const createStyles = (p: any) => StyleSheet.create({
   chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
   chipText: { fontSize: 10, fontWeight: '700', color: p.textDim, letterSpacing: 0.5 },
   chipTextOn: { color: p.neon },
-  input: { paddingHorizontal: 14 paddingVertical: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 13, marginBottom: 12 },
+  input: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 13, marginBottom: 12 },
   card: { padding: 12, borderRadius: 12, backgroundColor: p.surface, marginBottom: 10, borderWidth: 1, borderColor: p.border },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { fontSize: 14, fontWeight: '800', color: p.text, flex: 1, marginRight: 8 },
