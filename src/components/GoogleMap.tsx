@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { useLocation } from '../store/location';
 
 interface P { latitude: number; longitude: number; }
 
@@ -44,8 +45,9 @@ export function GoogleMap({
   display = 'line',
 }: Props) {
   const mapRef = useRef<MapView | null>(null);
+  const userLocation = useLocation((s) => s.coords);
 
-  const initial: P = center || points[0] || { latitude: 9.082, longitude: 8.6753 };
+  const initial: P = center || points[0] || userLocation || { latitude: 9.082, longitude: 8.6753 };
 
   const region: Region = {
     latitude: initial.latitude,
