@@ -94,6 +94,19 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>FRAUD RINGS</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/boa-food-security' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#69f0ae', backgroundColor: 'rgba(105,240,174,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#69f0ae' }}>FOOD SECURITY</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-benchmark' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#fdd835', backgroundColor: 'rgba(253,216,53,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#fdd835' }}>PEER BENCHMARK</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-csv-import' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26c6da' }}>CSV LOAN IMPORT</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-board-pack' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ab47bc', backgroundColor: 'rgba(171,71,188,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>BOARD PACK</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
