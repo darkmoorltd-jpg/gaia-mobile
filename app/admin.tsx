@@ -107,6 +107,16 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>BOARD PACK</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/boa-coops' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7e57c2', backgroundColor: 'rgba(126,87,194,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7e57c2' }}>COOPERATIVES</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-receipts' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ef6c00', backgroundColor: 'rgba(239,108,0,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ef6c00' }}>WAREHOUSE RECEIPTS</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/boa-field-officers' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#5c6bc0', backgroundColor: 'rgba(92,107,192,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#5c6bc0' }}>FIELD OFFICERS</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
