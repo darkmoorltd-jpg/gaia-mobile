@@ -129,49 +129,6 @@ export default function Home() {
           </Pressable>
         </Animated.View>
 
-        {/* Diagnose grid */}
-        
-        {/* ===== VOICE + RAG ENTRY POINTS ===== */}
-        <Animated.View entering={FadeInDown.delay(150).duration(600)}>
-          <Pressable
-            onPress={() => router.push('/voice')}
-            style={styles.bigCard}
-          >
-            <LinearGradient
-              colors={['#4a148c', '#b47aff']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.bigCardInner}
-            >
-              <Text style={styles.bigIcon}>🎙</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bigTitle}>Talk to GAIA</Text>
-                <Text style={styles.bigSub}>Voice chat · 6 languages · continuous</Text>
-              </View>
-              <Text style={styles.bigArrow}>›</Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/rag')}
-            style={[styles.bigCard, { marginTop: 10 }]}
-          >
-            <LinearGradient
-              colors={['#003a1f', '#00ff88']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.bigCardInner}
-            >
-              <Text style={styles.bigIcon}>📄</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bigTitle}>Ask GAIA</Text>
-                <Text style={styles.bigSub}>Upload documents · get sourced answers</Text>
-              </View>
-              <Text style={styles.bigArrow}>›</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-
         <Text style={styles.sectionLabel}>DIAGNOSE</Text>
         <View style={styles.grid}>
           {DIAGNOSE.map((item, i) => (
