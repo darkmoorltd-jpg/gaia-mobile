@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Image, Linking, TextInput, Alert,
 } from 'react-native';
@@ -38,6 +38,29 @@ export default function Verification() {
   const [message, setMessage] = useState('');
   const [payRef, setPayRef] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [lockReason, setLockReason] = useState<string | null>(null);
+  const [loadExisting, setLoadExisting] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
+      try {
+        const { data } = await supabase
+          .from('farmer_verifications')
+          .select('status,payment_status')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (data) {
+          const s = (data.status || '').toLowerCase();
+          const ps = (data.payment_status || '').toLowerCase();
+          if (ps === 'paid' && s === 'pending') setLockReason('pending_review');
+          else if (s === 'approved') setLockReason('approved');
+          else if (s === 'rejected') setLockReason(null);   // allow resubmission
+        }
+      } catch {}
+      setLoadExisting(false);
+    })();
+  }, [user]);
 
   const pickImage = async (setter: (v: string) => void) => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -154,6 +177,57 @@ export default function Verification() {
       });
     </script></body></html>
   `;
+
+  if (lockReason === 'pending_review') {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Under review</Text>
+          <Text style={styles.subtitle}>
+            Your payment was received and your verification is being reviewed by our team.
+            You will be notified once it is approved.
+          </Text>
+          <View style={styles.feeBox}>
+            <Text style={styles.feeLabel}>STATUS</Text>
+            <Text style={styles.feeValue}>Pending review</Text>
+          </View>
+          <Pressable onPress={() => router.back()} style={styles.cta}>
+            <Text style={styles.ctaText}>DONE</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (lockReason === 'approved') {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>You are verified</Text>
+          <Text style={styles.subtitle}>
+            Your identity is verified. Wallet, loans, insurance, and marketplace are unlocked.
+          </Text>
+          <View style={styles.feeBox}>
+            <Text style={styles.feeLabel}>STATUS</Text>
+            <Text style={styles.feeValue}>Approved</Text>
+          </View>
+          <Pressable onPress={() => router.back()} style={styles.cta}>
+            <Text style={styles.ctaText}>DONE</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (loadExisting) {
+    return (
+      <View style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={styles.subtitle}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (paid) {
     return (
