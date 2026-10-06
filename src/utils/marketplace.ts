@@ -267,3 +267,74 @@ export function statusColor(status: string, palette: any) {
     default: return palette.textMuted;
   }
 }
+
+
+// ============================================================
+// Escrow + wallet integration
+// ============================================================
+const API_BASE = 'https://gaia-api-xuly.onrender.com';
+
+async function authHeaders() {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token || '';
+  return {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + token,
+  };
+}
+
+export async function payOrderFromWallet(orderRef: string, pin: string) {
+  const r = await fetch(API_BASE + '/marketplace/pay', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ order_ref: orderRef, pin }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Payment failed');
+  return d;
+}
+
+export async function releaseEscrow(orderId: string | number) {
+  const r = await fetch(API_BASE + '/marketplace/release', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ order_id: String(orderId) }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Release failed');
+  return d;
+}
+
+export async function cancelOrder(orderId: string | number, reason: string = '') {
+  const r = await fetch(API_BASE + '/marketplace/cancel', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ order_id: String(orderId), reason }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Cancel failed');
+  return d;
+}
+
+export interface SellerSummary {
+  available_balance: number;
+  pending_escrow: number;
+  lifetime_earned: number;
+  orders_paid: number;
+  orders_awaiting_shipment: number;
+  orders_completed: number;
+  recent_payouts: any[];
+}
+
+export async function getSellerSummary(): Promise<SellerSummary> {
+  const fallback: SellerSummary = {
+    available_balance: 0, pending_escrow: 0, lifetime_earned: 0,
+    orders_paid: 0, orders_awaiting_shipment: 0, orders_completed: 0,
+    recent_payouts: [],
+  };
+  try {
+    const { data, error } = await supabase.rpc('marketplace_seller_summary');
+    if (error || !data) return fallback;
+    return data as SellerSummary;
+  } catch { return fallback; }
+}
