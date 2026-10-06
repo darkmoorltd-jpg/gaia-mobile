@@ -1,217 +1,292 @@
-import { useCallback, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal,
-  TextInput, Alert, Linking, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
+  Modal, TextInput, Alert, RefreshControl,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
-import { useTheme, typography, spacing, radius, shadows } from '../src/theme';
-import { supabase } from '../src/api/supabase';
+import { useRouter, useFocusEffect } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
+import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import {
+  walletMe, depositInit, depositVerify, fmtN, relTime,
+  type WalletInfo, type WalletTxn,
+} from '../src/utils/wallet';
 
-const API = 'https://gaia-api-xuly.onrender.com';
-const TOPUP_URL = 'https://paystack.shop/pay/gaia-wallet-topup';
+const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 20000];
 
 export default function Wallet() {
+  const router = useRouter();
   const { palette } = useTheme();
-  const { user } = useAuth();
   const styles = createStyles(palette);
-  const [balance, setBalance] = useState(0);
-  const [escrow, setEscrow] = useState(0);
-  const [txns, setTxns] = useState<any[]>([]);
-  const [busy, setBusy] = useState(true);
+  const user = useAuth((s: any) => s.user);
 
-  // Withdraw modal
-  const [open, setOpen] = useState(false);
-  const [banks, setBanks] = useState<any[]>([]);
-  const [bankCode, setBankCode] = useState('');
-  const [acct, setAcct] = useState('');
-  const [amount, setAmount] = useState('');
-  const [sending, setSending] = useState(false);
+  const [wallet, setWallet] = useState<WalletInfo>({
+    balance: 0, escrow: 0, account_number: null, account_name: null,
+    bank_name: null, provisioned: false,
+  });
+  const [txns, setTxns] = useState<WalletTxn[]>([]);
+  const [busy, setBusy] = useState(true);
+  const [ref, setRef] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositRef, setDepositRef] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     setBusy(true);
-    try {
-      const { data: w } = await supabase
-        .from('farmer_wallets')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (w) {
-        setBalance(Number(w.balance || 0));
-        setEscrow(Number(w.escrow_balance || 0));
-      } else {
-        await supabase.from('farmer_wallets').insert({
-          user_id: user.id, balance: 0,
-          account_bank: 'Wema Bank', account_name: user.email,
-          virtual_account: 'GAIA-' + user.id.slice(0, 8).toUpperCase(),
-        });
-      }
-      const { data: ph } = await supabase
-        .from('payment_history').select('*').eq('user_id', user.id)
-        .order('paid_at', { ascending: false }).limit(20);
-      setTxns(ph || []);
-    } catch {}
+    const res = await walletMe();
+    if (res) {
+      setWallet(res.wallet);
+      setTxns(res.transactions);
+    }
     setBusy(false);
+    setRef(false);
   }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const openWithdraw = async () => {
-    setOpen(true);
-    if (banks.length) return;
+  const copyAcct = async () => {
+    if (!wallet.account_number) return;
+    await Clipboard.setStringAsync(wallet.account_number);
+    Alert.alert('Copied', wallet.account_number);
+  };
+
+  const notReady = () => {
+    Alert.alert('Account not ready', 'Verify your identity in Profile then Verification to unlock your GAIA account number.');
+  };
+
+  const startDeposit = async () => {
+    const amt = Number(depositAmount);
+    if (!amt || amt < 100) { Alert.alert('Minimum N100'); return; }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-      const res = await fetch(API + '/wallet/banks', { headers: { Authorization: 'Bearer ' + token } });
-      const data = await res.json();
-      setBanks(data.banks || []);
+      const d = await depositInit(amt);
+      setDepositRef(d.reference);
     } catch (e: any) {
-      Alert.alert('Bank list failed', e?.message || 'Try again');
+      Alert.alert('Failed', e.message || 'Try again');
     }
   };
 
-  const doWithdraw = async () => {
-    if (!bankCode || acct.length < 10 || !amount || Number(amount) < 100) {
-      Alert.alert('Check fields', 'Bank, 10-digit account, and amount >= N100');
-      return;
-    }
-    if (Number(amount) > balance) {
-      Alert.alert('Insufficient', 'Amount exceeds available balance');
-      return;
-    }
-    setSending(true);
+  const html = () => {
+    if (!depositRef) return '';
+    const amt = Number(depositAmount);
+    const email = user?.email || '';
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>' +
+      '<script src="https://js.paystack.co/v1/inline.js"></script>' +
+      '<style>html,body{margin:0;padding:0;background:#0a0e0c}</style></head><body><script>' +
+      'window.addEventListener("load", function() {' +
+      '  try {' +
+      '    PaystackPop.setup({' +
+      '      key: "' + PAYSTACK_PUBLIC + '",' +
+      '      email: "' + email + '",' +
+      '      amount: ' + Math.round(amt * 100) + ',' +
+      '      currency: "NGN",' +
+      '      ref: "' + depositRef + '",' +
+      '      label: "GAIA Wallet Top Up",' +
+      '      onClose: function() { window.ReactNativeWebView.postMessage(JSON.stringify({ status: "closed" })); },' +
+      '      callback: function(response) { window.ReactNativeWebView.postMessage(JSON.stringify({ status: "success", reference: response.reference })); }' +
+      '    }).openIframe();' +
+      '  } catch (err) {' +
+      '    window.ReactNativeWebView.postMessage(JSON.stringify({ status: "error", message: String(err) }));' +
+      '  }' +
+      '});' +
+      '</script></body></html>';
+  };
+
+  const onDepositMessage = async (raw: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-      const bankName = banks.find((b) => b.code === bankCode)?.name || 'Bank';
+      const d = JSON.parse(raw);
+      if (d.status === 'closed') { setDepositRef(null); return; }
+      if (d.status === 'error') { Alert.alert('Paystack error', d.message); setDepositRef(null); return; }
+      if (d.status === 'success') {
+        setVerifying(true);
+        try {
+          const res = await depositVerify(d.reference);
+          setDepositRef(null);
+          setDepositAmount('');
+          await load();
+          Alert.alert('Success', 'Added ' + fmtN(res.amount || 0, 2) + ' to your wallet');
+        } catch (e: any) {
+          Alert.alert('Verify failed', (e.message || 'Contact support') + ' Ref: ' + d.reference);
+        } finally { setVerifying(false); }
+      }
+    } catch {}
+  };
 
-      const r1 = await fetch(API + '/wallet/recipient', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ name: user?.email?.split('@')[0] || 'Farmer', account_number: acct, bank_code: bankCode }),
-      });
-      const d1 = await r1.json();
-      if (!d1.recipient_code) throw new Error(d1.error || 'Recipient failed');
+  const txnIcon = (t: string) => {
+    if (t === 'deposit') return '+';
+    if (t === 'withdrawal') return '-';
+    if (t === 'p2p_send') return '>';
+    if (t === 'p2p_receive') return '<';
+    if (t === 'bill') return '*';
+    return '.';
+  };
 
-      const r2 = await fetch(API + '/wallet/transfer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ recipient_code: d1.recipient_code, amount: Number(amount), reason: 'GAIA wallet withdrawal' }),
-      });
-      const d2 = await r2.json();
-      if (!d2.transfer_code) throw new Error(d2.error || 'Transfer failed');
+  const txnColor = (t: WalletTxn) => {
+    if (t.status === 'failed' || t.status === 'refunded') return '#ff3b5c';
+    if (t.direction === 'in') return '#00ff88';
+    return '#8899a6';
+  };
 
-      // Deduct locally
-      const newBal = balance - Number(amount);
-      await supabase.from('farmer_wallets').update({ balance: newBal }).eq('user_id', user!.id);
-      setBalance(newBal);
-      setOpen(false);
-      setAmount('');
-      setAcct('');
-      Alert.alert('Sent', 'Transfer initiated. Bank: ' + bankName + '. You will receive a notification when it settles.');
-    } catch (e: any) {
-      Alert.alert('Withdrawal failed', e?.message || 'Try again');
-    } finally {
-      setSending(false);
-    }
+  const statusColor = (s: string) => {
+    if (s === 'success') return '#00ff88';
+    if (s === 'processing' || s === 'pending') return '#ffb300';
+    if (s === 'failed') return '#ff3b5c';
+    if (s === 'refunded') return '#4fc3f7';
+    return '#8899a6';
   };
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}>
         <Text style={styles.title}>Wallet</Text>
-        <Text style={styles.subtitle}>Your money, secured.</Text>
+        <Text style={styles.sub}>Your money, secured.</Text>
 
-        <LinearGradient colors={palette.gradientNeon as any} style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
-          <Text style={styles.balanceValue}>N{balance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</Text>
-          <View style={styles.balanceDivider} />
-          <Text style={styles.balanceSub}>GAIA-{user?.id?.slice(0, 8).toUpperCase()} - Wema Bank</Text>
+        <LinearGradient
+          colors={['#00c853', '#009e52', '#003820']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
+        >
+          <Text style={styles.heroLabel}>AVAILABLE BALANCE</Text>
+          <Text style={styles.heroBal}>{fmtN(wallet.balance, 2)}</Text>
+
+          {wallet.provisioned ? (
+            <Pressable onPress={copyAcct} style={styles.acctBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.acctNum}>{wallet.account_number}</Text>
+                <Text style={styles.acctName} numberOfLines={1}>{wallet.account_name}</Text>
+                <Text style={styles.acctBank}>{wallet.bank_name}</Text>
+              </View>
+              <Text style={styles.copyBtn}>COPY</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={notReady} style={styles.acctBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.acctNum, { fontSize: 14 }]}>Account not provisioned</Text>
+                <Text style={styles.acctName}>Verify your identity to activate</Text>
+              </View>
+            </Pressable>
+          )}
         </LinearGradient>
 
-        <View style={styles.actionRow}>
-          <Pressable onPress={() => Linking.openURL(TOPUP_URL)} style={styles.topUpBtn}>
-            <Text style={styles.topUpText}>TOP UP</Text>
+        <View style={styles.actionGrid}>
+          <Pressable onPress={() => {}} style={styles.actBtn}>
+            <Text style={styles.actIcon}>+</Text>
+            <Text style={styles.actLbl}>ADD</Text>
           </Pressable>
-          <Pressable onPress={openWithdraw} style={styles.withdrawBtn}>
-            <Text style={styles.withdrawText}>WITHDRAW</Text>
+          <Pressable onPress={() => router.push('/wallet-send' as any)} style={styles.actBtn}>
+            <Text style={styles.actIcon}>{'>'}</Text>
+            <Text style={styles.actLbl}>SEND</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/wallet-withdraw' as any)} style={styles.actBtn}>
+            <Text style={styles.actIcon}>-</Text>
+            <Text style={styles.actLbl}>WITHDRAW</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/wallet-receive' as any)} style={styles.actBtn}>
+            <Text style={styles.actIcon}>#</Text>
+            <Text style={styles.actLbl}>RECEIVE</Text>
           </Pressable>
         </View>
 
-        <View style={styles.escrowCard}>
-          <Text style={styles.escrowLabel}>IN ESCROW</Text>
-          <Text style={styles.escrowValue}>N{escrow.toLocaleString()}</Text>
+        <View style={styles.escrowRow}>
+          <Text style={styles.escrowLbl}>IN ESCROW (MARKETPLACE)</Text>
+          <Text style={styles.escrowVal}>{fmtN(wallet.escrow, 2)}</Text>
         </View>
+
+        <Text style={styles.sectionLabel}>ADD MONEY</Text>
+        <View style={styles.quickRow}>
+          {QUICK_AMOUNTS.map((a) => (
+            <Pressable
+              key={a}
+              onPress={() => setDepositAmount(String(a))}
+              style={[styles.quickChip, depositAmount === String(a) && styles.quickChipOn]}
+            >
+              <Text style={[styles.quickChipTxt, depositAmount === String(a) && styles.quickChipTxtOn]}>
+                {fmtN(a, 0)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <TextInput
+          value={depositAmount}
+          onChangeText={setDepositAmount}
+          keyboardType="number-pad"
+          placeholder="Custom amount"
+          placeholderTextColor={palette.textDim}
+          style={styles.amountInput}
+        />
+
+        <Pressable
+          onPress={startDeposit}
+          disabled={!depositAmount || Number(depositAmount) < 100}
+          style={[styles.depositBtn, (!depositAmount || Number(depositAmount) < 100) && { opacity: 0.4 }]}
+        >
+          <Text style={styles.depositBtnTxt}>
+            {'ADD ' + (depositAmount ? fmtN(Number(depositAmount), 0) : 'MONEY') + ' VIA CARD'}
+          </Text>
+        </Pressable>
 
         <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
-        {busy ? <ActivityIndicator color={palette.neon} /> : null}
+        {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 10 }} /> : null}
         {!busy && txns.length === 0 ? <Text style={styles.empty}>No activity yet.</Text> : null}
-        {txns.map((t, i) => (
-          <View key={i} style={styles.txnRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.txnLabel}>{t.plan?.toUpperCase() || 'Payment'}</Text>
-              <Text style={styles.txnSub}>{new Date(t.paid_at).toLocaleDateString()}</Text>
+
+        {txns.map((t) => (
+          <View key={t.id} style={styles.txnRow}>
+            <View style={[styles.txnIconWrap, { borderColor: txnColor(t) }]}>
+              <Text style={[styles.txnIcon, { color: txnColor(t) }]}>{txnIcon(t.type)}</Text>
             </View>
-            <Text style={styles.txnAmt}>N{(t.amount / 100).toFixed(2)}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.txnTitle} numberOfLines={1}>
+                {t.type === 'deposit' ? 'Wallet top up' :
+                 t.type === 'withdrawal' ? ('To ' + (t.counterparty_name || 'Bank')) :
+                 t.type === 'p2p_send' ? ('To ' + (t.counterparty_name || 'GAIA user')) :
+                 t.type === 'p2p_receive' ? ('From ' + (t.counterparty_name || 'GAIA user')) :
+                 t.type.toUpperCase()}
+              </Text>
+              <Text style={styles.txnMeta}>
+                {relTime(t.created_at)}
+                {' - '}
+                <Text style={{ color: statusColor(t.status) }}>{t.status.toUpperCase()}</Text>
+              </Text>
+            </View>
+            <Text style={[styles.txnAmt, { color: txnColor(t) }]}>
+              {(t.direction === 'in' ? '+' : '-') + fmtN(t.amount, 2)}
+            </Text>
           </View>
         ))}
-        <View style={{ height: 120 }} />
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBg}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalKicker}>WITHDRAW</Text>
-            <Text style={styles.modalTitle}>N{balance.toLocaleString()} available</Text>
-
-            <Text style={styles.label}>SELECT BANK</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {banks.slice(0, 30).map((b) => (
-                  <Pressable
-                    key={b.code}
-                    onPress={() => setBankCode(b.code)}
-                    style={[styles.bankChip, bankCode === b.code && styles.bankChipActive]}
-                  >
-                    <Text style={[styles.bankChipTxt, bankCode === b.code && styles.bankChipTxtActive]}>
-                      {b.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-
-            <Text style={styles.label}>ACCOUNT NUMBER</Text>
-            <TextInput
-              value={acct}
-              onChangeText={setAcct}
-              keyboardType="number-pad"
-              maxLength={10}
-              placeholder="0123456789"
-              placeholderTextColor={palette.textDim}
-              style={styles.input}
-            />
-
-            <Text style={styles.label}>AMOUNT (N)</Text>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              placeholder="1000"
-              placeholderTextColor={palette.textDim}
-              style={styles.input}
-            />
-
-            <Pressable onPress={doWithdraw} disabled={sending} style={styles.submit}>
-              <Text style={styles.submitTxt}>{sending ? 'SENDING...' : 'SEND'}</Text>
-            </Pressable>
-            <Pressable onPress={() => setOpen(false)} style={styles.cancel}>
-              <Text style={styles.cancelTxt}>CANCEL</Text>
-            </Pressable>
+      <Modal visible={!!depositRef} animationType="slide" onRequestClose={() => setDepositRef(null)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setDepositRef(null)}><Text style={styles.modalClose}>CLOSE</Text></Pressable>
+            <Text style={styles.modalTitle}>{'ADD ' + fmtN(Number(depositAmount), 0)}</Text>
+            <View style={{ width: 50 }} />
           </View>
-        </KeyboardAvoidingView>
+          {verifying ? (
+            <View style={styles.modalCenter}>
+              <ActivityIndicator color="#00ff88" size="large" />
+              <Text style={styles.modalCenterText}>Crediting your wallet...</Text>
+            </View>
+          ) : (
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: html() }}
+              onMessage={(e) => onDepositMessage(e.nativeEvent.data)}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              style={{ flex: 1, backgroundColor: '#0a0e0c' }}
+            />
+          )}
+        </View>
       </Modal>
     </View>
   );
@@ -219,40 +294,44 @@ export default function Wallet() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { paddingHorizontal: spacing.xl, paddingTop: 60 },
-  title: { fontSize: 34, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  subtitle: { ...typography.body, color: p.textMuted, marginTop: spacing.sm },
-  balanceCard: { borderRadius: radius.xl, padding: spacing.xxl, marginTop: spacing.xl, ...shadows.neon },
-  balanceLabel: { ...typography.micro, color: 'rgba(0,0,0,0.7)' },
-  balanceValue: { fontSize: 40, fontWeight: '900', color: '#000', marginTop: 8, letterSpacing: -1.5 },
-  balanceDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.15)', marginVertical: spacing.lg },
-  balanceSub: { ...typography.caption, color: 'rgba(0,0,0,0.7)', fontWeight: '600' },
-  actionRow: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
-  topUpBtn: { flex: 1, padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
-  topUpText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  withdrawBtn: { flex: 1, padding: 18, borderRadius: 14, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
-  withdrawText: { fontSize: 14, fontWeight: '900', color: p.neon, letterSpacing: 1 },
-  escrowCard: { marginTop: spacing.lg, padding: spacing.lg, borderRadius: radius.md, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
-  escrowLabel: { ...typography.micro, color: p.textMuted },
-  escrowValue: { fontSize: 22, fontWeight: '900', color: p.warning, marginTop: 4 },
-  sectionLabel: { ...typography.micro, color: p.textMuted, marginTop: spacing.xl, marginBottom: spacing.sm },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  sub: { fontSize: 13, color: p.textMuted, marginTop: 4 },
+  hero: { marginTop: 20, padding: 24, borderRadius: 22, overflow: 'hidden' },
+  heroLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: 'rgba(255,255,255,0.7)' },
+  heroBal: { fontSize: 44, fontWeight: '900', color: '#fff', letterSpacing: -2, marginTop: 6 },
+  acctBox: { flexDirection: 'row', alignItems: 'center', marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  acctNum: { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2 },
+  acctName: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  acctBank: { fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 1 },
+  copyBtn: { fontSize: 10, fontWeight: '900', color: '#000', backgroundColor: '#fff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, letterSpacing: 1.5 },
+  actionGrid: { flexDirection: 'row', marginTop: 16, gap: 8 },
+  actBtn: { flex: 1, padding: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
+  actIcon: { fontSize: 22, fontWeight: '900', color: p.neon, marginBottom: 4 },
+  actLbl: { fontSize: 9, fontWeight: '900', color: p.text, letterSpacing: 1.2 },
+  escrowRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
+  escrowLbl: { fontSize: 10, fontWeight: '800', color: p.textMuted, letterSpacing: 1.2 },
+  escrowVal: { fontSize: 15, fontWeight: '900', color: '#ffb300' },
+  sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted, marginTop: 24, marginBottom: 10 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  quickChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
+  quickChipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  quickChipTxt: { fontSize: 12, fontWeight: '800', color: p.textMuted },
+  quickChipTxtOn: { color: p.neon },
+  amountInput: { padding: 16, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 18, fontWeight: '900', marginBottom: 12 },
+  depositBtn: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
+  depositBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
   empty: { fontSize: 13, color: p.textMuted, textAlign: 'center', paddingVertical: 20 },
-  txnRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: p.border },
-  txnLabel: { fontSize: 14, fontWeight: '700', color: p.text },
-  txnSub: { fontSize: 11, color: p.textDim, marginTop: 2 },
-  txnAmt: { fontSize: 14, fontWeight: '900', color: p.neon },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#0a0a0a', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '88%' },
-  modalKicker: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon },
-  modalTitle: { fontSize: 24, fontWeight: '900', color: '#fff', marginTop: 4, marginBottom: 18 },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: 'rgba(255,255,255,0.6)', marginTop: 12, marginBottom: 6 },
-  input: { padding: 14, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: p.border, color: '#fff', fontSize: 15 },
-  bankChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: p.border, backgroundColor: 'rgba(255,255,255,0.04)' },
-  bankChipActive: { backgroundColor: p.neon, borderColor: p.neon },
-  bankChipTxt: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  bankChipTxtActive: { color: p.obsidian, fontWeight: '900' },
-  submit: { marginTop: 20, padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
-  submitTxt: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  cancel: { marginTop: 10, padding: 16, alignItems: 'center' },
-  cancelTxt: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '700' },
+  txnRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  txnIconWrap: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  txnIcon: { fontSize: 16, fontWeight: '900' },
+  txnTitle: { fontSize: 13, fontWeight: '800', color: p.text },
+  txnMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  txnAmt: { fontSize: 14, fontWeight: '900' },
+  modalContainer: { flex: 1, backgroundColor: '#0a0e0c' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1a2820' },
+  modalClose: { fontSize: 11, fontWeight: '900', color: '#00ff88', letterSpacing: 1.5 },
+  modalTitle: { fontSize: 12, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
+  modalCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  modalCenterText: { fontSize: 14, color: '#00ff88', fontWeight: '700' },
 });
