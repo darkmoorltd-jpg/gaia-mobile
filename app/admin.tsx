@@ -134,6 +134,13 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#fdd835' }}>PROGRAM DELIVERY</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/ministry-farmer-registry' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26a69a', backgroundColor: 'rgba(38,166,154,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26a69a' }}>FARMER REGISTRY</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-yield-gap' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ef5350', backgroundColor: 'rgba(239,83,80,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ef5350' }}>YIELD GAP ANALYSIS</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
