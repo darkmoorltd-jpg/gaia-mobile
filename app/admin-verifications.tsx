@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';

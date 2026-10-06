@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';

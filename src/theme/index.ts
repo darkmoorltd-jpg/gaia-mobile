@@ -1,3 +1,4 @@
+import React from 'react';
 import { create } from 'zustand';
 
 export const darkPalette = {
@@ -70,7 +71,6 @@ export const shadows = {
 // ── ThemeProvider ──
 // Passthrough component. Zustand handles theme globally, so no context needed.
 // Kept for compatibility with code that imports <ThemeProvider>.
-import React from 'react';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return React.createElement(React.Fragment, null, children);

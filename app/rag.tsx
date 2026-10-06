@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform,

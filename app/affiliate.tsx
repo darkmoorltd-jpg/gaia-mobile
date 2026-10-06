@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme, spacing, typography, radius } from '../src/theme';
