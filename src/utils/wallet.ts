@@ -189,3 +189,14 @@ export async function hasWalletPin() {
     return !!d.has_pin;
   } catch { return false; }
 }
+
+
+export async function resetPinWithPassword(password: string, new_pin: string) {
+  const r = await fetch(API + '/wallet/reset-pin', {
+    method: 'POST', headers: await authHeaders(),
+    body: JSON.stringify({ password: password, new_pin: new_pin }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Reset failed');
+  return d;
+}
