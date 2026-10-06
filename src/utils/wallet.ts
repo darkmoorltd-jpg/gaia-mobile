@@ -172,13 +172,20 @@ export async function verifyPin(pin: string) {
 }
 
 export async function setWalletPin(pin: string) {
-  const { data, error } = await supabase.rpc('wallet_set_pin', { p_pin: pin });
-  if (error) throw new Error(error.message);
+  const r = await fetch(API + '/wallet/set-pin', {
+    method: 'POST', headers: await authHeaders(),
+    body: JSON.stringify({ pin: pin }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Set PIN failed');
   return true;
 }
 
 export async function hasWalletPin() {
-  const { data, error } = await supabase.rpc('wallet_has_pin');
-  if (error) return false;
-  return !!data;
+  try {
+    const r = await fetch(API + '/wallet/has-pin', { headers: await authHeaders() });
+    if (!r.ok) return false;
+    const d = await r.json();
+    return !!d.has_pin;
+  } catch { return false; }
 }
