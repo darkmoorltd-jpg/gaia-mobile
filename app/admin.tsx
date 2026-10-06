@@ -127,6 +127,13 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>DISEASE SURVEILLANCE</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/ministry-harvest-forecast' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>HARVEST FORECAST</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-program-delivery' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#fdd835', backgroundColor: 'rgba(253,216,53,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#fdd835' }}>PROGRAM DELIVERY</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
