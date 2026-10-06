@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
-import { GoogleMap } from '../src/components/GoogleMap';
+import { MapLibreMap } from '../src/components/MapLibreMap';
 import { loadFarms, deleteFarm, enclosedArea } from '../src/utils/farms';
 import { palette, typography, spacing, radius, shadows } from '../src/theme';
 
@@ -139,7 +139,7 @@ export default function FarmDetail() {
         </GlassCard>
 
         <View style={styles.mapBox}>
-          <GoogleMap points={points} height={360} closed={true} />
+          <MapLibreMap points={points} height={360} closed={true} />
         </View>
 
         <GlassCard style={{ marginTop: spacing.lg }}>

@@ -24,7 +24,9 @@
         "NSLocationWhenInUseUsageDescription": "GAIA uses location for weather-based advice.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "GAIA tracks your farm perimeter.",
         "NSMicrophoneUsageDescription": "GAIA needs microphone access to record voice questions for your agronomist.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       },
       "config": {
         "googleMapsApiKey": "AIzaSyBKmMMLYYSD6b-i3RGzufqykv6WtnEyY4w"
@@ -84,7 +86,15 @@
       ],
       "expo-router",
       "expo-updates",
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "@maplibre/maplibre-react-native",
+        {
+          "android": {
+            "nativeMapsApiKey": ""
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

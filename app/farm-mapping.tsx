@@ -5,7 +5,7 @@ import {
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
-import { GoogleMap } from '../src/components/GoogleMap';
+import { MapLibreMap } from '../src/components/MapLibreMap';
 import {
   saveFarm, haversine, pathLength, enclosedArea,
   isNearStart, distanceToStart, accuracyAverage,
@@ -268,7 +268,7 @@ export default function FarmMapping() {
         </View>
 
         <View style={styles.mapBox}>
-          <GoogleMap
+          <MapLibreMap
             points={cleaned}
             center={current || undefined}
             height={340}
