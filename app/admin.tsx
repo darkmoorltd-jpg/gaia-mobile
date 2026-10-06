@@ -141,6 +141,13 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ef5350' }}>YIELD GAP ANALYSIS</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/ministry-food-security' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#66bb6a', backgroundColor: 'rgba(102,187,106,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#66bb6a' }}>FOOD SECURITY INDEX</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-policy-simulator' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffa726', backgroundColor: 'rgba(255,167,38,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffa726' }}>POLICY SIMULATOR</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
