@@ -148,6 +148,19 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffa726' }}>POLICY SIMULATOR</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/ministry-cooperatives' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7e57c2', backgroundColor: 'rgba(126,87,194,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7e57c2' }}>COOPERATIVE NETWORK</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-price-monitor' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26c6da' }}>PRICE MONITOR</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-extension' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#5c6bc0', backgroundColor: 'rgba(92,107,192,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#5c6bc0' }}>EXTENSION IMPACT</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/ministry-briefing' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ab47bc', backgroundColor: 'rgba(171,71,188,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>EXECUTIVE BRIEFING</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
