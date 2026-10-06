@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, Alert,
   ActivityIndicator, ScrollView, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
-import { setWalletPin, resetPinWithPassword } from '../src/utils/wallet';
+import {
+  setWalletPin, resetPinWithPassword, hasWalletPin, verifyPin,
+} from '../src/utils/wallet';
 
 export default function WalletSetPin() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
+
+  const [checking, setChecking] = useState(true);
+  const [alreadyHas, setAlreadyHas] = useState(false);
+
+  const [currentPin, setCurrentPin] = useState('');
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -21,18 +28,51 @@ export default function WalletSetPin() {
   const [confirmNew, setConfirmNew] = useState('');
   const [resetting, setResetting] = useState(false);
 
+  useEffect(() => {
+    (async () => {
+      const has = await hasWalletPin();
+      setAlreadyHas(has);
+      setChecking(false);
+    })();
+  }, []);
+
   const submit = async () => {
-    if (!/^[0-9]{4}$/.test(pin)) { Alert.alert('PIN must be 4 digits'); return; }
-    if (pin !== confirm) { Alert.alert('PINs do not match'); return; }
+    if (alreadyHas) {
+      if (!/^[0-9]{4}$/.test(currentPin)) {
+        Alert.alert('Enter your current 4-digit PIN');
+        return;
+      }
+    }
+    if (!/^[0-9]{4}$/.test(pin)) {
+      Alert.alert('New PIN must be 4 digits');
+      return;
+    }
+    if (pin !== confirm) {
+      Alert.alert('New PINs do not match');
+      return;
+    }
     setBusy(true);
     try {
+      // If user already has a PIN, verify the current one first
+      if (alreadyHas) {
+        const ok = await verifyPin(currentPin);
+        if (!ok) {
+          Alert.alert('Incorrect current PIN');
+          setBusy(false);
+          return;
+        }
+      }
       await setWalletPin(pin);
-      Alert.alert('PIN set', 'You can now send, withdraw, and buy scans from your wallet.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      Alert.alert(
+        alreadyHas ? 'PIN changed' : 'PIN set',
+        'You can now send, withdraw, and buy scans from your wallet.',
+        [{ text: 'OK', onPress: () => router.back() }],
+      );
     } catch (e: any) {
       Alert.alert('Failed', e.message || 'Try again');
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const doReset = async () => {
@@ -49,15 +89,45 @@ export default function WalletSetPin() {
       ]);
     } catch (e: any) {
       Alert.alert('Reset failed', e.message || 'Check your password');
-    } finally { setResetting(false); }
+    } finally {
+      setResetting(false);
+    }
   };
+
+  if (checking) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={palette.neon} />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>Set Transfer PIN</Text>
-        <Text style={styles.sub}>A 4-digit PIN secures every wallet transaction.</Text>
+        <Text style={styles.title}>{alreadyHas ? 'Change Transfer PIN' : 'Set Transfer PIN'}</Text>
+        <Text style={styles.sub}>
+          {alreadyHas
+            ? 'Confirm your current PIN, then choose a new one.'
+            : 'A 4-digit PIN secures every wallet transaction.'}
+        </Text>
+
+        {alreadyHas ? (
+          <>
+            <Text style={styles.label}>CURRENT PIN</Text>
+            <TextInput
+              value={currentPin}
+              onChangeText={(v) => setCurrentPin(v.replace(/[^0-9]/g, '').slice(0, 4))}
+              keyboardType="number-pad"
+              secureTextEntry
+              maxLength={4}
+              placeholder="••••"
+              placeholderTextColor={palette.textDim}
+              style={styles.input}
+            />
+          </>
+        ) : null}
 
         <Text style={styles.label}>NEW 4-DIGIT PIN</Text>
         <TextInput
@@ -71,7 +141,7 @@ export default function WalletSetPin() {
           style={styles.input}
         />
 
-        <Text style={styles.label}>CONFIRM PIN</Text>
+        <Text style={styles.label}>CONFIRM NEW PIN</Text>
         <TextInput
           value={confirm}
           onChangeText={(v) => setConfirm(v.replace(/[^0-9]/g, '').slice(0, 4))}
@@ -85,10 +155,10 @@ export default function WalletSetPin() {
 
         <Pressable
           onPress={submit}
-          disabled={busy || pin.length !== 4 || confirm.length !== 4}
-          style={[styles.cta, (busy || pin.length !== 4 || confirm.length !== 4) && { opacity: 0.4 }]}
+          disabled={busy || pin.length !== 4 || confirm.length !== 4 || (alreadyHas && currentPin.length !== 4)}
+          style={[styles.cta, (busy || pin.length !== 4 || confirm.length !== 4 || (alreadyHas && currentPin.length !== 4)) && { opacity: 0.4 }]}
         >
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>SAVE PIN</Text>}
+          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>{alreadyHas ? 'CHANGE PIN' : 'SAVE PIN'}</Text>}
         </Pressable>
 
         <Pressable onPress={() => setShowForgot(true)} style={styles.forgotLink}>
@@ -157,6 +227,7 @@ export default function WalletSetPin() {
 }
 
 const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { padding: 20, paddingTop: 60 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },

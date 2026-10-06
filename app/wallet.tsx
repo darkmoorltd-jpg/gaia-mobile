@@ -57,11 +57,11 @@ export default function Wallet() {
       setWallet(res.wallet);
       setTxns(res.transactions);
     }
-    // Check PIN
+    // Check PIN via backend (single source of truth)
     try {
-      const r = await supabase.from('user_profiles').select('wallet_pin_hash').eq('user_id', user.id).maybeSingle();
-      setHasPin(!!(r.data && r.data.wallet_pin_hash));
-    } catch {}
+      const { hasWalletPin } = await import('../src/utils/wallet');
+      setHasPin(await hasWalletPin());
+    } catch { setHasPin(false); }
     setBusy(false);
     setRef(false);
   }, [user]);
