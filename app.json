@@ -87,14 +87,7 @@
       "expo-router",
       "expo-updates",
       "expo-document-picker",
-      [
-        "@maplibre/maplibre-react-native",
-        {
-          "android": {
-            "nativeMapsApiKey": ""
-          }
-        }
-      ]
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true
