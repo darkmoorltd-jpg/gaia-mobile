@@ -11,18 +11,20 @@ export default function WalletSend() {
   const [ident, setIdent] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     const amt = Number(amount);
     if (!ident.trim()) { Alert.alert('Missing recipient'); return; }
     if (!amt || amt < 10) { Alert.alert('Minimum N10'); return; }
+    if (!/^[0-9]{4}$/.test(pin)) { Alert.alert('Enter 4-digit PIN'); return; }
     Alert.alert('Send ' + fmtN(amt, 2) + '?', 'To ' + ident.trim(), [
       { text: 'Cancel', style: 'cancel' },
       { text: 'SEND', onPress: async () => {
         setBusy(true);
         try {
-          const r = await sendToUser(ident.trim(), amt, note.trim() || undefined);
+          const r = await sendToUser(ident.trim(), amt, note.trim() || undefined, pin);
           Alert.alert('Sent', 'To ' + r.recipient + '. New balance ' + fmtN(r.balance, 2), [{ text: 'OK', onPress: () => router.back() }]);
         } catch (e: any) {
           Alert.alert('Failed', e.message || 'Try again');
@@ -46,6 +48,9 @@ export default function WalletSend() {
 
         <Text style={styles.label}>NOTE (OPTIONAL)</Text>
         <TextInput value={note} onChangeText={setNote} placeholder="What is it for?" placeholderTextColor={palette.textDim} style={styles.input} />
+
+        <Text style={styles.label}>4-DIGIT PIN</Text>
+        <TextInput value={pin} onChangeText={(v) => setPin(v.replace(/[^0-9]/g, '').slice(0, 4))} keyboardType="number-pad" secureTextEntry maxLength={4} placeholder="••••" placeholderTextColor={palette.textDim} style={[styles.input, { fontSize: 22, letterSpacing: 8, textAlign: 'center' }]} />
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>SEND INSTANTLY</Text>}

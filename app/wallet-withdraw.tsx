@@ -16,6 +16,7 @@ export default function WalletWithdraw() {
   const [search, setSearch] = useState('');
   const [resolving, setResolving] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pin, setPin] = useState('');
 
   useEffect(() => { fetchBanks().then(setBanks); }, []);
 
@@ -35,12 +36,13 @@ export default function WalletWithdraw() {
     const amt = Number(amount);
     if (!acctName) { Alert.alert('Verify account first'); return; }
     if (!amt || amt < 500) { Alert.alert('Minimum N500'); return; }
+    if (!/^[0-9]{4}$/.test(pin)) { Alert.alert('Enter 4-digit PIN'); return; }
     Alert.alert('Withdraw ' + fmtN(amt, 2) + '?', 'To ' + acctName + ' ' + acct, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'WITHDRAW', onPress: async () => {
         setBusy(true);
         try {
-          await withdrawToBank({ account_number: acct, bank_code: bankCode, account_name: acctName, amount_naira: amt });
+          await withdrawToBank({ account_number: acct, bank_code: bankCode, account_name: acctName, amount_naira: amt, pin: pin });
           Alert.alert('Sent to bank', 'Your money is on its way. Settlement typically takes a few minutes.', [{ text: 'OK', onPress: () => router.back() }]);
         } catch (e: any) {
           Alert.alert('Failed', e.message || 'Try again');
@@ -89,6 +91,9 @@ export default function WalletWithdraw() {
 
         <Text style={styles.label}>AMOUNT (N)</Text>
         <TextInput value={amount} onChangeText={setAmount} keyboardType="number-pad" placeholder="5000" placeholderTextColor={palette.textDim} style={[styles.input, { fontSize: 22, fontWeight: '900' }]} />
+
+        <Text style={styles.label}>4-DIGIT PIN</Text>
+        <TextInput value={pin} onChangeText={(v) => setPin(v.replace(/[^0-9]/g, '').slice(0, 4))} keyboardType="number-pad" secureTextEntry maxLength={4} placeholder="••••" placeholderTextColor={palette.textDim} style={[styles.input, { fontSize: 22, letterSpacing: 8, textAlign: 'center' }]} />
 
         <Pressable onPress={submit} disabled={busy || !acctName} style={[styles.cta, (busy || !acctName) && { opacity: 0.4 }]}>
           {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>WITHDRAW TO BANK</Text>}

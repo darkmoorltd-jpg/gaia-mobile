@@ -84,10 +84,10 @@ export async function depositVerify(reference: string) {
   return d;
 }
 
-export async function sendToUser(identifier: string, amount_naira: number, note?: string) {
+export async function sendToUser(identifier: string, amount_naira: number, note?: string, pin?: string) {
   const r = await fetch(API + '/wallet/send/user', {
     method: 'POST', headers: await authHeaders(),
-    body: JSON.stringify({ identifier: identifier, amount_naira: amount_naira, note: note || null }),
+    body: JSON.stringify({ identifier: identifier, amount_naira: amount_naira, note: note || null, pin: pin || '' }),
   });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.detail || d.error || 'Send failed');
@@ -136,4 +136,49 @@ export function relTime(iso: string) {
     if (s < 604800) return Math.floor(s / 86400) + 'd ago';
     return new Date(iso).toLocaleDateString();
   } catch { return ''; }
+}
+
+
+export async function buyScansWithWallet(plan: string, pin: string) {
+  const r = await fetch(API + '/wallet/buy-scans', {
+    method: 'POST', headers: await authHeaders(),
+    body: JSON.stringify({ plan: plan, pin: pin }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Purchase failed');
+  return d;
+}
+
+export async function walletStatement(limit: number = 100) {
+  const r = await fetch(API + '/wallet/statement?limit=' + limit, { headers: await authHeaders() });
+  if (!r.ok) return [];
+  const d = await r.json();
+  return d.transactions || [];
+}
+
+export async function walletReceipt(reference: string) {
+  const r = await fetch(API + '/wallet/receipt/' + reference, { headers: await authHeaders() });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Receipt failed');
+  return d;
+}
+
+export async function verifyPin(pin: string) {
+  const r = await fetch(API + '/wallet/verify-pin', {
+    method: 'POST', headers: await authHeaders(),
+    body: JSON.stringify({ pin: pin }),
+  });
+  return r.ok;
+}
+
+export async function setWalletPin(pin: string) {
+  const { data, error } = await supabase.rpc('wallet_set_pin', { p_pin: pin });
+  if (error) throw new Error(error.message);
+  return true;
+}
+
+export async function hasWalletPin() {
+  const { data, error } = await supabase.rpc('wallet_has_pin');
+  if (error) return false;
+  return !!data;
 }

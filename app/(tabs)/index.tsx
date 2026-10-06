@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme, spacing } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { walletMe } from '../../src/utils/wallet';
 
 const { width } = Dimensions.get('window');
 const TILE_W = (width - 52) / 2;
@@ -33,6 +34,19 @@ export default function Home() {
   const refreshScans = useAuth((s) => s.refreshScans);
   const styles = createStyles(palette);
   const isAdmin = user?.email?.toLowerCase() === 'darkmoorltd@gmail.com';
+  const [gaiaAcct, setGaiaAcct] = useState<string | null>(null);
+  const [gaiaBal, setGaiaBal] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const r = await walletMe();
+      if (cancelled || !r) return;
+      setGaiaAcct(r.wallet.account_number);
+      setGaiaBal(r.wallet.balance);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +107,27 @@ export default function Home() {
             </Pressable>
           </LinearGradient>
         </Animated.View>
+
+        {/* GAIA Account Card */}
+        {gaiaAcct ? (
+          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+            <LinearGradient
+              colors={['#0d1410', '#0a1a10', '#0d1410']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ marginTop: 16, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', flexDirection: 'row', alignItems: 'center' }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 10, fontWeight: '900', letterSpacing: 2, color: 'rgba(0,255,136,0.8)' }}>MY GAIA ACCOUNT</Text>
+                <Text style={{ fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2, marginTop: 6 }}>{gaiaAcct}</Text>
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>Balance N{Number(gaiaBal).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              </View>
+              <Pressable onPress={() => router.push('/wallet' as any)} style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#00ff88' }}>
+                <Text style={{ fontSize: 10, fontWeight: '900', color: '#000', letterSpacing: 1.2 }}>WALLET</Text>
+              </Pressable>
+            </LinearGradient>
+          </Animated.View>
+        ) : null}
 
         {/* ============================================ */}
         {/* GAIA AGRONOMIST — hero tile                  */}

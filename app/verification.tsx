@@ -90,6 +90,14 @@ export default function Verification() {
       setMessage('Please fill all required fields and upload ID + selfie');
       return;
     }
+    if (!/^[0-9]{11}$/.test(bvn)) {
+      setMessage('BVN must be exactly 11 digits');
+      return;
+    }
+    if (!/^[0-9]{11}$/.test(nin)) {
+      setMessage('NIN must be exactly 11 digits');
+      return;
+    }
     setBusy(true); setMessage('');
     try {
       const idUrl = await uploadFile(idPhoto, 'id');
@@ -286,8 +294,8 @@ export default function Verification() {
         <Input label='LGA' value={lga} onChange={setLga} palette={palette} />
         <Input label='ADDRESS' value={address} onChange={setAddress} palette={palette} />
         <Text style={styles.section}>IDENTITY</Text>
-        <Input label='BVN' value={bvn} onChange={setBvn} keyboard='number-pad' palette={palette} />
-        <Input label='NIN' value={nin} onChange={setNin} keyboard='number-pad' palette={palette} />
+        <Input label='BVN (11 digits) *' value={bvn} onChange={(v: string) => setBvn(v.replace(/[^0-9]/g, '').slice(0, 11))} keyboard='number-pad' palette={palette} />
+        <Input label='NIN (11 digits) *' value={nin} onChange={(v: string) => setNin(v.replace(/[^0-9]/g, '').slice(0, 11))} keyboard='number-pad' palette={palette} />
         <Text style={styles.section}>FARM</Text>
         <Input label='MAIN CROP' value={crop} onChange={setCrop} palette={palette} />
         <Input label='FARM SIZE' value={farmSize} onChange={setFarmSize} palette={palette} />
