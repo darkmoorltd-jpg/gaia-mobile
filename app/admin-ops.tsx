@@ -72,6 +72,28 @@ export default function AdminOps() {
     await supabase.from('user_profiles')
       .update({ verification_status: status })
       .eq('user_id', v.user_id);
+
+    // Auto-provision wallet on approval
+    if (status === 'approved') {
+      try {
+        const s = await supabase.auth.getSession();
+        const token = s.data.session?.access_token;
+        const r = await fetch('https://gaia-api-xuly.onrender.com/wallet/provision-by-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ user_id: v.user_id }),
+        });
+        const d = await r.json();
+        if (r.ok) {
+          Alert.alert('Approved + Wallet Ready', (d.already_provisioned ? 'Already provisioned: ' : 'NUBAN assigned: ') + (d.account_number || ''));
+        } else {
+          Alert.alert('Approved', 'Wallet provisioning pending: ' + (d.detail || d.error || 'Try again from Provision Wallets'));
+        }
+      } catch (e: any) {
+        Alert.alert('Approved', 'Wallet provisioning failed: ' + (e?.message || 'Network error'));
+      }
+    }
+
     setAct(false);
     load();
   };

@@ -161,6 +161,10 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>EXECUTIVE BRIEFING</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push('/admin-provision-wallets' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffb300', backgroundColor: 'rgba(255,179,0,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffb300' }}>PROVISION WALLETS</Text>
+        </Pressable>
+
       </ScrollView>
     </View>
   );
