@@ -272,7 +272,7 @@ export function statusColor(status: string, palette: any) {
 // ============================================================
 // Escrow + wallet integration
 // ============================================================
-const API_BASE = 'https://gaia-api-xuly.onrender.com';
+export const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
