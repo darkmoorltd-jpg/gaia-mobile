@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Share } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
