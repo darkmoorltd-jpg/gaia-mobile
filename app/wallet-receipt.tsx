@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../src/theme';
-import { walletReceipt, fmtN, downloadReceiptPDF, shareFile } from '../src/utils/wallet';
+import { walletReceipt, fmtN, downloadReceiptPDF, downloadReceiptJPG, shareFile } from '../src/utils/wallet';
 
 export default function WalletReceipt() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function WalletReceipt() {
   const styles = createStyles(palette);
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState(true);
-  const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState<'pdf' | 'jpg' | null>(null);
 
   const load = useCallback(async () => {
     if (!ref) { setBusy(false); return; }
@@ -44,7 +44,7 @@ export default function WalletReceipt() {
 
   const sharePDF = async () => {
     if (!ref) return;
-    setDownloading(true);
+    setSharing('pdf');
     try {
       const uri = await downloadReceiptPDF(String(ref));
       if (!uri) throw new Error('Download failed');
@@ -52,7 +52,21 @@ export default function WalletReceipt() {
     } catch (e: any) {
       Alert.alert('PDF failed', e?.message || 'Try again');
     } finally {
-      setDownloading(false);
+      setSharing(null);
+    }
+  };
+
+  const shareJPG = async () => {
+    if (!ref) return;
+    setSharing('jpg');
+    try {
+      const uri = await downloadReceiptJPG(String(ref));
+      if (!uri) throw new Error('Download failed');
+      await shareFile(uri, 'image/jpeg', 'GAIA Receipt');
+    } catch (e: any) {
+      Alert.alert('JPG failed', e?.message || 'Try again');
+    } finally {
+      setSharing(null);
     }
   };
 
@@ -87,27 +101,18 @@ export default function WalletReceipt() {
               <Line k='Email' v={data.user_email || ''} styles={styles} />
               <Line k='Balance After' v={fmtN(data.current_balance, 2)} styles={styles} />
 
-              {data.meta && Object.keys(data.meta).length ? (
-                <>
-                  <Text style={styles.sectionLbl}>DETAILS</Text>
-                  {Object.entries(data.meta).map(([k, v]) => (
-                    <Line key={k} k={k} v={String(v)} styles={styles} />
-                  ))}
-                </>
-              ) : null}
-
               <View style={styles.divider} />
               <Text style={styles.signOff}>Darkmoor Ltd | Powered by GAIA</Text>
-              <Text style={styles.signOff2}>Save this receipt for your records</Text>
             </LinearGradient>
 
-            <View style={styles.actionRow}>
-              <Pressable onPress={sharePDF} disabled={downloading} style={[styles.primaryBtn, downloading && { opacity: 0.5 }]}>
-                {downloading ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.primaryBtnTxt}>SHARE AS PDF</Text>}
-              </Pressable>
-            </View>
-            <Pressable onPress={shareText} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnTxt}>SHARE AS TEXT</Text>
+            <Pressable onPress={shareJPG} disabled={sharing !== null} style={[styles.primaryBtn, sharing !== null && { opacity: 0.5 }]}>
+              {sharing === 'jpg' ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.primaryBtnTxt}>SHARE AS IMAGE</Text>}
+            </Pressable>
+            <Pressable onPress={sharePDF} disabled={sharing !== null} style={[styles.secondaryBtn, sharing !== null && { opacity: 0.5 }]}>
+              {sharing === 'pdf' ? <ActivityIndicator color={palette.neon} /> : <Text style={styles.secondaryBtnTxt}>SHARE AS PDF</Text>}
+            </Pressable>
+            <Pressable onPress={shareText} style={styles.tertiaryBtn}>
+              <Text style={styles.tertiaryBtnTxt}>SHARE AS TEXT</Text>
             </Pressable>
           </>
         ) : null}
@@ -145,15 +150,14 @@ const createStyles = (p: any) => StyleSheet.create({
   line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   lineK: { fontSize: 11, color: 'rgba(255,255,255,0.55)', flex: 1, marginRight: 12 },
   lineV: { fontSize: 12, fontWeight: '800', color: '#fff', flex: 1, textAlign: 'right' },
-  sectionLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: 'rgba(255,255,255,0.5)', marginTop: 20, marginBottom: 8 },
   divider: { height: 1, backgroundColor: 'rgba(0,255,136,0.2)', marginVertical: 20 },
   signOff: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center', letterSpacing: 1 },
-  signOff2: { fontSize: 9, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4, fontStyle: 'italic' },
-  actionRow: { marginTop: 20 },
-  primaryBtn: { padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
+  primaryBtn: { marginTop: 20, padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
   primaryBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
-  secondaryBtn: { marginTop: 10, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
+  secondaryBtn: { marginTop: 10, padding: 18, borderRadius: 14, borderWidth: 1.5, borderColor: p.neon, alignItems: 'center' },
   secondaryBtnTxt: { fontSize: 13, fontWeight: '900', color: p.neon, letterSpacing: 1.5 },
+  tertiaryBtn: { marginTop: 10, padding: 14, alignItems: 'center' },
+  tertiaryBtnTxt: { fontSize: 12, fontWeight: '800', color: p.textMuted, letterSpacing: 1 },
   emptyBox: { padding: 30, alignItems: 'center' },
   emptyTxt: { fontSize: 13, color: p.textMuted },
 });

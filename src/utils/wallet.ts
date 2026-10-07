@@ -205,15 +205,57 @@ export async function resetPinWithPassword(password: string, new_pin: string) {
 // PDF download + preferences
 // ============================================================
 
-export async function downloadStatementPDF(days: number = 90): Promise<string | null> {
+export interface StatementRange {
+  days?: number;
+  date_from?: string;
+  date_to?: string;
+}
+
+function _qs(r: StatementRange): string {
+  if (r.date_from && r.date_to) {
+    return '?date_from=' + encodeURIComponent(r.date_from) + '&date_to=' + encodeURIComponent(r.date_to);
+  }
+  return '?days=' + (r.days || 90);
+}
+
+export async function downloadStatementPDF(range: StatementRange = { days: 90 }): Promise<string | null> {
   const s = await supabase.auth.getSession();
   const token = s.data.session?.access_token;
   if (!token) throw new Error('Not authenticated');
-
   const FS = await import('expo-file-system/legacy');
   const path = FS.cacheDirectory + 'gaia-statement-' + Date.now() + '.pdf';
   const r = await FS.downloadAsync(
-    API + '/wallet/statement/pdf?days=' + days,
+    API + '/wallet/statement/pdf' + _qs(range),
+    path,
+    { headers: { Authorization: 'Bearer ' + token } },
+  );
+  if (r.status !== 200) throw new Error('Download failed: ' + r.status);
+  return r.uri;
+}
+
+export async function downloadStatementJPG(range: StatementRange = { days: 90 }): Promise<string | null> {
+  const s = await supabase.auth.getSession();
+  const token = s.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+  const FS = await import('expo-file-system/legacy');
+  const path = FS.cacheDirectory + 'gaia-statement-' + Date.now() + '.jpg';
+  const r = await FS.downloadAsync(
+    API + '/wallet/statement/jpg' + _qs(range),
+    path,
+    { headers: { Authorization: 'Bearer ' + token } },
+  );
+  if (r.status !== 200) throw new Error('Download failed: ' + r.status);
+  return r.uri;
+}
+
+export async function downloadReceiptJPG(reference: string): Promise<string | null> {
+  const s = await supabase.auth.getSession();
+  const token = s.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+  const FS = await import('expo-file-system/legacy');
+  const path = FS.cacheDirectory + 'gaia-receipt-' + reference.slice(0, 12) + '.jpg';
+  const r = await FS.downloadAsync(
+    API + '/wallet/receipt/' + reference + '/jpg',
     path,
     { headers: { Authorization: 'Bearer ' + token } },
   );

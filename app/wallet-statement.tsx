@@ -1,11 +1,22 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import {
-  walletStatement, fmtN, relTime, downloadStatementPDF, shareFile,
-  type WalletTxn,
+  walletStatement, fmtN, downloadStatementPDF, downloadStatementJPG, shareFile,
+  type WalletTxn, type StatementRange,
 } from '../src/utils/wallet';
+
+type RangeKey = '7' | '30' | '90' | '180' | '365' | 'custom';
+
+const RANGE_CHIPS: { k: RangeKey; label: string }[] = [
+  { k: '7', label: '7D' },
+  { k: '30', label: '30D' },
+  { k: '90', label: '90D' },
+  { k: '180', label: '6M' },
+  { k: '365', label: '1Y' },
+  { k: 'custom', label: 'CUSTOM' },
+];
 
 export default function WalletStatement() {
   const router = useRouter();
@@ -14,11 +25,14 @@ export default function WalletStatement() {
   const [txns, setTxns] = useState<WalletTxn[]>([]);
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState<'pdf' | 'jpg' | null>(null);
+  const [range, setRange] = useState<RangeKey>('90');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const load = useCallback(async () => {
     setBusy(true);
-    const rows = await walletStatement(200);
+    const rows = await walletStatement(500);
     setTxns(rows);
     setBusy(false);
     setRef(false);
@@ -26,16 +40,39 @@ export default function WalletStatement() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const currentRange = (): StatementRange => {
+    if (range === 'custom') {
+      if (fromDate && toDate) {
+        return { date_from: fromDate + 'T00:00:00', date_to: toDate + 'T23:59:59' };
+      }
+      return { days: 90 };
+    }
+    return { days: parseInt(range, 10) };
+  };
+
   const onDownloadPDF = async () => {
-    setDownloading(true);
+    setDownloading('pdf');
     try {
-      const uri = await downloadStatementPDF(90);
+      const uri = await downloadStatementPDF(currentRange());
       if (!uri) throw new Error('Download failed');
       await shareFile(uri, 'application/pdf', 'GAIA Wallet Statement');
     } catch (e: any) {
       Alert.alert('PDF failed', e?.message || 'Try again');
     } finally {
-      setDownloading(false);
+      setDownloading(null);
+    }
+  };
+
+  const onDownloadJPG = async () => {
+    setDownloading('jpg');
+    try {
+      const uri = await downloadStatementJPG(currentRange());
+      if (!uri) throw new Error('Download failed');
+      await shareFile(uri, 'image/jpeg', 'GAIA Wallet Summary');
+    } catch (e: any) {
+      Alert.alert('JPG failed', e?.message || 'Try again');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -53,22 +90,72 @@ export default function WalletStatement() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}>
+        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}
+        keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Account Statement</Text>
-        <Text style={styles.sub}>{txns.length} transactions</Text>
+        <Text style={styles.sub}>{txns.length} transactions in view</Text>
 
-        <Pressable
-          onPress={onDownloadPDF}
-          disabled={downloading || txns.length === 0}
-          style={[styles.pdfBtn, (downloading || txns.length === 0) && { opacity: 0.4 }]}
-        >
-          {downloading ? (
-            <ActivityIndicator color={palette.obsidian} />
-          ) : (
-            <Text style={styles.pdfBtnTxt}>DOWNLOAD PDF (90 DAYS)</Text>
-          )}
-        </Pressable>
+        <Text style={styles.label}>DATE RANGE</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+          {RANGE_CHIPS.map((c) => (
+            <Pressable key={c.k} onPress={() => setRange(c.k)} style={[styles.chip, range === c.k && styles.chipOn]}>
+              <Text style={[styles.chipText, range === c.k && styles.chipTextOn]}>{c.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {range === 'custom' ? (
+          <View style={styles.customRow}>
+            <View style={styles.customCol}>
+              <Text style={styles.label}>FROM (YYYY-MM-DD)</Text>
+              <TextInput
+                value={fromDate}
+                onChangeText={setFromDate}
+                placeholder="2026-01-01"
+                placeholderTextColor={palette.textDim}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.customCol}>
+              <Text style={styles.label}>TO (YYYY-MM-DD)</Text>
+              <TextInput
+                value={toDate}
+                onChangeText={setToDate}
+                placeholder="2026-12-31"
+                placeholderTextColor={palette.textDim}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.exportRow}>
+          <Pressable
+            onPress={onDownloadPDF}
+            disabled={downloading !== null || txns.length === 0}
+            style={[styles.exportBtn, downloading !== null && { opacity: 0.5 }]}
+          >
+            {downloading === 'pdf' ? (
+              <ActivityIndicator color={palette.obsidian} />
+            ) : (
+              <Text style={styles.exportBtnTxt}>EXPORT PDF</Text>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={onDownloadJPG}
+            disabled={downloading !== null || txns.length === 0}
+            style={[styles.exportBtn, { backgroundColor: '#4fc3f7' }, downloading !== null && { opacity: 0.5 }]}
+          >
+            {downloading === 'jpg' ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.exportBtnTxt}>SHARE JPG</Text>
+            )}
+          </Pressable>
+        </View>
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -119,8 +206,18 @@ const createStyles = (p: any) => StyleSheet.create({
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
   sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 16 },
-  pdfBtn: { padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginBottom: 20 },
-  pdfBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
+  label: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted, marginTop: 14, marginBottom: 8 },
+  chipScroll: { gap: 6, paddingRight: 16, marginBottom: 12 },
+  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
+  chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  chipText: { fontSize: 11, fontWeight: '800', color: p.textMuted, letterSpacing: 0.5 },
+  chipTextOn: { color: p.neon },
+  customRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  customCol: { flex: 1 },
+  input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 13 },
+  exportRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  exportBtn: { flex: 1, padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
+  exportBtnTxt: { fontSize: 12, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   summaryCard: { flex: 1, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
   summaryLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted },
