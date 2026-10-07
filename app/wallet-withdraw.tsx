@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
@@ -17,6 +17,16 @@ export default function WalletWithdraw() {
   const [resolving, setResolving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pin, setPin] = useState('');
+  const submitTimer = useRef<any>(null);
+
+  useEffect(() => {
+    if (submitTimer.current) { clearTimeout(submitTimer.current); submitTimer.current = null; }
+    if (busy) return;
+    if (!/^[0-9]{4}$/.test(pin)) return;
+    if (!acctName || !amount || Number(amount) < 500) return;
+    submitTimer.current = setTimeout(() => { submit(); }, 400);
+    return () => { if (submitTimer.current) clearTimeout(submitTimer.current); };
+  }, [pin, acctName, amount, busy]);
 
   useEffect(() => { fetchBanks().then(setBanks); }, []);
 

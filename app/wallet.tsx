@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
   Modal, TextInput, Alert, RefreshControl,
@@ -48,6 +48,15 @@ export default function Wallet() {
   const [buyPlan, setBuyPlan] = useState<any>(null);
   const [buyPin, setBuyPin] = useState('');
   const [buyBusy, setBuyBusy] = useState(false);
+  const buyPinTimer = useRef<any>(null);
+
+  useEffect(() => {
+    if (buyPinTimer.current) { clearTimeout(buyPinTimer.current); buyPinTimer.current = null; }
+    if (buyBusy || !buyPlan) return;
+    if (!/^[0-9]{4}$/.test(buyPin)) return;
+    buyPinTimer.current = setTimeout(() => { confirmBuy(); }, 350);
+    return () => { if (buyPinTimer.current) clearTimeout(buyPinTimer.current); };
+  }, [buyPin, buyPlan, buyBusy]);
 
   const load = useCallback(async () => {
     if (!user) return;

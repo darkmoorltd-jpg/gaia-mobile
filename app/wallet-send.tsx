@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
@@ -13,6 +13,16 @@ export default function WalletSend() {
   const [note, setNote] = useState('');
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
+  const submitTimer = useRef<any>(null);
+
+  useEffect(() => {
+    if (submitTimer.current) { clearTimeout(submitTimer.current); submitTimer.current = null; }
+    if (busy) return;
+    if (!/^[0-9]{4}$/.test(pin)) return;
+    if (!ident.trim() || !amount) return;
+    submitTimer.current = setTimeout(() => { submit(); }, 350);
+    return () => { if (submitTimer.current) clearTimeout(submitTimer.current); };
+  }, [pin, ident, amount, busy]);
 
   const submit = async () => {
     const amt = Number(amount);
