@@ -70,17 +70,26 @@ export async function fetchListingById(id: number | string): Promise<Listing | n
 
 export async function uploadListingImage(userId: string, uri: string): Promise<string | null> {
   try {
-    const res = await fetch(uri);
-    const blob = await res.blob();
-    const buf = await new Response(blob).arrayBuffer();
+    const FileSystem = await import('expo-file-system/legacy');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return null;
+
     const rand = Math.random().toString(36).slice(2, 8);
     const path = userId + '/' + Date.now() + '_' + rand + '.jpg';
-    const { error } = await supabase.storage
-      .from('listing-images')
-      .upload(path, buf, { contentType: 'image/jpeg' });
-    if (error) return null;
-    const { data } = supabase.storage.from('listing-images').getPublicUrl(path);
-    return data.publicUrl;
+    const url = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co/storage/v1/object/listing-images/' + path;
+
+    const up = await FileSystem.uploadAsync(url, uri, {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'false',
+      },
+    });
+    if (up.status < 200 || up.status >= 300) return null;
+    return 'https://pxvtvuwlpzwlkdoxjrep.supabase.co/storage/v1/object/public/listing-images/' + path;
   } catch { return null; }
 }
 
@@ -230,11 +239,16 @@ export async function fetchSellerOrders(sellerId: string) {
 }
 
 export async function updateOrderStatus(orderId: number, status: string) {
+  // Guard: only the seller can flip shipped/delivered.
+  // Confirmation MUST go through /marketplace/release (backend), never directly,
+  // otherwise the escrow stays held and the seller is never paid.
+  if (status === 'confirmed') {
+    throw new Error('Use releaseEscrow() — do not set confirmed directly.');
+  }
   try {
     const update: any = { status };
     if (status === 'shipped') update.shipped_at = new Date().toISOString();
     if (status === 'delivered') update.delivered_at = new Date().toISOString();
-    if (status === 'confirmed') update.confirmed_at = new Date().toISOString();
     await supabase.from('marketplace_orders').update(update).eq('id', orderId);
   } catch {}
 }
@@ -303,6 +317,11 @@ export async function releaseEscrow(orderId: string | number) {
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.detail || d.error || 'Release failed');
   return d;
+}
+
+// Convenience wrapper used by confirmation flows.
+export async function confirmDelivery(orderId: string | number) {
+  return releaseEscrow(orderId);
 }
 
 export async function cancelOrder(orderId: string | number, reason: string = '') {
