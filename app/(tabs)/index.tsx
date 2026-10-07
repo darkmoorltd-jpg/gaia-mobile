@@ -32,6 +32,7 @@ export default function Home() {
   const plan = useAuth((s) => s.plan);
   const user = useAuth((s) => s.user);
   const refreshScans = useAuth((s) => s.refreshScans);
+  const [badgeTier, setBadgeTier] = useState<string | null>(null);
   const styles = createStyles(palette);
   const isAdmin = user?.email?.toLowerCase() === 'darkmoorltd@gmail.com';
   const [gaiaAcct, setGaiaAcct] = useState<string | null>(null);
@@ -52,14 +53,15 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       if (!cancelled) {
+        try { await refreshScans(); } catch (e) {}
         try {
-          await refreshScans();
+          const { supabase } = await import('../../src/api/supabase');
+          const r = await supabase.rpc('badge_current');
+          if (!cancelled && r.data && r.data.tier) setBadgeTier(r.data.tier);
         } catch (e) {}
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const hour = new Date().getHours();
@@ -87,7 +89,22 @@ export default function Home() {
         <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
           <View style={styles.flex1}>
             <Text style={styles.greeting}>{greeting},</Text>
-            <Text style={styles.name} numberOfLines={1}>{firstName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.name} numberOfLines={1}>{firstName}</Text>
+              {badgeTier ? (
+                <View style={{
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                  backgroundColor: badgeTier === 'platinum' ? '#e5e4e2'
+                    : badgeTier === 'gold' ? '#ffd700'
+                    : badgeTier === 'silver' ? '#b0bec5'
+                    : '#c68a5c',
+                }}>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
+                    {String(badgeTier).toUpperCase()}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
           <LinearGradient colors={[palette.neon, palette.neonDim]} style={styles.scanBadge}>
             <Text style={styles.scanNum}>{scansRemaining}</Text>
