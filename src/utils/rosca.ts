@@ -174,3 +174,57 @@ export const VARIANTS = [
   { key: 'adashe', label: 'Adashe (Monthly)' },
   { key: 'cooperative', label: 'Cooperative' },
 ];
+
+export interface TrustScore {
+  score: number;
+  band: 'excellent' | 'good' | 'fair' | 'poor';
+  completed_rounds: number;
+  total_contributions: number;
+  on_time_rate_pct: number;
+  days_active: number;
+}
+
+export async function getTrustScore(groupId: string): Promise<TrustScore> {
+  return unwrap(await supabase.rpc('rosca_trust_score', { p_group_id: groupId }));
+}
+
+export async function sendReminders(groupId: string): Promise<number> {
+  const r = await supabase.rpc('rosca_send_reminders', { p_group_id: groupId });
+  if (r.error) throw new Error(r.error.message || 'Reminders failed');
+  return Number(r.data || 0);
+}
+
+export async function downloadGroupStatementPDF(groupId: string): Promise<string | null> {
+  const s = await supabase.auth.getSession();
+  const token = s.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+
+  const FS = await import('expo-file-system/legacy');
+  const path = FS.cacheDirectory + 'gaia-rosca-' + groupId.slice(0, 8) + '-' + Date.now() + '.pdf';
+  const r = await FS.downloadAsync(
+    'https://gaia-api-xuly.onrender.com/rosca/' + groupId + '/statement/pdf',
+    path,
+    { headers: { Authorization: 'Bearer ' + token } },
+  );
+  if (r.status !== 200) throw new Error('Download failed: ' + r.status);
+  return r.uri;
+}
+
+export async function shareGroupStatement(groupId: string): Promise<void> {
+  const uri = await downloadGroupStatementPDF(groupId);
+  if (!uri) throw new Error('Download failed');
+  const Sharing = await import('expo-sharing');
+  if (!(await Sharing.isAvailableAsync())) throw new Error('Sharing unavailable');
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'GAIA ROSCA Statement',
+    UTI: 'com.adobe.pdf',
+  });
+}
+
+export function trustColor(band: string): string {
+  if (band === 'excellent') return '#00ff88';
+  if (band === 'good') return '#4fc3f7';
+  if (band === 'fair') return '#ffb300';
+  return '#ff3b5c';
+}

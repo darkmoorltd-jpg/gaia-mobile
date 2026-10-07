@@ -13,9 +13,10 @@ import {
   listMyGroups, getGroupDetail, createGroup, joinGroup,
   startCycle, contribute, approveContribution, triggerPayout,
   removeMember, leaveGroup, isVerified,
+  getTrustScore, sendReminders, shareGroupStatement, trustColor,
   fmtN, fmtDate, fmtDateTime,
   FREQUENCIES, VARIANTS,
-  type Group, type GroupDetail,
+  type Group, type GroupDetail, type TrustScore,
 } from '../src/utils/rosca';
 
 type Screen = 'list' | 'detail';
@@ -50,6 +51,7 @@ export default function SavingsGroups() {
   // PIN modal (for contribute)
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState('');
+  const [trust, setTrust] = useState<TrustScore | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -74,6 +76,10 @@ export default function SavingsGroups() {
       const d = await getGroupDetail(groupId);
       setDetail(d);
       setScreen('detail');
+      try {
+        const s = await getTrustScore(groupId);
+        setTrust(s);
+      } catch { setTrust(null); }
     } catch (e: any) {
       Alert.alert('Detail failed', e?.message || 'Try again');
     } finally {
@@ -289,6 +295,31 @@ export default function SavingsGroups() {
     );
   };
 
+  const onShareStatement = async () => {
+    if (!detail) return;
+    setActionBusy(true);
+    try {
+      await shareGroupStatement(detail.group.id);
+    } catch (e: any) {
+      Alert.alert('Statement failed', e?.message || 'Try again');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const onNudge = async () => {
+    if (!detail) return;
+    setActionBusy(true);
+    try {
+      const n = await sendReminders(detail.group.id);
+      Alert.alert('Reminders queued', String(n) + ' member' + (n === 1 ? '' : 's') + ' notified');
+    } catch (e: any) {
+      Alert.alert('Failed', e?.message || 'Try again');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const isOwner = detail && user && detail.group.owner_id === user.id;
 
   return (
@@ -415,6 +446,23 @@ export default function SavingsGroups() {
               <NeonButton label="SHARE VIA WHATSAPP" onPress={() => shareWhatsApp(detail.group)} style={{ marginTop: 12 }} />
             </GlassCard>
 
+            {trust ? (
+              <View style={[styles.trustCard, { borderColor: trustColor(trust.band) }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trustLabel}>GROUP TRUST SCORE</Text>
+                  <Text style={[styles.trustValue, { color: trustColor(trust.band) }]}>
+                    {trust.score} / 100 · {trust.band.toUpperCase()}
+                  </Text>
+                  <Text style={styles.trustMeta}>
+                    {trust.on_time_rate_pct}% on-time · {trust.completed_rounds} rounds done
+                  </Text>
+                </View>
+                <Pressable onPress={onShareStatement} style={[styles.pdfBtn, actionBusy && { opacity: 0.5 }]} disabled={actionBusy}>
+                  <Text style={styles.pdfBtnText}>PDF</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <View style={styles.statsRow}>
               <View style={styles.statBox}>
                 <Text style={styles.statVal}>{detail.members.filter(m => m.status === 'active').length}/{detail.group.cycle_members}</Text>
@@ -460,6 +508,9 @@ export default function SavingsGroups() {
                   onPress={onPayout}
                   disabled={actionBusy || (detail.wallet?.escrow || 0) < detail.group.contribution_amount * detail.group.cycle_members * 0.5}
                 />
+                <Pressable onPress={onNudge} disabled={actionBusy} style={styles.nudgeBtn}>
+                  <Text style={styles.nudgeText}>NUDGE MEMBERS VIA PUSH / SMS</Text>
+                </Pressable>
               </View>
             ) : null}
 
@@ -684,6 +735,14 @@ const createStyles = (p: any) => StyleSheet.create({
   statVal: { fontSize: 15, fontWeight: '900', color: p.neon },
   statLbl: { fontSize: 9, color: p.textMuted, fontWeight: '700', marginTop: 4, letterSpacing: 1 },
   ownerActions: { marginTop: 10 },
+  trustCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1.5, backgroundColor: p.surface, marginTop: 16 },
+  trustLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted },
+  trustValue: { fontSize: 18, fontWeight: '900', marginTop: 4 },
+  trustMeta: { fontSize: 11, color: p.textMuted, marginTop: 4 },
+  pdfBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5, borderColor: p.neon, alignItems: 'center' },
+  pdfBtnText: { fontSize: 11, fontWeight: '900', color: p.neon, letterSpacing: 1.5 },
+  nudgeBtn: { marginTop: 10, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: '#ff9800', alignItems: 'center' },
+  nudgeText: { fontSize: 11, fontWeight: '900', color: '#ff9800', letterSpacing: 1.5 },
   leaveBtn: { marginTop: 12, padding: 14, alignItems: 'center' },
   leaveText: { fontSize: 12, color: '#ff3b5c', fontWeight: '800' },
   posBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: p.surface, borderWidth: 2, borderColor: p.border, alignItems: 'center', justifyContent: 'center' },
