@@ -200,3 +200,109 @@ export async function resetPinWithPassword(password: string, new_pin: string) {
   if (!r.ok) throw new Error(d.detail || d.error || 'Reset failed');
   return d;
 }
+
+// ============================================================
+// PDF download + preferences
+// ============================================================
+
+export async function downloadStatementPDF(days: number = 90): Promise<string | null> {
+  const s = await supabase.auth.getSession();
+  const token = s.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+
+  const FS = await import('expo-file-system/legacy');
+  const path = FS.cacheDirectory + 'gaia-statement-' + Date.now() + '.pdf';
+  const r = await FS.downloadAsync(
+    API + '/wallet/statement/pdf?days=' + days,
+    path,
+    { headers: { Authorization: 'Bearer ' + token } },
+  );
+  if (r.status !== 200) throw new Error('Download failed: ' + r.status);
+  return r.uri;
+}
+
+export async function downloadReceiptPDF(reference: string): Promise<string | null> {
+  const s = await supabase.auth.getSession();
+  const token = s.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+
+  const FS = await import('expo-file-system/legacy');
+  const path = FS.cacheDirectory + 'gaia-receipt-' + reference.slice(0, 12) + '.pdf';
+  const r = await FS.downloadAsync(
+    API + '/wallet/receipt/' + reference + '/pdf',
+    path,
+    { headers: { Authorization: 'Bearer ' + token } },
+  );
+  if (r.status !== 200) throw new Error('Download failed: ' + r.status);
+  return r.uri;
+}
+
+export async function shareFile(uri: string, mimeType: string = 'application/pdf', title: string = 'GAIA') {
+  try {
+    const Sharing = await import('expo-sharing');
+    const available = await Sharing.isAvailableAsync();
+    if (!available) throw new Error('Sharing not available on this device');
+    await Sharing.shareAsync(uri, { mimeType: mimeType, dialogTitle: title, UTI: 'com.adobe.pdf' });
+    return true;
+  } catch (e: any) {
+    throw new Error(e?.message || 'Share failed');
+  }
+}
+
+export interface WalletPrefs {
+  language: string;
+  theme: string;
+  currency: string;
+  date_format: string;
+  receipt_email: boolean;
+  receipt_sms: boolean;
+  notify_txn_push: boolean;
+  daily_limit_naira: number;
+}
+
+export const DEFAULT_PREFS: WalletPrefs = {
+  language: 'en',
+  theme: 'dark',
+  currency: 'NGN',
+  date_format: 'DD/MM/YYYY',
+  receipt_email: true,
+  receipt_sms: true,
+  notify_txn_push: true,
+  daily_limit_naira: 50000,
+};
+
+export async function loadPreferences(): Promise<WalletPrefs> {
+  const s = await supabase.auth.getSession();
+  const uid = s.data.session?.user?.id;
+  if (!uid) return DEFAULT_PREFS;
+  try {
+    const { data } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', uid)
+      .maybeSingle();
+    if (data) {
+      return {
+        language: data.language || DEFAULT_PREFS.language,
+        theme: data.theme || DEFAULT_PREFS.theme,
+        currency: data.currency || DEFAULT_PREFS.currency,
+        date_format: data.date_format || DEFAULT_PREFS.date_format,
+        receipt_email: data.receipt_email ?? DEFAULT_PREFS.receipt_email,
+        receipt_sms: data.receipt_sms ?? DEFAULT_PREFS.receipt_sms,
+        notify_txn_push: data.notify_txn_push ?? DEFAULT_PREFS.notify_txn_push,
+        daily_limit_naira: Number(data.daily_limit_naira || DEFAULT_PREFS.daily_limit_naira),
+      };
+    }
+  } catch {}
+  return DEFAULT_PREFS;
+}
+
+export async function savePreferences(prefs: Partial<WalletPrefs>): Promise<void> {
+  const s = await supabase.auth.getSession();
+  const uid = s.data.session?.user?.id;
+  if (!uid) throw new Error('Not authenticated');
+  const { error } = await supabase
+    .from('user_preferences')
+    .upsert({ user_id: uid, ...prefs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) throw new Error(error.message);
+}

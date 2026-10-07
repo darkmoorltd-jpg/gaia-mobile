@@ -1,8 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
-import { walletStatement, fmtN, relTime, type WalletTxn } from '../src/utils/wallet';
+import {
+  walletStatement, fmtN, relTime, downloadStatementPDF, shareFile,
+  type WalletTxn,
+} from '../src/utils/wallet';
 
 export default function WalletStatement() {
   const router = useRouter();
@@ -11,6 +14,7 @@ export default function WalletStatement() {
   const [txns, setTxns] = useState<WalletTxn[]>([]);
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -21,6 +25,19 @@ export default function WalletStatement() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      const uri = await downloadStatementPDF(90);
+      if (!uri) throw new Error('Download failed');
+      await shareFile(uri, 'application/pdf', 'GAIA Wallet Statement');
+    } catch (e: any) {
+      Alert.alert('PDF failed', e?.message || 'Try again');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const totalIn = txns.filter((t) => t.direction === 'in' && t.status === 'success').reduce((s, t) => s + Number(t.amount || 0), 0);
   const totalOut = txns.filter((t) => t.direction === 'out' && t.status === 'success').reduce((s, t) => s + Number(t.amount || 0), 0);
@@ -40,6 +57,18 @@ export default function WalletStatement() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Account Statement</Text>
         <Text style={styles.sub}>{txns.length} transactions</Text>
+
+        <Pressable
+          onPress={onDownloadPDF}
+          disabled={downloading || txns.length === 0}
+          style={[styles.pdfBtn, (downloading || txns.length === 0) && { opacity: 0.4 }]}
+        >
+          {downloading ? (
+            <ActivityIndicator color={palette.obsidian} />
+          ) : (
+            <Text style={styles.pdfBtnTxt}>DOWNLOAD PDF (90 DAYS)</Text>
+          )}
+        </Pressable>
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -89,7 +118,9 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { padding: 20, paddingTop: 60 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
+  sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 16 },
+  pdfBtn: { padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginBottom: 20 },
+  pdfBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   summaryCard: { flex: 1, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
   summaryLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted },

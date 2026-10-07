@@ -227,6 +227,7 @@ export default function Wallet() {
         <View style={styles.actionGrid}>
           <Pressable onPress={() => router.push('/wallet-statement' as any)} style={styles.actBtn}><Text style={styles.actIcon}>~</Text><Text style={styles.actLbl}>STATEMENT</Text></Pressable>
           <Pressable onPress={() => router.push('/wallet-set-pin' as any)} style={styles.actBtn}><Text style={styles.actIcon}>{hasPin ? '*' : '!'}</Text><Text style={styles.actLbl}>{hasPin ? 'CHANGE PIN' : 'SET PIN'}</Text></Pressable>
+          <Pressable onPress={() => router.push('/wallet-preferences' as any)} style={styles.actBtn}><Text style={styles.actIcon}>@</Text><Text style={styles.actLbl}>PREFERENCES</Text></Pressable>
         </View>
 
         {!hasPin ? (

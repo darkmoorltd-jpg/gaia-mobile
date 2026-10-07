@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../src/theme';
-import { walletReceipt, fmtN } from '../src/utils/wallet';
+import { walletReceipt, fmtN, downloadReceiptPDF, shareFile } from '../src/utils/wallet';
 
 export default function WalletReceipt() {
   const router = useRouter();
@@ -12,6 +12,7 @@ export default function WalletReceipt() {
   const styles = createStyles(palette);
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async () => {
     if (!ref) { setBusy(false); return; }
@@ -26,7 +27,7 @@ export default function WalletReceipt() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  const share = async () => {
+  const shareText = async () => {
     if (!data) return;
     const t = [
       'GAIA WALLET RECEIPT',
@@ -39,6 +40,20 @@ export default function WalletReceipt() {
       'Account: ' + (data.account_number || ''),
     ].join('\n');
     Share.share({ message: t });
+  };
+
+  const sharePDF = async () => {
+    if (!ref) return;
+    setDownloading(true);
+    try {
+      const uri = await downloadReceiptPDF(String(ref));
+      if (!uri) throw new Error('Download failed');
+      await shareFile(uri, 'application/pdf', 'GAIA Receipt');
+    } catch (e: any) {
+      Alert.alert('PDF failed', e?.message || 'Try again');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -86,8 +101,13 @@ export default function WalletReceipt() {
               <Text style={styles.signOff2}>Save this receipt for your records</Text>
             </LinearGradient>
 
-            <Pressable onPress={share} style={styles.shareBtn}>
-              <Text style={styles.shareBtnTxt}>SHARE RECEIPT</Text>
+            <View style={styles.actionRow}>
+              <Pressable onPress={sharePDF} disabled={downloading} style={[styles.primaryBtn, downloading && { opacity: 0.5 }]}>
+                {downloading ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.primaryBtnTxt}>SHARE AS PDF</Text>}
+              </Pressable>
+            </View>
+            <Pressable onPress={shareText} style={styles.secondaryBtn}>
+              <Text style={styles.secondaryBtnTxt}>SHARE AS TEXT</Text>
             </Pressable>
           </>
         ) : null}
@@ -129,8 +149,11 @@ const createStyles = (p: any) => StyleSheet.create({
   divider: { height: 1, backgroundColor: 'rgba(0,255,136,0.2)', marginVertical: 20 },
   signOff: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textAlign: 'center', letterSpacing: 1 },
   signOff2: { fontSize: 9, color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 4, fontStyle: 'italic' },
-  shareBtn: { marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
-  shareBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
+  actionRow: { marginTop: 20 },
+  primaryBtn: { padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
+  primaryBtnTxt: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1.5 },
+  secondaryBtn: { marginTop: 10, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
+  secondaryBtnTxt: { fontSize: 13, fontWeight: '900', color: p.neon, letterSpacing: 1.5 },
   emptyBox: { padding: 30, alignItems: 'center' },
   emptyTxt: { fontSize: 13, color: p.textMuted },
 });
