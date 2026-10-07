@@ -178,6 +178,19 @@ export default function Wallet() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}>
+        <Pressable
+          onPress={() => {
+            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
+          hitSlop={10}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        </Pressable>
         <Text style={styles.title}>Wallet</Text>
         <Text style={styles.sub}>Your money, secured.</Text>
 

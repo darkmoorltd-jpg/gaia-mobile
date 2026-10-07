@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Modal, FlatList } from 'react-native';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { LANGUAGES, findLanguage } from '../src/utils/languages';
@@ -8,6 +9,7 @@ const LANG_KEY = 'gaia.language';
 
 export default function Settings() {
   const { palette, mode, setMode } = useTheme();
+  const router = useRouter();
   const styles = createStyles(palette);
 
   const [push, setPush] = useState(true);
@@ -32,6 +34,19 @@ export default function Settings() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <Pressable
+          onPress={() => {
+            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
+          hitSlop={10}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        </Pressable>
         <Text style={styles.title}>Settings</Text>
 
         <Text style={styles.sectionLabel}>APPEARANCE</Text>

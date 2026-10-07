@@ -81,6 +81,19 @@ export default function MarketplaceHome() {
         refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={palette.neon} />}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          onPress={() => {
+            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
+          hitSlop={10}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        </Pressable>
         {/* Category chips */}
         <Text style={styles.sectionLabel}>CATEGORIES</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>

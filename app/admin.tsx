@@ -49,6 +49,19 @@ export default function Admin() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.role}>ADMIN</Text>
+        <Pressable
+          onPress={() => {
+            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
+          hitSlop={10}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        </Pressable>
         <Text style={styles.title}>Control Panel</Text>
         <Text style={styles.email}>{user.email}</Text>
 

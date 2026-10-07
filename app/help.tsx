@@ -1,14 +1,29 @@
 import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen, GlassCard, NeonButton } from '../src/components';
 import { typography, spacing } from '../src/theme';
 import { useTheme } from '../src/theme';
 
 export default function Help() {
   const { palette } = useTheme();
+  const router = useRouter();
   const styles = createStyles(palette);
   return (
     <Screen glow="livestock">
       <ScrollView contentContainerStyle={styles.scroll}>
+        <Pressable
+          onPress={() => {
+            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/(tabs)/profile' as any);
+            }
+          }}
+          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
+          hitSlop={10}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        </Pressable>
         <Text style={styles.title}>Help</Text>
         <Text style={styles.subtitle}>We're here when you need us.</Text>
 
