@@ -179,6 +179,12 @@ export default function Admin() {
         <Pressable onPress={() => router.push('/meet' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.06)' }}>
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00c853' }}>CONSULTATIONS</Text>
         </Pressable>
+        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#4fc3f7', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
+          GAIA UNIVERSITY (ADMIN)
+        </Text>
+        <Pressable onPress={() => router.push('/admin-courses' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>COURSE MANAGER</Text>
+        </Pressable>
 
         <Pressable onPress={() => router.push('/ministry-rosca' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26a69a', backgroundColor: 'rgba(38,166,154,0.06)' }}>
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26a69a' }}>SAVINGS OVERSIGHT (ROSCA)</Text>
