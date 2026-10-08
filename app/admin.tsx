@@ -185,6 +185,9 @@ export default function Admin() {
         <Pressable onPress={() => router.push('/admin-courses' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>COURSE MANAGER</Text>
         </Pressable>
+        <Pressable onPress={() => router.push('/admin-cohorts' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7c4dff', backgroundColor: 'rgba(124,77,255,0.06)' }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7c4dff' }}>LIVE CLASS COHORTS</Text>
+        </Pressable>
 
         <Pressable onPress={() => router.push('/ministry-rosca' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26a69a', backgroundColor: 'rgba(38,166,154,0.06)' }}>
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26a69a' }}>SAVINGS OVERSIGHT (ROSCA)</Text>

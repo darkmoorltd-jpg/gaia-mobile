@@ -452,6 +452,7 @@ function LessonEditorModal({ data, onClose, onSaved }: any) {
   const [body, setBody] = useState(data.body || '');
   const [order, setOrder] = useState(String(data.sort_order || 1));
   const [minutes, setMinutes] = useState(String(data.estimated_minutes || 5));
+  const [videoUrl, setVideoUrl] = useState(data.video_url || '');
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -464,6 +465,7 @@ function LessonEditorModal({ data, onClose, onSaved }: any) {
       p_title: title.trim(),
       p_body: body.trim(),
       p_estimated_minutes: parseInt(minutes) || 5,
+      p_video_url: videoUrl.trim() || null,
     });
     setBusy(false);
     if (error) { Alert.alert('Failed', error.message); return; }
@@ -491,6 +493,8 @@ function LessonEditorModal({ data, onClose, onSaved }: any) {
               placeholderTextColor={palette.textDim}
             />
 
+            <Text style={styles.label}>VIDEO URL (OPTIONAL)</Text>
+            <TextInput value={videoUrl} onChangeText={setVideoUrl} style={styles.input} placeholder="https://... .mp4" placeholderTextColor={palette.textDim} autoCapitalize="none" />
             <View style={styles.twoCol}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>ORDER</Text>

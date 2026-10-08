@@ -41,6 +41,7 @@ export default function University() {
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
   const [lang, setLang] = useState('en');
+  const [track, setTrack] = useState<'farmer' | 'officer'>('farmer');
 
   const [activeCourse, setActiveCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -61,7 +62,7 @@ export default function University() {
     setBusy(true);
     try {
       const [c, certs] = await Promise.all([
-        supabase.rpc('univ_catalog'),
+        supabase.rpc('univ_catalog_v2', { p_track: track }),
         supabase.rpc('univ_my_certificates'),
       ]);
       setCatalog(c.data || []);
@@ -72,6 +73,7 @@ export default function University() {
   }, [user]);
 
   useFocusEffect(useCallback(() => { loadCatalog(); }, [loadCatalog]));
+  useEffect(() => { loadCatalog(); }, [track]);
 
   const openCourse = async (c: Course) => {
     setActiveCourse(c);
@@ -177,6 +179,15 @@ export default function University() {
         <Text style={styles.title}>Learn farming</Text>
         <Text style={styles.subtitle}>Free practical courses · earns certificates</Text>
 
+        <View style={styles.trackRow}>
+          {(['farmer','officer'] as const).map((tr) => (
+            <Pressable key={tr} onPress={() => setTrack(tr)} style={[styles.trackChip, track === tr && styles.trackChipOn]}>
+              <Text style={[styles.trackChipText, track === tr && styles.trackChipTextOn]}>
+                {tr === 'farmer' ? 'FARMER TRACK' : 'OFFICER TRACK'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={styles.langRow}>
           {LANGUAGES.map((l) => (
             <Pressable key={l.code} onPress={() => setLang(l.code)} style={[styles.langChip, lang === l.code && styles.langChipOn]}>
@@ -257,6 +268,9 @@ export default function University() {
               </Pressable>
             ) : null}
 
+            <Pressable onPress={() => { const cid = activeCourse?.id; setActiveCourse(null); router.push(('/course-live?course=' + cid) as any); }} style={[styles.closeBtn, { backgroundColor: '#7c4dff', marginTop: 8 }]}>
+              <Text style={styles.closeTxt}>LIVE CLASSES</Text>
+            </Pressable>
             <Pressable onPress={() => setActiveCourse(null)} style={[styles.closeBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.border, marginTop: 8 }]}>
               <Text style={[styles.closeTxt, { color: palette.text }]}>CLOSE</Text>
             </Pressable>
@@ -402,6 +416,11 @@ const createStyles = (p: any) => StyleSheet.create({
   kicker: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.neon },
   title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, marginTop: 6 },
   subtitle: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 16 },
+  trackRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  trackChip: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface, alignItems: 'center' },
+  trackChipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  trackChipText: { fontSize: 10, fontWeight: '900', color: p.textMuted, letterSpacing: 1.5 },
+  trackChipTextOn: { color: p.neon },
   langRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
   langChip: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface, alignItems: 'center' },
   langChipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
