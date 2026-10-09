@@ -77,6 +77,13 @@ export default function ChatRoom() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
   const [playingId, setPlayingId] = useState<string | number | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
+  const [editing, setEditing] = useState<Msg | null>(null);
+  const [editText, setEditText] = useState('');
+  const [forwardFor, setForwardFor] = useState<Msg | null>(null);
+  const [forwardList, setForwardList] = useState<any[]>([]);
+  const [starred, setStarred] = useState<Set<string>>(new Set());
   const listRef = useRef<FlatList<Msg>>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recordingTimer = useRef<any>(null);
@@ -128,6 +135,10 @@ export default function ChatRoom() {
         .limit(300);
       setMessages((msgs || []) as Msg[]);
       await loadReactions(roomIdValue);
+
+      const starRes = await supabase.from('chat_stars').select('message_id').eq('user_id', user.id);
+      const starSet = new Set<string>((starRes.data || []).map((s: any) => String(s.message_id)));
+      setStarred(starSet);
       await markRead(roomIdValue);
 
       const { data: presence } = await supabase.from('user_presence').select('last_seen').eq('user_id', uid).maybeSingle();
@@ -398,6 +409,71 @@ export default function ChatRoom() {
     }
   };
 
+  const toggleStar = async (m: Msg) => {
+    setMenuFor(null);
+    if (!user || !roomId) return;
+    const mid = String(m.id);
+    const isStarred = starred.has(mid);
+    if (isStarred) {
+      await supabase.from('chat_stars').delete().eq('user_id', user.id).eq('message_id', mid);
+      setStarred((prev) => { const n = new Set(prev); n.delete(mid); return n; });
+    } else {
+      await supabase.from('chat_stars').insert({ user_id: user.id, message_id: mid, room_id: roomId });
+      setStarred((prev) => { const n = new Set(prev); n.add(mid); return n; });
+    }
+  };
+
+  const openEdit = (m: Msg) => {
+    setMenuFor(null);
+    setEditing(m);
+    setEditText(m.body || '');
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !user) return;
+    const trimmed = editText.trim();
+    if (!trimmed) { setEditing(null); return; }
+    const { error } = await supabase.from('chat_messages')
+      .update({ body: trimmed, edited_at: new Date().toISOString() })
+      .eq('id', editing.id).eq('sender_id', user.id);
+    setEditing(null);
+    if (error) Alert.alert('Edit failed', error.message);
+  };
+
+  const openForward = async (m: Msg) => {
+    setMenuFor(null);
+    if (!user) return;
+    const { data: fships } = await supabase.from('friendships').select('sender_id,receiver_id').eq('status', 'accepted');
+    const mine = (fships || []).filter((r: any) => r.sender_id === user.id || r.receiver_id === user.id);
+    const ids = mine.map((r: any) => r.sender_id === user.id ? r.receiver_id : r.sender_id);
+    if (ids.length === 0) { Alert.alert('No friends', 'Add a friend first.'); return; }
+    const { data: profiles } = await supabase.from('user_profiles').select('user_id,email,first_name,last_name,avatar_url').in('user_id', ids);
+    setForwardList(profiles || []);
+    setForwardFor(m);
+  };
+
+  const doForward = async (targetUserId: string) => {
+    if (!forwardFor || !user) return;
+    const m = forwardFor;
+    setForwardFor(null);
+    try {
+      const { data: rid, error: ridErr } = await supabase.rpc('get_or_create_dm', { other_user_id: targetUserId });
+      if (ridErr || !rid) throw ridErr || new Error('no room');
+      const ridVal = rid as unknown as string;
+      const body = m.attachment_type ? m.body : m.body;
+      const insert: any = { room_id: ridVal, sender_id: user.id, body, forwarded: true };
+      if (m.attachment_url) { insert.attachment_url = m.attachment_url; insert.attachment_type = m.attachment_type; }
+      if (m.duration_ms) insert.duration_ms = m.duration_ms;
+      await supabase.from('chat_messages').insert(insert);
+      Alert.alert('Forwarded', 'Message sent.');
+    } catch (e: any) {
+      Alert.alert('Forward failed', e && e.message ? e.message : 'Try again');
+    }
+  };
+
+  const openSearch = () => { setSearchOpen(true); setSearchQ(''); };
+  const closeSearch = () => { setSearchOpen(false); setSearchQ(''); };
+
   const openReply = (m: Msg) => {
     setMenuFor(null);
     setReplyTo(m);
@@ -575,7 +651,7 @@ export default function ChatRoom() {
 
           ref={listRef}
 
-          data={messages}
+          data={searchQ.trim() ? messages.filter((m) => (m.body || '').toLowerCase().includes(searchQ.toLowerCase())) : messages}
 
           keyExtractor={(item) => String(item.id)}
 
@@ -694,6 +770,11 @@ export default function ChatRoom() {
             <Pressable onPress={() => menuFor && openReply(menuFor)} style={styles.menuItem}><Text style={styles.menuItemTxt}>Reply</Text></Pressable>
 
             <Pressable onPress={() => menuFor && copyMsg(menuFor)} style={styles.menuItem}><Text style={styles.menuItemTxt}>Copy</Text></Pressable>
+            <Pressable onPress={() => menuFor && toggleStar(menuFor)} style={styles.menuItem}><Text style={styles.menuItemTxt}>{menuFor && starred.has(String(menuFor.id)) ? 'Unstar message' : 'Star message'}</Text></Pressable>
+            <Pressable onPress={() => menuFor && openForward(menuFor)} style={styles.menuItem}><Text style={styles.menuItemTxt}>Forward</Text></Pressable>
+            {menuFor && menuFor.sender_id === user?.id && menuFor.attachment_type == null ? (
+              <Pressable onPress={() => menuFor && openEdit(menuFor)} style={styles.menuItem}><Text style={styles.menuItemTxt}>Edit</Text></Pressable>
+            ) : null}
 
             <Pressable onPress={() => menuFor && deleteForMe(menuFor)} style={styles.menuItem}><Text style={[styles.menuItemTxt, { color: palette.danger }]}>Delete for me</Text></Pressable>
 
