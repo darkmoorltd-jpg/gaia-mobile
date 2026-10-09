@@ -40,6 +40,11 @@ export default function Verification() {
   const [paid, setPaid] = useState(false);
   const [lockReason, setLockReason] = useState<string | null>(null);
   const [loadExisting, setLoadExisting] = useState(true);
+  const [resubmitMode, setResubmitMode] = useState(false);
+  const [rejectedDoc, setRejectedDoc] = useState<'id' | 'selfie' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [acceptedDoc, setAcceptedDoc] = useState<'id' | 'selfie' | null>(null);
+  const [verifId, setVerifId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -47,15 +52,42 @@ export default function Verification() {
       try {
         const { data } = await supabase
           .from('farmer_verifications')
-          .select('status,payment_status')
+          .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
         if (data) {
           const s = (data.status || '').toLowerCase();
           const ps = (data.payment_status || '').toLowerCase();
-          if (ps === 'paid' && s === 'pending') setLockReason('pending_review');
-          else if (s === 'approved') setLockReason('approved');
-          else if (s === 'rejected') setLockReason(null);   // allow resubmission
+          setVerifId(data.id);
+          if (ps === 'paid' && (s === 'pending' || s === 'pending_review')) {
+            setLockReason('pending_review');
+          } else if (s === 'approved') {
+            setLockReason('approved');
+          } else if (s === 'documents_rejected') {
+            const idRej = (data.id_status || '').toLowerCase() === 'rejected';
+            const selfRej = (data.selfie_status || '').toLowerCase() === 'rejected';
+            setResubmitMode(true);
+            if (idRej) {
+              setRejectedDoc('id');
+              setRejectionReason(data.id_rejection_reason || 'Please upload a clearer document');
+              if (!selfRej) setAcceptedDoc('selfie');
+            } else if (selfRej) {
+              setRejectedDoc('selfie');
+              setRejectionReason(data.selfie_rejection_reason || 'Please upload a clearer selfie');
+              if (!idRej) setAcceptedDoc('id');
+            }
+            if (data.full_name) setFullName(data.full_name);
+            if (data.phone) setPhone(data.phone);
+            if (data.state) setState(data.state);
+            if (data.lga) setLga(data.lga);
+            if (data.address) setAddress(data.address);
+            if (data.bvn) setBvn(data.bvn);
+            if (data.nin) setNin(data.nin);
+            if (data.crop) setCrop(data.crop);
+            if (data.farm_size) setFarmSize(String(data.farm_size));
+          } else if (s === 'rejected') {
+            setLockReason(null);
+          }
         }
       } catch {}
       setLoadExisting(false);
@@ -86,6 +118,38 @@ export default function Verification() {
   };
 
   const submit = async () => {
+    // === RESUBMIT MODE: only the rejected doc was changed, no new payment ===
+    if (resubmitMode) {
+      setBusy(true); setMessage('');
+      try {
+        let newIdUrl: string | null = null;
+        let newSelfieUrl: string | null = null;
+        if (rejectedDoc === 'id') {
+          if (!idPhoto) { setMessage('Please upload a new ID document'); setBusy(false); return; }
+          newIdUrl = await uploadFile(idPhoto, 'id');
+          if (!newIdUrl) throw new Error('ID upload failed');
+        } else if (rejectedDoc === 'selfie') {
+          if (!selfie) { setMessage('Please upload a new selfie'); setBusy(false); return; }
+          newSelfieUrl = await uploadFile(selfie, 'selfie');
+          if (!newSelfieUrl) throw new Error('Selfie upload failed');
+        }
+        const { error } = await supabase.rpc('user_resubmit_documents', {
+          p_id_url: newIdUrl,
+          p_selfie_url: newSelfieUrl,
+        });
+        if (error) throw error;
+        setMessage('Resubmitted. No new payment required.');
+        setResubmitMode(false);
+        setRejectedDoc(null);
+        setRejectionReason(null);
+        setLockReason('pending_review');
+      } catch (e: any) {
+        setMessage(e?.message || 'Resubmit failed');
+      } finally { setBusy(false); }
+      return;
+    }
+
+    // === NEW SUBMISSION PATH ===
     if (!fullName || !phone || !state || !idPhoto || !selfie) {
       setMessage('Please fill all required fields and upload ID + selfie');
       return;
