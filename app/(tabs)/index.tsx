@@ -21,8 +21,14 @@ const DIAGNOSE = [
 ];
 
 const EXTRAS = [
-  { key: 'marketplace', title: 'Marketplace', sub: 'Buy and sell produce', img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace' },
-  { key: 'buy-scans',   title: 'Buy Scans',   sub: 'Top up your balance', img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
+  { key: 'marketplace', title: 'Marketplace',    sub: 'Buy and sell produce',    img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace' },
+  { key: 'seller',      title: 'Seller',         sub: 'Your listings & sales',   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store' },
+  { key: 'agro',        title: 'Agro Tools',     sub: 'Yield, profit, fertilizer', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
+  { key: 'mapping',     title: 'Farm Mapping',   sub: 'Walk your farm boundary', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
+  { key: 'satellite',   title: 'Satellite',      sub: 'Monitor from space',      img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite' },
+  { key: 'journal',     title: 'Farm Journal',   sub: 'Daily notes & records',   img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
+  { key: 'calendar',    title: 'Farming Calendar', sub: 'Season plan by crop',   img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar' },
+  { key: 'buy-scans',   title: 'Buy Scans',      sub: 'Top up your balance',     img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
 ];
 
 export default function Home() {
@@ -198,7 +204,7 @@ export default function Home() {
 
         {/* Admin */}
         {isAdmin ? (
-          <Animated.View entering={FadeInDown.delay(600).duration(400)}>
+          <Animated.View entering={FadeInDown.delay(900).duration(400)}>
             <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
               <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
               <Text style={styles.adminArrow}>›</Text>
