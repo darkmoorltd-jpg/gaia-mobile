@@ -298,6 +298,9 @@ export default function ChatTab() {
             <Pressable onPress={() => router.push('/friend-requests' as any)} style={styles.iconBtn}>
               <Text style={styles.iconBtnText}>R</Text>
             </Pressable>
+            <Pressable onPress={() => router.push('/call-history' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>C</Text>
+            </Pressable>
             <Pressable onPress={() => router.push('/create-group' as any)} style={styles.iconBtn}>
               <Text style={styles.iconBtnText}>G</Text>
             </Pressable>

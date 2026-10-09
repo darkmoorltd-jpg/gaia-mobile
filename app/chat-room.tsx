@@ -92,6 +92,7 @@ export default function ChatRoom() {
   const listRef = useRef<FlatList<Msg>>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recordingTimer = useRef<any>(null);
+  const ringtoneRef = useRef<any>(null);
   const activePlayer = useRef<any>(null);
   const typingTimer = useRef<any>(null);
   const lastTypingWrite = useRef<number>(0);
@@ -224,7 +225,25 @@ export default function ChatRoom() {
         }
       })
       .subscribe();
-    const startCall = async (callMode: 'voice' | 'video') => {
+    useEffect(() => {
+    const startRing = async () => {
+      try {
+        if (ringtoneRef.current) return;
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        const player = createAudioPlayer({ uri: 'https://actions.google.com/sounds/v1/alarms/phone_ringing_loop.ogg' });
+        ringtoneRef.current = player;
+        try { (player as any).loop = true; } catch {}
+        player.play();
+      } catch (e) { console.log('ringtone start', e); }
+    };
+    const stopRing = () => {
+      try { if (ringtoneRef.current) { ringtoneRef.current.remove(); ringtoneRef.current = null; } } catch {}
+    };
+    if (incomingCall) { startRing(); } else { stopRing(); }
+    return () => { stopRing(); };
+  }, [incomingCall]);
+
+  const startCall = async (callMode: 'voice' | 'video') => {
     if (!roomId || !user || !uid) return;
     try {
       const jitsiRoom = 'gaia-' + roomId;
