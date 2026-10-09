@@ -14,6 +14,7 @@ const REASONS = [
   'Expired document',
   'Face not clearly visible',
   'Selfie does not match ID',
+  'Name on ID does not match profile',
   'Other (specify below)',
 ];
 
@@ -30,6 +31,7 @@ export default function AdminFarmers() {
   const [reason, setReason] = useState<string>('');
   const [customReason, setCustomReason] = useState<string>('');
   const [actionBusy, setActionBusy] = useState(false);
+  const [nameMatches, setNameMatches] = useState(false);
 
   const load = async () => {
     setBusy(true);
@@ -47,6 +49,11 @@ export default function AdminFarmers() {
   useEffect(() => {
     if (user?.email?.toLowerCase() === ADMIN_EMAIL) load();
   }, [user]);
+
+  const openUser = (r: any) => {
+    setNameMatches(false);
+    setSelected(r);
+  };
 
   const refreshSelected = async (id: string) => {
     const { data } = await supabase.from('farmer_verifications').select('*').eq('id', id).maybeSingle();
@@ -156,6 +163,41 @@ export default function AdminFarmers() {
           </View>
 
           <Text style={styles.sectionLabel}>DOCUMENTS</Text>
+
+          <View style={styles.nameChip}>
+            <Text style={styles.nameChipLbl}>REVIEWING FOR</Text>
+            <Text style={styles.nameChipName}>{selected.full_name || 'Unknown'}</Text>
+            <Text style={styles.nameChipMeta}>
+              {selected.state || '-'} · {selected.phone || '-'} · REF {String(selected.id || '').slice(0, 8)}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => setNameMatches(!nameMatches)}
+            style={[styles.checkRow, nameMatches && styles.checkRowOn]}
+          >
+            <View style={[styles.checkBox, nameMatches && styles.checkBoxOn]}>
+              {nameMatches ? <Text style={styles.checkMark}>✓</Text> : null}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.checkLabel}>
+                Name on ID matches profile name
+              </Text>
+              <Text style={styles.checkMeta}>
+                Confirm the name on the ID matches "{selected.full_name || 'the profile'}"
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setRejecting({ doc: 'id' })}
+            style={[styles.mismatchBtn, { borderColor: palette.warning }]}
+          >
+            <Text style={[styles.mismatchBtnTxt, { color: palette.warning }]}>
+              ✕ NAME MISMATCH — REJECT
+            </Text>
+          </Pressable>
+
           <View style={styles.docRow}>
             <DocPanel
               label="ID DOCUMENT"
@@ -174,10 +216,12 @@ export default function AdminFarmers() {
           <View style={styles.actionRow}>
             <Pressable
               onPress={approveAll}
-              disabled={actionBusy}
-              style={[styles.approve, actionBusy && { opacity: 0.5 }]}
+              disabled={actionBusy || !nameMatches}
+              style={[styles.approve, (actionBusy || !nameMatches) && { opacity: 0.4 }]}
             >
-              <Text style={styles.approveTxt}>{actionBusy ? 'WORKING...' : 'APPROVE ALL'}</Text>
+              <Text style={styles.approveTxt}>
+                {actionBusy ? 'WORKING...' : !nameMatches ? 'CONFIRM NAME MATCH FIRST' : 'APPROVE ALL'}
+              </Text>
             </Pressable>
           </View>
 
@@ -261,7 +305,7 @@ export default function AdminFarmers() {
           const rejected = r.status === 'documents_rejected';
           const color = ok ? palette.neon : rejected ? palette.danger : pending ? palette.warning : palette.textMuted;
           return (
-            <Pressable key={i} onPress={() => setSelected(r)} style={styles.card}>
+            <Pressable key={i} onPress={() => openUser(r)} style={styles.card}>
               {r.selfie_url ? (
                 <Image source={{ uri: r.selfie_url }} style={styles.thumb} />
               ) : (
