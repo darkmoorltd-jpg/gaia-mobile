@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -112,17 +113,38 @@ export default function Verification() {
 
   const uploadFile = async (uri: string, name: string): Promise<string | null> => {
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const ab = await new Response(blob).arrayBuffer();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        console.log('[uploadFile] no session token');
+        return null;
+      }
+
+      const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
       const path = user!.id + '/' + name + '_' + Date.now() + '.jpg';
-      const { error } = await supabase.storage
-        .from('verifications')
-        .upload(path, ab, { contentType: 'image/jpeg' });
-      if (error) throw error;
-      const { data } = supabase.storage.from('verifications').getPublicUrl(path);
-      return data.publicUrl;
-    } catch { return null; }
+      const uploadUrl = SUPABASE_URL + '/storage/v1/object/verifications/' + path;
+
+      const res = await FileSystem.uploadAsync(uploadUrl, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'image/jpeg',
+          'x-upsert': 'false',
+        },
+      });
+
+      console.log('[uploadFile] ' + name + ' -> ' + res.status + ' ' + (res.body || '').slice(0, 200));
+
+      if (res.status < 200 || res.status >= 300) {
+        return null;
+      }
+
+      return SUPABASE_URL + '/storage/v1/object/public/verifications/' + path;
+    } catch (e: any) {
+      console.log('[uploadFile] exception: ' + (e?.message || String(e)));
+      return null;
+    }
   };
 
   const submit = async () => {
@@ -135,11 +157,11 @@ export default function Verification() {
         if (rejectedDoc === 'id') {
           if (!idPhoto) { setMessage('Please upload a new ID document'); setBusy(false); return; }
           newIdUrl = await uploadFile(idPhoto, 'id');
-          if (!newIdUrl) throw new Error('ID upload failed');
+          if (!newIdUrl) throw new Error('ID upload failed — check your connection or try again. Photo: ' + idPhoto.slice(0, 40));
         } else if (rejectedDoc === 'selfie') {
           if (!selfie) { setMessage('Please upload a new selfie'); setBusy(false); return; }
           newSelfieUrl = await uploadFile(selfie, 'selfie');
-          if (!newSelfieUrl) throw new Error('Selfie upload failed');
+          if (!newSelfieUrl) throw new Error('Selfie upload failed — check your connection or try again. Photo: ' + selfie.slice(0, 40));
         }
         const { error } = await supabase.rpc('user_resubmit_documents', {
           p_id_url: newIdUrl,
