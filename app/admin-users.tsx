@@ -330,15 +330,72 @@ export default function AdminUsers() {
                 {/* ============ PROFILE ============ */}
                 {tab === 'profile' ? (
                   <>
+                    {detail.profile?.avatar_url ? (
+                      <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                        <Image source={{ uri: detail.profile.avatar_url }} style={{ width: 88, height: 88, borderRadius: 44, borderWidth: 2, borderColor: palette.neon }} />
+                      </View>
+                    ) : null}
+
                     <Text style={styles.sectionLabel}>PERSONAL</Text>
-                    <Text style={styles.kv}><Text style={styles.k}>Email: </Text>{detail.user?.email}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>First name: </Text>{detail.profile?.first_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Middle name: </Text>{detail.profile?.middle_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Last name: </Text>{detail.profile?.last_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Email: </Text>{detail.user?.email || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>Phone: </Text>{detail.profile?.phone || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>WhatsApp: </Text>{detail.profile?.whatsapp || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>Gender: </Text>{detail.profile?.gender || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Date of birth: </Text>{detail.profile?.date_of_birth || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Marital status: </Text>{detail.profile?.marital_status || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Language: </Text>{detail.profile?.preferred_language || 'English'}</Text>
+
+                    <Text style={styles.sectionLabel}>ADDRESS</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Country: </Text>{detail.profile?.country || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>State: </Text>{detail.profile?.state || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>LGA: </Text>{detail.profile?.lga || '—'}</Text>
                     <Text style={styles.kv}><Text style={styles.k}>City: </Text>{detail.profile?.city || '—'}</Text>
-                    <Text style={styles.kv}><Text style={styles.k}>Address: </Text>{detail.profile?.street_address || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Street: </Text>{detail.profile?.street_address || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Landmark: </Text>{detail.profile?.landmark || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Postal code: </Text>{detail.profile?.postal_code || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>FARM</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farm state: </Text>{detail.profile?.farm_state || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farm LGA: </Text>{detail.profile?.farm_lga || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farm address: </Text>{detail.profile?.farm_address || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farm size: </Text>{detail.profile?.farm_size_acres != null ? detail.profile.farm_size_acres + ' acres' : '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farming type: </Text>{detail.profile?.farming_type || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Years experience: </Text>{detail.profile?.years_experience != null ? String(detail.profile.years_experience) : '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Primary crops: </Text>{detail.profile?.primary_crops || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Secondary crops: </Text>{detail.profile?.secondary_crops || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>BANK</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Account name: </Text>{detail.profile?.account_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Account number: </Text>{detail.profile?.account_number || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Bank: </Text>{detail.profile?.bank_name || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>EMERGENCY CONTACT</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Name: </Text>{detail.profile?.emergency_contact_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Phone: </Text>{detail.profile?.emergency_contact_phone || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Relationship: </Text>{detail.profile?.emergency_relationship || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>IDENTITY</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>BVN: </Text>{detail.profile?.bvn || detail.verification?.bvn || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>NIN: </Text>{detail.profile?.nin || detail.verification?.nin || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>ID type: </Text>{detail.profile?.govt_id_type || detail.verification?.id_type || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>ID number: </Text>{detail.profile?.govt_id_number || detail.verification?.id_number || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>SOCIAL</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Twitter: </Text>{detail.profile?.social_twitter || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Instagram: </Text>{detail.profile?.social_instagram || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Facebook: </Text>{detail.profile?.social_facebook || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>LinkedIn: </Text>{detail.profile?.social_linkedin || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>TikTok: </Text>{detail.profile?.social_tiktok || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>SMS: </Text>{detail.profile?.notify_sms ? 'On' : 'Off'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>WhatsApp: </Text>{detail.profile?.notify_whatsapp ? 'On' : 'Off'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Weather: </Text>{detail.profile?.notify_weather ? 'On' : 'Off'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Disease: </Text>{detail.profile?.notify_disease ? 'On' : 'Off'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Payment: </Text>{detail.profile?.notify_payment ? 'On' : 'Off'}</Text>
 
                     <Text style={styles.sectionLabel}>ACCOUNT</Text>
                     <Text style={styles.kv}><Text style={styles.k}>User ID: </Text>{(detail.user?.id || '').slice(0, 18)}…</Text>
@@ -351,7 +408,7 @@ export default function AdminUsers() {
                     <Text style={styles.kv}><Text style={styles.k}>Active badge: </Text>{
                       (() => {
                         const active = (detail.badges || []).find((b: any) => b.expires_at && new Date(b.expires_at) > new Date());
-                        return active ? `${(active.badge_tier || '').toUpperCase()} until ${fmtDate(active.expires_at)}` : 'none';
+                        return active ? (active.badge_tier || '').toUpperCase() + ' until ' + fmtDate(active.expires_at) : 'none';
                       })()
                     }</Text>
 
