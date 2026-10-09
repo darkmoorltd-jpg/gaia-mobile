@@ -85,6 +85,14 @@ export default function Verification() {
             if (data.nin) setNin(data.nin);
             if (data.crop) setCrop(data.crop);
             if (data.farm_size) setFarmSize(String(data.farm_size));
+            // Pre-fill only the accepted doc so it renders as read-only; rejected stays empty
+            const idRej2 = (data.id_status || '').toLowerCase() === 'rejected';
+            const selfRej2 = (data.selfie_status || '').toLowerCase() === 'rejected';
+            if (selfRej2 && !idRej2) {
+              setIdPhoto(data.id_photo_url || data.id_image_url || null);
+            } else if (idRej2 && !selfRej2) {
+              setSelfie(data.selfie_url || null);
+            }
           } else if (s === 'rejected') {
             setLockReason(null);
           }
@@ -343,14 +351,18 @@ export default function Verification() {
         <Pressable onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>BACK</Text>
         </Pressable>
-        <Text style={styles.title}>Verify your identity</Text>
+        <Text style={styles.title}>{resubmitMode ? 'Re-upload documents' : 'Verify your identity'}</Text>
         <Text style={styles.subtitle}>
-          Unlock wallet, loans, insurance, and marketplace. One-time fee of N2,000.
+          {resubmitMode
+            ? 'Fix the rejected document below and tap resubmit. Free — no new payment.'
+            : 'Unlock wallet, loans, insurance, and marketplace. One-time fee of N2,000.'}
         </Text>
-        <View style={styles.feeBox}>
-          <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
-          <Text style={styles.feeValue}>N2,000</Text>
-        </View>
+        {!resubmitMode ? (
+          <View style={styles.feeBox}>
+            <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
+            <Text style={styles.feeValue}>N2,000</Text>
+          </View>
+        ) : null}
         <Text style={styles.section}>PERSONAL</Text>
         <Input label='FULL NAME' value={fullName} onChange={setFullName} palette={palette} />
         <Input label='PHONE' value={phone} onChange={setPhone} keyboard='phone-pad' palette={palette} />
@@ -364,11 +376,34 @@ export default function Verification() {
         <Input label='MAIN CROP' value={crop} onChange={setCrop} palette={palette} />
         <Input label='FARM SIZE' value={farmSize} onChange={setFarmSize} palette={palette} />
         <Text style={styles.section}>UPLOADS</Text>
-        <UploadBox label='ID DOCUMENT' uri={idPhoto} onPress={() => pickImage(setIdPhoto)} palette={palette} />
-        <UploadBox label='SELFIE' uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
+        {resubmitMode ? (
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <DocPanel
+              label="ID DOCUMENT"
+              uri={idPhoto}
+              status={rejectedDoc === 'id' ? 'rejected' : 'accepted'}
+              onPress={() => pickImage(setIdPhoto)}
+              palette={palette}
+            />
+            <DocPanel
+              label="SELFIE"
+              uri={selfie}
+              status={rejectedDoc === 'selfie' ? 'rejected' : 'accepted'}
+              onPress={() => pickImage(setSelfie)}
+              palette={palette}
+            />
+          </View>
+        ) : (
+          <>
+            <UploadBox label='ID DOCUMENT' uri={idPhoto} onPress={() => pickImage(setIdPhoto)} palette={palette} />
+            <UploadBox label='SELFIE' uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
+          </>
+        )}
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          <Text style={styles.ctaText}>{busy ? 'Submitting...' : 'SUBMIT AND PAY N2,000'}</Text>
+          <Text style={styles.ctaText}>
+            {busy ? 'Submitting...' : resubmitMode ? 'RESUBMIT FOR REVIEW (NO CHARGE)' : 'SUBMIT AND PAY N2,000'}
+          </Text>
         </Pressable>
         <View style={{ height: 80 }} />
       </ScrollView>
@@ -400,6 +435,42 @@ function UploadBox({ label, uri, onPress, palette }: any) {
         </View>
       )}
     </Pressable>
+  );
+}
+
+function DocPanel({ label, uri, status, onPress, palette }: any) {
+  const s = createStyles(palette);
+  const isRejected = status === 'rejected';
+  const isAccepted = status === 'accepted';
+  const accent = isRejected ? palette.danger : palette.neon;
+  const badgeBg = isRejected ? 'rgba(255,59,92,0.18)' : 'rgba(0,255,136,0.18)';
+  const badgeLabel = isRejected ? 'NEEDS FIX' : 'ACCEPTED';
+  const canTap = isRejected;
+
+  return (
+    <View style={{ flex: 1, marginBottom: 12 }}>
+      <Text style={s.docPanelLabel}>{label}</Text>
+      <Pressable
+        onPress={canTap ? onPress : undefined}
+        disabled={!canTap}
+        style={[
+          s.docPanelBox,
+          { borderColor: accent, borderStyle: isRejected ? 'dashed' : 'solid' },
+        ]}
+      >
+        {uri ? (
+          <Image source={{ uri }} style={s.docPanelImg} />
+        ) : (
+          <View style={s.docPanelPlaceholder}>
+            <Text style={s.docPanelPlus}>{isRejected ? '+' : '·'}</Text>
+            <Text style={s.docPanelHint}>{isRejected ? 'Tap to re-upload' : 'No photo'}</Text>
+          </View>
+        )}
+        <View style={[s.docPanelBadge, { backgroundColor: badgeBg, borderColor: accent }]}>
+          <Text style={[s.docPanelBadgeTxt, { color: accent }]}>{badgeLabel}</Text>
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
