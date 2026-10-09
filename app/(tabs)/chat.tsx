@@ -1,15 +1,14 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, TextInput,
-  ActivityIndicator, RefreshControl, Image, Alert, Modal,
+  ActivityIndicator, RefreshControl, Image, Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useTheme, spacing, radius, typography } from '../../src/theme';
+import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
-import {
-  blockUser, hideConversation, listBlockedIds, listHiddenIds,
-} from '../../src/utils/friends';
+import { useChatStore } from '../../src/store/chat';
+import { blockUser, hideConversation, listBlockedIds, listHiddenIds } from '../../src/utils/friends';
 
 interface Row {
   user_id: string;
@@ -20,6 +19,7 @@ interface Row {
   last_message: string;
   last_at: string | null;
   last_sender_is_me: boolean;
+  last_read: boolean;
   unread: number;
   pinned: boolean;
   muted: boolean;
@@ -44,14 +44,14 @@ export default function ChatTab() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s) => s.user);
+  const setUnread = useChatStore((s) => s.setUnread);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
-  const [groups, setGroups] = useState<any[]>([]);
-  const [menuFor, setMenuFor] = useState<Row | null>(null);
 
   const load = useCallback(async () => {
     if (!user) { setBusy(false); return; }
@@ -64,48 +64,30 @@ export default function ChatTab() {
       const blockedSet = new Set(blockedIds);
       const hiddenSet = new Set(hiddenIds);
 
-      // load groups
-      const { data: myGroups } = await supabase
-        .from('chat_members')
-        .select('room_id')
-        .eq('user_id', user.id);
-      const groupRoomIds = (myGroups || []).map((m: any) => m.room_id);
-      if (groupRoomIds.length > 0) {
-        const { data: roomRows } = await supabase
-          .from('chat_rooms')
-          .select('id,name,avatar_url,is_group,updated_at')
-          .in('id', groupRoomIds)
-          .eq('is_group', true);
-        setGroups(roomRows || []);
-      } else {
-        setGroups([]);
-      }
-
-      // friendships
       const { data: fships } = await supabase
         .from('friendships')
         .select('sender_id,receiver_id')
         .eq('status', 'accepted');
+
       const mine = (fships || []).filter((r: any) => r.sender_id === user.id || r.receiver_id === user.id);
-      const friendIds = mine.map((r: any) => r.sender_id === user.id ? r.receiver_id : r.sender_id);
+      const friendIds = mine.map((r: any) => (r.sender_id === user.id ? r.receiver_id : r.sender_id));
+      if (friendIds.length === 0) { setRows([]); setBusy(false); setUnread(0); return; }
 
-      if (friendIds.length === 0) { setRows([]); setBusy(false); return; }
-
-      // profiles
       const { data: profiles } = await supabase
         .from('user_profiles')
         .select('user_id,email,first_name,last_name,avatar_url')
         .in('user_id', friendIds);
 
-      // chat_meta for pinned/muted/archived
-      const { data: meta } = await supabase
-        .from('chat_meta')
-        .select('room_id,pinned,muted,archived')
-        .eq('user_id', user.id);
-      const metaMap: Record<string, any> = {};
-      (meta || []).forEach((m: any) => { metaMap[m.room_id] = m; });
+      const { data: presences } = await supabase
+        .from('user_presence')
+        .select('user_id,last_seen')
+        .in('user_id', friendIds);
+      const onlineSet = new Set(
+        (presences || [])
+          .filter((p: any) => p.last_seen && Date.now() - new Date(p.last_seen).getTime() < 120000)
+          .map((p: any) => p.user_id)
+      );
 
-      // my chat memberships
       const { data: mems } = await supabase
         .from('chat_members')
         .select('room_id,last_read_at')
@@ -114,53 +96,59 @@ export default function ChatTab() {
       const readMap: Record<string, string> = {};
       (mems || []).forEach((m: any) => { readMap[m.room_id] = m.last_read_at; });
 
-      // online users
-      const { data: presence } = await supabase
-        .from('user_presence')
-        .select('user_id,last_seen')
-        .in('user_id', friendIds);
-      const onlineSet = new Set<string>();
-      (presence || []).forEach((p: any) => {
-        if (p.last_seen && Date.now() - new Date(p.last_seen).getTime() < 120000) onlineSet.add(p.user_id);
-      });
+      let metaMap: Record<string, any> = {};
+      try {
+        const { data: metas } = await supabase
+          .from('chat_meta')
+          .select('*')
+          .eq('user_id', user.id);
+        (metas || []).forEach((m: any) => {
+          const key = m.other_user_id || m.peer_id || m.room_id;
+          if (key) metaMap[key] = m;
+        });
+      } catch {}
 
       const result: Row[] = [];
       for (const f of (profiles || [])) {
         if (blockedSet.has(f.user_id)) continue;
         if (hiddenSet.has(f.user_id)) continue;
-
         let roomId: string | null = null;
         let lastMessage = '';
         let lastAt: string | null = null;
         let lastSenderIsMe = false;
+        let lastRead = true;
         let unread = 0;
 
         if (myRoomIds.length > 0) {
           const { data: theirMems } = await supabase
-            .from('chat_members').select('room_id').eq('user_id', f.user_id);
+            .from('chat_members')
+            .select('room_id')
+            .eq('user_id', f.user_id);
           const theirRoomIds = (theirMems || []).map((m: any) => m.room_id);
           roomId = myRoomIds.find((id: string) => theirRoomIds.includes(id)) || null;
-
           if (roomId) {
             const { data: msgs } = await supabase
               .from('chat_messages')
-              .select('body,created_at,sender_id,deleted_for_everyone')
+              .select('body,sender_id,created_at,read_at')
               .eq('room_id', roomId)
               .order('created_at', { ascending: false })
-              .limit(50);
-            const all = msgs || [];
+              .limit(30);
+            const all = (msgs || []);
             if (all.length > 0) {
-              lastMessage = all[0].deleted_for_everyone ? 'This message was deleted' : all[0].body;
+              lastMessage = all[0].body || '';
               lastAt = all[0].created_at;
               lastSenderIsMe = all[0].sender_id === user.id;
+              lastRead = !!all[0].read_at;
               const myReadAt = readMap[roomId] || '1970-01-01T00:00:00Z';
-              unread = all.filter((m: any) => m.sender_id !== user.id && new Date(m.created_at) > new Date(myReadAt)).length;
+              unread = all.filter((m: any) =>
+                m.sender_id !== user.id && new Date(m.created_at) > new Date(myReadAt)
+              ).length;
             }
           }
         }
 
+        const meta = metaMap[f.user_id] || {};
         const fullName = ((f.first_name || '') + ' ' + (f.last_name || '')).trim() || (f.email ? f.email.split('@')[0] : 'Farmer');
-        const m = roomId ? metaMap[roomId] : null;
         result.push({
           user_id: f.user_id,
           name: fullName,
@@ -170,15 +158,15 @@ export default function ChatTab() {
           last_message: lastMessage,
           last_at: lastAt,
           last_sender_is_me: lastSenderIsMe,
+          last_read: lastRead,
           unread,
-          pinned: !!(m && m.pinned),
-          muted: !!(m && m.muted),
-          archived: !!(m && m.archived),
+          pinned: !!meta.pinned,
+          muted: !!meta.muted,
+          archived: !!meta.archived,
           online: onlineSet.has(f.user_id),
         });
       }
 
-      // sort: pinned first, then last_at desc
       result.sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
         if (!a.last_at && !b.last_at) return 0;
@@ -186,123 +174,92 @@ export default function ChatTab() {
         if (!b.last_at) return -1;
         return new Date(b.last_at).getTime() - new Date(a.last_at).getTime();
       });
+
+      const totalUnread = result.reduce((s, r) => s + r.unread, 0);
+      setUnread(totalUnread);
       setRows(result);
-    } catch (e) { console.log('chat load error', e); }
-    finally { setBusy(false); setRefreshing(false); }
-  }, [user]);
+    } catch (e) {
+      console.log('chat load error', e);
+    } finally {
+      setBusy(false);
+      setRefreshing(false);
+    }
+  }, [user, setUnread]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  const onRefresh = () => { setRefreshing(true); load(); };
 
-  const filtered = useMemo(() => {
-    let base = rows;
-    if (filter === 'archived') base = base.filter((r) => r.archived);
-    else base = base.filter((r) => !r.archived);
-    if (filter === 'unread') base = base.filter((r) => r.unread > 0);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      base = base.filter((r) => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.last_message.toLowerCase().includes(q));
-    }
-    return base;
-  }, [rows, filter, search]);
-
-  const unreadTotal = rows.filter((r) => r.unread > 0 && !r.archived).length;
-
-  const togglePin = async (r: Row) => {
-    setMenuFor(null);
-    if (!r.room_id || !user) return;
-    const next = !r.pinned;
-    await supabase.from('chat_meta').upsert({
-      user_id: user.id, room_id: r.room_id, pinned: next,
-      pinned_at: next ? new Date().toISOString() : null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,room_id' });
-    load();
+  const setMeta = async (otherId: string, patch: Record<string, any>) => {
+    if (!user) return;
+    try {
+      const { data: existing } = await supabase
+        .from('chat_meta')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('other_user_id', otherId)
+        .maybeSingle();
+      if (existing) {
+        await supabase.from('chat_meta').update(patch).eq('user_id', user.id).eq('other_user_id', otherId);
+      } else {
+        await supabase.from('chat_meta').insert({ user_id: user.id, other_user_id: otherId, ...patch });
+      }
+    } catch (e) { console.log('setMeta failed', e); }
   };
 
-  const toggleMute = async (r: Row) => {
-    setMenuFor(null);
-    if (!r.room_id || !user) return;
-    const next = !r.muted;
-    await supabase.from('chat_meta').upsert({
-      user_id: user.id, room_id: r.room_id, muted: next,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,room_id' });
-    load();
+  const openRowMenu = (row: Row) => {
+    Alert.alert(row.name, 'Chat options', [
+      { text: row.pinned ? 'Unpin' : 'Pin', onPress: async () => { await setMeta(row.user_id, { pinned: !row.pinned }); load(); } },
+      { text: row.muted ? 'Unmute' : 'Mute', onPress: async () => { await setMeta(row.user_id, { muted: !row.muted }); load(); } },
+      { text: row.archived ? 'Unarchive' : 'Archive', onPress: async () => { await setMeta(row.user_id, { archived: !row.archived }); load(); } },
+      { text: 'Delete chat', style: 'destructive', onPress: () => confirmDelete(row) },
+      { text: 'Block user', style: 'destructive', onPress: () => confirmBlock(row) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
-  const toggleArchive = async (r: Row) => {
-    setMenuFor(null);
-    if (!r.room_id || !user) return;
-    const next = !r.archived;
-    await supabase.from('chat_meta').upsert({
-      user_id: user.id, room_id: r.room_id, archived: next,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,room_id' });
-    load();
-  };
-
-  const deleteChat = (r: Row) => {
-    setMenuFor(null);
-    Alert.alert('Delete chat?', 'This removes it from your list only.', [
+  const confirmDelete = (row: Row) => {
+    Alert.alert('Delete chat?', 'Removes it from your list. The other person keeps their copy.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         if (!user) return;
-        const err = await hideConversation(user.id, r.user_id);
+        const err = await hideConversation(user.id, row.user_id);
         if (err) { Alert.alert('Failed', err); return; }
-        setRows((prev) => prev.filter((x) => x.user_id !== r.user_id));
+        setRows((prev) => prev.filter((r) => r.user_id !== row.user_id));
       }},
     ]);
   };
 
-  const blockChat = (r: Row) => {
-    setMenuFor(null);
-    Alert.alert('Block ' + r.name + '?', 'They will be removed from your list.', [
+  const confirmBlock = (row: Row) => {
+    Alert.alert('Block ' + row.name + '?', 'They will be removed from your friends and cannot message you.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Block', style: 'destructive', onPress: async () => {
         if (!user) return;
-        const err = await blockUser(user.id, r.user_id);
+        const err = await blockUser(user.id, row.user_id);
         if (err) { Alert.alert('Failed', err); return; }
-        setRows((prev) => prev.filter((x) => x.user_id !== r.user_id));
+        setRows((prev) => prev.filter((r) => r.user_id !== row.user_id));
       }},
     ]);
   };
 
-  const Avatar = ({ uri, name, online, size = 52 }: any) => (
-    <View style={{ width: size, height: size, position: 'relative' }}>
-      {uri ? (
-        <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-      ) : (
-        <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: palette.neonSoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: size * 0.4, fontWeight: '900', color: palette.neon }}>{name.charAt(0).toUpperCase()}</Text>
-        </View>
-      )}
-      {online ? (
-        <View style={{ position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#25d366', borderWidth: 2, borderColor: palette.obsidian }} />
-      ) : null}
-    </View>
-  );
+  const visible = rows
+    .filter((r) => filter === 'archived' ? r.archived : !r.archived)
+    .filter((r) => filter !== 'unread' || r.unread > 0)
+    .filter((r) => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q) || r.last_message.toLowerCase().includes(q);
+    });
+
+  const unreadCount = rows.filter((r) => !r.archived).reduce((s, r) => s + r.unread, 0);
+  const archivedCount = rows.filter((r) => r.archived).length;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.kicker}>MESSAGES</Text>
-            <Text style={styles.brand}>Chats</Text>
-          </View>
+          <Text style={styles.brand}>Chats</Text>
           <View style={styles.headerActions}>
-            <Pressable onPress={() => router.push('/blocked-users' as any)} style={styles.iconBtn}>
-              <Text style={styles.iconBtnText}>X</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/friend-requests' as any)} style={styles.iconBtn}>
-              <Text style={styles.iconBtnText}>R</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/call-history' as any)} style={styles.iconBtn}>
-              <Text style={styles.iconBtnText}>C</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/create-group' as any)} style={styles.iconBtn}>
-              <Text style={styles.iconBtnText}>G</Text>
+            <Pressable onPress={() => setSearchOpen(!searchOpen)} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>Q</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.iconBtnSolid}>
               <Text style={styles.iconBtnSolidText}>+</Text>
@@ -310,25 +267,30 @@ export default function ChatTab() {
           </View>
         </View>
 
-        <View style={styles.search}>
-          <Text style={styles.searchIcon}>S</Text>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder='Search chats'
-            placeholderTextColor={palette.textDim}
-            style={styles.searchInput}
-            autoCapitalize='none'
-          />
-        </View>
+        {searchOpen ? (
+          <View style={styles.search}>
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder='Search chats'
+              placeholderTextColor={palette.textDim}
+              style={styles.searchInput}
+              autoCapitalize='none'
+            />
+          </View>
+        ) : null}
 
-        <View style={styles.filterRow}>
+        <View style={styles.tabs}>
           {(['all', 'unread', 'archived'] as Filter[]).map((f) => {
+            const label = f === 'all'
+              ? (unreadCount > 0 ? 'All (' + unreadCount + ')' : 'All')
+              : f === 'unread'
+                ? (unreadCount > 0 ? 'Unread (' + unreadCount + ')' : 'Unread')
+                : (archivedCount > 0 ? 'Archived (' + archivedCount + ')' : 'Archived');
             const on = filter === f;
-            const label = f === 'all' ? 'All' : f === 'unread' ? ('Unread' + (unreadTotal > 0 ? ' · ' + unreadTotal : '')) : 'Archived';
             return (
-              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.filterChip, on && styles.filterChipOn]}>
-                <Text style={[styles.filterText, on && styles.filterTextOn]}>{label}</Text>
+              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.tab, on && styles.tabOn]}>
+                <Text style={[styles.tabTxt, on && styles.tabTxtOn]}>{label}</Text>
               </Pressable>
             );
           })}
@@ -336,154 +298,115 @@ export default function ChatTab() {
       </View>
 
       {busy && rows.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={palette.neon} />
-          <Text style={styles.centerText}>Loading chats...</Text>
-        </View>
+        <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>
       ) : (
-        <>
-        {groups.length > 0 && filter === 'all' && !search ? (
-          <View style={styles.groupsWrap}>
-            <Text style={styles.sectionLabel}>GROUPS</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupsRow}>
-              {groups.map((g) => (
-                <Pressable key={g.id} onPress={() => router.push(('/chat-room?room=' + g.id + '&group=1') as any)} style={styles.groupChip}>
-                  <View style={styles.groupAvatar}>
-                    {g.avatar_url ? (
-                      <Image source={{ uri: g.avatar_url }} style={styles.groupAvatarImg} />
-                    ) : (
-                      <Text style={styles.groupAvatarTxt}>{String(g.name || 'G').charAt(0).toUpperCase()}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.groupName} numberOfLines={1}>{g.name || 'Group'}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
-
         <FlatList
-          data={filtered}
+          data={visible}
           keyExtractor={(item) => item.user_id}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.neon} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={palette.neon} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>{search ? 'No matching chats' : filter === 'archived' ? 'No archived chats' : filter === 'unread' ? 'No unread chats' : 'No chats yet'}</Text>
-              <Text style={styles.emptySub}>{search ? 'Try a different name or email.' : 'Add a friend to start chatting.'}</Text>
-              {!search && filter === 'all' ? (
-                <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.emptyBtn}>
-                  <Text style={styles.emptyBtnText}>ADD A FRIEND</Text>
-                </Pressable>
-              ) : null}
+              <Text style={styles.emptyTitle}>{filter === 'unread' ? 'No unread chats' : filter === 'archived' ? 'No archived chats' : 'No chats yet'}</Text>
+              <Text style={styles.emptySub}>{filter === 'all' ? 'Add a friend to start chatting.' : ''}</Text>
             </View>
           }
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(('/chat-room?uid=' + item.user_id) as any)}
-              onLongPress={() => setMenuFor(item)}
+              onLongPress={() => openRowMenu(item)}
               delayLongPress={350}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
-              <Avatar uri={item.avatar_url} name={item.name} online={item.online} />
+              <View style={styles.avatarWrap}>
+                {item.avatar_url ? (
+                  <Image source={{ uri: item.avatar_url }} style={styles.avatarImg} />
+                ) : (
+                  <View style={styles.avatarFallback}><Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text></View>
+                )}
+                {item.online ? <View style={styles.onlineDot} /> : null}
+              </View>
               <View style={styles.rowBody}>
                 <View style={styles.rowTop}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    {item.pinned ? <Text style={styles.pinBadge}>PIN</Text> : null}
+                  <View style={styles.nameRow}>
+                    {item.pinned ? <Text style={styles.pinIcon}>P</Text> : null}
                     <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                    {item.muted ? <Text style={styles.muteBadge}>MUTE</Text> : null}
+                    {item.muted ? <Text style={styles.muteIcon}>M</Text> : null}
                   </View>
-                  <Text style={styles.time}>{timeAgo(item.last_at)}</Text>
+                  <Text style={[styles.time, item.unread > 0 && { color: palette.neon, fontWeight: '800' }]}>{timeAgo(item.last_at)}</Text>
                 </View>
                 <View style={styles.rowBottom}>
-                  <Text style={[styles.lastMessage, item.unread > 0 && styles.lastMessageUnread]} numberOfLines={1}>
-                    {item.last_sender_is_me ? 'You: ' : ''}{item.last_message || 'Tap to start chatting'}
-                  </Text>
-                  {item.unread > 0 ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{item.unread > 99 ? '99+' : item.unread}</Text>
-                    </View>
+                  <View style={styles.msgRow}>
+                    {item.last_sender_is_me ? (
+                      <Text style={[styles.tick, item.last_read ? styles.tickRead : styles.tickSent]}>
+                        {item.last_read ? 'DONE' : 'SENT'}
+                      </Text>
+                    ) : null}
+                    <Text style={[styles.lastMessage, item.unread > 0 && styles.lastMessageUnread]} numberOfLines={1}>
+                      {item.last_sender_is_me ? 'You: ' : ''}{item.last_message || 'Tap to start chatting'}
+                    </Text>
+                  </View>
+                  {item.unread > 0 && !item.muted ? (
+                    <View style={styles.badge}><Text style={styles.badgeText}>{item.unread > 99 ? '99+' : item.unread}</Text></View>
+                  ) : null}
+                  {item.unread > 0 && item.muted ? (
+                    <View style={[styles.badge, styles.badgeMuted]}><Text style={[styles.badgeText, styles.badgeTextMuted]}>{item.unread > 99 ? '99+' : item.unread}</Text></View>
                   ) : null}
                 </View>
               </View>
             </Pressable>
           )}
         />
-        </>
       )}
-
-      <Modal visible={!!menuFor} transparent animationType='slide' onRequestClose={() => setMenuFor(null)}>
-        <Pressable style={styles.menuBg} onPress={() => setMenuFor(null)}>
-          <View style={styles.menuSheet}>
-            <Text style={styles.menuTitle}>{menuFor?.name}</Text>
-            <Pressable onPress={() => menuFor && togglePin(menuFor)} style={styles.menuItem}>
-              <Text style={styles.menuItemTxt}>{menuFor?.pinned ? 'Unpin chat' : 'Pin chat'}</Text>
-            </Pressable>
-            <Pressable onPress={() => menuFor && toggleMute(menuFor)} style={styles.menuItem}>
-              <Text style={styles.menuItemTxt}>{menuFor?.muted ? 'Unmute' : 'Mute notifications'}</Text>
-            </Pressable>
-            <Pressable onPress={() => menuFor && toggleArchive(menuFor)} style={styles.menuItem}>
-              <Text style={styles.menuItemTxt}>{menuFor?.archived ? 'Unarchive' : 'Archive chat'}</Text>
-            </Pressable>
-            <Pressable onPress={() => menuFor && deleteChat(menuFor)} style={styles.menuItem}>
-              <Text style={[styles.menuItemTxt, { color: palette.danger }]}>Delete chat</Text>
-            </Pressable>
-            <Pressable onPress={() => menuFor && blockChat(menuFor)} style={styles.menuItem}>
-              <Text style={[styles.menuItemTxt, { color: palette.danger }]}>Block user</Text>
-            </Pressable>
-            <Pressable onPress={() => setMenuFor(null)} style={[styles.menuItem, { borderBottomWidth: 0 }]}>
-              <Text style={styles.menuItemTxt}>Cancel</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
 
 const createStyles = (palette: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.obsidian },
-  header: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: spacing.md },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: spacing.md },
-  kicker: { ...typography.micro, color: palette.neon },
-  brand: { fontSize: 34, fontWeight: '900', letterSpacing: -1, color: palette.text, marginTop: 4 },
-  headerActions: { flexDirection: 'row', gap: spacing.sm },
-  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center' },
+  header: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: palette.border },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  brand: { fontSize: 32, fontWeight: '900', color: palette.text, letterSpacing: -1 },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  iconBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, alignItems: 'center', justifyContent: 'center' },
   iconBtnText: { fontSize: 14, fontWeight: '900', color: palette.neon },
-  iconBtnSolid: { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.neon, alignItems: 'center', justifyContent: 'center' },
+  iconBtnSolid: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.neon, alignItems: 'center', justifyContent: 'center' },
   iconBtnSolidText: { fontSize: 22, fontWeight: '900', color: palette.obsidian, lineHeight: 24 },
-  search: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: spacing.lg, marginBottom: 10 },
-  searchIcon: { fontSize: 14, fontWeight: '900', color: palette.neon },
-  searchInput: { flex: 1, paddingVertical: 12, color: palette.text, fontSize: 14 },
-  filterRow: { flexDirection: 'row', gap: 6 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
-  filterChipOn: { backgroundColor: 'rgba(0,255,136,0.15)', borderColor: palette.neon },
-  filterText: { fontSize: 11, fontWeight: '800', color: palette.textMuted, letterSpacing: 0.5 },
-  filterTextOn: { color: palette.neon },
-  list: { paddingHorizontal: spacing.xl, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  centerText: { ...typography.caption, color: palette.textMuted },
-  empty: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: spacing.xl },
-  emptyTitle: { ...typography.heading, color: palette.text },
-  emptySub: { ...typography.body, color: palette.textMuted, marginTop: 6, textAlign: 'center', lineHeight: 22 },
-  emptyBtn: { marginTop: spacing.xl, paddingHorizontal: spacing.xl, paddingVertical: 14, borderRadius: radius.md, backgroundColor: palette.neon },
-  emptyBtnText: { ...typography.micro, color: palette.obsidian, fontWeight: '900' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radius.md, marginBottom: 4 },
-  rowPressed: { backgroundColor: palette.surface },
+  search: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, paddingHorizontal: spacing.lg, marginBottom: 12 },
+  searchInput: { flex: 1, paddingVertical: 10, color: palette.text, fontSize: 14 },
+  tabs: { flexDirection: 'row', gap: 6 },
+  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
+  tabOn: { borderColor: palette.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  tabTxt: { fontSize: 11, fontWeight: '800', color: palette.textMuted, letterSpacing: 0.5 },
+  tabTxtOn: { color: palette.neon },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { padding: 40, alignItems: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: palette.textMuted },
+  emptySub: { fontSize: 12, color: palette.textDim, marginTop: 6, textAlign: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  rowPressed: { backgroundColor: 'rgba(255,255,255,0.04)' },
+  avatarWrap: { width: 54, height: 54, position: 'relative' },
+  avatarImg: { width: 54, height: 54, borderRadius: 27 },
+  avatarFallback: { width: 54, height: 54, borderRadius: 27, backgroundColor: palette.neonSoft, borderWidth: 1, borderColor: palette.borderHi, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 20, fontWeight: '900', color: palette.neon },
+  onlineDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: palette.neon, borderWidth: 2, borderColor: palette.obsidian },
   rowBody: { flex: 1 },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { ...typography.body, fontWeight: '700', color: palette.text, flex: 1 },
-  pinBadge: { fontSize: 8, fontWeight: '900', color: palette.neon, letterSpacing: 1, borderWidth: 1, borderColor: palette.neon, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
-  muteBadge: { fontSize: 8, fontWeight: '900', color: palette.textDim, letterSpacing: 1 },
-  time: { ...typography.micro, color: palette.textDim, marginLeft: spacing.sm },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 },
+  pinIcon: { fontSize: 10, color: palette.neon, fontWeight: '900' },
+  muteIcon: { fontSize: 10, color: palette.textDim, fontWeight: '900' },
+  name: { fontSize: 15, fontWeight: '800', color: palette.text, flexShrink: 1 },
+  time: { fontSize: 11, color: palette.textMuted, fontWeight: '600' },
   rowBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  lastMessage: { ...typography.caption, color: palette.textMuted, flex: 1, marginRight: spacing.sm },
+  msgRow: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
+  tick: { fontSize: 9, marginRight: 4, fontWeight: '900', letterSpacing: 0.5 },
+  tickRead: { color: '#4fc3f7' },
+  tickSent: { color: palette.textMuted },
+  lastMessage: { fontSize: 13, color: palette.textMuted, flex: 1 },
   lastMessageUnread: { color: palette.text, fontWeight: '700' },
-  badge: { backgroundColor: '#25d366', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, minWidth: 22, alignItems: 'center' },
-  badgeText: { fontSize: 10, fontWeight: '900', color: '#fff' },
-  menuBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  menuSheet: { backgroundColor: palette.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
-  menuTitle: { fontSize: 18, fontWeight: '900', color: palette.text, marginBottom: 12 },
-  menuItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border },
-  menuItemTxt: { fontSize: 14, fontWeight: '700', color: palette.text },
+  badge: { backgroundColor: palette.neon, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, minWidth: 22, alignItems: 'center' },
+  badgeMuted: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  badgeText: { fontSize: 11, fontWeight: '900', color: palette.obsidian },
+  badgeTextMuted: { color: palette.textMuted },
 });

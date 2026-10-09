@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
+import { useChatStore } from '../../src/store/chat';
 
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
@@ -14,6 +15,7 @@ function TabIcon({ emoji, focused, color }: {
 
 export default function TabsLayout() {
   const palette = useTheme((s) => s.palette);
+  const unreadTotal = useChatStore((s) => s.unreadTotal);
 
   return (
     <Tabs
@@ -86,6 +88,8 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'CHAT',
+          tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#ff3b5c', color: '#fff', fontSize: 10, fontWeight: '900' },
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="M" focused={focused} color={color} />
           ),
