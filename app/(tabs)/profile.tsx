@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
-  ActivityIndicator, TextInput,
+  ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -78,6 +78,7 @@ export default function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [kycStatus, setKycStatus] = useState<string>('pending');
   const [kycVerifiedAt, setKycVerifiedAt] = useState<string | null>(null);
@@ -164,7 +165,7 @@ export default function Profile() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const uploadAvatar = async () => {
+  const changeAvatar = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7, allowsEditing: true, aspect: [1, 1],
@@ -199,6 +200,53 @@ export default function Profile() {
     } finally {
       setAvatarBusy(false);
     }
+  };
+
+  const removeAvatar = async () => {
+    if (!user) return;
+    Alert.alert('Remove photo?', 'Your profile picture will be deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        setAvatarBusy(true);
+        try {
+          if (avatar) {
+            const mk = '/avatars/';
+            const idx = avatar.indexOf(mk);
+            if (idx >= 0) {
+              const storagePath = avatar.slice(idx + mk.length).split('?')[0];
+              try {
+                const sess = await supabase.auth.getSession();
+                const tok = sess.data.session ? sess.data.session.access_token : null;
+                if (tok) {
+                  await fetch(SUPABASE_URL + '/storage/v1/object/avatars/' + storagePath, {
+                    method: 'DELETE',
+                    headers: { Authorization: 'Bearer ' + tok },
+                  });
+                }
+              } catch (err) {}
+            }
+          }
+          await supabase.from('user_profiles')
+            .update({ avatar_url: null, updated_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+          setAvatar(null);
+        } catch (e) {
+          Alert.alert('Failed', e && e.message ? e.message : 'Try again');
+        } finally {
+          setAvatarBusy(false);
+        }
+      }},
+    ]);
+  };
+
+  const onAvatarTap = () => {
+    if (!avatar) { changeAvatar(); return; }
+    Alert.alert('Profile picture', 'What would you like to do?', [
+      { text: 'View', onPress: () => setViewerOpen(true) },
+      { text: 'Change', onPress: changeAvatar },
+      { text: 'Remove', style: 'destructive', onPress: removeAvatar },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const save = async () => {
@@ -291,7 +339,7 @@ export default function Profile() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero */}
         <View style={styles.hero}>
-          <Pressable onPress={uploadAvatar} style={styles.avatarWrap}>
+          <Pressable onPress={onAvatarTap} style={styles.avatarWrap}>
             {avatar ? (
               <Image source={{ uri: avatar }} style={styles.avatarImg} />
             ) : (
@@ -474,6 +522,22 @@ export default function Profile() {
         <Text style={styles.version}>GAIA Mobile v1.0.0</Text>
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      <Modal
+        visible={viewerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerOpen(false)}
+      >
+        <View style={styles.viewerBg}>
+          <Pressable onPress={() => setViewerOpen(false)} style={styles.viewerClose}>
+            <Text style={styles.viewerCloseTxt}>X</Text>
+          </Pressable>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.viewerImg} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
