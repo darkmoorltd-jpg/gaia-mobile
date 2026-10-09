@@ -67,6 +67,7 @@ export default function ChatRoom() {
   const [memberCount, setMemberCount] = useState(0);
   const [groupName, setGroupName] = useState('');
   const [memberMap, setMemberMap] = useState<Record<string, string>>({});
+  const [incomingCall, setIncomingCall] = useState<any>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [reactions, setReactions] = useState<Record<string, any[]>>({});
@@ -216,8 +217,54 @@ export default function ChatRoom() {
           setOtherTyping(Date.now() - ts < 5000);
         }
       })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_call_signals', filter: 'callee_id=eq.' + user.id }, (payload) => {
+        const sig: any = payload.new;
+        if (sig && sig.status === 'ringing' && sig.room_id === roomId) {
+          setIncomingCall(sig);
+        }
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const startCall = async (callMode: 'voice' | 'video') => {
+    if (!roomId || !user || !uid) return;
+    try {
+      const jitsiRoom = 'gaia-' + roomId;
+      const { data, error } = await supabase.from('chat_call_signals').insert({
+        room_id: roomId,
+        caller_id: user.id,
+        callee_id: uid,
+        mode: callMode,
+        status: 'ringing',
+        jitsi_room: jitsiRoom,
+      }).select('id').single();
+      if (error) throw error;
+      const sigId = data ? data.id : null;
+      router.push(('/call?room=' + roomId + '&peer=' + uid + '&name=' + encodeURIComponent(otherName) + '&mode=' + callMode + (sigId ? '&signal=' + sigId : '')) as any);
+    } catch (e: any) {
+      Alert.alert('Call failed', e && e.message ? e.message : 'Try again');
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!incomingCall) return;
+    const sig = incomingCall;
+    setIncomingCall(null);
+    try {
+      await supabase.from('chat_call_signals').update({ status: 'accepted', answered_at: new Date().toISOString() }).eq('id', sig.id);
+    } catch {}
+    const peerNameEnc = encodeURIComponent(otherName);
+    router.push(('/call?room=' + sig.room_id + '&peer=' + sig.caller_id + '&name=' + peerNameEnc + '&mode=' + sig.mode + '&signal=' + sig.id) as any);
+  };
+
+  const rejectCall = async () => {
+    if (!incomingCall) return;
+    const sig = incomingCall;
+    setIncomingCall(null);
+    try {
+      await supabase.from('chat_call_signals').update({ status: 'rejected', ended_at: new Date().toISOString() }).eq('id', sig.id);
+    } catch {}
+  };
+
+  return () => { supabase.removeChannel(channel); };
   }, [roomId, user, uid, markRead, loadReactions]);
 
   const bumpTyping = () => {
