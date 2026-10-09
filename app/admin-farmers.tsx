@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, TextInput, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
+
+const REASONS = [
+  'Blurry or unclear',
+  'Cut off / incomplete',
+  'Wrong document type',
+  'Expired document',
+  'Face not clearly visible',
+  'Selfie does not match ID',
+  'Other (specify below)',
+];
 
 export default function AdminFarmers() {
   const router = useRouter();
@@ -16,6 +26,10 @@ export default function AdminFarmers() {
   const [busy, setBusy] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
+  const [rejecting, setRejecting] = useState<{ doc: 'id' | 'selfie' } | null>(null);
+  const [reason, setReason] = useState<string>('');
+  const [customReason, setCustomReason] = useState<string>('');
+  const [actionBusy, setActionBusy] = useState(false);
 
   const load = async () => {
     setBusy(true);
@@ -34,10 +48,47 @@ export default function AdminFarmers() {
     if (user?.email?.toLowerCase() === ADMIN_EMAIL) load();
   }, [user]);
 
-  const setStatus = async (id: string, status: string) => {
-    await supabase.from('farmer_verifications').update({ status }).eq('id', id);
-    Alert.alert('Updated', 'Status: ' + status);
-    setSelected(null);
+  const refreshSelected = async (id: string) => {
+    const { data } = await supabase.from('farmer_verifications').select('*').eq('id', id).maybeSingle();
+    if (data) setSelected(data);
+  };
+
+  const approveAll = async () => {
+    if (!selected) return;
+    Alert.alert('Approve verification?', 'Both documents will be marked approved.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Approve', onPress: async () => {
+        setActionBusy(true);
+        const { error } = await supabase.rpc('admin_approve_verification', { p_verification_id: selected.id });
+        setActionBusy(false);
+        if (error) { Alert.alert('Failed', error.message); return; }
+        Alert.alert('Approved', 'User is now verified.');
+        await refreshSelected(selected.id);
+        load();
+      }},
+    ]);
+  };
+
+  const submitReject = async () => {
+    if (!selected || !rejecting) return;
+    const finalReason = reason === 'Other (specify below)' ? customReason.trim() : reason;
+    if (!finalReason) { Alert.alert('Reason required', 'Please pick or type a reason.'); return; }
+
+    setActionBusy(true);
+    const payload: any = {
+      p_verification_id: selected.id,
+      p_reject_id: rejecting.doc === 'id',
+      p_reject_selfie: rejecting.doc === 'selfie',
+      p_id_reason: rejecting.doc === 'id' ? finalReason : null,
+      p_selfie_reason: rejecting.doc === 'selfie' ? finalReason : null,
+    };
+    const { error } = await supabase.rpc('admin_reject_documents', payload);
+    setActionBusy(false);
+    if (error) { Alert.alert('Failed', error.message); return; }
+    setRejecting(null);
+    setReason('');
+    setCustomReason('');
+    await refreshSelected(selected.id);
     load();
   };
 
@@ -52,14 +103,46 @@ export default function AdminFarmers() {
       })
     : rows;
 
-  // ===== Detail view =====
+  const docColor = (s?: string) => {
+    if (s === 'rejected') return palette.danger;
+    if (s === 'approved') return palette.neon;
+    return palette.warning;
+  };
+
+  const DocPanel = ({ label, uri, status, reasonText }: any) => (
+    <View style={styles.docWrap}>
+      <Text style={styles.docLabel}>{label}</Text>
+      {uri ? (
+        <Image source={{ uri }} style={styles.docImg} />
+      ) : (
+        <View style={[styles.docImg, { alignItems: 'center', justifyContent: 'center' }]}>
+          <Text style={styles.docMissing}>No photo</Text>
+        </View>
+      )}
+      <View style={[styles.docStatus, { borderColor: docColor(status) }]}>
+        <Text style={[styles.docStatusTxt, { color: docColor(status) }]}>{(status || 'pending').toUpperCase()}</Text>
+      </View>
+      {status === 'rejected' && reasonText ? (
+        <Text style={styles.docReason}>{reasonText}</Text>
+      ) : null}
+      {uri ? (
+        <Pressable
+          onPress={() => setRejecting({ doc: label === 'ID DOCUMENT' ? 'id' : 'selfie' })}
+          style={[styles.rejectDoc, { borderColor: palette.danger }]}
+        >
+          <Text style={[styles.rejectDocTxt, { color: palette.danger }]}>REJECT THIS</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
   if (selected) {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Pressable onPress={() => setSelected(null)}><Text style={styles.back}>BACK</Text></Pressable>
           <Text style={styles.title}>{selected.full_name || 'Unknown'}</Text>
-          <Text style={styles.sub}>{selected.status || 'pending'}</Text>
+          <Text style={styles.sub}>{(selected.status || 'pending').toUpperCase()}</Text>
 
           <View style={styles.detailCard}>
             <Text style={styles.detailRow}><Text style={styles.k}>Phone: </Text>{selected.phone || '—'}</Text>
@@ -73,35 +156,86 @@ export default function AdminFarmers() {
           </View>
 
           <Text style={styles.sectionLabel}>DOCUMENTS</Text>
-          <View style={styles.photoRow}>
-            {selected.id_photo_url ? (
-              <View style={styles.photoWrap}>
-                <Image source={{ uri: selected.id_photo_url }} style={styles.photo} />
-                <Text style={styles.photoLbl}>ID DOCUMENT</Text>
-              </View>
-            ) : <Text style={styles.missing}>No ID photo</Text>}
-            {selected.selfie_url ? (
-              <View style={styles.photoWrap}>
-                <Image source={{ uri: selected.selfie_url }} style={styles.photo} />
-                <Text style={styles.photoLbl}>SELFIE</Text>
-              </View>
-            ) : <Text style={styles.missing}>No selfie</Text>}
+          <View style={styles.docRow}>
+            <DocPanel
+              label="ID DOCUMENT"
+              uri={selected.id_photo_url || selected.id_image_url}
+              status={selected.id_status || 'pending'}
+              reasonText={selected.id_rejection_reason}
+            />
+            <DocPanel
+              label="SELFIE"
+              uri={selected.selfie_url}
+              status={selected.selfie_status || 'pending'}
+              reasonText={selected.selfie_rejection_reason}
+            />
           </View>
 
           <View style={styles.actionRow}>
-            <Pressable onPress={() => setStatus(selected.id, 'approved')} style={styles.approve}>
-              <Text style={styles.approveTxt}>APPROVE</Text>
-            </Pressable>
-            <Pressable onPress={() => setStatus(selected.id, 'rejected')} style={styles.reject}>
-              <Text style={styles.rejectTxt}>REJECT</Text>
+            <Pressable
+              onPress={approveAll}
+              disabled={actionBusy}
+              style={[styles.approve, actionBusy && { opacity: 0.5 }]}
+            >
+              <Text style={styles.approveTxt}>{actionBusy ? 'WORKING...' : 'APPROVE ALL'}</Text>
             </Pressable>
           </View>
+
+          <Text style={styles.hint}>
+            Tip: to reject only one document, tap REJECT THIS under that document above.
+          </Text>
+
+          <Modal visible={!!rejecting} transparent animationType="slide" onRequestClose={() => setRejecting(null)}>
+            <View style={styles.modalBg}>
+              <View style={styles.modalSheet}>
+                <Text style={styles.modalTitle}>
+                  Reject {rejecting?.doc === 'id' ? 'ID document' : 'selfie'}
+                </Text>
+                <Text style={styles.modalSub}>Pick a reason. The farmer will see this and re-upload.</Text>
+
+                {REASONS.map((r) => (
+                  <Pressable
+                    key={r}
+                    onPress={() => setReason(r)}
+                    style={[styles.reasonRow, reason === r && styles.reasonRowOn]}
+                  >
+                    <Text style={[styles.reasonTxt, reason === r && styles.reasonTxtOn]}>{r}</Text>
+                  </Pressable>
+                ))}
+
+                {reason === 'Other (specify below)' ? (
+                  <TextInput
+                    value={customReason}
+                    onChangeText={setCustomReason}
+                    placeholder="Type the reason..."
+                    placeholderTextColor={palette.textDim}
+                    style={styles.reasonInput}
+                  />
+                ) : null}
+
+                <View style={styles.modalActions}>
+                  <Pressable
+                    onPress={() => { setRejecting(null); setReason(''); setCustomReason(''); }}
+                    style={styles.cancelBtn}
+                  >
+                    <Text style={styles.cancelTxt}>CANCEL</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={submitReject}
+                    disabled={actionBusy}
+                    style={[styles.sendReject, actionBusy && { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.sendRejectTxt}>{actionBusy ? 'SENDING...' : 'SEND REJECTION'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       </View>
     );
   }
 
-  // ===== List view =====
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -113,18 +247,19 @@ export default function AdminFarmers() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search by name, state, phone…"
+            placeholder="Search by name, state, phone..."
             placeholderTextColor={palette.textDim}
             style={styles.search}
           />
         </View>
 
-        {busy ? <Text style={styles.loading}>Loading…</Text> : null}
+        {busy ? <Text style={styles.loading}>Loading...</Text> : null}
 
         {filtered.map((r, i) => {
           const ok = r.status === 'approved';
           const pending = r.status === 'pending' || r.status === 'pending_payment';
-          const color = ok ? palette.neon : pending ? palette.warning : palette.danger;
+          const rejected = r.status === 'documents_rejected';
+          const color = ok ? palette.neon : rejected ? palette.danger : pending ? palette.warning : palette.textMuted;
           return (
             <Pressable key={i} onPress={() => setSelected(r)} style={styles.card}>
               {r.selfie_url ? (
@@ -136,8 +271,8 @@ export default function AdminFarmers() {
               )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.name} numberOfLines={1}>{r.full_name || 'Unknown'}</Text>
-                <Text style={styles.detail} numberOfLines={1}>{r.state || '—'} · {r.phone || '—'}</Text>
-                <Text style={[styles.statusTag, { color, borderColor: color }]}>{(r.status || 'pending').toUpperCase()}</Text>
+                <Text style={styles.detail} numberOfLines={1}>{r.state || '-'} · {r.phone || '-'}</Text>
+                <Text style={[styles.statusTag, { color, borderColor: color }]}>{(r.status || 'pending').replace('_', ' ').toUpperCase()}</Text>
               </View>
               <Text style={styles.chev}>›</Text>
             </Pressable>
@@ -168,16 +303,34 @@ const createStyles = (p: any) => StyleSheet.create({
   detailRow: { fontSize: 13, color: p.text, marginBottom: 8 },
   k: { color: p.neon, fontWeight: '800' },
   sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 20, marginBottom: 10 },
-  photoRow: { flexDirection: 'row', gap: 12 },
-  photoWrap: { flex: 1 },
-  photo: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: p.abyss },
-  photoLbl: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: p.textMuted, marginTop: 6, textAlign: 'center' },
-  missing: { flex: 1, fontSize: 12, color: p.textDim, textAlign: 'center', paddingVertical: 30 },
+  docRow: { flexDirection: 'row', gap: 12 },
+  docWrap: { flex: 1 },
+  docLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: p.textMuted, marginBottom: 6 },
+  docImg: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: p.abyss },
+  docMissing: { fontSize: 12, color: p.textDim },
+  docStatus: { marginTop: 8, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, alignSelf: 'flex-start' },
+  docStatusTxt: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  docReason: { fontSize: 10, color: p.danger, marginTop: 6, fontStyle: 'italic' },
+  rejectDoc: { marginTop: 10, padding: 10, borderRadius: 8, borderWidth: 1.5, alignItems: 'center' },
+  rejectDocTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 24 },
   approve: { flex: 1, padding: 16, borderRadius: 12, backgroundColor: p.neon, alignItems: 'center' },
   approveTxt: { fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  reject: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1.5, borderColor: p.danger, alignItems: 'center' },
-  rejectTxt: { fontWeight: '900', color: p.danger, letterSpacing: 1 },
+  hint: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 16, fontStyle: 'italic' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: p.text },
+  modalSub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 },
+  reasonRow: { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface, marginBottom: 6 },
+  reasonRowOn: { borderColor: p.danger, backgroundColor: 'rgba(255,59,92,0.1)' },
+  reasonTxt: { fontSize: 13, color: p.text },
+  reasonTxtOn: { color: p.danger, fontWeight: '800' },
+  reasonInput: { marginTop: 8, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface, color: p.text, fontSize: 13 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
+  cancelTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, color: p.text },
+  sendReject: { flex: 2, padding: 14, borderRadius: 10, backgroundColor: p.danger, alignItems: 'center' },
+  sendRejectTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, color: '#fff' },
   blocked: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   blockedText: { fontSize: 20, fontWeight: '900', color: p.danger },
 });
