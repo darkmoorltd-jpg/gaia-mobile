@@ -338,6 +338,7 @@ export default function ChatTab() {
           <Text style={styles.centerText}>Loading chats...</Text>
         </View>
       ) : (
+        <>
         {groups.length > 0 && filter === 'all' && !search ? (
           <View style={styles.groupsWrap}>
             <Text style={styles.sectionLabel}>GROUPS</Text>
@@ -405,6 +406,7 @@ export default function ChatTab() {
             </Pressable>
           )}
         />
+        </>
       )}
 
       <Modal visible={!!menuFor} transparent animationType='slide' onRequestClose={() => setMenuFor(null)}>
