@@ -751,7 +751,7 @@ export default function ChatRoom() {
 
         <View style={{ flex: 1 }}>
 
-          <Text style={styles.name} numberOfLines={1}>{otherName}</Text>
+          <Pressable onPress={() => router.push(('/chat-info?uid=' + uid) as any)}><Text style={styles.name} numberOfLines={1}>{otherName}</Text></Pressable>
 
           <Text style={styles.sub}>{otherTyping ? 'typing...' : otherOnline ? 'online' : 'tap for info'}</Text>
 
