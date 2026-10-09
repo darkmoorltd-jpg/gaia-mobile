@@ -54,7 +54,7 @@ function dayLabel(iso: string) {
 
 export default function ChatRoom() {
   const router = useRouter();
-  const { uid } = useLocalSearchParams<{ uid: string }>();
+  const { uid, room, group } = useLocalSearchParams<{ uid?: string; room?: string; group?: string }>();
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s) => s.user);
@@ -63,6 +63,10 @@ export default function ChatRoom() {
   const [otherName, setOtherName] = useState('Chat');
   const [otherAvatar, setOtherAvatar] = useState<string | null>(null);
   const [otherOnline, setOtherOnline] = useState(false);
+  const [isGroup, setIsGroup] = useState<boolean>(false);
+  const [memberCount, setMemberCount] = useState(0);
+  const [groupName, setGroupName] = useState('');
+  const [memberMap, setMemberMap] = useState<Record<string, string>>({});
   const [otherTyping, setOtherTyping] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [reactions, setReactions] = useState<Record<string, any[]>>({});
@@ -110,9 +114,45 @@ export default function ChatRoom() {
   }, []);
 
   const load = useCallback(async () => {
-    if (!user || !uid) return;
+    if (!user) return;
+    if (!uid && !room) return;
     setBusy(true);
     try {
+      // GROUP MODE
+      if (group === '1' && room) {
+        setIsGroup(true);
+        const rid = room as string;
+        setRoomId(rid);
+
+        const { data: roomRow } = await supabase.from('chat_rooms').select('name,avatar_url').eq('id', rid).maybeSingle();
+        if (roomRow) {
+          setGroupName(roomRow.name || 'Group');
+          setOtherName(roomRow.name || 'Group');
+          if (roomRow.avatar_url) setOtherAvatar(roomRow.avatar_url);
+        }
+
+        const membersRes = await supabase.rpc('list_group_members', { p_room_id: rid });
+        const members = membersRes.data || [];
+        setMemberCount(members.length);
+        const mmap: Record<string, string> = {};
+        members.forEach((m: any) => {
+          const nm = ((m.first_name || '') + ' ' + (m.last_name || '')).trim() || (m.email ? m.email.split('@')[0] : 'Member');
+          mmap[m.user_id] = nm;
+        });
+        setMemberMap(mmap);
+
+        const { data: msgs } = await supabase.from('chat_messages')
+          .select('id,sender_id,body,created_at,attachment_url,attachment_type,delivered_at,read_at,reply_to_id,forwarded,edited_at,deleted_for_everyone,duration_ms')
+          .eq('room_id', rid).order('created_at', { ascending: true }).limit(300);
+        setMessages((msgs || []) as Msg[]);
+        await loadReactions(rid);
+        await markRead(rid);
+        setBusy(false);
+        return;
+      }
+
+      // 1:1 MODE (existing)
+      if (!uid) return;
       const { data: prof } = await supabase
         .from('user_profiles').select('email,first_name,last_name,avatar_url')
         .eq('user_id', uid).maybeSingle();
@@ -500,6 +540,9 @@ export default function ChatRoom() {
           style={[styles.msgRow, mine ? styles.msgRowMine : styles.msgRowTheirs]}
         >
           <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs, isImage && { padding: 4, paddingBottom: 4 }]}>
+            {isGroup && !mine ? (
+              <Text style={styles.senderName}>{memberMap[item.sender_id] || 'Member'}</Text>
+            ) : null}
             {mine ? <View style={styles.tailRight} /> : <View style={styles.tailLeft} />}
 
             {item.deleted_for_everyone ? (

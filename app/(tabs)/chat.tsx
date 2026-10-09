@@ -50,6 +50,7 @@ export default function ChatTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
+  const [groups, setGroups] = useState<any[]>([]);
   const [menuFor, setMenuFor] = useState<Row | null>(null);
 
   const load = useCallback(async () => {
@@ -62,6 +63,23 @@ export default function ChatTab() {
       ]);
       const blockedSet = new Set(blockedIds);
       const hiddenSet = new Set(hiddenIds);
+
+      // load groups
+      const { data: myGroups } = await supabase
+        .from('chat_members')
+        .select('room_id')
+        .eq('user_id', user.id);
+      const groupRoomIds = (myGroups || []).map((m: any) => m.room_id);
+      if (groupRoomIds.length > 0) {
+        const { data: roomRows } = await supabase
+          .from('chat_rooms')
+          .select('id,name,avatar_url,is_group,updated_at')
+          .in('id', groupRoomIds)
+          .eq('is_group', true);
+        setGroups(roomRows || []);
+      } else {
+        setGroups([]);
+      }
 
       // friendships
       const { data: fships } = await supabase
@@ -280,6 +298,9 @@ export default function ChatTab() {
             <Pressable onPress={() => router.push('/friend-requests' as any)} style={styles.iconBtn}>
               <Text style={styles.iconBtnText}>R</Text>
             </Pressable>
+            <Pressable onPress={() => router.push('/create-group' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>G</Text>
+            </Pressable>
             <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.iconBtnSolid}>
               <Text style={styles.iconBtnSolidText}>+</Text>
             </Pressable>
@@ -317,6 +338,26 @@ export default function ChatTab() {
           <Text style={styles.centerText}>Loading chats...</Text>
         </View>
       ) : (
+        {groups.length > 0 && filter === 'all' && !search ? (
+          <View style={styles.groupsWrap}>
+            <Text style={styles.sectionLabel}>GROUPS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupsRow}>
+              {groups.map((g) => (
+                <Pressable key={g.id} onPress={() => router.push(('/chat-room?room=' + g.id + '&group=1') as any)} style={styles.groupChip}>
+                  <View style={styles.groupAvatar}>
+                    {g.avatar_url ? (
+                      <Image source={{ uri: g.avatar_url }} style={styles.groupAvatarImg} />
+                    ) : (
+                      <Text style={styles.groupAvatarTxt}>{String(g.name || 'G').charAt(0).toUpperCase()}</Text>
+                    )}
+                  </View>
+                  <Text style={styles.groupName} numberOfLines={1}>{g.name || 'Group'}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.user_id}
