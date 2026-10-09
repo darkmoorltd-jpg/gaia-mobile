@@ -8,6 +8,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync, createAudioPlayer } from 'expo-audio';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
@@ -73,7 +74,13 @@ export default function ChatRoom() {
   const [menuFor, setMenuFor] = useState<Msg | null>(null);
   const [reactFor, setReactFor] = useState<Msg | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingMs, setRecordingMs] = useState(0);
+  const [playingId, setPlayingId] = useState<string | number | null>(null);
   const listRef = useRef<FlatList<Msg>>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recordingTimer = useRef<any>(null);
+  const activePlayer = useRef<any>(null);
   const typingTimer = useRef<any>(null);
   const lastTypingWrite = useRef<number>(0);
 
@@ -213,6 +220,105 @@ export default function ChatRoom() {
     finally { setUploading(false); }
   };
 
+  const startVoice = async () => {
+    if (!roomId || !user) return;
+    try {
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Microphone permission required'); return; }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setIsRecording(true);
+      setRecordingMs(0);
+      const started = Date.now();
+      recordingTimer.current = setInterval(() => { setRecordingMs(Date.now() - started); }, 100);
+    } catch (e: any) {
+      Alert.alert('Recording error', e && e.message ? e.message : 'Try again');
+      setIsRecording(false);
+    }
+  };
+
+  const stopVoiceAndSend = async (send: boolean) => {
+    if (recordingTimer.current) { clearInterval(recordingTimer.current); recordingTimer.current = null; }
+    setIsRecording(false);
+    const durationMs = recordingMs;
+    setRecordingMs(0);
+    try {
+      await recorder.stop();
+      const uri = recorder.uri;
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      if (!send || !uri) return;
+      if (durationMs < 800) { Alert.alert('Too short', 'Hold longer to record a voice note.'); return; }
+      await uploadVoice(uri, durationMs);
+    } catch (e: any) {
+      Alert.alert('Stop error', e && e.message ? e.message : 'Try again');
+    }
+  };
+
+  const uploadVoice = async (uri: string, durationMs: number) => {
+    if (!roomId || !user) return;
+    setUploading(true);
+    try {
+      const sess = await supabase.auth.getSession();
+      const tok = sess.data.session ? sess.data.session.access_token : null;
+      if (!tok) throw new Error('no session');
+      const path = roomId + '/voice_' + Date.now() + '.m4a';
+      const upUrl = SUPABASE_URL + '/storage/v1/object/chat-attachments/' + path;
+      const r = await FileSystem.uploadAsync(upUrl, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'audio/m4a', 'x-upsert': 'false' },
+      });
+      if (r.status < 200 || r.status >= 300) throw new Error('upload ' + r.status);
+      const pub = SUPABASE_URL + '/storage/v1/object/public/chat-attachments/' + path;
+      const row: any = {
+        room_id: roomId,
+        sender_id: user.id,
+        body: 'Voice note',
+        attachment_url: pub,
+        attachment_type: 'audio',
+        duration_ms: durationMs,
+      };
+      if (replyTo) row.reply_to_id = String(replyTo.id);
+      await supabase.from('chat_messages').insert(row);
+      setReplyTo(null);
+    } catch (e: any) {
+      Alert.alert('Voice upload failed', e && e.message ? e.message : 'Try again');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const playVoice = async (m: Msg) => {
+    try {
+      if (activePlayer.current) {
+        try { activePlayer.current.remove(); } catch {}
+        activePlayer.current = null;
+      }
+      if (playingId === m.id) { setPlayingId(null); return; }
+      if (!m.attachment_url) return;
+      setPlayingId(m.id);
+      const player = createAudioPlayer({ uri: m.attachment_url });
+      activePlayer.current = player;
+      try {
+        const sub = (player as any).addListener('playbackStatusUpdate', (st: any) => {
+          if (st && st.didJustFinish) { sub.remove(); setPlayingId(null); try { player.remove(); } catch {} }
+        });
+        player.play();
+        setTimeout(() => { setPlayingId(null); }, (m.duration_ms || 30000) + 2000);
+      } catch { setPlayingId(null); }
+    } catch (e) {
+      setPlayingId(null);
+    }
+  };
+
+  const fmtDuration = (ms: number) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + ':' + (r < 10 ? '0' + r : String(r));
+  };
+
   const pickImage = async (from: 'camera' | 'library') => {
     setAttachOpen(false);
     try {
@@ -334,6 +440,20 @@ export default function ChatRoom() {
                 {isImage ? (
                   <Pressable onPress={() => item.attachment_url && Linking.openURL(item.attachment_url)}>
                     <Image source={{ uri: item.attachment_url || '' }} style={styles.attachImg} resizeMode='cover' />
+                  </Pressable>
+                ) : null}
+
+                {item.attachment_type === 'audio' ? (
+                  <Pressable onPress={() => playVoice(item)} style={styles.voiceRow}>
+                    <View style={[styles.playBtn, { backgroundColor: mine ? 'rgba(0,0,0,0.25)' : 'rgba(0,255,136,0.15)' }]}>
+                      <Text style={[styles.playIcon, { color: mine ? '#fff' : '#00ff88' }]}>{playingId === item.id ? '❚❚' : '▶'}</Text>
+                    </View>
+                    <View style={styles.waveWrap}>
+                      {[6, 12, 18, 22, 16, 10, 20, 24, 14, 8, 16, 20, 12, 6, 18, 22, 10, 14, 8, 16].map((h, wi) => (
+                        <View key={wi} style={[styles.waveBar, { height: h, backgroundColor: mine ? 'rgba(255,255,255,0.7)' : '#00ff88' }]} />
+                      ))}
+                    </View>
+                    <Text style={[styles.voiceDuration, mine ? styles.timeMine : styles.timeTheirs]}>{fmtDuration(item.duration_ms || 0)}</Text>
                   </Pressable>
                 ) : null}
 
