@@ -20,15 +20,21 @@ const DIAGNOSE = [
   { key: 'livestock', title: 'Livestock', sub: 'Cattle + Poultry', img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock' },
 ];
 
-const EXTRAS = [
-  { key: 'marketplace', title: 'Marketplace',    sub: 'Buy and sell produce',    img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace' },
-  { key: 'seller',      title: 'Seller',         sub: 'Your listings & sales',   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store' },
-  { key: 'agro',        title: 'Agro Tools',     sub: 'Yield, profit, fertilizer', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
-  { key: 'mapping',     title: 'Farm Mapping',   sub: 'Walk your farm boundary', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
-  { key: 'satellite',   title: 'Satellite',      sub: 'Monitor from space',      img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite' },
-  { key: 'journal',     title: 'Farm Journal',   sub: 'Daily notes & records',   img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
-  { key: 'calendar',    title: 'Farming Calendar', sub: 'Season plan by crop',   img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar' },
-  { key: 'buy-scans',   title: 'Buy Scans',      sub: 'Top up your balance',     img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
+const MY_FARM = [
+  { key: 'seller',    title: 'Seller',           sub: 'Your listings & sales',    img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store' },
+  { key: 'mapping',   title: 'Farm Mapping',     sub: 'Walk your farm boundary',  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
+  { key: 'journal',   title: 'Farm Journal',     sub: 'Daily notes & records',    img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
+  { key: 'calendar',  title: 'Farming Calendar', sub: 'Season plan by crop',      img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar' },
+];
+
+const AI_TOOLS = [
+  { key: 'agro',      title: 'Agro Tools',       sub: 'Yield, profit, fertilizer', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
+  { key: 'satellite', title: 'Satellite',        sub: 'Monitor from space',       img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite' },
+];
+
+const MARKET = [
+  { key: 'marketplace', title: 'Marketplace',    sub: 'Buy and sell produce',     img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace' },
+  { key: 'buy-scans',   title: 'Buy Scans',      sub: 'Top up your balance',      img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
 ];
 
 export default function Home() {
@@ -194,17 +200,33 @@ export default function Home() {
           ))}
         </View>
 
-        {/* Explore grid */}
-        <Text style={styles.sectionLabel}>EXPLORE</Text>
+        {/* My Farm */}
+        <Text style={styles.sectionLabel}>MY FARM</Text>
         <View style={styles.grid}>
-          {EXTRAS.map((item, i) => (
+          {MY_FARM.map((item, i) => (
             <Tile key={item.key} item={item} delay={480 + i * 60} />
+          ))}
+        </View>
+
+        {/* AI Tools */}
+        <Text style={styles.sectionLabel}>AI TOOLS</Text>
+        <View style={styles.grid}>
+          {AI_TOOLS.map((item, i) => (
+            <Tile key={item.key} item={item} delay={720 + i * 60} />
+          ))}
+        </View>
+
+        {/* Market */}
+        <Text style={styles.sectionLabel}>MARKET</Text>
+        <View style={styles.grid}>
+          {MARKET.map((item, i) => (
+            <Tile key={item.key} item={item} delay={860 + i * 60} />
           ))}
         </View>
 
         {/* Admin */}
         {isAdmin ? (
-          <Animated.View entering={FadeInDown.delay(900).duration(400)}>
+          <Animated.View entering={FadeInDown.delay(1100).duration(400)}>
             <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
               <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
               <Text style={styles.adminArrow}>›</Text>
