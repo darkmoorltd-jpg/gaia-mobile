@@ -190,9 +190,16 @@ export default function Profile() {
       });
       if (r.status < 200 || r.status >= 300) throw new Error('upload ' + r.status);
       const publicUrl = SUPABASE_URL + '/storage/v1/object/public/avatars/' + path;
-      await supabase.from('user_profiles')
+      const upd = await supabase.from('user_profiles')
         .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('avatar_url');
+      console.log('[avatar] DB write:', upd);
+      if (upd.error) {
+        Alert.alert('DB write failed', upd.error.message);
+      } else if (!upd.data || upd.data.length === 0) {
+        Alert.alert('DB row not updated', 'RLS is likely blocking this write.');
+      }
       setAvatar(publicUrl);
       Alert.alert('Updated', 'Profile picture changed.');
     } catch (e: any) {
