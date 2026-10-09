@@ -585,6 +585,13 @@ export default function ChatRoom() {
     setReplyTo(m);
   };
 
+  const replyPreviewText = (m: Msg) => {
+    if (m.attachment_type === 'image') return '[Photo]';
+    if (m.attachment_type === 'file') return '[File]';
+    if (m.attachment_type === 'location') return '[Location]';
+    return String(m.body || '').slice(0, 80);
+  };
+
   const renderItem = ({ item, index }: { item: Msg; index: number }) => {
     const mine = item.sender_id === user?.id;
     const prev = messages[index - 1];
@@ -610,6 +617,18 @@ export default function ChatRoom() {
               <Text style={styles.senderName}>{memberMap[item.sender_id] || 'Member'}</Text>
             ) : null}
             {mine ? <View style={styles.tailRight} /> : <View style={styles.tailLeft} />}
+
+            {item.reply_to_id ? (() => {
+              const orig = messages.find((m) => String(m.id) === String(item.reply_to_id));
+              if (!orig) return null;
+              const origMine = orig.sender_id === user?.id;
+              return (
+                <View style={[styles.replyQuote, origMine ? styles.replyQuoteMine : styles.replyQuoteTheirs]}>
+                  <Text style={styles.replyQuoteName}>{origMine ? 'You' : otherName}</Text>
+                  <Text style={styles.replyQuoteBody} numberOfLines={1}>{replyPreviewText(orig)}</Text>
+                </View>
+              );
+            })() : null}
 
             {item.deleted_for_everyone ? (
               <Text style={[styles.deletedTxt, mine ? styles.textMine : styles.textTheirs]}>This message was deleted</Text>
@@ -674,6 +693,7 @@ export default function ChatRoom() {
                 ) : null}
 
                 <View style={styles.metaRow}>
+                  {starred.has(String(item.id)) ? <Text style={styles.starIcon}>★</Text> : null}
                   {item.edited_at ? <Text style={[styles.editedTxt, mine ? styles.timeMine : styles.timeTheirs]}>edited </Text> : null}
                   <Text style={[styles.bubbleTime, mine ? styles.timeMine : styles.timeTheirs]}>{timeOf(item.created_at)}</Text>
                   {mine ? (
