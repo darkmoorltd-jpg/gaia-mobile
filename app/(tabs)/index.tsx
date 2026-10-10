@@ -189,6 +189,36 @@ export default function Home() {
         </Animated.View>
 
         {/* ============================================ */}
+        {/* COMMUNITY TIER                               */}
+        {/* ============================================ */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Pressable
+            onPress={() => router.push('/pulse' as any)}
+            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(179,136,255,0.06)', borderWidth: 1, borderColor: 'rgba(179,136,255,0.3)' }, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={{ fontSize: 20 }}>📡</Text>
+            <Text style={{ fontSize: 11, fontWeight: '900', color: '#b388ff', marginTop: 6, letterSpacing: 0.4 }}>Pulse</Text>
+            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>What's happening</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/coop' as any)}
+            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(0,200,83,0.06)', borderWidth: 1, borderColor: 'rgba(0,200,83,0.3)' }, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={{ fontSize: 20 }}>🤝</Text>
+            <Text style={{ fontSize: 11, fontWeight: '900', color: '#00c853', marginTop: 6, letterSpacing: 0.4 }}>Coop Pool</Text>
+            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Sell as one</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/sos' as any)}
+            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(255,59,92,0.06)', borderWidth: 1, borderColor: 'rgba(255,59,92,0.3)' }, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={{ fontSize: 20 }}>🆘</Text>
+            <Text style={{ fontSize: 11, fontWeight: '900', color: '#ff3b5c', marginTop: 6, letterSpacing: 0.4 }}>SOS</Text>
+            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Emergency</Text>
+          </Pressable>
+        </View>
+
+        {/* ============================================ */}
         {/* GAIA AGRONOMIST — hero tile                  */}
         {/* ============================================ */}
         <Animated.View entering={FadeInDown.delay(140).duration(550)}>
