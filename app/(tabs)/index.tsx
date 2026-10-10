@@ -159,6 +159,36 @@ export default function Home() {
         ) : null}
 
         {/* ============================================ */}
+        {/* SEASON — flagship feature                    */}
+        {/* ============================================ */}
+        <Animated.View entering={FadeInDown.delay(120).duration(550)}>
+          <Pressable
+            onPress={() => router.push('/season' as any)}
+            style={({ pressed }) => [
+              styles.seasonOuter,
+              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+            ]}
+          >
+            <LinearGradient
+              colors={['#ffb300', '#ff8f00', '#e65100']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.seasonBg}
+            >
+              <View style={styles.seasonLeft}>
+                <Text style={styles.seasonEmoji}>🌾</Text>
+              </View>
+              <View style={styles.seasonRight}>
+                <Text style={styles.seasonBadgeText}>SEASON</Text>
+                <Text style={styles.seasonTitle}>Follow my crop</Text>
+                <Text style={styles.seasonSub}>Plant · Track · Harvest · Profit</Text>
+              </View>
+              <Text style={styles.seasonArrow}>›</Text>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+
+        {/* ============================================ */}
         {/* GAIA AGRONOMIST — hero tile                  */}
         {/* ============================================ */}
         <Animated.View entering={FadeInDown.delay(140).duration(550)}>
@@ -260,6 +290,36 @@ const createStyles = (p: any) =>
     // ============================================
     // HERO TILE — GAIA Agronomist
     // ============================================
+    seasonOuter: {
+      marginTop: 20,
+      borderRadius: 24,
+      overflow: 'hidden',
+      shadowColor: '#ffb300',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    seasonBg: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 20,
+      paddingHorizontal: 20,
+      borderRadius: 24,
+    },
+    seasonLeft: {
+      width: 64, height: 64, borderRadius: 32,
+      backgroundColor: 'rgba(255,255,255,0.22)',
+      alignItems: 'center', justifyContent: 'center',
+      marginRight: 16,
+      borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    },
+    seasonEmoji: { fontSize: 34 },
+    seasonRight: { flex: 1 },
+    seasonBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 2, color: 'rgba(255,255,255,0.85)', marginBottom: 4 },
+    seasonTitle: { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
+    seasonSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2, fontWeight: '500' },
+    seasonArrow: { fontSize: 26, color: '#ffffff', fontWeight: '300', marginLeft: 8 },
     heroOuter: {
       marginTop: 20,
       borderRadius: 24,
