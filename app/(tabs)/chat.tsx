@@ -30,6 +30,7 @@ interface Row {
   muted: boolean;
   archived: boolean;
   online: boolean;
+  my_role: string | null;
 }
 
 type Filter = 'all' | 'dms' | 'groups' | 'unread' | 'archived';
@@ -183,6 +184,7 @@ const load = useCallback(async () => {
           muted: !!it.muted,
           archived: !!it.archived,
           online: it.last_seen ? (now - new Date(it.last_seen).getTime() < 120000) : false,
+          my_role: it.my_role || null,
         });
       }
 
@@ -273,18 +275,38 @@ const load = useCallback(async () => {
   };
 
   const openRowMenu = (row: Row) => {
+    if (row.kind === 'group') {
+      const opts: any[] = [
+        { text: row.muted ? 'Unmute' : 'Mute', onPress: async () => { await setMeta(row.user_id, { muted: !row.muted }); load(); } },
+        { text: 'Mark as read', onPress: async () => {
+          if (!user) return;
+          await supabase.from('chat_members')
+            .update({ last_read_at: new Date().toISOString() })
+            .eq('room_id', row.room_id).eq('user_id', user.id);
+          load();
+        }},
+      ];
+      if (row.my_role === 'admin') {
+        opts.push({ text: 'Delete group', style: 'destructive', onPress: () => confirmDeleteGroup(row) });
+      }
+      opts.push({ text: 'Leave group', style: 'destructive', onPress: () => confirmLeaveGroup(row) });
+      opts.push({ text: 'Cancel', style: 'cancel' });
+      Alert.alert(row.name, 'Group options', opts);
+      return;
+    }
+
     Alert.alert(row.name, 'Chat options', [
       { text: row.pinned ? 'Unpin' : 'Pin', onPress: async () => { await setMeta(row.user_id, { pinned: !row.pinned }); load(); } },
       { text: row.muted ? 'Unmute' : 'Mute', onPress: async () => { await setMeta(row.user_id, { muted: !row.muted }); load(); } },
       { text: row.archived ? 'Unarchive' : 'Archive', onPress: async () => { await setMeta(row.user_id, { archived: !row.archived }); load(); } },
       { text: 'Mark as read', onPress: async () => {
-        if (!user || !row.room_id) return;
+        if (!user) return;
         await supabase.from('chat_members')
           .update({ last_read_at: new Date().toISOString() })
           .eq('room_id', row.room_id).eq('user_id', user.id);
         load();
       }},
-      { text: 'Delete chat', style: 'destructive', onPress: () => confirmDelete(row) },
+      { text: 'Delete chat', style: 'destructive', onPress: () => confirmDeleteChat(row) },
       { text: 'Block user', style: 'destructive', onPress: () => confirmBlock(row) },
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -312,6 +334,63 @@ const load = useCallback(async () => {
         setRows((prev) => prev.filter((r) => r.user_id !== row.user_id));
       }},
     ]);
+  };
+
+  const confirmDeleteChat = (row: Row) => {
+    Alert.alert('Delete chat?', 'Removes it from your list. The other person keeps their copy.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        if (!user) return;
+        try {
+          const { error } = await supabase.rpc('hide_conversation_for_me', { p_room_id: row.room_id });
+          if (error) throw error;
+          setRows((prev) => prev.filter((r) => r.room_id !== row.room_id));
+        } catch (e: any) {
+          Alert.alert('Failed', e && e.message ? e.message : 'Try again');
+        }
+      }},
+    ]);
+  };
+
+  const confirmLeaveGroup = (row: Row) => {
+    Alert.alert('Leave group?', 'You will be removed from "' + row.name + '".', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Leave', style: 'destructive', onPress: async () => {
+        if (!user) return;
+        try {
+          const { error } = await supabase.rpc('leave_group', { p_room_id: row.room_id });
+          if (error) throw error;
+          setRows((prev) => prev.filter((r) => r.room_id !== row.room_id));
+        } catch (e: any) {
+          Alert.alert('Failed', e && e.message ? e.message : 'Try again');
+        }
+      }},
+    ]);
+  };
+
+  const confirmDeleteGroup = (row: Row) => {
+    Alert.alert(
+      'Delete group?',
+      '"' + row.name + '" will be permanently deleted for ALL members.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'DELETE', style: 'destructive', onPress: () => {
+          Alert.alert('Absolutely sure?', 'All messages in this group will be lost.', [
+            { text: 'NO', style: 'cancel' },
+            { text: 'YES, DELETE', style: 'destructive', onPress: async () => {
+              if (!user) return;
+              try {
+                const { error } = await supabase.rpc('delete_group', { p_room_id: row.room_id });
+                if (error) throw error;
+                setRows((prev) => prev.filter((r) => r.room_id !== row.room_id));
+              } catch (e: any) {
+                Alert.alert('Failed', e && e.message ? e.message : 'Try again');
+              }
+            }},
+          ]);
+        }},
+      ],
+    );
   };
 
   const visible = rows
@@ -434,6 +513,12 @@ const load = useCallback(async () => {
                 ? router.push(('/chat-room?room=' + item.room_id + '&group=1') as any)
                 : router.push(('/chat-room?uid=' + item.user_id) as any)}
                 onLongPress={() => openRowMenu(item)}
+              onPressIn={async () => {
+                if (!user) return;
+                try {
+                  await supabase.rpc('unhide_conversation_for_me', { p_room_id: item.room_id });
+                } catch {}
+              }}
                 delayLongPress={350}
                 style={({ pressed }) => [
                   styles.row,
@@ -574,6 +659,14 @@ const createStyles = (palette: any) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { fontSize: 20, fontWeight: '900', color: palette.neon },
+  memberBadge: {
+    position: 'absolute', bottom: -2, right: -2,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#00c8ff',
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 5, borderWidth: 2, borderColor: palette.obsidian,
+  },
+  memberBadgeText: { fontSize: 9, fontWeight: '900', color: palette.obsidian },
   groupAvatar: {
     width: 54, height: 54, borderRadius: 27,
     backgroundColor: 'rgba(0,200,255,0.15)',
