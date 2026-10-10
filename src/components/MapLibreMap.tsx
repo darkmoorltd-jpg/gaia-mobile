@@ -1,15 +1,13 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, Component, ReactNode } from 'react';
 import { StyleSheet, View, Pressable, Text } from 'react-native';
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
-  FillLayer,
-  MarkerView,
+  CircleLayer,
   RasterSource,
   RasterLayer,
-  type MapViewRef,
 } from '@maplibre/maplibre-react-native';
 import { useLocation } from '../store/location';
 
@@ -27,15 +25,41 @@ interface Props {
   display?: DisplayMode;
 }
 
-// Free raster tile sources — no API key needed
-const TILES = {
-  dark:      'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  labels:    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-  terrain:   'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
-};
+class MapErrorBoundary extends Component<
+  { children: ReactNode; height: number },
+  { hasError: boolean; message: string }
+> {
+  state = { hasError: false, message: '' };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, message: String((error && error.message) || error || 'Unknown') };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.warn('MapErrorBoundary:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={[styles.errorWrap, { height: this.props.height }]}>
+          <Text style={styles.errorTitle}>Map unavailable</Text>
+          <Text style={styles.errorMsg} numberOfLines={3}>{this.state.message}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
-export function MapLibreMap({
+const TILE_DARK = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+const TILE_SAT  = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const TILE_TERR = 'https://a.tile.opentopomap.org/{z}/{x}/{y}.png';
+
+function pickTile(mode: ViewMode): string {
+  if (mode === 'satellite' || mode === 'hybrid') return TILE_SAT;
+  if (mode === 'terrain') return TILE_TERR;
+  return TILE_DARK;
+}
+
+function InnerMap({
   points,
   center,
   height = 340,
@@ -43,125 +67,108 @@ export function MapLibreMap({
   mapType = 'standard',
   display = 'line',
 }: Props) {
-  const mapRef = useRef<MapViewRef | null>(null);
+  const mapRef = useRef<any>(null);
   const userLocation = useLocation((s) => s.coords);
 
-  // ---- Bounds from drawn points ----
-  const bounds = useMemo(() => {
+  const initialCenter = useMemo<[number, number]>(() => {
+    if (points.length > 0) return [points[0].longitude, points[0].latitude];
+    if (center) return [center.longitude, center.latitude];
+    if (userLocation) return [userLocation.longitude, userLocation.latitude];
+    return [8.6753, 9.082];
+  }, [
+    points.length,
+    center ? center.latitude : null,
+    center ? center.longitude : null,
+    userLocation ? userLocation.latitude : null,
+    userLocation ? userLocation.longitude : null,
+  ]);
+
+  const lineGeoJSON = useMemo(() => {
     if (points.length < 2) return null;
-    let minLat = points[0].latitude, maxLat = points[0].latitude;
-    let minLng = points[0].longitude, maxLng = points[0].longitude;
-    for (const p of points) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-    return { ne: [maxLng, maxLat] as [number, number], sw: [minLng, minLat] as [number, number] };
-  }, [points.length]);
-
-  // ---- Camera config ----
-  const cameraProps = useMemo(() => {
-    if (bounds) {
-      return {
-        bounds: {
-          ne: bounds.ne,
-          sw: bounds.sw,
-          paddingLeft: 60,
-          paddingRight: 60,
-          paddingTop: 60,
-          paddingBottom: 60,
-        },
-      } as any;
-    }
-    if (center) return { centerCoordinate: [center.longitude, center.latitude] as [number, number], zoomLevel: 16 };
-    if (userLocation) return { centerCoordinate: [userLocation.longitude, userLocation.latitude] as [number, number], zoomLevel: 16 };
-    return { centerCoordinate: [8.6753, 9.082] as [number, number], zoomLevel: 6 };
-  }, [bounds?.ne[0], bounds?.ne[1], bounds?.sw[0], bounds?.sw[1], center?.latitude, center?.longitude, userLocation?.latitude, userLocation?.longitude]);
-
-  // ---- Line + polygon GeoJSON ----
-  const lineGeoJSON = useMemo(() => ({
-    type: 'Feature' as const,
-    properties: {},
-    geometry: {
-      type: 'LineString' as const,
-      coordinates: points.map((p) => [p.longitude, p.latitude]),
-    },
-  }), [points]);
-
-  const closedLineGeoJSON = useMemo(() => {
-    if (!closed || points.length < 3) return null;
-    const first = points[0];
-    const last = points[points.length - 1];
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: [
-          [last.longitude, last.latitude],
-          [first.longitude, first.latitude],
-        ],
+        coordinates: points.map((p) => [p.longitude, p.latitude]),
       },
-    };
-  }, [closed, points]);
-
-  const polygonGeoJSON = useMemo(() => {
-    if (points.length < 3) return null;
-    const coords = points.map((p) => [p.longitude, p.latitude]);
-    coords.push([points[0].longitude, points[0].latitude]);
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: { type: 'Polygon' as const, coordinates: [coords] },
     };
   }, [points]);
 
-  const start = points[0];
-  const current = points[points.length - 1];
+  const pointCollection = useMemo(() => {
+    if (points.length === 0) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features: points.map((p, i) => ({
+        type: 'Feature' as const,
+        properties: { idx: i },
+        geometry: { type: 'Point' as const, coordinates: [p.longitude, p.latitude] },
+      })),
+    };
+  }, [points]);
+
+  const userPoint = useMemo(() => {
+    if (!userLocation) return null;
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [userLocation.longitude, userLocation.latitude],
+      },
+    };
+  }, [
+    userLocation ? userLocation.latitude : null,
+    userLocation ? userLocation.longitude : null,
+  ]);
+
+  useEffect(() => {
+    if (!mapRef.current || points.length < 2) return;
+    try {
+      const lngs = points.map((p) => p.longitude);
+      const lats = points.map((p) => p.latitude);
+      const minLng = Math.min.apply(null, lngs);
+      const maxLng = Math.max.apply(null, lngs);
+      const minLat = Math.min.apply(null, lats);
+      const maxLat = Math.max.apply(null, lats);
+      if (typeof mapRef.current.fitBounds === 'function') {
+        mapRef.current.fitBounds(
+          [maxLng, maxLat],
+          [minLng, minLat],
+          [80, 80, 80, 80],
+          400,
+        );
+      }
+    } catch (e) {
+      console.warn('fitBounds failed:', e);
+    }
+  }, [points.length]);
+
+  const tile = pickTile(mapType);
 
   return (
     <View style={[styles.wrap, { height }]}>
-      <MapView ref={mapRef} style={styles.map} logoEnabled={false} attributionEnabled={false}>
-        <Camera {...cameraProps} animationDuration={400} />
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        logoEnabled={false}
+        attributionEnabled={false}
+      >
+        <Camera
+          defaultSettings={{
+            centerCoordinate: initialCenter,
+            zoomLevel: 16,
+          }}
+        />
 
-        {/* ---------- BASE RASTER LAYERS ---------- */}
-        {mapType === 'standard' && (
-          <RasterSource id="src-dark" tileUrlTemplates={[TILES.dark]} tileSize={256}>
-            <RasterLayer id="layer-dark" style={{ rasterOpacity: 0.95 }} />
-          </RasterSource>
-        )}
+        <RasterSource id="base" tileUrlTemplates={[tile]} tileSize={256}>
+          <RasterLayer id="base-layer" style={{ rasterOpacity: 0.95 }} />
+        </RasterSource>
 
-        {(mapType === 'satellite' || mapType === 'hybrid') && (
-          <RasterSource id="src-sat" tileUrlTemplates={[TILES.satellite]} tileSize={256}>
-            <RasterLayer id="layer-sat" style={{ rasterOpacity: 1 }} />
-          </RasterSource>
-        )}
-
-        {mapType === 'hybrid' && (
-          <RasterSource id="src-labels" tileUrlTemplates={[TILES.labels]} tileSize={256}>
-            <RasterLayer id="layer-labels" style={{ rasterOpacity: 0.9 }} />
-          </RasterSource>
-        )}
-
-        {mapType === 'terrain' && (
-          <RasterSource id="src-terrain" tileUrlTemplates={[TILES.terrain]} tileSize={256}>
-            <RasterLayer id="layer-terrain" style={{ rasterOpacity: 1 }} />
-          </RasterSource>
-        )}
-
-        {/* ---------- FILLED POLYGON (when loop closed) ---------- */}
-        {closed && polygonGeoJSON ? (
-          <ShapeSource id="src-fill" shape={polygonGeoJSON as any}>
-            <FillLayer id="layer-fill" style={{ fillColor: '#00ff88', fillOpacity: 0.15 }} />
-          </ShapeSource>
-        ) : null}
-
-        {/* ---------- THE TRAIL ---------- */}
-        {display === 'line' && points.length > 1 ? (
-          <ShapeSource id="src-line" shape={lineGeoJSON as any}>
+        {display === 'line' && lineGeoJSON ? (
+          <ShapeSource id="trail" shape={lineGeoJSON as any}>
             <LineLayer
-              id="layer-line"
+              id="trail-layer"
               style={{
                 lineColor: '#00ff88',
                 lineWidth: 5,
@@ -172,106 +179,97 @@ export function MapLibreMap({
           </ShapeSource>
         ) : null}
 
-        {display === 'line' && closedLineGeoJSON ? (
-          <ShapeSource id="src-closing" shape={closedLineGeoJSON as any}>
-            <LineLayer id="layer-closing" style={{ lineColor: '#00ff88', lineWidth: 5 }} />
+        {display === 'points' && pointCollection ? (
+          <ShapeSource id="pts" shape={pointCollection as any}>
+            <CircleLayer
+              id="pts-layer"
+              style={{
+                circleColor: '#00ff88',
+                circleRadius: 6,
+                circleStrokeColor: '#ffffff',
+                circleStrokeWidth: 2,
+              }}
+            />
           </ShapeSource>
         ) : null}
 
-        {/* ---------- USER MARKER ---------- */}
-        {userLocation ? (
-          <MarkerView
-            coordinate={[userLocation.longitude, userLocation.latitude]}
-            anchor={{ x: 0.5, y: 0.5 }}
-            allowOverlap
-          >
-            <View style={styles.userRing}>
-              <View style={styles.userDot} />
-            </View>
-          </MarkerView>
-        ) : null}
-
-        {/* ---------- POINTS MODE MARKERS ---------- */}
-        {display === 'points'
-          ? points.map((pt, idx) => (
-              <MarkerView
-                key={'pt-' + idx}
-                coordinate={[pt.longitude, pt.latitude]}
-                anchor={{ x: 0.5, y: 0.5 }}
-                allowOverlap
-              >
-                <View style={styles.pointDot} />
-              </MarkerView>
-            ))
-          : null}
-
-        {/* ---------- START MARKER ---------- */}
-        {start ? (
-          <MarkerView coordinate={[start.longitude, start.latitude]} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
-            <View style={styles.startPin} />
-          </MarkerView>
-        ) : null}
-
-        {/* ---------- CURRENT MARKER ---------- */}
-        {current && points.length > 1 && display === 'line' ? (
-          <MarkerView coordinate={[current.longitude, current.latitude]} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
-            <View style={styles.currentPin} />
-          </MarkerView>
+        {userPoint ? (
+          <ShapeSource id="user" shape={userPoint as any}>
+            <CircleLayer
+              id="user-layer"
+              style={{
+                circleColor: '#00ff88',
+                circleRadius: 8,
+                circleOpacity: 0.9,
+                circleStrokeColor: '#00ff88',
+                circleStrokeWidth: 4,
+                circleStrokeOpacity: 0.3,
+              }}
+            />
+          </ShapeSource>
         ) : null}
       </MapView>
 
-      {/* ---------- RECENTER ---------- */}
       <Pressable
         onPress={() => {
-          if (!mapRef.current) return;
-          if (userLocation) {
+          try {
+            if (!mapRef.current || !userLocation) return;
             mapRef.current.setCamera({
               centerCoordinate: [userLocation.longitude, userLocation.latitude],
               zoomLevel: 17,
               animationDuration: 500,
             });
+          } catch (e) {
+            console.warn('recenter failed:', e);
           }
         }}
         style={styles.recenterBtn}
       >
-        <Text style={styles.recenterIcon}>◎</Text>
+        <Text style={styles.recenterIcon}>{'◎'}</Text>
       </Pressable>
     </View>
   );
 }
 
+export function MapLibreMap(props: Props) {
+  return (
+    <MapErrorBoundary height={props.height || 340}>
+      <InnerMap {...props} />
+    </MapErrorBoundary>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: { width: '100%', overflow: 'hidden', borderRadius: 20 },
-  map: { width: '100%', height: '100%' },
-  userRing: {
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: 'rgba(0,255,136,0.25)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#00ff88',
-  },
-  userDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#00ff88' },
-  pointDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#00ff88',
-    borderWidth: 1, borderColor: '#ffffff',
-  },
-  startPin: {
-    width: 18, height: 18, borderRadius: 9,
-    backgroundColor: '#00ff88',
-    borderWidth: 3, borderColor: '#0a0e0c',
-  },
-  currentPin: {
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#ffffff',
-    borderWidth: 3, borderColor: '#00ff88',
-  },
-  recenterBtn: {
-    position: 'absolute', right: 12, bottom: 12,
-    width: 44, height: 44, borderRadius: 22,
+  wrap: {
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: 20,
     backgroundColor: '#0a0e0c',
-    borderWidth: 1, borderColor: '#00ff88',
-    alignItems: 'center', justifyContent: 'center',
+  },
+  map: { width: '100%', height: '100%' },
+  recenterBtn: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0a0e0c',
+    borderWidth: 1,
+    borderColor: '#00ff88',
+    alignItems: 'center',
+    justifyContent: 'center',
     elevation: 6,
   },
   recenterIcon: { fontSize: 22, color: '#00ff88', fontWeight: '900', lineHeight: 24 },
+  errorWrap: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0a0e0c',
+    borderRadius: 20,
+    padding: 20,
+  },
+  errorTitle: { color: '#ff3b5c', fontWeight: '800', fontSize: 14, marginBottom: 6 },
+  errorMsg: { color: '#8899a6', fontSize: 11, textAlign: 'center' },
 });
