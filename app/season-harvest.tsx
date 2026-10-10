@@ -64,7 +64,7 @@ export default function SeasonHarvest() {
       current_stage: 'postharvest', updated_at: new Date().toISOString(),
     }).eq('id', params.id);
     setRecording(false);
-    router.replace('/season' as any);
+    router.replace(('/season-reveal?id=' + params.id) as any);
   };
 
   return (
