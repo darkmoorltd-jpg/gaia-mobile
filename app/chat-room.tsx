@@ -226,6 +226,26 @@ export default function ChatRoom() {
       })
       .subscribe();
 
+    return () => { supabase.removeChannel(channel); };
+  }, [roomId, user, uid, markRead, loadReactions]);
+
+  useEffect(() => {
+    const startRing = async () => {
+      try {
+        if (ringtoneRef.current) return;
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        const player = createAudioPlayer({ uri: 'https://actions.google.com/sounds/v1/alarms/phone_ringing_loop.ogg' });
+        ringtoneRef.current = player;
+        try { (player as any).loop = true; } catch {}
+        player.play();
+      } catch (e) { console.log('ringtone start', e); }
+    };
+    const stopRing = () => {
+      try { if (ringtoneRef.current) { ringtoneRef.current.remove(); ringtoneRef.current = null; } } catch {}
+    };
+    if (incomingCall) { startRing(); } else { stopRing(); }
+    return () => { stopRing(); };
+  }, [incomingCall]);
 
   const startCall = async (callMode: 'voice' | 'video') => {
     if (!roomId || !user || !uid) return;
@@ -266,27 +286,6 @@ export default function ChatRoom() {
       await supabase.from('chat_call_signals').update({ status: 'rejected', ended_at: new Date().toISOString() }).eq('id', sig.id);
     } catch {}
   };
-
-  return () => { supabase.removeChannel(channel); };
-  }, [roomId, user, uid, markRead, loadReactions]);
-
-    useEffect(() => {
-  const startRing = async () => {
-    try {
-      if (ringtoneRef.current) return;
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-      const player = createAudioPlayer({ uri: 'https://actions.google.com/sounds/v1/alarms/phone_ringing_loop.ogg' });
-      ringtoneRef.current = player;
-      try { (player as any).loop = true; } catch {}
-      player.play();
-    } catch (e) { console.log('ringtone start', e); }
-  };
-  const stopRing = () => {
-    try { if (ringtoneRef.current) { ringtoneRef.current.remove(); ringtoneRef.current = null; } } catch {}
-  };
-  if (incomingCall) { startRing(); } else { stopRing(); }
-  return () => { stopRing(); };
-  }, [incomingCall]);
 
   const bumpTyping = () => {
     if (!roomId || !user) return;
