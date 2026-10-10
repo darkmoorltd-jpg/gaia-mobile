@@ -11,13 +11,17 @@ import { useChatStore } from '../../src/store/chat';
 import { blockUser, hideConversation, listBlockedIds, listHiddenIds } from '../../src/utils/friends';
 
 interface Row {
+  room_id: string;
+  kind: 'dm' | 'group';
   user_id: string;
   name: string;
   email: string;
   avatar_url: string | null;
-  room_id: string | null;
+  group_name: string | null;
+  member_count: number;
   last_message: string;
   last_kind: 'text' | 'image' | 'voice' | 'file' | 'call' | 'empty';
+  last_sender_name: string | null;
   last_at: string | null;
   last_sender_is_me: boolean;
   last_read: boolean;
@@ -28,7 +32,7 @@ interface Row {
   online: boolean;
 }
 
-type Filter = 'all' | 'unread' | 'archived';
+type Filter = 'all' | 'dms' | 'groups' | 'unread' | 'archived';
 
 function timeAgo(iso: string | null) {
   if (!iso) return '';
@@ -126,7 +130,7 @@ export default function ChatTab() {
     } catch {}
   }, [user]);
 
-  const load = useCallback(async () => {
+const load = useCallback(async () => {
     if (!user) { setBusy(false); return; }
     setBusy(true);
     try {
@@ -137,114 +141,48 @@ export default function ChatTab() {
       const blockedSet = new Set(blockedIds);
       const hiddenSet = new Set(hiddenIds);
 
-      const { data: fships } = await supabase
-        .from('friendships')
-        .select('sender_id,receiver_id')
-        .eq('status', 'accepted');
-      const mine = (fships || []).filter((r: any) => r.sender_id === user.id || r.receiver_id === user.id);
-      const friendIds = mine.map((r: any) => (r.sender_id === user.id ? r.receiver_id : r.sender_id));
-
       loadFriendRequests();
 
-      if (friendIds.length === 0) { setRows([]); setBusy(false); setUnread(0); return; }
+      const { data, error } = await supabase.rpc('chat_list_for_me');
+      if (error) { console.log('chat_list_for_me error', error); setBusy(false); return; }
 
-      const { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('user_id,email,first_name,last_name,avatar_url')
-        .in('user_id', friendIds);
-
-      const { data: presences } = await supabase
-        .from('user_presence')
-        .select('user_id,last_seen')
-        .in('user_id', friendIds);
-      const onlineSet = new Set(
-        (presences || [])
-          .filter((p: any) => p.last_seen && Date.now() - new Date(p.last_seen).getTime() < 120000)
-          .map((p: any) => p.user_id),
-      );
-
-      const { data: mems } = await supabase
-        .from('chat_members')
-        .select('room_id,last_read_at')
-        .eq('user_id', user.id);
-      const myRoomIds = (mems || []).map((m: any) => m.room_id);
-      const readMap: Record<string, string> = {};
-      (mems || []).forEach((m: any) => { readMap[m.room_id] = m.last_read_at; });
-
-      let metaMap: Record<string, any> = {};
-      try {
-        const { data: metas } = await supabase
-          .from('chat_meta')
-          .select('*')
-          .eq('user_id', user.id);
-        (metas || []).forEach((m: any) => {
-          const key = m.other_user_id || m.peer_id || m.room_id;
-          if (key) metaMap[key] = m;
-        });
-      } catch {}
-
+      const raw = (data || []) as any[];
+      const now = Date.now();
       const result: Row[] = [];
-      for (const f of (profiles || [])) {
-        if (blockedSet.has(f.user_id)) continue;
-        if (hiddenSet.has(f.user_id)) continue;
-        let roomId: string | null = null;
-        let lastMessage = '';
-        let lastKind: Row['last_kind'] = 'empty';
-        let lastAt: string | null = null;
-        let lastSenderIsMe = false;
-        let lastRead = true;
-        let unread = 0;
 
-        if (myRoomIds.length > 0) {
-          const { data: theirMems } = await supabase
-            .from('chat_members')
-            .select('room_id')
-            .eq('user_id', f.user_id);
-          const theirRoomIds = (theirMems || []).map((m: any) => m.room_id);
-          roomId = myRoomIds.find((id: string) => theirRoomIds.includes(id)) || null;
-
-          if (roomId) {
-            const { data: msgs } = await supabase
-              .from('chat_messages')
-              .select('body,sender_id,created_at,read_at,attachment_type,attachment_url')
-              .eq('room_id', roomId)
-              .order('created_at', { ascending: false })
-              .limit(30);
-            const all = msgs || [];
-            if (all.length > 0) {
-              lastMessage = all[0].body || '';
-              lastKind = detectKind(all[0]);
-              lastAt = all[0].created_at;
-              lastSenderIsMe = all[0].sender_id === user.id;
-              lastRead = !!all[0].read_at;
-              const myReadAt = readMap[roomId] || '1970-01-01T00:00:00Z';
-              unread = all.filter(
-                (m: any) => m.sender_id !== user.id && new Date(m.created_at) > new Date(myReadAt),
-              ).length;
-            }
-          }
+      for (const it of raw) {
+        if (it.kind === 'dm' && it.other_user_id) {
+          if (blockedSet.has(it.other_user_id)) continue;
+          if (hiddenSet.has(it.other_user_id)) continue;
         }
 
-        const meta = metaMap[f.user_id] || {};
-        const fullName = ((f.first_name || '') + ' ' + (f.last_name || '')).trim() ||
-          (f.email ? f.email.split('@')[0] : 'Farmer');
+        const fullName = ((it.first_name || '') + ' ' + (it.last_name || '')).trim()
+          || (it.email ? it.email.split('@')[0] : 'Farmer');
+
+        const lm = it.last_message || {};
 
         result.push({
-          user_id: f.user_id,
-          name: fullName,
-          email: f.email || '',
-          avatar_url: f.avatar_url || null,
-          room_id: roomId,
-          last_message: lastMessage,
-          last_kind: lastKind,
-          last_at: lastAt,
-          last_sender_is_me: lastSenderIsMe,
-          last_read: lastRead,
-          unread,
-          pinned: !!meta.pinned,
-          muted: !!meta.muted,
-          archived: !!meta.archived,
-          online: onlineSet.has(f.user_id),
+          room_id: it.room_id,
+          kind: it.kind === 'group' ? 'group' : 'dm',
+          user_id: it.other_user_id || '',
+          name: it.kind === 'group' ? (it.group_name || 'Group') : fullName,
+          email: it.email || '',
+          avatar_url: it.kind === 'group' ? (it.group_avatar || null) : (it.avatar_url || null),
+          group_name: it.group_name || null,
+          member_count: it.member_count || 0,
+          last_message: lm.body || '',
+          last_kind: (lm.kind === 'image' || lm.kind === 'audio' || lm.kind === 'file')
+            ? (lm.kind === 'audio' ? 'voice' : lm.kind)
+            : 'text',
+          last_sender_name: lm.sender_name || null,
+          last_at: lm.created_at || null,
+          last_sender_is_me: !!lm.sender_is_me,
+          last_read: !!lm.read,
+          unread: it.unread || 0,
+          pinned: !!it.pinned,
+          muted: !!it.muted,
+          archived: !!it.archived,
+          online: it.last_seen ? (now - new Date(it.last_seen).getTime() < 120000) : false,
         });
       }
 
@@ -379,6 +317,8 @@ export default function ChatTab() {
   const visible = rows
     .filter((r) => (filter === 'archived' ? r.archived : !r.archived))
     .filter((r) => filter !== 'unread' || r.unread > 0)
+    .filter((r) => filter !== 'dms' || r.kind === 'dm')
+    .filter((r) => filter !== 'groups' || r.kind === 'group')
     .filter((r) => {
       if (!search.trim()) return true;
       const q = search.toLowerCase();
@@ -426,6 +366,9 @@ export default function ChatTab() {
                 </View>
               ) : null}
             </Pressable>
+            <Pressable onPress={() => router.push('/create-group' as any)} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>G+</Text>
+            </Pressable>
             <Pressable onPress={() => router.push('/add-friend' as any)} style={styles.iconBtnSolid}>
               <Text style={styles.iconBtnSolidText}>+</Text>
             </Pressable>
@@ -446,9 +389,11 @@ export default function ChatTab() {
         ) : null}
 
         <View style={styles.tabs}>
-          {(['all', 'unread', 'archived'] as Filter[]).map((f) => {
+          {(['all', 'dms', 'groups', 'unread', 'archived'] as Filter[]).map((f) => {
             const label = f === 'all'
-              ? (unreadCount > 0 ? 'All (' + unreadCount + ')' : 'All')
+              ? 'All'
+              : f === 'dms' ? 'DMs'
+              : f === 'groups' ? 'Groups'
               : f === 'unread'
                 ? (unreadCount > 0 ? 'Unread (' + unreadCount + ')' : 'Unread')
                 : (archivedCount > 0 ? 'Archived (' + archivedCount + ')' : 'Archived');
@@ -485,7 +430,9 @@ export default function ChatTab() {
             const typing = isTyping(item.room_id);
             return (
               <Pressable
-                onPress={() => router.push(('/chat-room?uid=' + item.user_id) as any)}
+                onPress={() => item.kind === 'group'
+                ? router.push(('/chat-room?room=' + item.room_id + '&group=1') as any)
+                : router.push(('/chat-room?uid=' + item.user_id) as any)}
                 onLongPress={() => openRowMenu(item)}
                 delayLongPress={350}
                 style={({ pressed }) => [
@@ -627,6 +574,13 @@ const createStyles = (palette: any) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: { fontSize: 20, fontWeight: '900', color: palette.neon },
+  groupAvatar: {
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: 'rgba(0,200,255,0.15)',
+    borderWidth: 1, borderColor: 'rgba(0,200,255,0.5)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  groupAvatarText: { fontSize: 22, fontWeight: '900', color: '#00c8ff' },
   onlineDot: {
     position: 'absolute', bottom: 0, right: 0,
     width: 14, height: 14, borderRadius: 7,
