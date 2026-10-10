@@ -758,6 +758,14 @@ export default function ChatRoom() {
 
         </View>
 
+        <Pressable onPress={() => startCall('voice')} style={styles.callBtn} hitSlop={6}>
+          <Text style={styles.callBtnIcon}>CALL</Text>
+        </Pressable>
+
+        <Pressable onPress={() => startCall('video')} style={styles.callBtn} hitSlop={6}>
+          <Text style={styles.callBtnIcon}>VID</Text>
+        </Pressable>
+
       </View>
 
 
@@ -841,14 +849,35 @@ export default function ChatRoom() {
 
         />
 
-        <Pressable onPress={text.trim() ? sendText : () => pickImage('library')} disabled={sending || uploading} style={styles.sendBtn}>
-
-          {sending || uploading ? <ActivityIndicator color='#fff' size='small' /> : <Text style={styles.sendIcon}>{text.trim() ? '➤' : 'CAM'}</Text>}
-
-        </Pressable>
+        {text.trim() ? (
+          <Pressable onPress={sendText} disabled={sending || uploading} style={styles.sendBtn}>
+            {sending || uploading
+              ? <ActivityIndicator color='#fff' size='small' />
+              : <Text style={styles.sendIcon}>SEND</Text>}
+          </Pressable>
+        ) : (
+          <Pressable onPress={startVoice} disabled={isRecording} style={styles.micBtn}>
+            <Text style={styles.micBtnIcon}>MIC</Text>
+          </Pressable>
+        )}
 
       </View>
 
+
+      {isRecording ? (
+        <View style={styles.recordingBar}>
+          <View style={styles.recordingDot} />
+          <Text style={styles.recordingText}>Recording</Text>
+          <Text style={styles.recordingTimer}>{fmtDuration(recordingMs)}</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => stopVoiceAndSend(false)} style={styles.recCancel}>
+            <Text style={styles.recCancelTxt}>Cancel</Text>
+          </Pressable>
+          <Pressable onPress={() => stopVoiceAndSend(true)} style={styles.recSend}>
+            <Text style={styles.recSendTxt}>Send</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <Modal visible={attachOpen} transparent animationType='fade' onRequestClose={() => setAttachOpen(false)}>
 
