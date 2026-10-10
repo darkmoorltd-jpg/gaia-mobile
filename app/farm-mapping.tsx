@@ -268,14 +268,12 @@ export default function FarmMapping() {
         </View>
 
         <View style={styles.mapBox}>
-          <MapLibreMap
-            points={cleaned}
-            center={current || undefined}
-            height={340}
-            closed={closed}
-            mapType={viewMode}
-            display={displayMode}
-          />
+          <View style={{ height: 340, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0e0c', borderRadius: 20 }}>
+            <Text style={{ color: '#00ff88', fontWeight: '800' }}>DEBUG: MAP REPLACED</Text>
+            <Text style={{ color: '#8899a6', marginTop: 8, fontSize: 12 }}>
+              points: {cleaned.length} | current: {current ? 'yes' : 'no'}
+            </Text>
+          </View>
         </View>
 
         {recording ? (
