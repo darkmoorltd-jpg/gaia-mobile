@@ -16,6 +16,14 @@ import { supabase } from '../src/api/supabase';
 const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
+function fmtDuration(ms: number): string {
+  if (!ms || ms < 0) return '0:00';
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m + ':' + (s < 10 ? '0' + s : String(s));
+}
+
 interface Msg {
   id: number | string;
   sender_id: string;
