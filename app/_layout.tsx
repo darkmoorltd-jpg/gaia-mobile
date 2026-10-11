@@ -26,6 +26,8 @@ function RootNavigator() {
   const user = useAuth((s: any) => s.user);
   const role = useAuth((s: any) => s.role);
   const refreshRole = useAuth((s: any) => s.refreshRole);
+  const loginContext = useAuth((s: any) => s.loginContext);
+  const loadLoginContext = useAuth((s: any) => s.loadLoginContext);
   const setUser = useAuth((s: any) => s.setUser);
   const loading = useAuth((s: any) => s.loading);
 
@@ -39,6 +41,7 @@ function RootNavigator() {
         if (mounted) {
           if (setUser) setUser(data.session?.user ?? null);
           if (data.session?.user) {
+            try { await loadLoginContext(); } catch {}
             try { await refreshRole(); } catch {}
           }
           setReady(true);
@@ -59,9 +62,9 @@ function RootNavigator() {
     const inAuth = segments[0] === '(auth)';
     if (!user && !inAuth) router.replace('/(auth)/login');
     else if (user && inAuth) {
-      router.replace(role === 'agent' ? '/agent/home' : '/(tabs)');
+      router.replace(loginContext === 'agent' ? '/agent/home' : '/(tabs)');
     }
-  }, [user, ready, loading, segments, role]);
+  }, [user, ready, loading, segments, loginContext]);
 
   useEffect(() => {
     if (__DEV__) return;
