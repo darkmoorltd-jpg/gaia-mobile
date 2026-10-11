@@ -111,6 +111,13 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (error) return error.message;
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
+      // Ensure profile exists even for users who signed up before the RPC existed
+      try {
+        await supabase.rpc('ensure_user_profile');
+      } catch (e) {
+        console.log('ensure_user_profile (signin) failed', e);
+      }
+
       set({ user: data.user, session: data.session, loading: false });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
@@ -152,45 +159,33 @@ export const useAuth = create<AuthState>((set, get) => ({
       const ban = await checkBan(session.user.id);
       if (ban) return ban;
 
-      const existing = await supabase
-        .from('user_profiles')
-        .select('user_id, first_name')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
+      // Ask the backend to ensure the profile exists.
+      // This runs as SECURITY DEFINER so RLS can't block it.
       let isNew = false;
-      if (!existing.data) {
-        isNew = true;
-        const meta: any = session.user.user_metadata || {};
-        const fullName = meta.full_name || meta.name || '';
-        const parts = String(fullName).split(' ').filter(Boolean);
-        const firstName = meta.given_name || parts[0] || '';
-        const lastName = meta.family_name || parts.slice(1).join(' ') || '';
-        const avatar = meta.avatar_url || meta.picture || null;
-
-        try {
-          await supabase.from('user_profiles').insert({
-            user_id: session.user.id,
-            email: session.user.email || '',
-            first_name: firstName,
-            last_name: lastName,
-            avatar_url: avatar,
-            role: 'farmer',
-            verification_status: 'pending',
-            account_status: 'active',
-          });
-        } catch (e) {
-          console.log('profile insert failed', e);
+      try {
+        const { data: ensured, error: ensureErr } = await supabase
+          .rpc('ensure_user_profile');
+        if (ensureErr) {
+          console.log('ensure_user_profile failed', ensureErr);
         }
-        try {
-          await supabase.from('user_scans').insert({
-            user_id: session.user.id,
-            scans_remaining: 30,
-            plan: 'free',
-          });
-        } catch (e) {
-          console.log('scans insert failed', e);
+        if (!ensured) {
+          // Fallback: try a plain select to see if the row is there
+          const check = await supabase
+            .from('user_profiles')
+            .select('user_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (!check.data) isNew = true;
+        } else {
+          // If we created the row just now, `created_at` is very recent.
+          // Heuristic: if the row was created in the last 5 seconds, treat as new.
+          const created = (ensured as any).created_at
+            ? new Date((ensured as any).created_at).getTime()
+            : 0;
+          if (Date.now() - created < 5000) isNew = true;
         }
+      } catch (e) {
+        console.log('ensure profile threw', e);
       }
 
       set({
