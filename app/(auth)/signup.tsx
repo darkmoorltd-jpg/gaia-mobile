@@ -13,25 +13,13 @@ export default function Signup() {
   const styles = createStyles(palette);
 
   const signUp = useAuth((s) => s.signUp);
-  const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
-  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const handleGoogle = async () => {
-    setGoogleBusy(true); setError('');
-    const err = await signInWithGoogle();
-    if (err) { setError(err); setGoogleBusy(false); return; }
-    const isNew = useAuth.getState().isNewUser;
-    setGoogleBusy(false);
-    if (isNew) {
-      router.replace('/(auth)/onboarding' as any);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!email || !password) { setError('Email and password are required.'); return; }
@@ -57,26 +45,6 @@ export default function Signup() {
         <Text style={styles.leaf}>GAIA</Text>
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>Start diagnosing your farm in 30 seconds.</Text>
-
-        {/* GOOGLE SIGNUP */}
-        <Pressable
-          onPress={handleGoogle}
-          disabled={googleBusy || busy}
-          style={[styles.googleBtn, (googleBusy || busy) && { opacity: 0.6 }]}
-        >
-          {googleBusy ? <ActivityIndicator color="#4285F4" /> : (
-            <View style={styles.googleInner}>
-              <Text style={styles.googleIcon}>G</Text>
-              <Text style={styles.googleText}>SIGN UP WITH GOOGLE</Text>
-            </View>
-          )}
-        </Pressable>
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
 
         <Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
@@ -112,8 +80,8 @@ export default function Signup() {
 
         <Pressable
           onPress={handleSubmit}
-          disabled={busy || googleBusy || !email || !password || !confirm}
-          style={[styles.cta, (busy || googleBusy || !email || !password || !confirm) && { opacity: 0.4 }]}
+          disabled={busy || !email || !password || !confirm}
+          style={[styles.cta, (busy || !email || !password || !confirm) && { opacity: 0.4 }]}
         >
           {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>CREATE ACCOUNT</Text>}
         </Pressable>
