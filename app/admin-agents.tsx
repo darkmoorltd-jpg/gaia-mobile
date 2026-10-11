@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Alert, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Alert, ActivityIndicator, RefreshControl, KeyboardAvoidingView, Platform, Image, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -119,6 +119,25 @@ export default function AdminAgents() {
               <Text style={styles.cardMeta} numberOfLines={1}>{ap.email} · {ap.phone}</Text>
               <Text style={styles.cardMeta} numberOfLines={1}>{ap.state || '?'} · {ap.zone || '?'} · {ap.experience_years} yrs</Text>
               {ap.motivation ? <Text style={styles.motiv} numberOfLines={2}>{ap.motivation}</Text> : null}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                <Text style={[styles.cardMeta, { color: ap.payment_status === 'paid' ? '#00ff88' : '#ffb300' }]}>
+                  {(ap.payment_status || 'pending').toUpperCase()} N3,000
+                </Text>
+                {ap.whatsapp ? <Text style={styles.cardMeta}>WA: {ap.whatsapp}</Text> : null}
+                {ap.home_address ? <Text style={styles.cardMeta} numberOfLines={1}>Addr: {ap.home_address}</Text> : null}
+                {ap.bvn ? <Text style={styles.cardMeta}>BVN: {String(ap.bvn).slice(0,4)}***</Text> : null}
+                {ap.nin ? <Text style={styles.cardMeta}>NIN: {String(ap.nin).slice(0,4)}***</Text> : null}
+                {ap.bank_name ? <Text style={styles.cardMeta}>Bank: {ap.bank_name} {ap.bank_account_number ? '· ' + ap.bank_account_number : ''}</Text> : null}
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                {ap.id_image_url ? <Image source={{ uri: ap.id_image_url }} style={{ width: 64, height: 64, borderRadius: 8 }} /> : null}
+                {ap.selfie_url ? <Image source={{ uri: ap.selfie_url }} style={{ width: 64, height: 64, borderRadius: 8 }} /> : null}
+                {ap.bank_statement_url ? (
+                  <Pressable onPress={() => Linking.openURL(ap.bank_statement_url)} style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: 'rgba(0,255,136,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: '#00ff88', fontSize: 10, fontWeight: '900' }}>STMT</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                 <Pressable onPress={() => approveApp(ap)} style={[styles.actionBtn, { flex: 1, marginTop: 0, borderColor: palette.neon }]}>
                   <Text style={styles.actionTxt}>APPROVE</Text>
