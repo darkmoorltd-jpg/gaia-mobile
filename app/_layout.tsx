@@ -24,6 +24,8 @@ function RootNavigator() {
 
 
   const user = useAuth((s: any) => s.user);
+  const role = useAuth((s: any) => s.role);
+  const refreshRole = useAuth((s: any) => s.refreshRole);
   const setUser = useAuth((s: any) => s.setUser);
   const loading = useAuth((s: any) => s.loading);
 
@@ -36,6 +38,9 @@ function RootNavigator() {
         const { data } = await supabase.auth.getSession();
         if (mounted) {
           if (setUser) setUser(data.session?.user ?? null);
+          if (data.session?.user) {
+            try { await refreshRole(); } catch {}
+          }
           setReady(true);
         }
       } catch (e) {
@@ -53,8 +58,10 @@ function RootNavigator() {
     if (!ready || loading) return;
     const inAuth = segments[0] === '(auth)';
     if (!user && !inAuth) router.replace('/(auth)/login');
-    else if (user && inAuth) router.replace('/(tabs)');
-  }, [user, ready, loading, segments]);
+    else if (user && inAuth) {
+      router.replace(role === 'agent' ? '/agent/home' : '/(tabs)');
+    }
+  }, [user, ready, loading, segments, role]);
 
   useEffect(() => {
     if (__DEV__) return;
