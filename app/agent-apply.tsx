@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
+import { supabase } from '../src/api/supabase';
 
 const API = 'https://gaia-api-xuly.onrender.com';
 const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
@@ -30,25 +31,20 @@ export default function AgentApply() {
     }
     setBusy(true);
     try {
-      const r = await fetch(API + '/agent/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          state: state,
-          lga: lga || null,
-          zone: zone || null,
-          organization: organization || null,
-          experience_years: parseInt(experience) || 0,
-          motivation: motivation || null,
-        }),
+      const r = await supabase.rpc('agent_apply', {
+        p_full_name: fullName.trim(),
+        p_email: email.trim(),
+        p_phone: phone.trim(),
+        p_state: state,
+        p_lga: lga || null,
+        p_zone: zone || null,
+        p_organization: organization || null,
+        p_experience_years: parseInt(experience) || 0,
+        p_motivation: motivation || null,
       });
-      const data = await r.json();
       setBusy(false);
-      if (!r.ok) {
-        Alert.alert('Failed', data.detail || data.error || String(r.status));
+      if (r.error) {
+        Alert.alert('Failed', r.error.message);
         return;
       }
       setDone(true);

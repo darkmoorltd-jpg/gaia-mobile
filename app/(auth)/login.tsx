@@ -264,6 +264,12 @@ export default function Login() {
           <Text style={styles.signup}>Don't have an account? Sign up</Text>
         </Pressable>
         <View style={{ height: 60 }} />
+              <Pressable onPress={() => router.push('/agent-apply' as any)} style={{ marginTop: 24, paddingVertical: 12, alignItems: 'center' }}>
+          <Text style={[styles.signup, { color: palette.neon, fontWeight: '700' }]}>
+            Want to become a GAIA agent? Apply here
+          </Text>
+        </Pressable>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
