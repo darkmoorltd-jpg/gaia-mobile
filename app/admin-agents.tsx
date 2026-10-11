@@ -25,6 +25,7 @@ export default function AdminAgents() {
   const [ref, setRef] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState<any>(null);
+  const [selectedApp, setSelectedApp] = useState<any>(null);
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
@@ -113,7 +114,7 @@ export default function AdminAgents() {
         {tab === 'applications' ? (apps.length === 0 ? (
           <View style={styles.empty}><Text style={styles.kv}>No pending applications.</Text></View>
         ) : apps.map((ap, i) => (
-          <View key={i} style={styles.card}>
+          <Pressable key={i} onPress={() => setSelectedApp(ap)} style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardName} numberOfLines={1}>{ap.full_name}</Text>
               <Text style={styles.cardMeta} numberOfLines={1}>{ap.email} · {ap.phone}</Text>
