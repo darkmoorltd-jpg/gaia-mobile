@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
 import { signInWithGoogle as googleFlow } from '../utils/googleAuth';
 import type { User, Session } from '@supabase/supabase-js';
+
+const LOGIN_CONTEXT_KEY = 'gaia_login_context';
 
 interface AuthState {
   user: User | null;
@@ -12,6 +15,7 @@ interface AuthState {
   scansRemaining: number;
   plan: string;
   role: 'farmer' | 'agent' | 'admin' | null;
+  loginContext: 'agent' | 'user' | null;
   isNewUser: boolean;
 
   setUser: (u: User | null) => void;
@@ -19,6 +23,8 @@ interface AuthState {
   setScans: (n: number, plan: string) => void;
   refreshScans: () => Promise<void>;
   refreshRole: () => Promise<void>;
+  loadLoginContext: () => Promise<void>;
+  setLoginContext: (c: 'agent' | 'user' | null) => Promise<void>;
 
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string) => Promise<string | null>;
@@ -32,15 +38,13 @@ interface AuthState {
 async function logLogin(userId: string, email: string | undefined) {
   try {
     await supabase.from('login_history').insert({
-      user_id: userId,
-      email: email ?? null,
-      platform: Platform.OS,
+      user_id: userId, email: email ?? null, platform: Platform.OS,
     });
   } catch {}
 }
 
 async function checkBan(userId: string): Promise<string | null> {
-  try {
+ try {
     const { data: prof } = await supabase
       .from('user_profiles')
       .select('banned_until, banned_reason')
@@ -65,9 +69,7 @@ async function fetchRole(userId: string): Promise<'farmer' | 'agent' | 'admin' |
     if (data?.role === 'agent') return 'agent';
     if (data?.role === 'admin') return 'admin';
     return 'farmer';
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -77,6 +79,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   scansRemaining: 30,
   plan: 'free',
   role: null,
+  loginContext: null,
   isNewUser: false,
 
   setUser: (u) => set({ user: u, loading: false }),
@@ -93,9 +96,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         .eq('user_id', user.id)
         .maybeSingle();
       if (data) set({ scansRemaining: data.scans_remaining, plan: data.plan });
-    } catch (e) {
-      console.log('refreshScans failed', e);
-    }
+    } catch (e) { console.log('refreshScans failed', e); }
   },
 
   refreshRole: async () => {
@@ -105,26 +106,35 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (r) set({ role: r });
   },
 
+  loadLoginContext: async () => {
+    try {
+      const ctx = await AsyncStorage.getItem(LOGIN_CONTEXT_KEY);
+      if (ctx === 'agent' || ctx === 'user') {
+        set({ loginContext: ctx });
+      }
+    } catch {}
+  },
+
+  setLoginContext: async (c) => {
+    try {
+      if (c) await AsyncStorage.setItem(LOGIN_CONTEXT_KEY, c);
+      else await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY);
+    } catch {}
+    set({ loginContext: c });
+  },
+
   signIn: async (email, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return error.message;
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
-      // Ensure profile exists even for users who signed up before the RPC existed
-      try {
-        await supabase.rpc('ensure_user_profile');
-      } catch (e) {
-        console.log('ensure_user_profile (signin) failed', e);
-      }
-
       set({ user: data.user, session: data.session, loading: false });
+      await get().setLoginContext('user');
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
       return null;
-    } catch (e: any) {
-      return e?.message ?? 'Sign in failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Sign in failed'; }
   },
 
   signUp: async (email, password) => {
@@ -134,17 +144,14 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (data.user) {
         try {
           await supabase.from('user_scans').insert({
-            user_id: data.user.id,
-            scans_remaining: 30,
-            plan: 'free',
+            user_id: data.user.id, scans_remaining: 30, plan: 'free',
           });
         } catch {}
         set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
+        await get().setLoginContext('user');
       }
       return null;
-    } catch (e: any) {
-      return e?.message ?? 'Sign up failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Sign up failed'; }
   },
 
   signInWithGoogle: async () => {
@@ -155,52 +162,26 @@ export const useAuth = create<AuthState>((set, get) => ({
       const got = await supabase.auth.getSession();
       const session = got.data.session;
       if (!session || !session.user) return 'Google sign-in did not return a session';
-
       const ban = await checkBan(session.user.id);
       if (ban) return ban;
-
-      // Ask the backend to ensure the profile exists.
-      // This runs as SECURITY DEFINER so RLS can't block it.
       let isNew = false;
       try {
-        const { data: ensured, error: ensureErr } = await supabase
-          .rpc('ensure_user_profile');
-        if (ensureErr) {
-          console.log('ensure_user_profile failed', ensureErr);
-        }
+        const { data: ensured, error: ensureErr } = await supabase.rpc('ensure_user_profile');
+        if (ensureErr) console.log('ensure_user_profile failed', ensureErr);
         if (!ensured) {
-          // Fallback: try a plain select to see if the row is there
-          const check = await supabase
-            .from('user_profiles')
-            .select('user_id')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+          const check = await supabase.from('user_profiles').select('user_id').eq('user_id', session.user.id).maybeSingle();
           if (!check.data) isNew = true;
         } else {
-          // If we created the row just now, `created_at` is very recent.
-          // Heuristic: if the row was created in the last 5 seconds, treat as new.
-          const created = (ensured as any).created_at
-            ? new Date((ensured as any).created_at).getTime()
-            : 0;
+          const created = (ensured as any).created_at ? new Date((ensured as any).created_at).getTime() : 0;
           if (Date.now() - created < 5000) isNew = true;
         }
-      } catch (e) {
-        console.log('ensure profile threw', e);
-      }
-
-      set({
-        user: session.user,
-        session,
-        loading: false,
-        role: 'farmer',
-        isNewUser: isNew,
-      });
+      } catch (e) { console.log('ensure profile threw', e); }
+      set({ user: session.user, session, loading: false, role: 'farmer', isNewUser: isNew });
+      await get().setLoginContext('user');
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(session.user.id, session.user.email);
       return null;
-    } catch (e: any) {
-      return e?.message ?? 'Google sign-in failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Google sign-in failed'; }
   },
 
   resetPassword: async (email) => {
@@ -208,31 +189,25 @@ export const useAuth = create<AuthState>((set, get) => ({
       const redirectTo = Linking.createURL('reset-password');
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       return error?.message ?? null;
-    } catch (e: any) {
-      return e?.message ?? 'Reset failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Reset failed'; }
   },
 
   updatePassword: async (newPassword) => {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       return error?.message ?? null;
-    } catch (e: any) {
-      return e?.message ?? 'Update failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Update failed'; }
   },
 
   signInAsAgent: async (email, agentCode, password) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return error.message;
-
       const { data: prof } = await supabase
         .from('user_profiles')
         .select('role, agent_code')
         .eq('user_id', data.user.id)
         .maybeSingle();
-
       if (!prof || prof.role !== 'agent') {
         await supabase.auth.signOut();
         return 'This account is not an agent account.';
@@ -241,23 +216,19 @@ export const useAuth = create<AuthState>((set, get) => ({
         await supabase.auth.signOut();
         return 'Agent code does not match.';
       }
-
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
-
       set({ user: data.user, session: data.session, loading: false, role: 'agent' });
+      await get().setLoginContext('agent');
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
       return null;
-    } catch (e: any) {
-      return e?.message ?? 'Agent sign in failed';
-    }
+    } catch (e: any) { return e?.message ?? 'Agent sign in failed'; }
   },
 
   signOut: async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {}
-    set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null, isNewUser: false });
+    try { await supabase.auth.signOut(); } catch {}
+    try { await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY); } catch {}
+    set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null, loginContext: null, isNewUser: false });
   },
 }));
