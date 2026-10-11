@@ -256,6 +256,10 @@ export default function Login() {
           </>
         ) : null}
 
+        <Pressable onPress={() => router.push('/agent-apply' as any)} style={{ marginTop: 12 }}>
+          <Text style={[styles.signup, { color: palette.neon }]}>Want to become an agent? Apply here</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.push('/(auth)/signup')} style={{ marginTop: 24 }}>
           <Text style={styles.signup}>Don't have an account? Sign up</Text>
         </Pressable>
