@@ -16,6 +16,7 @@ export default function AgentRegister() {
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [state, setState] = useState('Kaduna');
   const [lga, setLga] = useState('');
   const [crop, setCrop] = useState('Maize');
@@ -55,6 +56,7 @@ export default function AgentRegister() {
         body: JSON.stringify({
           full_name: fullName.trim(),
           phone: phone.trim(),
+          email: email.trim() || null,
           state: state,
           lga: lga.trim() || null,
           crop: crop,
@@ -89,7 +91,7 @@ export default function AgentRegister() {
             <Text style={styles.successVal}>{result.email}</Text>
           </View>
           <Text style={styles.successHint}>Share the password with the farmer. They can change it after first sign-in.</Text>
-          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setLga(''); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
+          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setLga(''); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
             <Text style={styles.ctaText}>REGISTER ANOTHER</Text>
           </Pressable>
           <Pressable onPress={() => router.back()} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.border, marginTop: 10 }]}>
@@ -114,6 +116,9 @@ export default function AgentRegister() {
 
         <Text style={styles.label}>PHONE *</Text>
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08031234567" placeholderTextColor={palette.textDim} style={styles.input} />
+
+        <Text style={styles.label}>EMAIL (OPTIONAL)</Text>
+        <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="farmer@example.com" placeholderTextColor={palette.textDim} style={styles.input} />
 
         <Text style={styles.label}>STATE *</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>

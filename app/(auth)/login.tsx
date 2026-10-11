@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { supabase } from '../../src/api/supabase';
 import {
   checkBiometricSupport, enableBiometric, isBiometricEnabled,
   promptBiometric, getBiometricEmail,
@@ -52,7 +53,29 @@ export default function Login() {
 
   const handleLogin = async () => {
     setBusy(true); setError('');
-    const err = await signIn(email.trim(), password);
+    let identifier = email.trim();
+
+    // If it looks like a phone number, resolve to the registered email
+    if (identifier && !identifier.includes('@')) {
+      try {
+        const digits = identifier.replace(/\D/g, '');
+        const normalized = digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('email,phone')
+          .or('phone.eq.' + normalized + ',phone.eq.' + digits)
+          .limit(1)
+          .maybeSingle();
+        if (data?.email) identifier = data.email;
+        else { setError('No account with that phone number.'); setBusy(false); return; }
+      } catch {
+        setError('Could not resolve phone number.');
+        setBusy(false);
+        return;
+      }
+    }
+
+    const err = await signIn(identifier, password);
     if (err) setError(err);
     setBusy(false);
   };
@@ -127,12 +150,12 @@ export default function Login() {
 
         {tab === 'password' ? (
           <>
-            <Text style={styles.label}>EMAIL</Text>
+            <Text style={styles.label}>EMAIL OR PHONE</Text>
             <View style={styles.inputWrap}>
               <TextInput
                 value={email} onChangeText={setEmail}
                 autoCapitalize="none" keyboardType="email-address"
-                placeholder="you@example.com" placeholderTextColor={palette.textDim}
+                placeholder="you@example.com or 08031234567" placeholderTextColor={palette.textDim}
                 style={styles.input}
               />
             </View>

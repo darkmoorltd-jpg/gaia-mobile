@@ -99,7 +99,25 @@ export default function AgentVerify() {
         p_id_image_url: idUrl, p_selfie_url: selfieUrl, p_gps_lat: gpsLat, p_gps_lng: gpsLng,
       });
       if (r.error) { Alert.alert('Failed', r.error.message); setBusy(false); return; }
-      Alert.alert('Submitted', 'Verification sent for review. N500 pending approval.');
+
+      // Notify admin (email + in-app queue) so they can forward the N2,000 payment link
+      try {
+        const vid = (r.data as any)?.verification_id;
+        if (vid) {
+          const sess2 = await supabase.auth.getSession();
+          const tk = sess2.data.session?.access_token;
+          await fetch('https://gaia-api-xuly.onrender.com/agent/notify-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
+            body: JSON.stringify({ verification_id: vid }),
+          });
+        }
+      } catch {}
+
+      Alert.alert(
+        'Submitted',
+        'Verification sent to admin.\n\nAdmin will forward the N2,000 payment link to the farmer. You earn N500 once admin approves.',
+      );
       router.replace('/agent/home' as any);
     } catch (e: any) { Alert.alert('Failed', e.message); }
     finally { setBusy(false); }
