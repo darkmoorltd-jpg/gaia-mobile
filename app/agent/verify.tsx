@@ -11,9 +11,19 @@ const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const FEE_KOBO = 200000;
 const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
-const ID_TYPES = ['National ID Card', "Driver's License", 'International Passport', "Voter's Card (PVC)", 'NIN Slip'];
+const ID_TYPES = ['National ID Card', 'Drivers License', 'International Passport', 'Voters Card (PVC)', 'NIN Slip'];
 
-interface Farmer { user_id: string; name: string; email: string; phone?: string; state?: string; }
+interface Farmer {
+  user_id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  state?: string;
+  lga?: string;
+  bucket?: string;
+  rejection_reason?: string;
+  payment_status?: string;
+}
 
 function newRef(agentId: string) {
   const r = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -53,17 +63,33 @@ export default function AgentVerify() {
       try {
         const r = await supabase.rpc('agent_my_farmers', { p_filter: 'all', p_search: null, p_limit: 300 });
         const list: Farmer[] = (r.data || []).map((f: any) => ({
-          user_id: f.user_id, name: f.name || f.email, email: f.email, phone: f.phone, state: f.state,
+          user_id: f.user_id,
+          name: f.name || f.email,
+          email: f.email,
+          phone: f.phone,
+          state: f.state,
+          lga: f.lga,
+          bucket: f.bucket,
+          rejection_reason: f.rejection_reason,
+          payment_status: f.payment_status,
         }));
         setFarmers(list);
         if (params.farmerId) {
           const found = list.find((x) => x.user_id === params.farmerId);
-          if (found) { setSelected(found); setFullName(found.name); setPhone(found.phone || ''); setState(found.state || 'Kaduna'); }
+          if (found) pickFarmer(found);
         }
       } catch {}
       setLoading(false);
     })();
   }, [params.farmerId]);
+
+  const pickFarmer = (f: Farmer) => {
+    setSelected(f);
+    setFullName(f.name);
+    setPhone(f.phone || '');
+    setState(f.state || 'Kaduna');
+    setLga(f.lga || '');
+  };
 
   const pickImage = async (setter: (v: string) => void) => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
@@ -105,49 +131,48 @@ export default function AgentVerify() {
       const idUrl = await uploadFile(idImage, 'id');
       const selfieUrl = await uploadFile(selfie, 'selfie');
       setUploadedUrls({ id: idUrl, selfie: selfieUrl });
-
       const sess = await supabase.auth.getSession();
       const agentId = sess.data.session?.user?.id || 'unknown';
       const ref = newRef(agentId);
       setPayRef(ref);
     } catch (e: any) {
       Alert.alert('Upload failed', e.message);
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const paystackHTML = () => {
     const email = 'agent.' + (selected?.user_id || 'x').slice(0, 8) + '@gaia.app';
-    return `
-      <!DOCTYPE html><html><head><meta charset='utf-8'/>
-      <script src='https://js.paystack.co/v1/inline.js'></script></head>
-      <body style='background:#000;margin:0'>
-      <script>
-        window.addEventListener('load', function() {
-          try {
-            var handler = PaystackPop.setup({
-              key: '${PAYSTACK_PUBLIC}',
-              email: '${email}',
-              amount: ${FEE_KOBO},
-              currency: 'NGN',
-              ref: '${payRef}',
-              label: 'GAIA Verification Fee',
-              onClose: function() {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));
-              },
-              callback: function(response) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference }));
-              }
-            });
-            handler.openIframe();
-          } catch (err) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));
-          }
-        });
-      </script></body></html>
-    `;
+    const html = [
+      "<!DOCTYPE html><html><head><meta charset='utf-8'/>",
+      "<script src='https://js.paystack.co/v1/inline.js'></script></head>",
+      "<body style='background:#000;margin:0'>",
+      "<script>",
+      "window.addEventListener('load', function() {",
+      "  try {",
+      "    var handler = PaystackPop.setup({",
+      "      key: '" + PAYSTACK_PUBLIC + "',",
+      "      email: '" + email + "',",
+      "      amount: " + FEE_KOBO + ",",
+      "      currency: 'NGN',",
+      "      ref: '" + (payRef || '') + "',",
+      "      label: 'GAIA Verification Fee',",
+      "      onClose: function() {",
+      "        window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));",
+      "      },",
+      "      callback: function(response) {",
+      "        window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference }));",
+      "      }",
+      "    });",
+      "    handler.openIframe();",
+      "  } catch (err) {",
+      "    window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));",
+      "  }",
+      "});",
+      "</script></body></html>"
+    ].join("");
+    return html;
   };
+
 
   const onPaystackMessage = async (raw: string) => {
     try {
@@ -159,7 +184,6 @@ export default function AgentVerify() {
       }
       const reference = data.reference;
       if (!reference || !selected) return;
-
       setBusy(true);
       const sess = await supabase.auth.getSession();
       const token = sess.data.session?.access_token;
@@ -179,15 +203,11 @@ export default function AgentVerify() {
       const resp = await r.json();
       setBusy(false);
       setPayRef(null);
-
       if (!r.ok) {
         Alert.alert('Failed', resp.detail || 'Submit failed');
         return;
       }
-      Alert.alert(
-        'Verification submitted',
-        'Paid N2,000. Admin will review shortly. You earn N500 once approved.',
-      );
+      Alert.alert('Verification submitted', 'Paid N2,000. Admin will review shortly. You earn N500 once approved.');
       router.replace('/agent/home' as any);
     } catch (e: any) {
       setBusy(false);
@@ -200,6 +220,9 @@ export default function AgentVerify() {
     ? farmers.filter((f) => (f.name + ' ' + f.email + ' ' + (f.phone || '')).toLowerCase().includes(search.toLowerCase()))
     : farmers;
 
+  // ============================================
+  //  PICKER (no farmer selected)
+  // ============================================
   if (!selected) {
     return (
       <View style={styles.container}>
@@ -210,11 +233,11 @@ export default function AgentVerify() {
           <TextInput value={search} onChangeText={setSearch} placeholder="Search name, phone, email..." placeholderTextColor={palette.textDim} style={styles.input} autoCapitalize="none" />
           {loading ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
           {filtered.map((f) => (
-            <Pressable key={f.user_id} onPress={() => { setSelected(f); setFullName(f.name); setPhone(f.phone || ''); setState(f.state || 'Kaduna'); }} style={styles.personRow}>
+            <Pressable key={f.user_id} onPress={() => pickFarmer(f)} style={styles.personRow}>
               <View style={styles.avatar}><Text style={styles.avatarTxt}>{(f.name || 'U').charAt(0).toUpperCase()}</Text></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.personName} numberOfLines={1}>{f.name}</Text>
-                <Text style={styles.personMeta} numberOfLines={1}>{(f.phone || 'no phone') + ' · ' + (f.state || 'no state')}</Text>
+                <Text style={styles.personMeta} numberOfLines={1}>{(f.phone || 'no phone') + ' - ' + (f.state || 'no state')}</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </Pressable>
@@ -225,12 +248,58 @@ export default function AgentVerify() {
     );
   }
 
+  // ============================================
+  //  LOCKED SCREENS (approved / pending)
+  // ============================================
+  const isApproved = selected.bucket === 'approved';
+  const isPending = selected.bucket === 'pending';
+  const isRejected = selected.bucket === 'rejected';
+
+  if (isApproved || isPending) {
+    const color = isApproved ? '#00ff88' : '#ffb300';
+    const title = isApproved ? 'Farmer Verified' : 'Under Review';
+    const subtitle = isApproved
+      ? 'This farmer has been approved by admin. Details are locked.'
+      : 'Documents submitted. Awaiting admin review.';
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Pressable onPress={() => setSelected(null)}><Text style={styles.back}>CHANGE FARMER</Text></Pressable>
+          <Text style={styles.title}>{selected.name}</Text>
+          <Text style={styles.sub}>{selected.email}</Text>
+          <View style={[styles.lockBox, { borderColor: color }]}>
+            <Text style={[styles.lockIcon, { color }]}>{isApproved ? 'V' : 'P'}</Text>
+            <Text style={styles.lockTitle}>{title}</Text>
+            <Text style={styles.lockSub}>{subtitle}</Text>
+            {isApproved ? (
+              <Text style={styles.lockHint}>To correct any submitted documents, contact admin to unlock this verification.</Text>
+            ) : null}
+          </View>
+          <Pressable onPress={() => setSelected(null)} style={styles.cta}>
+            <Text style={styles.ctaText}>BACK TO LIST</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ============================================
+  //  FORM (new or rejected — editable)
+  // ============================================
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => setSelected(null)}><Text style={styles.back}>CHANGE FARMER</Text></Pressable>
         <Text style={styles.title}>Verify {selected.name}</Text>
         <Text style={styles.sub}>{selected.email}</Text>
+
+        {isRejected && selected.rejection_reason ? (
+          <View style={styles.rejectBanner}>
+            <Text style={styles.rejectTitle}>DOCUMENTS REJECTED</Text>
+            <Text style={styles.rejectReason}>{selected.rejection_reason}</Text>
+            <Text style={styles.rejectHint}>Fix the issue above and resubmit with new payment.</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.label}>FULL NAME</Text>
         <TextInput value={fullName} onChangeText={setFullName} style={styles.input} placeholderTextColor={palette.textDim} />
@@ -304,15 +373,7 @@ export default function AgentVerify() {
       <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {payRef ? (
-            <WebView
-              originWhitelist={['*']}
-              source={{ html: paystackHTML() }}
-              onMessage={(e) => onPaystackMessage(e.nativeEvent.data)}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              style={{ flex: 1, backgroundColor: '#000' }}
-            />
+            <WebView originWhitelist={['*']} source={{ html: paystackHTML() }} onMessage={(e) => onPaystackMessage(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled startInLoadingState style={{ flex: 1, backgroundColor: '#000' }} />
           ) : null}
         </View>
       </Modal>
@@ -354,4 +415,13 @@ const createStyles = (p: any) => StyleSheet.create({
   chevron: { fontSize: 22, color: p.textDim },
   empty: { padding: 24, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center', marginTop: 20 },
   kv: { fontSize: 12, color: p.textMuted },
+  lockBox: { padding: 24, borderRadius: 20, backgroundColor: p.surface, borderWidth: 2, alignItems: 'center', marginTop: 20 },
+  lockIcon: { fontSize: 48, fontWeight: '900', marginBottom: 12 },
+  lockTitle: { fontSize: 22, fontWeight: '900', color: p.text },
+  lockSub: { fontSize: 13, color: p.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  lockHint: { fontSize: 11, color: p.textDim, marginTop: 16, textAlign: 'center', fontStyle: 'italic', lineHeight: 16 },
+  rejectBanner: { padding: 16, borderRadius: 14, backgroundColor: 'rgba(255,59,92,0.08)', borderWidth: 1, borderColor: '#ff3b5c', marginBottom: 20 },
+  rejectTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: '#ff3b5c' },
+  rejectReason: { fontSize: 14, fontWeight: '800', color: p.text, marginTop: 6 },
+  rejectHint: { fontSize: 11, color: p.textMuted, marginTop: 8, fontStyle: 'italic' },
 });

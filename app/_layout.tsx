@@ -60,9 +60,19 @@ function RootNavigator() {
   useEffect(() => {
     if (!ready || loading) return;
     const inAuth = segments[0] === '(auth)';
-    if (!user && !inAuth) router.replace('/(auth)/login');
-    else if (user && inAuth) {
+    const inTabs = segments[0] === '(tabs)';
+    const inAgent = segments[0] === 'agent';
+
+    if (!user && !inAuth) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuth) {
       router.replace(loginContext === 'agent' ? '/agent/home' : '/(tabs)');
+    } else if (user && loginContext === 'agent' && inTabs) {
+      // Safety net: agent logged in but landed on tabs — send them home
+      router.replace('/agent/home');
+    } else if (user && loginContext === 'user' && inAgent) {
+      // Safety net: user logged in but landed on agent — send them to tabs
+      router.replace('/(tabs)');
     }
   }, [user, ready, loading, segments, loginContext]);
 

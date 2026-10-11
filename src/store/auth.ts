@@ -116,11 +116,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   setLoginContext: async (c) => {
+    // Synchronous state update FIRST so router effect sees the right value
+    set({ loginContext: c });
     try {
       if (c) await AsyncStorage.setItem(LOGIN_CONTEXT_KEY, c);
       else await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY);
     } catch {}
-    set({ loginContext: c });
   },
 
   signIn: async (email, password) => {
@@ -129,8 +130,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (error) return error.message;
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
-      set({ user: data.user, session: data.session, loading: false });
       await get().setLoginContext('user');
+      set({ user: data.user, session: data.session, loading: false });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
       return null;
@@ -147,8 +148,8 @@ export const useAuth = create<AuthState>((set, get) => ({
             user_id: data.user.id, scans_remaining: 30, plan: 'free',
           });
         } catch {}
-        set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
         await get().setLoginContext('user');
+        set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
       }
       return null;
     } catch (e: any) { return e?.message ?? 'Sign up failed'; }
@@ -176,8 +177,8 @@ export const useAuth = create<AuthState>((set, get) => ({
           if (Date.now() - created < 5000) isNew = true;
         }
       } catch (e) { console.log('ensure profile threw', e); }
-      set({ user: session.user, session, loading: false, role: 'farmer', isNewUser: isNew });
       await get().setLoginContext('user');
+      set({ user: session.user, session, loading: false, role: 'farmer', isNewUser: isNew });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(session.user.id, session.user.email);
       return null;
@@ -218,8 +219,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
-      set({ user: data.user, session: data.session, loading: false, role: 'agent' });
       await get().setLoginContext('agent');
+      set({ user: data.user, session: data.session, loading: false, role: 'agent' });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
       return null;
