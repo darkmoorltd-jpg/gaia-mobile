@@ -109,7 +109,7 @@ export default function AdminAgents() {
             </View>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
-        )) : null}
+        ))) : null}
 
         {tab === 'applications' ? (apps.length === 0 ? (
           <View style={styles.empty}><Text style={styles.kv}>No pending applications.</Text></View>
