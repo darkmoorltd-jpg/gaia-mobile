@@ -10,22 +10,11 @@ import { supabase } from '../src/api/supabase';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const FEE_KOBO = 300000;
-const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
+
+const STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 function newRef() {
   return 'GAIA_AGENT_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6).toUpperCase();
-}
-
-async function uploadDoc(uri: string, folder: string, ext: string): Promise<string | null> {
-  try {
-    const path = folder + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-    const res = await FileSystem.uploadAsync(
-      supabase.storage.from('agent-docs').getPublicUrl(path).data.publicUrl.replace(/\/[^/]+$/, ''),  // not used
-      uri,
-      { httpMethod: 'POST', uploadType: FileSystem.FileSystemUploadType.MULTIPART, fieldName: 'file' }
-    );
-    return null; // fallback below
-  } catch { return null; }
 }
 
 export default function AgentApply() {
@@ -44,6 +33,8 @@ export default function AgentApply() {
   const [homeAddress, setHomeAddress] = useState('');
   const [experience, setExperience] = useState('');
   const [motivation, setMotivation] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [bvn, setBvn] = useState('');
   const [nin, setNin] = useState('');
   const [bankName, setBankName] = useState('');
@@ -80,28 +71,37 @@ export default function AgentApply() {
       if (error) { console.log('upload err', error); return null; }
       const { data } = supabase.storage.from('agent-docs').getPublicUrl(path);
       return data.publicUrl;
-    } catch (e) {
-      console.log('upload ex', e);
-      return null;
-    }
+    } catch (e) { console.log('upload ex', e); return null; }
   };
 
   const submit = async () => {
     if (!fullName || !email || !phone || !bvn || !nin) {
-      Alert.alert('Missing', 'Name, email, phone, BVN, and NIN are required.');
-      return;
+      Alert.alert('Missing', 'Name, email, phone, BVN, and NIN are required.'); return;
     }
     if (bvn.length !== 11 || nin.length !== 11) {
-      Alert.alert('Invalid', 'BVN and NIN must be 11 digits each.');
-      return;
+      Alert.alert('Invalid', 'BVN and NIN must be 11 digits each.'); return;
+    }
+    if (!password || password.length < 6) {
+      Alert.alert('Password', 'Set a password (min 6 characters) so you can log in while your application is reviewed.'); return;
+    }
+    if (password !== confirm) {
+      Alert.alert('Passwords do not match'); return;
     }
     setBusy(true);
     try {
+      // 1. Create the auth account so they can log in as a normal user
+      const signUp = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password });
+      if (signUp.error && !signUp.error.message.toLowerCase().includes('already')) {
+        Alert.alert('Signup failed', signUp.error.message); setBusy(false); return;
+      }
+
+      // 2. Upload docs
       let idUrl: string | null = null, selfieUrl: string | null = null, stmtUrl: string | null = null;
       if (idImage) idUrl = await uploadToSupabase(idImage, 'ids', 'image/jpeg');
       if (selfie) selfieUrl = await uploadToSupabase(selfie, 'selfies', 'image/jpeg');
       if (bankStatement) stmtUrl = await uploadToSupabase(bankStatement, 'statements', 'application/pdf');
 
+      // 3. Create application
       const r = await supabase.rpc('agent_apply', {
         p_full_name: fullName.trim(), p_email: email.trim(), p_phone: phone.trim(),
         p_state: state, p_lga: lga || null, p_zone: zone || null,
@@ -128,6 +128,7 @@ export default function AgentApply() {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.status === 'success' && applicationId) {
         await supabase.rpc('agent_mark_paid', { p_application_id: applicationId, p_reference: msg.reference });
+        await supabase.auth.signOut();
         setShowPay(false);
         setDone(true);
       } else if (msg.status === 'closed') {
@@ -144,7 +145,10 @@ export default function AgentApply() {
           <View style={styles.doneBox}>
             <Text style={styles.doneIcon}>OK</Text>
             <Text style={styles.doneTitle}>Application + payment received</Text>
-            <Text style={styles.doneBody}>Our team will review your application within 48 hours and contact you on {phone} or {email}.</Text>
+            <Text style={styles.doneBody}>
+              You can now log in with your email and password as a normal user.{'\n\n'}
+              Your agent application is pending admin approval. Once approved, you can sign in via the AGENT tab.
+            </Text>
             <Pressable onPress={() => router.replace('/(auth)/login')} style={styles.cta}>
               <Text style={styles.ctaText}>BACK TO LOGIN</Text>
             </Pressable>
@@ -179,23 +183,27 @@ export default function AgentApply() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Become a GAIA Agent</Text>
-        <Text style={styles.sub}>Register farmers in your area and earn N500 per approved verification. Registration fee: N3,000.</Text>
+        <Text style={styles.sub}>Register farmers and earn N500 per approved verification. Registration fee: N3,000.</Text>
 
-        <Text style={styles.label}>FULL NAME *</Text>
-        <TextInput value={fullName} onChangeText={setFullName} placeholder="e.g. Ibrahim Yusuf" placeholderTextColor={palette.textDim} style={styles.input} />
-
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
         <Text style={styles.label}>EMAIL *</Text>
         <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor={palette.textDim} style={styles.input} />
+        <Text style={styles.label}>PASSWORD * (min 6 chars)</Text>
+        <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor={palette.textDim} style={styles.input} />
+        <Text style={styles.label}>CONFIRM PASSWORD *</Text>
+        <TextInput value={confirm} onChangeText={setConfirm} secureTextEntry placeholderTextColor={palette.textDim} style={styles.input} />
 
+        <Text style={styles.sectionLabel}>PERSONAL</Text>
+        <Text style={styles.label}>FULL NAME *</Text>
+        <TextInput value={fullName} onChangeText={setFullName} placeholder="Ibrahim Yusuf" placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>PHONE *</Text>
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08031234567" placeholderTextColor={palette.textDim} style={styles.input} />
-
         <Text style={styles.label}>WHATSAPP</Text>
-        <TextInput value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" placeholder="08031234567" placeholderTextColor={palette.textDim} style={styles.input} />
-
+        <TextInput value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>HOME ADDRESS</Text>
-        <TextInput value={homeAddress} onChangeText={setHomeAddress} multiline style={[styles.input, { minHeight: 70 }]} placeholder="Street, city, landmark" placeholderTextColor={palette.textDim} />
+        <TextInput value={homeAddress} onChangeText={setHomeAddress} multiline style={[styles.input, { minHeight: 70 }]} placeholderTextColor={palette.textDim} />
 
+        <Text style={styles.sectionLabel}>LOCATION</Text>
         <Text style={styles.label}>STATE</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           {STATES.map((s) => (
@@ -204,51 +212,46 @@ export default function AgentApply() {
             </Pressable>
           ))}
         </ScrollView>
-
         <Text style={styles.label}>LGA</Text>
-        <TextInput value={lga} onChangeText={setLga} placeholder="e.g. Zaria" placeholderTextColor={palette.textDim} style={styles.input} />
-
+        <TextInput value={lga} onChangeText={setLga} placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>ZONE</Text>
-        <TextInput value={zone} onChangeText={setZone} placeholder="e.g. Kaduna North" placeholderTextColor={palette.textDim} style={styles.input} />
-
+        <TextInput value={zone} onChangeText={setZone} placeholder="Kaduna North" placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>ORGANIZATION</Text>
-        <TextInput value={organization} onChangeText={setOrganization} placeholder="e.g. BOA Kaduna" placeholderTextColor={palette.textDim} style={styles.input} />
+        <TextInput value={organization} onChangeText={setOrganization} placeholder="BOA Kaduna" placeholderTextColor={palette.textDim} style={styles.input} />
 
-        <Text style={styles.label}>YEARS OF EXPERIENCE</Text>
-        <TextInput value={experience} onChangeText={setExperience} keyboardType="number-pad" placeholder="0" placeholderTextColor={palette.textDim} style={styles.input} />
-
+        <Text style={styles.sectionLabel}>KYC</Text>
         <Text style={styles.label}>BVN (11 DIGITS) *</Text>
         <TextInput value={bvn} onChangeText={setBvn} keyboardType="number-pad" maxLength={11} placeholderTextColor={palette.textDim} style={styles.input} />
-
         <Text style={styles.label}>NIN (11 DIGITS) *</Text>
         <TextInput value={nin} onChangeText={setNin} keyboardType="number-pad" maxLength={11} placeholderTextColor={palette.textDim} style={styles.input} />
-
-        <Text style={styles.label}>BANK NAME</Text>
-        <TextInput value={bankName} onChangeText={setBankName} placeholder="e.g. GTBank" placeholderTextColor={palette.textDim} style={styles.input} />
-
-        <Text style={styles.label}>ACCOUNT NUMBER</Text>
-        <TextInput value={bankAccountNumber} onChangeText={setBankAccountNumber} keyboardType="number-pad" maxLength={10} placeholderTextColor={palette.textDim} style={styles.input} />
-
-        <Text style={styles.label}>ACCOUNT NAME</Text>
-        <TextInput value={bankAccountName} onChangeText={setBankAccountName} placeholderTextColor={palette.textDim} style={styles.input} />
 
         <Text style={styles.label}>ID CARD PHOTO</Text>
         <Pressable onPress={() => pickImage(setIdImage)} style={styles.uploadBtn}>
           <Text style={styles.uploadText}>{idImage ? 'Change ID photo' : 'Upload ID photo'}</Text>
         </Pressable>
-        {idImage ? <Image source={{ uri: idImage }} style={styles.thumb} resizeMode="cover" /> : null}
+        {idImage ? <Image source={{ uri: idImage }} style={styles.thumb} /> : null}
 
         <Text style={styles.label}>SELFIE HOLDING ID</Text>
         <Pressable onPress={() => pickImage(setSelfie)} style={styles.uploadBtn}>
           <Text style={styles.uploadText}>{selfie ? 'Change selfie' : 'Upload selfie'}</Text>
         </Pressable>
-        {selfie ? <Image source={{ uri: selfie }} style={styles.thumb} resizeMode="cover" /> : null}
+        {selfie ? <Image source={{ uri: selfie }} style={styles.thumb} /> : null}
 
+        <Text style={styles.sectionLabel}>BANK</Text>
+        <Text style={styles.label}>BANK NAME</Text>
+        <TextInput value={bankName} onChangeText={setBankName} placeholder="GTBank" placeholderTextColor={palette.textDim} style={styles.input} />
+        <Text style={styles.label}>ACCOUNT NUMBER</Text>
+        <TextInput value={bankAccountNumber} onChangeText={setBankAccountNumber} keyboardType="number-pad" maxLength={10} placeholderTextColor={palette.textDim} style={styles.input} />
+        <Text style={styles.label}>ACCOUNT NAME</Text>
+        <TextInput value={bankAccountName} onChangeText={setBankAccountName} placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>BANK STATEMENT (PDF/IMAGE)</Text>
         <Pressable onPress={() => pickPdf(setBankStatement)} style={styles.uploadBtn}>
           <Text style={styles.uploadText}>{bankStatement ? 'Change statement' : 'Upload bank statement'}</Text>
         </Pressable>
 
+        <Text style={styles.sectionLabel}>EXPERIENCE</Text>
+        <Text style={styles.label}>YEARS OF EXPERIENCE</Text>
+        <TextInput value={experience} onChangeText={setExperience} keyboardType="number-pad" placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>WHY DO YOU WANT TO BE AN AGENT?</Text>
         <TextInput value={motivation} onChangeText={setMotivation} multiline style={[styles.input, { minHeight: 100 }]} placeholderTextColor={palette.textDim} />
 
@@ -264,9 +267,7 @@ export default function AgentApply() {
           <Pressable onPress={() => setShowPay(false)} style={{ padding: 16 }}>
             <Text style={{ color: '#00ff88', fontWeight: '900', letterSpacing: 1 }}>CANCEL</Text>
           </Pressable>
-          {payHtml ? (
-            <WebView source={{ html: payHtml }} onMessage={onPayMessage} style={{ flex: 1 }} javaScriptEnabled domStorageEnabled />
-          ) : null}
+          {payHtml ? <WebView source={{ html: payHtml }} onMessage={onPayMessage} style={{ flex: 1 }} javaScriptEnabled domStorageEnabled /> : null}
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -278,7 +279,8 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 20, lineHeight: 18 },
+  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16, lineHeight: 18 },
+  sectionLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: p.neon, marginTop: 24, marginBottom: 4 },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 16, marginBottom: 6 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
   chips: { gap: 6, paddingRight: 12 },

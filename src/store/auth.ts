@@ -204,21 +204,49 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return error.message;
-      const { data: prof } = await supabase
-        .from('user_profiles')
-        .select('role, agent_code')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
-      if (!prof || prof.role !== 'agent') {
+
+      // Fetch status via security-definer RPC (bypasses RLS on agent_applications)
+      const status = await supabase.rpc('agent_check_my_status');
+      const statusData: any = status.data || {};
+      const agentRow = statusData.agent;
+      const appRow = statusData.application;
+
+      // No agent record → check if they have an application and give a friendly reason
+      if (!agentRow) {
         await supabase.auth.signOut();
-        return 'This account is not an agent account.';
+        if (appRow) {
+          if (appRow.status === 'rejected') {
+            return 'Your agent application was not approved. You can log in as a normal user, or contact support.';
+          }
+          if (appRow.status === 'approved' && !agentRow) {
+            return 'Your application was approved but your agent profile is still being set up. Try again in a few minutes.';
+          }
+          if (appRow.payment_status !== 'paid') {
+            return 'Your agent application is awaiting payment (N3,000). Finish the fee to submit it for approval.';
+          }
+          return 'Your agent application is pending admin approval. You can still log in as a normal user.';
+        }
+        return 'This account is not an agent account. Apply to become an agent from the login screen.';
       }
-      if (!prof.agent_code || prof.agent_code.toLowerCase() !== agentCode.trim().toLowerCase()) {
+
+      if (agentRow.status === 'suspended') {
         await supabase.auth.signOut();
-        return 'Agent code does not match.';
+        return 'Your agent account is suspended. Contact support for help.';
       }
+      if (agentRow.status !== 'active') {
+        await supabase.auth.signOut();
+        return 'Your agent account is not active yet.';
+      }
+
+      // Agent code must match
+      if (!agentRow.agent_code || agentRow.agent_code.toLowerCase() !== agentCode.trim().toLowerCase()) {
+        await supabase.auth.signOut();
+        return 'Agent code does not match. Check with admin.';
+      }
+
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
+
       await get().setLoginContext('agent');
       set({ user: data.user, session: data.session, loading: false, role: 'agent' });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
