@@ -1,15 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../src/theme';
 import { supabase } from '../../src/api/supabase';
 
+const API_BASE = 'https://gaia-api-xuly.onrender.com';
+const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
+const FEE_KOBO = 200000;
 const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
 const ID_TYPES = ['National ID Card', "Driver's License", 'International Passport', "Voter's Card (PVC)", 'NIN Slip'];
 
 interface Farmer { user_id: string; name: string; email: string; phone?: string; state?: string; }
+
+function newRef(agentId: string) {
+  const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return 'GAIA_VER_' + agentId.slice(0, 8) + '_' + Date.now().toString(36) + r;
+}
 
 export default function AgentVerify() {
   const router = useRouter();
@@ -36,6 +45,8 @@ export default function AgentVerify() {
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [payRef, setPayRef] = useState<string | null>(null);
+  const [uploadedUrls, setUploadedUrls] = useState<{ id: string | null; selfie: string | null }>({ id: null, selfie: null });
 
   useEffect(() => {
     (async () => {
@@ -84,43 +95,105 @@ export default function AgentVerify() {
     } catch {}
   };
 
-  const submit = async () => {
+  const startPayment = async () => {
     if (!selected) { Alert.alert('Pick a farmer first'); return; }
-    if (!fullName || !phone || !idImage || !selfie) { Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return; }
+    if (!fullName || !phone || !idImage || !selfie) {
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
+    }
     setBusy(true);
     try {
       const idUrl = await uploadFile(idImage, 'id');
       const selfieUrl = await uploadFile(selfie, 'selfie');
-      const r = await supabase.rpc('agent_submit_verification', {
-        p_farmer_id: selected.user_id, p_full_name: fullName, p_phone: phone,
-        p_state: state, p_lga: lga || null, p_address: address || null,
-        p_bvn: bvn || null, p_nin: nin || null, p_id_type: idType, p_id_number: idNumber || null,
-        p_crop: null, p_farm_state: state, p_farm_lga: lga || null, p_farm_size: null,
-        p_id_image_url: idUrl, p_selfie_url: selfieUrl, p_gps_lat: gpsLat, p_gps_lng: gpsLng,
+      setUploadedUrls({ id: idUrl, selfie: selfieUrl });
+
+      const sess = await supabase.auth.getSession();
+      const agentId = sess.data.session?.user?.id || 'unknown';
+      const ref = newRef(agentId);
+      setPayRef(ref);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const paystackHTML = () => {
+    const email = 'agent.' + (selected?.user_id || 'x').slice(0, 8) + '@gaia.app';
+    return `
+      <!DOCTYPE html><html><head><meta charset='utf-8'/>
+      <script src='https://js.paystack.co/v1/inline.js'></script></head>
+      <body style='background:#000;margin:0'>
+      <script>
+        window.addEventListener('load', function() {
+          try {
+            var handler = PaystackPop.setup({
+              key: '${PAYSTACK_PUBLIC}',
+              email: '${email}',
+              amount: ${FEE_KOBO},
+              currency: 'NGN',
+              ref: '${payRef}',
+              label: 'GAIA Verification Fee',
+              onClose: function() {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));
+              },
+              callback: function(response) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference }));
+              }
+            });
+            handler.openIframe();
+          } catch (err) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));
+          }
+        });
+      </script></body></html>
+    `;
+  };
+
+  const onPaystackMessage = async (raw: string) => {
+    try {
+      const data = JSON.parse(raw);
+      if (data.status !== 'success') {
+        setPayRef(null);
+        if (data.status === 'error') Alert.alert('Payment error', data.message || 'Try again');
+        return;
+      }
+      const reference = data.reference;
+      if (!reference || !selected) return;
+
+      setBusy(true);
+      const sess = await supabase.auth.getSession();
+      const token = sess.data.session?.access_token;
+      const r = await fetch(API_BASE + '/agent/submit-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          farmer_id: selected.user_id,
+          full_name: fullName, phone, state, lga: lga || null, address: address || null,
+          bvn: bvn || null, nin: nin || null, id_type: idType, id_number: idNumber || null,
+          crop: null, farm_state: state, farm_lga: lga || null, farm_size: null,
+          id_image_url: uploadedUrls.id, selfie_url: uploadedUrls.selfie,
+          gps_lat: gpsLat, gps_lng: gpsLng,
+          payment_reference: reference,
+        }),
       });
-      if (r.error) { Alert.alert('Failed', r.error.message); setBusy(false); return; }
+      const resp = await r.json();
+      setBusy(false);
+      setPayRef(null);
 
-      // Notify admin (email + in-app queue) so they can forward the N2,000 payment link
-      try {
-        const vid = (r.data as any)?.verification_id;
-        if (vid) {
-          const sess2 = await supabase.auth.getSession();
-          const tk = sess2.data.session?.access_token;
-          await fetch('https://gaia-api-xuly.onrender.com/agent/notify-verification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
-            body: JSON.stringify({ verification_id: vid }),
-          });
-        }
-      } catch {}
-
+      if (!r.ok) {
+        Alert.alert('Failed', resp.detail || 'Submit failed');
+        return;
+      }
       Alert.alert(
-        'Submitted',
-        'Verification sent to admin.\n\nAdmin will forward the N2,000 payment link to the farmer. You earn N500 once admin approves.',
+        'Verification submitted',
+        'Paid N2,000. Admin will review shortly. You earn N500 once approved.',
       );
       router.replace('/agent/home' as any);
-    } catch (e: any) { Alert.alert('Failed', e.message); }
-    finally { setBusy(false); }
+    } catch (e: any) {
+      setBusy(false);
+      setPayRef(null);
+      Alert.alert('Failed', e.message);
+    }
   };
 
   const filtered = search.trim()
@@ -215,11 +288,34 @@ export default function AgentVerify() {
           </Text>
         </Pressable>
 
-        <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SUBMIT VERIFICATION</Text>}
+        <View style={styles.feeBox}>
+          <Text style={styles.feeLbl}>VERIFICATION FEE</Text>
+          <Text style={styles.feeVal}>N2,000</Text>
+          <Text style={styles.feeSub}>Submit sends this to admin. You earn N500 on approval.</Text>
+        </View>
+
+        <Pressable onPress={startPayment} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
+          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY N2,000 & SUBMIT</Text>}
         </Pressable>
+
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {payRef ? (
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: paystackHTML() }}
+              onMessage={(e) => onPaystackMessage(e.nativeEvent.data)}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              style={{ flex: 1, backgroundColor: '#000' }}
+            />
+          ) : null}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -244,7 +340,11 @@ const createStyles = (p: any) => StyleSheet.create({
   gpsBtnOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.08)' },
   gpsText: { fontSize: 11, fontWeight: '800', color: p.textMuted, letterSpacing: 0.5 },
   gpsTextOn: { color: p.neon },
-  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 24 },
+  feeBox: { padding: 16, borderRadius: 14, backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', marginTop: 20, alignItems: 'center' },
+  feeLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted },
+  feeVal: { fontSize: 32, fontWeight: '900', color: '#00ff88', letterSpacing: -1, marginTop: 4 },
+  feeSub: { fontSize: 11, color: p.textMuted, marginTop: 6, textAlign: 'center' },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 16 },
   ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,255,136,0.15)', alignItems: 'center', justifyContent: 'center' },
