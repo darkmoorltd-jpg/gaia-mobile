@@ -66,12 +66,31 @@ export default function AdminOps() {
 
   const kycAction = async (v: any, status: string) => {
     setAct(true);
-    await supabase.from('farmer_verifications')
-      .update({ status, rejection_reason: status === 'rejected' ? 'Rejected by admin' : null, updated_at: new Date().toISOString() })
-      .eq('id', v.id);
-    await supabase.from('user_profiles')
-      .update({ verification_status: status })
-      .eq('user_id', v.user_id);
+
+    // Use the RPC so agent commission fires automatically on approval
+    try {
+      if (status === 'approved') {
+        const r = await supabase.rpc('admin_approve_verification', { p_verification_id: v.id });
+        if (r.error) { Alert.alert('Failed', r.error.message); setAct(false); return; }
+      } else if (status === 'rejected') {
+        const r = await supabase.rpc('admin_reject_verification', {
+          p_verification_id: v.id,
+          p_reason: 'Rejected by admin',
+        });
+        if (r.error) { Alert.alert('Failed', r.error.message); setAct(false); return; }
+      } else {
+        await supabase.from('farmer_verifications')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', v.id);
+        await supabase.from('user_profiles')
+          .update({ verification_status: status })
+          .eq('user_id', v.user_id);
+      }
+    } catch (e: any) {
+      Alert.alert('Failed', e?.message || 'Try again');
+      setAct(false);
+      return;
+    }
 
     // Auto-provision wallet on approval
     if (status === 'approved') {

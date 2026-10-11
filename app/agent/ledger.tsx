@@ -32,9 +32,11 @@ export default function AgentLedger() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}>
-        <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.back}>BACK</Text>
+        </Pressable>
         <Text style={styles.title}>Commission Ledger</Text>
-        <Text style={styles.sub}>{rows.length} payments · N500 each</Text>
+        <Text style={styles.sub}>{rows.length + ' payments · N500 each'}</Text>
 
         <View style={styles.summary}>
           <View style={styles.sumCol}>
@@ -76,21 +78,20 @@ export default function AgentLedger() {
         {!busy && rows.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.kv}>No commissions yet.</Text>
-            <Text style={styles.kvSub}>VerifyChar farmers — each approved verification earns N500.</Text>
+            <Text style={styles.kvSub}>Verify farmers — each approved verification earns N500.</Text>
           </View>
-Code(        ) : null}
+        ) : null}
 
-        <View style={{ height: 6010 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
-))  );
+  );
 }
 
-const createStyles[ = (p: any) => StyleSheet.create({
-0  container: { flex: 1, backgroundColor:]); p.obsidian },
-  scroll: { padding: 20, padding"
-Top: 60, paddingBottom: 80 },
-         back: { fontSize: 11, fontWeight: '800 "', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
   sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 20 },
   summary: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 20 },
