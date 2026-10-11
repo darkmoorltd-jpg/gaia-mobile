@@ -1,80 +1,47 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView,
-  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
+  Platform, Alert, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme, spacing, radius, typography } from '../../src/theme';
+import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
-import { supabase } from '../../src/api/supabase';
-import { registerForPushNotifications } from '../../src/utils/push';
-
-function normalizePhone(input: string): string {
-  let p = (input || '').trim().replace(/[\s\-\(\)]/g, '');
-  if (p.startsWith('+')) p = p.slice(1);
-  if (p.startsWith('0')) p = '234' + p.slice(1);
-  else if (!p.startsWith('234')) p = '234' + p;
-  return p;
-}
 
 export default function Signup() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
+
   const signUp = useAuth((s) => s.signUp);
+  const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
 
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const handle = async () => {
-    if (password !== confirm) {
-      setError('Passwords do not match');
-      return;
+  const handleGoogle = async () => {
+    setGoogleBusy(true); setError('');
+    const err = await signInWithGoogle();
+    if (err) { setError(err); setGoogleBusy(false); return; }
+    const isNew = useAuth.getState().isNewUser;
+    setGoogleBusy(false);
+    if (isNew) {
+      router.replace('/(auth)/onboarding' as any);
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-    if (!email.includes('@')) {
-      setError('Enter a valid email');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    try {
-      const err = await signUp(email.trim().toLowerCase(), password);
-      if (err) throw new Error(err);
+  };
 
-      // Save profile (with phone + names)
-      const currentUser = useAuth.getState().user;
-      if (currentUser) {
-        await supabase.from('user_profiles').upsert(
-          {
-            user_id: currentUser.id,
-            email: email.trim().toLowerCase(),
-            phone: phone.trim() ? normalizePhone(phone) : null,
-            first_name: firstName.trim() || null,
-            last_name: lastName.trim() || null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' },
-        );
-
-        registerForPushNotifications(currentUser.id);
-      }
-
-      router.replace('/(tabs)');
-    } catch (e: any) {
-      setError(e?.message || 'Sign up failed');
-    } finally {
-      setBusy(false);
-    }
+  const handleSubmit = async () => {
+    if (!email || !password) { setError('Email and password are required.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    setBusy(true); setError('');
+    const err = await signUp(email.trim(), password);
+    setBusy(false);
+    if (err) { setError(err); return; }
+    router.replace('/(auth)/onboarding' as any);
   };
 
   return (
@@ -82,148 +49,104 @@ export default function Signup() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>BACK</Text>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.back}>BACK</Text>
         </Pressable>
 
-        <Text style={styles.title}>Create your{'\n'}GAIA account.</Text>
-        <Text style={styles.subtitle}>
-          Join thousands of farmers across Africa using AI to protect their harvests.
-        </Text>
+        <Text style={styles.leaf}>GAIA</Text>
+        <Text style={styles.title}>Create account</Text>
+        <Text style={styles.subtitle}>Start diagnosing your farm in 30 seconds.</Text>
+
+        {/* GOOGLE SIGNUP */}
+        <Pressable
+          onPress={handleGoogle}
+          disabled={googleBusy || busy}
+          style={[styles.googleBtn, (googleBusy || busy) && { opacity: 0.6 }]}
+        >
+          {googleBusy ? <ActivityIndicator color="#4285F4" /> : (
+            <View style={styles.googleInner}>
+              <Text style={styles.googleIcon}>G</Text>
+              <Text style={styles.googleText}>SIGN UP WITH GOOGLE</Text>
+            </View>
+          )}
+        </Pressable>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.dividerLine} />
+        </View>
 
         <Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
           <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={palette.textDim}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={styles.input}
+            value={email} onChangeText={setEmail}
+            autoCapitalize="none" keyboardType="email-address"
+            placeholder="you@example.com" placeholderTextColor={palette.textDim}
+            style={styles.input} editable={!busy}
           />
-        </View>
-
-        <Text style={styles.label}>PHONE (NIGERIA)</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="0803 123 4567"
-            placeholderTextColor={palette.textDim}
-            keyboardType="phone-pad"
-            style={styles.input}
-          />
-        </View>
-
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>FIRST NAME</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="Musa"
-                placeholderTextColor={palette.textDim}
-                style={styles.input}
-              />
-            </View>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>LAST NAME</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Ibrahim"
-                placeholderTextColor={palette.textDim}
-                style={styles.input}
-              />
-            </View>
-          </View>
         </View>
 
         <Text style={styles.label}>PASSWORD</Text>
         <View style={styles.inputWrap}>
           <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Min. 6 characters"
-            placeholderTextColor={palette.textDim}
-            secureTextEntry
-            style={styles.input}
+            value={password} onChangeText={setPassword}
+            secureTextEntry placeholder="at least 6 characters"
+            placeholderTextColor={palette.textDim} style={styles.input}
+            editable={!busy}
           />
         </View>
 
         <Text style={styles.label}>CONFIRM PASSWORD</Text>
         <View style={styles.inputWrap}>
           <TextInput
-            value={confirm}
-            onChangeText={setConfirm}
-            placeholder="Repeat password"
-            placeholderTextColor={palette.textDim}
-            secureTextEntry
-            style={styles.input}
+            value={confirm} onChangeText={setConfirm}
+            secureTextEntry placeholder="type it again"
+            placeholderTextColor={palette.textDim} style={styles.input}
+            editable={!busy}
           />
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable
-          onPress={handle}
-          disabled={busy || !email || !password || !confirm}
-          style={[styles.cta, (busy || !email || !password || !confirm) && { opacity: 0.4 }]}
+          onPress={handleSubmit}
+          disabled={busy || googleBusy || !email || !password || !confirm}
+          style={[styles.cta, (busy || googleBusy || !email || !password || !confirm) && { opacity: 0.4 }]}
         >
-          {busy
-            ? <ActivityIndicator color={palette.obsidian} />
-            : <Text style={styles.ctaText}>CREATE ACCOUNT</Text>}
+          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>CREATE ACCOUNT</Text>}
         </Pressable>
 
-        <Text style={styles.terms}>
-          By continuing you agree to GAIA's Terms of Service and Privacy Policy.
-        </Text>
+        <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 24 }}>
+          <Text style={styles.signup}>Already have an account? Sign in</Text>
+        </Pressable>
 
-        <View style={styles.bottom}>
-          <Text style={styles.bottomText}>Already have an account? </Text>
-          <Pressable onPress={() => router.replace('/(auth)/login')}>
-            <Text style={styles.bottomLink}>Sign in</Text>
-          </Pressable>
-        </View>
+        <View style={{ height: 60 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const createStyles = (palette: any) =>
-  StyleSheet.create({
-    container: { flex: 1, backgroundColor: palette.obsidian },
-    scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: spacing.xxxl },
-    back: { marginBottom: spacing.lg },
-    backText: { ...typography.micro, color: palette.textMuted },
-    title: { fontSize: 30, fontWeight: '900', color: palette.text, letterSpacing: -1, marginBottom: spacing.md, lineHeight: 38 },
-    subtitle: { ...typography.body, color: palette.textMuted, lineHeight: 22, marginBottom: spacing.xl },
-    label: { ...typography.micro, color: palette.textMuted, marginBottom: 6, marginTop: spacing.sm },
-    inputWrap: {
-      borderWidth: 1.5, borderColor: palette.border,
-      backgroundColor: palette.surface,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-    },
-    input: { paddingVertical: 14, color: palette.text, fontSize: 15 },
-    row: { flexDirection: 'row', gap: spacing.md },
-    error: { color: palette.danger, textAlign: 'center', marginVertical: spacing.md, fontSize: 13 },
-    cta: {
-      padding: 18, borderRadius: radius.md,
-      backgroundColor: palette.neon, alignItems: 'center', marginTop: spacing.md,
-    },
-    ctaText: { fontSize: 15, fontWeight: '900', color: palette.obsidian, letterSpacing: 1 },
-    terms: { ...typography.micro, color: palette.textDim, textAlign: 'center', marginTop: spacing.xl, lineHeight: 16 },
-    bottom: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.xl },
-    bottomText: { ...typography.body, color: palette.textMuted },
-    bottomLink: { ...typography.body, color: palette.neon, fontWeight: '700' },
-  });
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40 },
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 16 },
+  leaf: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: 8, marginBottom: 20 },
+  title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  subtitle: { fontSize: 14, color: p.textMuted, marginTop: 6, marginBottom: 24 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
+  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16, marginBottom: 14 },
+  input: { paddingVertical: 14, color: p.text, fontSize: 15 },
+  error: { color: p.danger, textAlign: 'center', marginVertical: 12, fontSize: 13 },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 8 },
+  ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  googleBtn: { padding: 18, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', marginBottom: 20 },
+  googleInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  googleIcon: { fontSize: 20, fontWeight: '900', color: '#4285F4' },
+  googleText: { fontSize: 14, fontWeight: '900', color: '#1f1f1f', letterSpacing: 0.5 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: p.border },
+  dividerText: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.textMuted },
+  signup: { color: p.textMuted, textAlign: 'center', fontSize: 14 },
+});

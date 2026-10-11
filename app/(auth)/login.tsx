@@ -60,8 +60,13 @@ export default function Login() {
   const handleGoogle = async () => {
     setBusy(true); setError('');
     const err = await signInWithGoogle();
-    if (err) setError(err);
+    if (err) { setError(err); setBusy(false); return; }
+    // After success, check if this is a brand-new account
+    const isNew = useAuth.getState().isNewUser;
     setBusy(false);
+    if (isNew) {
+      router.replace('/(auth)/onboarding' as any);
+    }
   };
 
   const handleAgent = async () => {

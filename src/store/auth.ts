@@ -12,6 +12,7 @@ interface AuthState {
   scansRemaining: number;
   plan: string;
   role: 'farmer' | 'agent' | 'admin' | null;
+  isNewUser: boolean;
 
   setUser: (u: User | null) => void;
   setAuth: (u: User | null, s: Session | null) => void;
@@ -76,6 +77,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   scansRemaining: 30,
   plan: 'free',
   role: null,
+  isNewUser: false,
 
   setUser: (u) => set({ user: u, loading: false }),
   setAuth: (u, s) => set({ user: u, session: s, loading: false }),
@@ -146,9 +148,58 @@ export const useAuth = create<AuthState>((set, get) => ({
       const got = await supabase.auth.getSession();
       const session = got.data.session;
       if (!session || !session.user) return 'Google sign-in did not return a session';
+
       const ban = await checkBan(session.user.id);
       if (ban) return ban;
-      set({ user: session.user, session, loading: false });
+
+      const existing = await supabase
+        .from('user_profiles')
+        .select('user_id, first_name')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      let isNew = false;
+      if (!existing.data) {
+        isNew = true;
+        const meta: any = session.user.user_metadata || {};
+        const fullName = meta.full_name || meta.name || '';
+        const parts = String(fullName).split(' ').filter(Boolean);
+        const firstName = meta.given_name || parts[0] || '';
+        const lastName = meta.family_name || parts.slice(1).join(' ') || '';
+        const avatar = meta.avatar_url || meta.picture || null;
+
+        try {
+          await supabase.from('user_profiles').insert({
+            user_id: session.user.id,
+            email: session.user.email || '',
+            first_name: firstName,
+            last_name: lastName,
+            avatar_url: avatar,
+            role: 'farmer',
+            verification_status: 'pending',
+            account_status: 'active',
+          });
+        } catch (e) {
+          console.log('profile insert failed', e);
+        }
+        try {
+          await supabase.from('user_scans').insert({
+            user_id: session.user.id,
+            scans_remaining: 30,
+            plan: 'free',
+          });
+        } catch (e) {
+          console.log('scans insert failed', e);
+        }
+      }
+
+      set({
+        user: session.user,
+        session,
+        loading: false,
+        role: 'farmer',
+        isNewUser: isNew,
+      });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(session.user.id, session.user.email);
       return null;
@@ -212,6 +263,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       await supabase.auth.signOut();
     } catch {}
-    set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null });
+    set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null, isNewUser: false });
   },
 }));
