@@ -85,6 +85,8 @@ function RootNavigator() {
       <Stack.Screen name="voice" />
       <Stack.Screen name="rag" />
       <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />

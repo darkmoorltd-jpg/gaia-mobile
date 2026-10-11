@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, TextInput,
+  Platform, Alert, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useTheme, spacing, radius, typography } from '../../src/theme';
+import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import {
   checkBiometricSupport, enableBiometric, isBiometricEnabled,
@@ -12,17 +12,25 @@ import {
 } from '../../src/utils/biometric';
 import { registerForPushNotifications } from '../../src/utils/push';
 
+type Tab = 'password' | 'google' | 'agent';
+
 export default function Login() {
   const router = useRouter();
   const { palette } = useTheme();
-  const signIn = useAuth((s) => s.signIn);
-  const user = useAuth((s) => s.user);
   const styles = createStyles(palette);
 
+  const signIn = useAuth((s) => s.signIn);
+  const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
+  const signInAsAgent = useAuth((s) => s.signInAsAgent);
+  const user = useAuth((s) => s.user);
+
+  const [tab, setTab] = useState<Tab>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agentCode, setAgentCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
   const [bioType, setBioType] = useState<string | null>(null);
@@ -33,10 +41,8 @@ export default function Login() {
       const support = await checkBiometricSupport();
       setBioAvailable(support.available && support.enrolled);
       setBioType(support.type);
-      const enabled = await isBiometricEnabled();
-      setBioEnabled(enabled);
-      const em = await getBiometricEmail();
-      setBioEmail(em);
+      setBioEnabled(await isBiometricEnabled());
+      setBioEmail(await getBiometricEmail());
     })();
   }, []);
 
@@ -44,22 +50,39 @@ export default function Login() {
     if (user) registerForPushNotifications(user.id);
   }, [user]);
 
-  const handleBiometricLogin = async () => {
-    const ok = await promptBiometric();
-    if (ok && bioEmail) {
-      Alert.alert('Biometric verified', 'Please enter your password to continue.');
-      setEmail(bioEmail);
-    } else {
-      Alert.alert('Authentication failed', 'Try again or use password.');
-    }
-  };
-
   const handleLogin = async () => {
-    setBusy(true);
-    setError('');
+    setBusy(true); setError('');
     const err = await signIn(email.trim(), password);
     if (err) setError(err);
     setBusy(false);
+  };
+
+  const handleGoogle = async () => {
+    setBusy(true); setError('');
+    const err = await signInWithGoogle();
+    if (err) setError(err);
+    setBusy(false);
+  };
+
+  const handleAgent = async () => {
+    if (!email || !agentCode || !password) {
+      setError('Email, agent code, and password are required.');
+      return;
+    }
+    setBusy(true); setError('');
+    const err = await signInAsAgent(email.trim(), agentCode.trim(), password);
+    if (err) setError(err);
+    setBusy(false);
+  };
+
+  const handleBiometricLogin = async () => {
+    const ok = await promptBiometric();
+    if (ok && bioEmail) {
+      setEmail(bioEmail);
+      Alert.alert('Biometric verified', 'Enter your password to continue.');
+    } else {
+      Alert.alert('Authentication failed', 'Try again or use password.');
+    }
   };
 
   const offerBiometricSetup = async () => {
@@ -81,59 +104,133 @@ export default function Login() {
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to continue protecting your farm</Text>
 
-        <View style={{ marginTop: 32 }}>
-          <Text style={styles.label}>EMAIL</Text>
-          <View style={styles.inputWrap}>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="you@example.com"
-              placeholderTextColor={palette.textDim}
-              style={styles.input}
-            />
-          </View>
-
-          <Text style={styles.label}>PASSWORD</Text>
-          <View style={styles.inputWrap}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="password"
-              placeholderTextColor={palette.textDim}
-              style={styles.input}
-            />
-          </View>
+        <View style={styles.tabs}>
+          {([
+            { k: 'password', label: 'EMAIL' },
+            { k: 'google', label: 'GOOGLE' },
+            { k: 'agent', label: 'AGENT' },
+          ] as { k: Tab; label: string }[]).map((t) => (
+            <Pressable
+              key={t.k}
+              onPress={() => { setTab(t.k); setError(''); }}
+              style={[styles.tab, tab === t.k && styles.tabOn]}
+            >
+              <Text style={[styles.tabText, tab === t.k && styles.tabTextOn]}>{t.label}</Text>
+            </Pressable>
+          ))}
         </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          onPress={handleLogin}
-          disabled={busy || !email || !password}
-          style={[styles.cta, (busy || !email || !password) && { opacity: 0.4 }]}
-        >
-          <Text style={styles.ctaText}>{busy ? 'SIGNING IN...' : 'SIGN IN'}</Text>
-        </Pressable>
-
-        {bioAvailable && bioEnabled ? (
-          <Pressable onPress={handleBiometricLogin} style={styles.bioBtn}>
-            <Text style={styles.bioText}>USE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
-          </Pressable>
+        {tab === 'password' ? (
+          <>
+            <Text style={styles.label}>EMAIL</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={email} onChangeText={setEmail}
+                autoCapitalize="none" keyboardType="email-address"
+                placeholder="you@example.com" placeholderTextColor={palette.textDim}
+                style={styles.input}
+              />
+            </View>
+            <Text style={styles.label}>PASSWORD</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={password} onChangeText={setPassword}
+                secureTextEntry placeholder="password"
+                placeholderTextColor={palette.textDim} style={styles.input}
+              />
+            </View>
+            <Pressable
+              onPress={() => router.push('/(auth)/forgot-password')}
+              style={{ alignSelf: 'flex-end', marginTop: -6, marginBottom: 12 }}
+            >
+              <Text style={styles.forgot}>Forgot password?</Text>
+            </Pressable>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+              onPress={handleLogin}
+              disabled={busy || !email || !password}
+              style={[styles.cta, (busy || !email || !password) && { opacity: 0.4 }]}
+            >
+              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SIGN IN</Text>}
+            </Pressable>
+            {bioAvailable && bioEnabled ? (
+              <Pressable onPress={handleBiometricLogin} style={styles.bioBtn}>
+                <Text style={styles.bioText}>USE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
+              </Pressable>
+            ) : null}
+            {bioAvailable && !bioEnabled && user ? (
+              <Pressable onPress={offerBiometricSetup} style={styles.bioBtnOutline}>
+                <Text style={styles.bioTextOutline}>ENABLE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
+              </Pressable>
+            ) : null}
+          </>
         ) : null}
 
-        {bioAvailable && !bioEnabled && user ? (
-          <Pressable onPress={offerBiometricSetup} style={styles.bioBtnOutline}>
-            <Text style={styles.bioTextOutline}>ENABLE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
-          </Pressable>
+        {tab === 'google' ? (
+          <>
+            <Text style={styles.googleIntro}>
+              Use your Google account to sign in instantly. No password to remember.
+            </Text>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable onPress={handleGoogle} disabled={busy} style={[styles.googleBtn, busy && { opacity: 0.6 }]}>
+              {busy ? <ActivityIndicator color="#4285F4" /> : (
+                <View style={styles.googleInner}>
+                  <Text style={styles.googleIcon}>G</Text>
+                  <Text style={styles.googleText}>CONTINUE WITH GOOGLE</Text>
+                </View>
+              )}
+            </Pressable>
+            <Text style={styles.googleFoot}>
+              You will be redirected to Google. Sign in and you'll return to GAIA automatically.
+            </Text>
+          </>
+        ) : null}
+
+        {tab === 'agent' ? (
+          <>
+            <Text style={styles.googleIntro}>
+              Extension agents and support staff use their assigned agent code to sign in.
+            </Text>
+            <Text style={styles.label}>AGENT EMAIL</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={email} onChangeText={setEmail}
+                autoCapitalize="none" keyboardType="email-address"
+                placeholder="agent@example.com" placeholderTextColor={palette.textDim}
+                style={styles.input}
+              />
+            </View>
+            <Text style={styles.label}>AGENT CODE</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={agentCode} onChangeText={(v) => setAgentCode(v.toUpperCase())}
+                autoCapitalize="characters"
+                placeholder="GAIA-AG-0001" placeholderTextColor={palette.textDim}
+                style={styles.input}
+              />
+            </View>
+            <Text style={styles.label}>PASSWORD</Text>
+            <View style={styles.inputWrap}>
+              <TextInput
+                value={password} onChangeText={setPassword}
+                secureTextEntry placeholder="password"
+                placeholderTextColor={palette.textDim} style={styles.input}
+              />
+            </View>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+              onPress={handleAgent}
+              disabled={busy || !email || !agentCode || !password}
+              style={[styles.cta, (busy || !email || !agentCode || !password) && { opacity: 0.4 }]}
+            >
+              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SIGN IN AS AGENT</Text>}
+            </Pressable>
+          </>
         ) : null}
 
         <Pressable onPress={() => router.push('/(auth)/signup')} style={{ marginTop: 24 }}>
           <Text style={styles.signup}>Don't have an account? Sign up</Text>
         </Pressable>
-
         <View style={{ height: 60 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -142,32 +239,31 @@ export default function Login() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { paddingHorizontal: 24, paddingTop: 100, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 24, paddingTop: 80, paddingBottom: 40 },
   leaf: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: 8, marginBottom: 20 },
   title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
   subtitle: { fontSize: 14, color: p.textMuted, marginTop: 6 },
+  tabs: { flexDirection: 'row', marginTop: 28, marginBottom: 24, backgroundColor: p.surface, borderRadius: 12, padding: 4, borderWidth: 1, borderColor: p.border },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  tabOn: { backgroundColor: 'rgba(0,255,136,0.12)' },
+  tabText: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: p.textMuted },
+  tabTextOn: { color: p.neon },
   label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
-  inputWrap: {
-    borderWidth: 1.5,
-    borderColor: p.border,
-    backgroundColor: p.surface,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
+  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16, marginBottom: 14 },
   input: { paddingVertical: 14, color: p.text, fontSize: 15 },
   error: { color: p.danger, textAlign: 'center', marginVertical: 12, fontSize: 13 },
-  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 12 },
+  forgot: { fontSize: 12, color: p.neon, fontWeight: '700' },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 8 },
   ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  bioBtn: {
-    marginTop: 12, padding: 16, borderRadius: 14,
-    backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center',
-  },
+  googleIntro: { fontSize: 13, color: p.textMuted, lineHeight: 20, marginBottom: 20 },
+  googleBtn: { padding: 18, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)' },
+  googleInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  googleIcon: { fontSize: 20, fontWeight: '900', color: '#4285F4' },
+  googleText: { fontSize: 14, fontWeight: '900', color: '#1f1f1f', letterSpacing: 0.5 },
+  googleFoot: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 14, lineHeight: 16 },
+  bioBtn: { marginTop: 12, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
   bioText: { color: p.neon, fontWeight: '900', letterSpacing: 1 },
-  bioBtnOutline: {
-    marginTop: 12, padding: 16, borderRadius: 14,
-    borderWidth: 1.5, borderColor: p.border, alignItems: 'center',
-  },
+  bioBtnOutline: { marginTop: 12, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
   bioTextOutline: { color: p.text, fontWeight: '700', letterSpacing: 1 },
   signup: { color: p.textMuted, textAlign: 'center', fontSize: 14 },
 });
