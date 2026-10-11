@@ -25,23 +25,34 @@ export default function Admin() {
   }
 
   const SECTIONS = [
+    { title: 'Overview', items: [
+      { label: 'KPI Dashboard', route: '/admin-dashboard' },
+      { label: 'Analytics', route: '/admin-analytics' },
+    ]},
     { title: 'Users', items: [
       { label: 'All Users', route: '/admin-users' },
       { label: 'Verifications', route: '/admin-verifications' },
       { label: 'Farmer Database', route: '/admin-farmers' },
+      { label: 'Scan History', route: '/admin-scans' },
+      { label: 'Login History', route: '/admin-logins' },
     ]},
     { title: 'Finance', items: [
       { label: 'Payments', route: '/admin-payments' },
       { label: 'Wallets', route: '/admin-wallets' },
       { label: 'Loans', route: '/admin-loans' },
+      { label: 'Withdrawals & Disputes', route: '/admin-ops' },
     ]},
     { title: 'Content', items: [
       { label: 'Marketplace', route: '/admin-marketplace' },
       { label: 'Support Tickets', route: '/admin-support' },
+      { label: 'Broadcast', route: '/admin-broadcast' },
     ]},
     { title: 'System', items: [
-      { label: 'Analytics', route: '/admin-analytics' },
+      { label: 'Remote Config', route: '/admin-config' },
       { label: 'Model Health', route: '/admin-models' },
+      { label: 'Audit Log', route: '/admin-audit' },
+      { label: 'Bulk Tools', route: '/admin-tools' },
+      { label: 'Export CSV', route: '/admin-export' },
     ]},
   ];
 
