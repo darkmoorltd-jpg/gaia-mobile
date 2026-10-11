@@ -30,6 +30,7 @@ export default function Admin() {
       { label: 'Analytics', route: '/admin-analytics' },
     ]},
     { title: 'Users', items: [
+      { label: 'Manage Agents', route: '/admin-agents' },
       { label: 'All Users', route: '/admin-users' },
       { label: 'Verifications', route: '/admin-verifications' },
       { label: 'Farmer Database', route: '/admin-farmers' },
@@ -96,9 +97,6 @@ export default function Admin() {
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00ff88' }}>BOA PORTFOLIO</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.push('/admin-agents' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00c853' }}>MANAGE AGENTS</Text>
-        </Pressable>
         <Pressable onPress={() => router.push('/boa-risk' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.06)' }}>
           <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>RISK RADAR</Text>
         </Pressable>
