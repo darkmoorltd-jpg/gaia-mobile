@@ -39,6 +39,32 @@ export default function AdminAgents() {
     setRef(false);
   }, [isAdmin]);
 
+
+  const approveApp = (ap: any) => {
+    Alert.alert('Approve agent?', ap.full_name + ' (' + ap.email + ')', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Approve', onPress: async () => {
+        const r = await supabase.rpc('admin_approve_agent_application', { p_id: ap.id, p_code: null });
+        if (r.error) { Alert.alert('Failed', r.error.message); return; }
+        Alert.alert('Approved', 'Agent code: ' + ((r.data && r.data.agent_code) || '?'));
+        load();
+      }},
+    ]);
+  };
+
+  const rejectApp = (ap: any) => {
+    Alert.alert('Reject application?', ap.full_name + ' (' + ap.email + ')', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'REJECT', style: 'destructive', onPress: async () => {
+        const r = await supabase.rpc('admin_reject_agent_application', {
+          p_id: ap.id, p_reason: 'Rejected from admin panel',
+        });
+        if (r.error) { Alert.alert('Failed', r.error.message); return; }
+        load();
+      }},
+    ]);
+  };
+
   useEffect(() => { load(); }, [load]);
 
   if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
@@ -93,6 +119,14 @@ export default function AdminAgents() {
               <Text style={styles.cardMeta} numberOfLines={1}>{ap.email} · {ap.phone}</Text>
               <Text style={styles.cardMeta} numberOfLines={1}>{ap.state || '?'} · {ap.zone || '?'} · {ap.experience_years} yrs</Text>
               {ap.motivation ? <Text style={styles.motiv} numberOfLines={2}>{ap.motivation}</Text> : null}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <Pressable onPress={() => approveApp(ap)} style={[styles.actionBtn, { flex: 1, marginTop: 0, borderColor: palette.neon }]}>
+                  <Text style={styles.actionTxt}>APPROVE</Text>
+                </Pressable>
+                <Pressable onPress={() => rejectApp(ap)} style={[styles.actionBtn, { flex: 1, marginTop: 0, borderColor: '#ff3b5c' }]}>
+                  <Text style={[styles.actionTxt, { color: '#ff3b5c' }]}>REJECT</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         ))) : null}
