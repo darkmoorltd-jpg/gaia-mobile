@@ -17,6 +17,7 @@ export default function AgentRegister() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [state, setState] = useState('Kaduna');
   const [lga, setLga] = useState('');
   const [crop, setCrop] = useState('Maize');
@@ -45,6 +46,10 @@ export default function AgentRegister() {
       Alert.alert('Missing info', 'Name, phone, and state are required.');
       return;
     }
+    if (!password || password.length < 6) {
+      Alert.alert('Password required', 'Set a password for the farmer (min 6 characters).');
+      return;
+    }
     setBusy(true);
     try {
       const sess = await supabase.auth.getSession();
@@ -57,6 +62,7 @@ export default function AgentRegister() {
           full_name: fullName.trim(),
           phone: phone.trim(),
           email: email.trim() || null,
+          password: password.trim() || null,
           state: state,
           lga: lga.trim() || null,
           crop: crop,
@@ -91,7 +97,7 @@ export default function AgentRegister() {
             <Text style={styles.successVal}>{result.email}</Text>
           </View>
           <Text style={styles.successHint}>Share the password with the farmer. They can change it after first sign-in.</Text>
-          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setLga(''); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
+          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setPassword(''); setLga(''); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
             <Text style={styles.ctaText}>REGISTER ANOTHER</Text>
           </Pressable>
           <Pressable onPress={() => router.back()} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.border, marginTop: 10 }]}>
@@ -116,6 +122,10 @@ export default function AgentRegister() {
 
         <Text style={styles.label}>PHONE *</Text>
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08031234567" placeholderTextColor={palette.textDim} style={styles.input} />
+
+        <Text style={styles.label}>SET FARMER PASSWORD *</Text>
+        <TextInput value={password} onChangeText={setPassword} autoCapitalize="none" secureTextEntry placeholder="min 6 characters" placeholderTextColor={palette.textDim} style={styles.input} />
+        <Text style={styles.hint}>Write this down. You will read it to the farmer.</Text>
 
         <Text style={styles.label}>EMAIL (OPTIONAL)</Text>
         <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="farmer@example.com" placeholderTextColor={palette.textDim} style={styles.input} />
@@ -171,6 +181,7 @@ const createStyles = (p: any) => StyleSheet.create({
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
   sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 20 },
+  hint: { fontSize: 10, color: p.textDim, marginTop: 4, marginBottom: 4, fontStyle: 'italic' },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 16, marginBottom: 6 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
   chips: { gap: 6, paddingRight: 12 },

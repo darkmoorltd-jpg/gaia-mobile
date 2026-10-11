@@ -68,6 +68,16 @@ export default function AgentFarmers() {
                   <Text style={[styles.statusBadge, { color }]}>{label}</Text>
                   <Text style={styles.dateText}>{fmtDate(r.last_activity)}</Text>
                 </View>
+                {rejected && r.rejection_reason ? (
+                  <Text style={styles.rejection} numberOfLines={2}>
+                    Rejected: {r.rejection_reason}
+                  </Text>
+                ) : null}
+                {r.payment_status === 'pending' && !approved ? (
+                  <Text style={styles.paymentWarn} numberOfLines={1}>
+                    Payment pending — N2,000 required
+                  </Text>
+                ) : null}
               </View>
             </Pressable>
           );
@@ -99,6 +109,8 @@ const createStyles = (p: any) => StyleSheet.create({
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
   statusBadge: { fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   dateText: { fontSize: 9, color: p.textDim },
+  rejection: { fontSize: 10, color: '#ff3b5c', marginTop: 6, fontStyle: 'italic' },
+  paymentWarn: { fontSize: 10, color: '#ffb300', marginTop: 4, fontWeight: '700' },
   empty: { padding: 24, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
   kv: { fontSize: 12, color: p.textMuted },
 });
