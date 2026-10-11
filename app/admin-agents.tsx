@@ -148,8 +148,8 @@ export default function AdminAgents() {
                 </Pressable>
               </View>
             </View>
-          </View>
-        ))) : null}
+          </Pressable>
+        )) : null}
 
         <View style={{ height: 60 }} />
       </ScrollView>
