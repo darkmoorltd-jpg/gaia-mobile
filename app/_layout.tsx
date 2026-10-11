@@ -63,7 +63,10 @@ function RootNavigator() {
     const inTabs = segments[0] === '(tabs)';
     const inAgent = segments[0] === 'agent';
 
-    if (!user && !inAuth) {
+    const PUBLIC_ROUTES = ['agent-apply', 'auth-callback', 'reset-password'];
+    const isPublic = PUBLIC_ROUTES.includes(String(segments[0] || ''));
+
+    if (!user && !inAuth && !isPublic) {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
       router.replace(loginContext === 'agent' ? '/agent/home' : '/(tabs)');
