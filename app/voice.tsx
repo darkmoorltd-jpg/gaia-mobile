@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
@@ -12,7 +11,9 @@ import {
   LANGUAGES, LangOption, isStopCommand, ChatTurn,
 } from '../src/utils/voice';
 
-type Mode = 'pick-language' | 'greeting' | 'listening' | 'thinking' | 'speaking' | 'pausfunction VoiceScreen( 'ai'; text: string; }
+type Mode = 'pick-language' | 'greeting' | 'listening' | 'thinking' | 'speaking' | 'paused';
+
+interface Msg { role: 'user' | 'ai'; text: string; }
 
 export default function VoiceScreen() {
   const router = useRouter();
@@ -495,5 +496,3 @@ const createStyles = (p: any) => StyleSheet.create({
   },
   micIcon: { fontSize: 38, color: p.obsidian },
 });
-
-export default gateScreen('voice', VoiceScreen);

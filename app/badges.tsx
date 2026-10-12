@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
@@ -34,7 +33,7 @@ const TIER_META: Record<string, { emoji: string; colors: [string, string] }> = {
   platinum: { emoji: '💎', colors: ['#3a3540', '#e5e4e2'] },
 };
 
-const fmtN = (nfunction Badges(0).toLocaleString('en-NG');
+const fmtN = (n: number) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
 export default function Badges() {
   const { palette } = useTheme();
@@ -362,5 +361,3 @@ const createStyles = (palette: any) => StyleSheet.create({
   verifyingBox: { padding: 32, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center' },
   verifyingText: { color: palette.text, marginTop: 14, fontWeight: '700' },
 });
-
-export default gateScreen('badges', Badges);

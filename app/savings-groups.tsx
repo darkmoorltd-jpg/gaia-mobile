@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -18,7 +17,9 @@ import {
   fmtN, fmtDate, fmtDateTime,
   FREQUENCIES, VARIANTS,
   type Group, type GroupDetail, type TrustScore,
-} frfunction SavingsGroups(= 'list' | 'detail';
+} from '../src/utils/rosca';
+
+type Screen = 'list' | 'detail';
 
 export default function SavingsGroups() {
   const { palette } = useTheme();
@@ -782,5 +783,3 @@ const createStyles = (p: any) => StyleSheet.create({
   saveBtn: { flex: 2, padding: 16, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center' },
   saveText: { color: p.obsidian, fontWeight: '900' },
 });
-
-export default gateScreen('wallet', SavingsGroups);

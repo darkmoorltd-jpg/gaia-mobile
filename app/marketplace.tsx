@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -11,7 +10,8 @@ import {
   fetchListings, isVerifiedSeller, CATEGORIES, naira, Listing,
 } from '../src/utils/marketplace';
 
-const { width } = function MarketplaceHome( (width - 42) / 2;
+const { width } = Dimensions.get('window');
+const CARD_W = (width - 42) / 2;
 
 export default function MarketplaceHome() {
   const { palette } = useTheme();
@@ -208,5 +208,3 @@ const createStyles = (p: any) => StyleSheet.create({
   rating: { fontSize: 11, color: p.warning, fontWeight: '700' },
   loc: { fontSize: 11, color: p.textMuted, maxWidth: '55%' },
 });
-
-export default gateScreen('marketplace', MarketplaceHome);

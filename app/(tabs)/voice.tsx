@@ -81,7 +81,8 @@ function goodbyeFor(lang: string): string {
   if (lang.startsWith('yo')) return 'O da bo.';
   if (lang.startsWith('ig')) return 'Ka o di.';
   if (lang.startsWith('fr')) return 'Au revoir.';
-  if (lang.startsWith('sw')function Voice('Goodbye. Talk to you soon.';
+  if (lang.startsWith('sw')) return 'Kwaheri.';
+  return 'Goodbye. Talk to you soon.';
 }
 
 export default function Voice() {

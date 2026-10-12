@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -18,7 +17,7 @@ function fmtDate(iso?: string) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) + ' ' +
-    d.toLocaleTimefunction Meet(git', minute: '2-digit' });
+    d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function Meet() {
@@ -464,5 +463,3 @@ const createStyles = (p: any) => StyleSheet.create({
   modalBtnText: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   modalBtnTextGhost: { fontSize: 13, fontWeight: '900', color: p.text, letterSpacing: 1 },
 });
-
-export default gateScreen('meet', Meet);

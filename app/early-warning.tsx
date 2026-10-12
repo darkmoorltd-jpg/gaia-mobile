@@ -1,4 +1,3 @@
-import { gateScreen } from '../src/components/FeatureGate';
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -40,7 +39,7 @@ interface Risk {
 }
 
 const sevColor = (s: string, p: any) =>
-  s === 'critical' ? '#ff3b5c' : s ===function EarlyWarning(? '#ffb300' : p.neon;
+  s === 'critical' ? '#ff3b5c' : s === 'high' ? '#ff6b35' : s === 'medium' ? '#ffb300' : p.neon;
 
 export default function EarlyWarning() {
   const router = useRouter();
@@ -351,5 +350,3 @@ const createStyles = (p: any) => StyleSheet.create({
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 22 },
   ctaTxt: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });
-
-export default gateScreen('crops', EarlyWarning);
