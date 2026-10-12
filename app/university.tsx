@@ -1,3 +1,4 @@
+import { gateScreen } from '../src/components/FeatureGate';
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator,
@@ -27,8 +28,7 @@ interface Quiz {
 const LANGUAGES = [
   { code: 'en', label: 'English' },
   { code: 'ha', label: 'Hausa' },
-  { code: 'yo', label: 'Yoruba' },
-  { code: 'ig', label: 'Igbo' },
+  { code: 'yfunction University(g', label: 'Igbo' },
 ];
 
 export default function University() {
@@ -471,3 +471,5 @@ const createStyles = (p: any) => StyleSheet.create({
   certShare: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#ffd700' },
   certShareText: { fontSize: 10, fontWeight: '900', color: '#000', letterSpacing: 1 },
 });
+
+export default gateScreen('university', University);

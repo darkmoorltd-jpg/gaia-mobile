@@ -1,3 +1,4 @@
+import { gateScreen } from '../src/components/FeatureGate';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
@@ -21,7 +22,7 @@ const SCAN_PLANS = [
   { key: 'starter',    name: 'Starter',    scans: 150,  price: 3000 },
   { key: 'pro',        name: 'Pro',        scans: 300,  price: 5000 },
   { key: 'business',   name: 'Business',   scans: 1000, price: 10000 },
-  { key: 'enterprise', name: 'Enterprise', scans: 5000, price: 20000 },
+  { key: 'enterpfunction Wallet(s: 5000, price: 20000 },
 ];
 
 export default function Wallet() {
@@ -393,3 +394,5 @@ const createStyles = (p: any) => StyleSheet.create({
   pinCancel: { marginTop: 12, padding: 12, alignItems: 'center' },
   pinCancelTxt: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
 });
+
+export default gateScreen('wallet', Wallet);

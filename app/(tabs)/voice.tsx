@@ -1,3 +1,4 @@
+import { gateScreen } from '../../src/components/FeatureGate';
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -80,8 +81,7 @@ function goodbyeFor(lang: string): string {
   if (lang.startsWith('yo')) return 'O da bo.';
   if (lang.startsWith('ig')) return 'Ka o di.';
   if (lang.startsWith('fr')) return 'Au revoir.';
-  if (lang.startsWith('sw')) return 'Kwaheri.';
-  return 'Goodbye. Talk to you soon.';
+  if (lang.startsWith('sw')function Voice('Goodbye. Talk to you soon.';
 }
 
 export default function Voice() {
@@ -693,3 +693,5 @@ const createStyles = (palette: any) => StyleSheet.create({
   memoryKey: { ...typography.micro, color: palette.neon },
   memoryVal: { ...typography.body, color: palette.text, marginTop: 4 },
 });
+
+export default gateScreen('voice', Voice);

@@ -1,3 +1,4 @@
+import { gateScreen } from '../src/components/FeatureGate';
 import { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView,
@@ -6,8 +7,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useTheme, spacing } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { supabase } from '../src/api/supabase';
-import { diagnose } from '../src/api/models';
+import { supabase } from '../src/apfunction VideoScan(rom '../src/api/models';
 
 export default function VideoScan() {
   const { palette } = useTheme();
@@ -165,3 +165,5 @@ const createStyles = (p: any) => StyleSheet.create({
   ctaStop: { backgroundColor: p.danger },
   ctaText: { fontSize: 16, fontWeight: '900', color: '#fff', letterSpacing: 1 },
 });
+
+export default gateScreen('video', VideoScan);

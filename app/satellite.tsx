@@ -1,3 +1,4 @@
+import { gateScreen } from '../src/components/FeatureGate';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Image,
@@ -26,8 +27,7 @@ const statusLabel = (s: string) => ({
   healthy: 'Healthy',
   moderate: 'Moderate',
   stressed: 'Stressed',
-  bare: 'Bare / fallow',
-  unknown: 'No data',
+  bare: function Satellite(ta',
 }[s] || 'Unknown');
 
 export default function Satellite() {
@@ -347,3 +347,5 @@ const createStyles = (p: any) => StyleSheet.create({
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 22 },
   ctaTxt: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });
+
+export default gateScreen('satellite', Satellite);

@@ -8,6 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useSettings } from '../../src/store/settings';
+import { flagAllows } from '../../src/components/FeatureGate';
 import { supabase } from '../../src/api/supabase';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
@@ -27,6 +29,22 @@ const LANGUAGES = ['English','Hausa','Yoruba','Igbo','Pidgin English'];
 
 interface MenuItem { label: string; route: string; badge?: string; }
 interface Section { title: string; icon: string; items: MenuItem[]; }
+
+const ROUTE_TO_FLAG: Record<string, string> = {
+  '/voice': 'voice',
+  '/video-scan': 'video',
+  '/satellite': 'satellite',
+  '/university': 'university',
+  '/marketplace': 'marketplace',
+  '/wallet': 'wallet',
+  '/badges': 'badges',
+  '/calendar': 'calendar',
+  '/insurance': 'insurance',
+  '/insurance-policies': 'insurance',
+  '/loans': 'loans',
+  '/savings-groups': 'wallet',
+  '/early-warning': 'crops',
+};
 
 const SECTIONS: Section[] = [
   { title: 'SCANS & AI', icon: 'AI', items: [
@@ -73,6 +91,12 @@ export default function Profile() {
   const styles = createStyles(palette);
   const { user, scansRemaining, plan, signOut } = useAuth();
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+
+  const flags = useSettings((s) => s.flags);
+  const visibleSections = SECTIONS.map((sec) => ({
+    ...sec,
+    items: sec.items.filter((it) => flagAllows(flags, ROUTE_TO_FLAG[it.route])),
+  })).filter((sec) => sec.items.length > 0);
 
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -494,7 +518,7 @@ export default function Profile() {
         </View>
 
         {/* MENU */}
-        {SECTIONS.map((section, si) => (
+        {visibleSections.map((section, si) => (
           <View key={si} style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionIconWrap}><Text style={styles.sectionIcon}>{section.icon}</Text></View>

@@ -1,3 +1,4 @@
+import { gateScreen } from '../src/components/FeatureGate';
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -52,8 +53,7 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
   water:      { icon: 'W', color: '#2196f3' },
   weed:       { icon: 'w', color: '#4caf50' },
   harvest:    { icon: 'H', color: '#ffb300' },
-  postharvest:{ icon: 'S', color: '#795548' },
-  crop:       { icon: 'C', color: '#689f38' },
+  postharvest:{ icon: 'S', color: '#79function Calendar(', color: '#689f38' },
 };
 
 export default function Calendar() {
@@ -411,3 +411,5 @@ const createStyles = (p: any) => StyleSheet.create({
   savedMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
   chev: { fontSize: 22, color: p.textDim },
 });
+
+export default gateScreen('calendar', Calendar);
