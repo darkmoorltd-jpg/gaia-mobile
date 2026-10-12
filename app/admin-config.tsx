@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { useSettings } from '../src/store/settings';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const FLAG_KEYS = ['crops','pests','soil','livestock','marketplace','insurance','chat','voice','video','satellite','university','calendar','wallet','badges','loans'];
@@ -41,7 +42,10 @@ export default function AdminConfig() {
     const { error } = await supabase.rpc('admin_set_flag', { p_key: key, p_value: value });
     setSaveBusy(false);
     if (error) Alert.alert('Failed', error.message);
-    else setFlags((f) => ({ ...f, [key]: value }));
+    else {
+      setFlags((f) => ({ ...f, [key]: value }));
+      useSettings.getState().load();
+    }
   };
 
   const setModel = async (crop: string, model: string) => {
@@ -50,7 +54,11 @@ export default function AdminConfig() {
     const { error } = await supabase.rpc('admin_set_model', { p_crop: crop.trim().toLowerCase(), p_model_key: model.trim() });
     setSaveBusy(false);
     if (error) Alert.alert('Failed', error.message);
-    else { setModels((m) => ({ ...m, [crop.toLowerCase()]: model.trim() })); setNewCrop(''); setNewModel(''); }
+    else {
+      setModels((m) => ({ ...m, [crop.toLowerCase()]: model.trim() }));
+      setNewCrop(''); setNewModel('');
+      useSettings.getState().load();
+    }
   };
 
   if (!isAdmin) return <View style={s.blocked}><Text style={s.blockedText}>Access denied</Text></View>;

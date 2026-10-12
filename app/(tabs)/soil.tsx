@@ -1,8 +1,10 @@
 import { DiagnoseScreen } from '../../src/screens/DiagnoseScreen';
+import FeatureGate from '../../src/components/FeatureGate';
 
 export default function SoilTab() {
   return (
-    <DiagnoseScreen
+    <FeatureGate flag="soil">
+      <DiagnoseScreen
       config={{
         key: 'soil',
         title: 'SOIL ANALYSIS',
@@ -16,5 +18,6 @@ export default function SoilTab() {
         ],
       }}
     />
+    </FeatureGate>
   );
 }

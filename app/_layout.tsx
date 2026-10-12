@@ -6,6 +6,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
+import { useSettings } from '../src/store/settings';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
@@ -37,6 +38,8 @@ function RootNavigator() {
     let mounted = true;
     (async () => {
       try {
+        try { await useSettings.getState().load(); } catch {}
+
         const { data } = await supabase.auth.getSession();
         if (mounted) {
           if (setUser) setUser(data.session?.user ?? null);

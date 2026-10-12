@@ -1,7 +1,10 @@
 import { DiagnoseScreen } from '../../src/screens/DiagnoseScreen';
+import FeatureGate from '../../src/components/FeatureGate';
 
 export default function Tab() {
-  return <DiagnoseScreen config={{
+  return (
+    <FeatureGate flag="livestock">
+      <DiagnoseScreen config={{
     key: 'livestock',
     title: 'LIVESTOCK HEALTH',
     subtitle: 'Protect your herd',
@@ -13,5 +16,7 @@ export default function Tab() {
       { key: 'cattle',  label: 'Cattle' },
       { key: 'poultry', label: 'Poultry' },
     ],
-  }} />;
+  }} />
+    </FeatureGate>
+  );
 }

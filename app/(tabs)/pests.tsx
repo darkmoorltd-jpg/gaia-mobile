@@ -1,7 +1,10 @@
 import { DiagnoseScreen } from '../../src/screens/DiagnoseScreen';
+import FeatureGate from '../../src/components/FeatureGate';
 
 export default function Tab() {
-  return <DiagnoseScreen config={{
+  return (
+    <FeatureGate flag="pests">
+      <DiagnoseScreen config={{
     key: 'pests',
     title: 'PEST DETECTION',
     subtitle: 'Identify any pest',
@@ -12,5 +15,7 @@ export default function Tab() {
     options: [
       { key: 'pests_102class', label: 'All Pests' },
     ],
-  }} />;
+  }} />
+    </FeatureGate>
+  );
 }

@@ -1,7 +1,10 @@
 import { DiagnoseScreen } from '../../src/screens/DiagnoseScreen';
+import FeatureGate from '../../src/components/FeatureGate';
 
 export default function Tab() {
-  return <DiagnoseScreen config={{
+  return (
+    <FeatureGate flag="crops">
+      <DiagnoseScreen config={{
     key: 'crops',
     title: 'CROP DISEASE',
     subtitle: 'Protect your harvest',
@@ -17,5 +20,7 @@ export default function Tab() {
       { key: 'apple',   label: 'Apple' },
       { key: 'coffee',  label: 'Coffee' },
     ],
-  }} />;
+  }} />
+    </FeatureGate>
+  );
 }
