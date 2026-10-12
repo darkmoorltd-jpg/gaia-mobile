@@ -79,6 +79,7 @@ export default function Login() {
     }
 
     const err = await signIn(identifier, password);
+    try { router.replace('/(tabs)' as any); } catch {}
     if (err) setError(err);
     setBusy(false);
   };

@@ -80,15 +80,26 @@ function RootNavigator() {
     if (!ready || loading) return;
     const seg0 = String(segments[0] || '');
     const inAuth = seg0 === '(auth)';
-    const PUBLIC = ['agent-apply', 'auth-callback', 'reset-password', 'index'];
-    const isPublic = PUBLIC.includes(seg0) || seg0 === '';
+    const PUBLIC = ['agent-apply', 'auth-callback', 'reset-password'];
+    const isPublic = PUBLIC.includes(seg0);
 
-    // ONLY rule: not logged in → back to login (unless public route)
+    // Rule 1: not logged in → back to login
     if (!user && !inAuth && !isPublic) {
       router.replace('/(auth)/login' as any);
+      return;
     }
-    // NO OTHER REDIRECTS. Screens handle their own nav.
-  }, [user, ready, loading, segments]);
+
+    // Rule 2: logged in AND sitting on login screen → go home (by context)
+    if (user && inAuth) {
+      const dest = (loginContext === 'agent') ? '/agent/home' : '/(tabs)';
+      const t = setTimeout(() => {
+        try { router.replace(dest as any); } catch {}
+      }, 250);
+      return () => clearTimeout(t);
+    }
+
+    // Any other screen handles its own navigation
+  }, [user, ready, loading, segments, loginContext]);
 
   useEffect(() => {
     if (__DEV__) return;
