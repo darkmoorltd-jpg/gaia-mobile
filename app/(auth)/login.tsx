@@ -99,10 +99,11 @@ export default function Login() {
       return;
     }
     setBusy(true); setError('');
-    try {
-      await setLoginContext('agent');
-    } catch {}
 
+    // 1. Set intent BEFORE auth so nothing can race
+    try { await setLoginContext('agent'); } catch {}
+
+    // 2. Authenticate
     const err = await signInAsAgent(email.trim(), agentCode.trim(), password);
     if (err) {
       try { await setLoginContext(null); } catch {}
@@ -110,7 +111,16 @@ export default function Login() {
       setBusy(false);
       return;
     }
-    setTimeout(() => { try { router.replace('/agent/home' as any); } catch {} }, 50);
+
+    // 3. Force intent AGAIN after auth (in case onAuthStateChange reset it)
+    try { await setLoginContext('agent'); } catch {}
+
+    // 4. Wait 500ms so layout's auto-redirect can see the correct context
+    await new Promise((r) => setTimeout(r, 500));
+
+    // 5. Hard nav — bypass the layout
+    try { router.replace('/agent/home' as any); } catch {}
+
     setBusy(false);
   };
 
