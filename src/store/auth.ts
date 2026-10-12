@@ -201,16 +201,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signInAsAgent: async (email, agentCode, password) => {
-    // Set intent FIRST — this runs before signInWithPassword fires
-    // onAuthStateChange, so the layout guard sees 'agent' immediately.
-    await get().setLoginContext('agent');
-
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        await get().setLoginContext(null);
-        return error.message;
-      }
+      if (error) return error.message;
 
       const status = await supabase.rpc('agent_check_my_status');
       const statusData: any = status.data || {};
@@ -218,45 +211,30 @@ export const useAuth = create<AuthState>((set, get) => ({
       const appRow = statusData.application;
 
       if (!agentRow) {
-        await supabase.auth.signOut();
-        await get().setLoginContext(null);
         if (appRow) {
-          if (appRow.status === 'rejected') return 'Your agent application was not approved. You can log in as a normal user.';
-          if (appRow.payment_status !== 'paid') return 'Your agent application is awaiting payment (N3,000).';
-          return 'Your agent application is pending admin approval. Log in as a normal user.';
+          if (appRow.status === 'rejected') return 'Agent application rejected. Log in as normal user.';
+          if (appRow.payment_status !== 'paid') return 'Agent application awaiting N3,000 payment.';
+          return 'Agent application pending admin approval. Log in as normal user.';
         }
         return 'This account is not an agent account.';
       }
-
-      if (agentRow.status === 'suspended') {
-        await supabase.auth.signOut();
-        await get().setLoginContext(null);
-        return 'Your agent account is suspended.';
-      }
-      if (agentRow.status !== 'active') {
-        await supabase.auth.signOut();
-        await get().setLoginContext(null);
-        return 'Your agent account is not active yet.';
-      }
+      if (agentRow.status === 'suspended') return 'Agent account suspended.';
+      if (agentRow.status !== 'active') return 'Agent account not active yet.';
       if (!agentRow.agent_code || agentRow.agent_code.toLowerCase() !== agentCode.trim().toLowerCase()) {
-        await supabase.auth.signOut();
-        await get().setLoginContext(null);
         return 'Agent code does not match.';
       }
 
       const ban = await checkBan(data.user.id);
-      if (ban) {
-        await get().setLoginContext(null);
-        return ban;
-      }
+      if (ban) return ban;
 
+      // SUCCESS — set everything cleanly, do NOT navigate
+      await get().setLoginContext('agent');
       set({ user: data.user, session: data.session, loading: false, role: 'agent' });
-      await Promise.all([get().refreshScans(), get().refreshRole()]);
-      await logLogin(data.user.id, data.user.email);
+      try { await get().refreshScans(); } catch {}
+      try { await get().refreshRole(); } catch {}
+      try { await logLogin(data.user.id, data.user.email); } catch {}
       return null;
     } catch (e: any) {
-      try { await supabase.auth.signOut(); } catch {}
-      await get().setLoginContext(null);
       return e?.message ?? 'Agent sign in failed';
     }
   },

@@ -24,6 +24,8 @@ export default function Login() {
   const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
   const signInAsAgent = useAuth((s) => s.signInAsAgent);
   const setLoginContext = useAuth((s: any) => s.setLoginContext);
+  const role = useAuth((s: any) => s.role);
+  const loginContext = useAuth((s: any) => s.loginContext);
   const user = useAuth((s) => s.user);
 
   const [tab, setTab] = useState<Tab>('password');
@@ -95,33 +97,14 @@ export default function Login() {
 
   const handleAgent = async () => {
     if (!email || !agentCode || !password) {
-      setError('Email, agent code, and password are required.');
-      return;
+      setError('All fields required.'); return;
     }
     setBusy(true); setError('');
-
-    // 1. Set intent BEFORE auth so nothing can race
-    try { await setLoginContext('agent'); } catch {}
-
-    // 2. Authenticate
     const err = await signInAsAgent(email.trim(), agentCode.trim(), password);
-    if (err) {
-      try { await setLoginContext(null); } catch {}
-      setError(err);
-      setBusy(false);
-      return;
-    }
-
-    // 3. Force intent AGAIN after auth (in case onAuthStateChange reset it)
-    try { await setLoginContext('agent'); } catch {}
-
-    // 4. Wait 500ms so layout's auto-redirect can see the correct context
-    await new Promise((r) => setTimeout(r, 500));
-
-    // 5. Hard nav — bypass the layout
-    try { router.replace('/agent/home' as any); } catch {}
-
     setBusy(false);
+    if (err) { setError(err); return; }
+    // Success — hard navigate
+    router.replace('/agent/home' as any);
   };
 
   const handleBiometricLogin = async () => {
@@ -274,6 +257,13 @@ export default function Login() {
             >
               {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SIGN IN AS AGENT</Text>}
             </Pressable>
+
+        {/* DEBUG-BAR */}
+        <View style={{ marginTop: 20, padding: 10, backgroundColor: '#111', borderRadius: 8 }}>
+          <Text style={{ color: '#0f0', fontSize: 9, fontFamily: 'monospace' }}>
+            DEBUG ctx={loginContext || '-'} role={role || '-'} user={user?.email?.slice(0,20) || 'none'}
+          </Text>
+        </View>
           </>
         ) : null}
 
