@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
+import * as Updates from 'expo-updates';
 
 const num = (n: any, dp: number = 0) => Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: dp });
 const money = (n: any) => 'N' + num(n, 0);
@@ -64,6 +65,12 @@ export default function AgentHome() {
           <Pressable onPress={logout} style={styles.logout}>
             <Text style={styles.logoutText}>EXIT</Text>
           </Pressable>
+
+        <View style={{ alignItems: 'center', marginTop: 30 }}>
+          <Text style={{ fontSize: 9, color: '#6b7280', fontFamily: 'monospace' }}>
+            OTA: {(Updates.updateId || 'embedded').slice(0, 8)} | v1.0.0
+          </Text>
+        </View>
         </View>
 
         <LinearGradient

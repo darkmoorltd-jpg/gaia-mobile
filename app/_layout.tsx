@@ -79,26 +79,22 @@ function RootNavigator() {
   useEffect(() => {
     if (!ready || loading) return;
     const inAuth = segments[0] === '(auth)';
-    const inTabs = segments[0] === '(tabs)';
-    const inAgent = segments[0] === 'agent';
-
     const PUBLIC_ROUTES = ['agent-apply', 'auth-callback', 'reset-password'];
     const isPublic = PUBLIC_ROUTES.includes(String(segments[0] || ''));
 
-    // Prefer loginContext; fall back to role if context is null
-    const eff = loginContext || (role === 'agent' ? 'agent' : null);
-
+    // Rule 1: not logged in and not on a public/auth screen → send to login
     if (!user && !inAuth && !isPublic) {
-      router.replace('/(auth)/login');
-    } else if (user && inAuth) {
-      const dest = eff === 'agent' ? '/agent/home' : '/(tabs)';
-      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 150);
-    } else if (user && eff === 'agent' && inTabs) {
-      router.replace('/agent/home');
-    } else if (user && eff !== 'agent' && inAgent) {
-      router.replace('/(tabs)');
+      router.replace('/(auth)/login' as any);
+      return;
     }
-  }, [user, ready, loading, segments, loginContext]);
+    // Rule 2: logged in but sitting on login screen → push to the right home
+    if (user && inAuth) {
+      const dest = (loginContext === 'agent' || role === 'agent') ? '/agent/home' : '/(tabs)';
+      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 200);
+      return;
+    }
+    // Everything else is left alone — screens handle their own navigation
+  }, [user, ready, loading, segments, loginContext, role]);
 
   useEffect(() => {
     if (__DEV__) return;
