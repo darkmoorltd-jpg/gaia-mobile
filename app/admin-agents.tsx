@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 
 const API = 'https://gaia-api-xuly.onrender.com';
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
@@ -211,14 +213,35 @@ export default function AdminAgents() {
 }
 
 function CreateAgentModal({ visible, onClose, palette, styles }: any) {
+  const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
+  const ID_TYPES = ['National ID Card', "Driver's License", 'International Passport', "Voter's Card (PVC)", 'NIN Slip'];
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [gender, setGender] = useState('Male');
+  const [dob, setDob] = useState('');
   const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [stateVal, setStateVal] = useState('Kaduna');
+  const [lga, setLga] = useState('');
+  const [city, setCity] = useState('');
+  const [bvn, setBvn] = useState('');
+  const [nin, setNin] = useState('');
+  const [idType, setIdType] = useState('National ID Card');
+  const [idNumber, setIdNumber] = useState('');
+  const [idImage, setIdImage] = useState<string | null>(null);
+  const [selfie, setSelfie] = useState<string | null>(null);
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [zone, setZone] = useState('');
   const [org, setOrg] = useState('');
   const [agentCode, setAgentCode] = useState('');
+  const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [suggestedCode, setSuggestedCode] = useState('');
 
@@ -230,29 +253,76 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
     })();
   }, [visible]);
 
+  const pickImage = async (setter: (v: string) => void) => {
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!r.canceled) setter(r.assets[0].uri);
+  };
+
+  const uploadDoc = async (uri: string, folder: string): Promise<string | null> => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+      const path = folder + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const { error } = await supabase.storage.from('agent-docs').upload(path, bytes.buffer, { contentType: 'image/jpeg' });
+      if (error) return null;
+      const { data } = supabase.storage.from('agent-docs').getPublicUrl(path);
+      return data.publicUrl;
+    } catch { return null; }
+  };
+
   const submit = async () => {
-    if (!email || !password || !firstName || !lastName || !phone) {
-      Alert.alert('Missing', 'All starred fields are required.'); return;
+    if (!email || !firstName || !lastName || !phone) {
+      Alert.alert('Missing', 'Email, first name, last name, and phone are required.'); return;
     }
-    if (password.length < 6) { Alert.alert('Password', 'Min 6 characters'); return; }
+    if (bvn && bvn.length !== 11) { Alert.alert('BVN', 'BVN must be 11 digits'); return; }
+    if (nin && nin.length !== 11) { Alert.alert('NIN', 'NIN must be 11 digits'); return; }
     setBusy(true);
     try {
-      const s = await supabase.auth.getSession();
-      const token = s.data.session?.access_token;
-      const r = await fetch(API + '/admin/create-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          email: email.trim(), password: password,
-          first_name: firstName, last_name: lastName, phone: phone,
-          agent_zone: zone || null, agent_organization: org || null,
-          agent_code: agentCode || null, send_welcome_sms: true,
-        }),
+      let idUrl: string | null = null;
+      let selfieUrl: string | null = null;
+      if (idImage) idUrl = await uploadDoc(idImage, 'admin-ids');
+      if (selfie) selfieUrl = await uploadDoc(selfie, 'admin-selfies');
+
+      const r = await supabase.rpc('admin_create_agent', {
+        p_email: email.trim(),
+        p_password: password || '',
+        p_first_name: firstName,
+        p_middle_name: middleName || null,
+        p_last_name: lastName,
+        p_gender: gender || null,
+        p_dob: dob || null,
+        p_phone: phone,
+        p_whatsapp: whatsapp || null,
+        p_state: stateVal || null,
+        p_lga: lga || null,
+        p_city: city || null,
+        p_street_address: streetAddress || null,
+        p_bvn: bvn || null,
+        p_nin: nin || null,
+        p_id_type: idType || null,
+        p_id_number: idNumber || null,
+        p_id_image_url: idUrl,
+        p_selfie_url: selfieUrl,
+        p_bank_name: bankName || null,
+        p_bank_account_number: accountNumber || null,
+        p_bank_account_name: accountName || null,
+        p_agent_zone: zone || null,
+        p_agent_organization: org || null,
+        p_agent_code: agentCode || null,
+        p_admin_notes: notes || null,
       });
-      const data = await r.json();
-      if (!r.ok) { Alert.alert('Failed', data.detail || data.error || r.status); setBusy(false); return; }
-      Alert.alert('Agent created', 'Email: ' + data.email + '\nCode: ' + data.agent_code + '\nPassword: ' + data.password);
-      setEmail(''); setPassword(''); setFirstName(''); setLastName(''); setPhone(''); setZone(''); setOrg('');
+      if (r.error) { Alert.alert('Failed', r.error.message); setBusy(false); return; }
+      const data = r.data || {};
+      Alert.alert('Agent created', 'Code: ' + (data.agent_code || '?'));
+      setEmail(''); setPassword(''); setFirstName(''); setMiddleName(''); setLastName('');
+      setGender('Male'); setDob(''); setPhone(''); setWhatsapp('');
+      setStreetAddress(''); setStateVal('Kaduna'); setLga(''); setCity('');
+      setBvn(''); setNin(''); setIdType('National ID Card'); setIdNumber('');
+      setIdImage(null); setSelfie(null);
+      setBankName(''); setAccountNumber(''); setAccountName('');
+      setZone(''); setOrg(''); setNotes('');
       onClose();
     } catch (e: any) { Alert.alert('Failed', e.message); }
     finally { setBusy(false); }
@@ -266,27 +336,101 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
             <ScrollView keyboardShouldPersistTaps="handled">
               <Pressable onPress={onClose}><Text style={styles.back}>CANCEL</Text></Pressable>
               <Text style={styles.title}>New Agent</Text>
-              <Text style={styles.sub}>Auto code: {suggestedCode || 'loading...'}</Text>
+              <Text style={styles.sub}>Code: {suggestedCode || 'loading...'} · user must already have an account</Text>
 
+              <Text style={styles.sectionHeader}>ACCOUNT</Text>
+              <Text style={styles.label}>EMAIL *</Text>
+              <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} placeholderTextColor={palette.textDim} placeholder="existing user email" />
+              <Text style={styles.label}>PASSWORD (unused — kept for API compat)</Text>
+              <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholderTextColor={palette.textDim} />
+
+              <Text style={styles.sectionHeader}>PERSONAL</Text>
               <Text style={styles.label}>FIRST NAME *</Text>
               <TextInput value={firstName} onChangeText={setFirstName} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>MIDDLE NAME</Text>
+              <TextInput value={middleName} onChangeText={setMiddleName} style={styles.input} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>LAST NAME *</Text>
               <TextInput value={lastName} onChangeText={setLastName} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>GENDER</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {['Male','Female','Other'].map((g) => (
+                  <Pressable key={g} onPress={() => setGender(g)} style={[styles.chip, gender === g && styles.chipOn]}>
+                    <Text style={[styles.chipText, gender === g && styles.chipTextOn]}>{g}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.label}>DATE OF BIRTH (YYYY-MM-DD)</Text>
+              <TextInput value={dob} onChangeText={setDob} placeholder="1990-01-15" placeholderTextColor={palette.textDim} style={styles.input} />
               <Text style={styles.label}>PHONE *</Text>
               <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
-              <Text style={styles.label}>EMAIL *</Text>
-              <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} placeholderTextColor={palette.textDim} />
-              <Text style={styles.label}>PASSWORD *</Text>
-              <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>WHATSAPP</Text>
+              <TextInput value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
+
+              <Text style={styles.sectionHeader}>ADDRESS</Text>
+              <Text style={styles.label}>STREET ADDRESS</Text>
+              <TextInput value={streetAddress} onChangeText={setStreetAddress} multiline style={[styles.input, { minHeight: 60 }]} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>STATE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12 }}>
+                {NIGERIAN_STATES.map((st) => (
+                  <Pressable key={st} onPress={() => setStateVal(st)} style={[styles.chip, stateVal === st && styles.chipOn]}>
+                    <Text style={[styles.chipText, stateVal === st && styles.chipTextOn]}>{st}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Text style={styles.label}>LGA</Text>
+              <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>CITY</Text>
+              <TextInput value={city} onChangeText={setCity} style={styles.input} placeholderTextColor={palette.textDim} />
+
+              <Text style={styles.sectionHeader}>KYC</Text>
+              <Text style={styles.label}>BVN (11 DIGITS)</Text>
+              <TextInput value={bvn} onChangeText={setBvn} keyboardType="number-pad" maxLength={11} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>NIN (11 DIGITS)</Text>
+              <TextInput value={nin} onChangeText={setNin} keyboardType="number-pad" maxLength={11} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>ID TYPE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12 }}>
+                {ID_TYPES.map((it) => (
+                  <Pressable key={it} onPress={() => setIdType(it)} style={[styles.chip, idType === it && styles.chipOn]}>
+                    <Text style={[styles.chipText, idType === it && styles.chipTextOn]}>{it}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <Text style={styles.label}>ID NUMBER</Text>
+              <TextInput value={idNumber} onChangeText={setIdNumber} style={styles.input} placeholderTextColor={palette.textDim} />
+
+              <Text style={styles.label}>ID IMAGE</Text>
+              <Pressable onPress={() => pickImage(setIdImage)} style={styles.uploadBtn}>
+                <Text style={styles.uploadText}>{idImage ? 'Change ID image' : 'Upload ID image'}</Text>
+              </Pressable>
+              {idImage ? <Image source={{ uri: idImage }} style={{ width: 100, height: 100, borderRadius: 10, marginTop: 8 }} /> : null}
+
+              <Text style={styles.label}>SELFIE WITH ID</Text>
+              <Pressable onPress={() => pickImage(setSelfie)} style={styles.uploadBtn}>
+                <Text style={styles.uploadText}>{selfie ? 'Change selfie' : 'Upload selfie'}</Text>
+              </Pressable>
+              {selfie ? <Image source={{ uri: selfie }} style={{ width: 100, height: 100, borderRadius: 10, marginTop: 8 }} /> : null}
+
+              <Text style={styles.sectionHeader}>BANK</Text>
+              <Text style={styles.label}>BANK NAME</Text>
+              <TextInput value={bankName} onChangeText={setBankName} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>ACCOUNT NUMBER</Text>
+              <TextInput value={accountNumber} onChangeText={setAccountNumber} keyboardType="number-pad" maxLength={10} style={styles.input} placeholderTextColor={palette.textDim} />
+              <Text style={styles.label}>ACCOUNT NAME</Text>
+              <TextInput value={accountName} onChangeText={setAccountName} style={styles.input} placeholderTextColor={palette.textDim} />
+
+              <Text style={styles.sectionHeader}>AGENT</Text>
               <Text style={styles.label}>AGENT CODE</Text>
               <TextInput value={agentCode} onChangeText={setAgentCode} autoCapitalize="characters" style={styles.input} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>ZONE</Text>
-              <TextInput value={zone} onChangeText={setZone} style={styles.input} placeholder="e.g. Kaduna North" placeholderTextColor={palette.textDim} />
+              <TextInput value={zone} onChangeText={setZone} placeholder="e.g. Kaduna North" placeholderTextColor={palette.textDim} style={styles.input} />
               <Text style={styles.label}>ORGANIZATION</Text>
-              <TextInput value={org} onChangeText={setOrg} style={styles.input} placeholder="e.g. BOA Kaduna" placeholderTextColor={palette.textDim} />
+              <TextInput value={org} onChangeText={setOrg} placeholder="e.g. BOA Kaduna" placeholderTextColor={palette.textDim} style={styles.input} />
+
+              <Text style={styles.label}>ADMIN NOTES (internal)</Text>
+              <TextInput value={notes} onChangeText={setNotes} multiline style={[styles.input, { minHeight: 80 }]} placeholderTextColor={palette.textDim} />
 
               <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-                {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>CREATE AGENT + SEND SMS</Text>}
+                {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>CREATE AGENT</Text>}
               </Pressable>
 
               <View style={{ height: 40 }} />
