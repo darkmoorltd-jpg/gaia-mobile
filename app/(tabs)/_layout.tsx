@@ -2,7 +2,6 @@ import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
 import { useSettings } from '../../src/store/settings';
-import { useChatStore } from '../../src/store/chat';
 
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
@@ -18,7 +17,6 @@ export default function TabsLayout() {
   const palette = useTheme((s) => s.palette);
   const flags = useSettings((s) => s.flags);
   const flagOn = (k: string) => (flags[k] === undefined ? true : !!flags[k]);
-  const unreadTotal = useChatStore((s) => s.unreadTotal);
 
   return (
     <Tabs
@@ -51,60 +49,52 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {flagOn('crops') && (
       <Tabs.Screen
-              name="crops"
-              options={{
-                title: 'CROPS',
-                tabBarIcon: ({ focused, color }) => (
-                  <TabIcon emoji="C" focused={focused} color={color} />
-    )}
+        name="crops"
+        options={{
+          title: 'CROPS',
+          href: flagOn('crops') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="C" focused={focused} color={color} />
           ),
         }}
       />
-      {flagOn('pests') && (
       <Tabs.Screen
-              name="pests"
-              options={{
-                title: 'PESTS',
-                tabBarIcon: ({ focused, color }) => (
-                  <TabIcon emoji="P" focused={focused} color={color} />
-    )}
+        name="pests"
+        options={{
+          title: 'PESTS',
+          href: flagOn('pests') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="P" focused={focused} color={color} />
           ),
         }}
       />
-      {flagOn('soil') && (
       <Tabs.Screen
-              name="soil"
-              options={{
-                title: 'SOIL',
-                tabBarIcon: ({ focused, color }) => (
-                  <TabIcon emoji="S" focused={focused} color={color} />
-    )}
+        name="soil"
+        options={{
+          title: 'SOIL',
+          href: flagOn('soil') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="S" focused={focused} color={color} />
           ),
         }}
       />
-      {flagOn('livestock') && (
       <Tabs.Screen
-              name="livestock"
-              options={{
-                title: 'LIVESTOCK',
-                tabBarIcon: ({ focused, color }) => (
-                  <TabIcon emoji="L" focused={focused} color={color} />
-    )}
+        name="livestock"
+        options={{
+          title: 'LIVESTOCK',
+          href: flagOn('livestock') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="L" focused={focused} color={color} />
           ),
         }}
       />
-      {flagOn('chat') && (
       <Tabs.Screen
-              name="chat"
-              options={{
-                title: 'CHAT',
-                tabBarBadge: unreadTotal > 0 ? (unreadTotal > 99 ? '99+' : unreadTotal) : undefined,
-                tabBarBadgeStyle: { backgroundColor: '#ff3b5c', color: '#fff', fontSize: 10, fontWeight: '900' },
-                tabBarIcon: ({ focused, color }) => (
-                  <TabIcon emoji="M" focused={focused} color={color} />
-    )}
+        name="chat"
+        options={{
+          title: 'CHAT',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="M" focused={focused} color={color} />
           ),
         }}
       />
