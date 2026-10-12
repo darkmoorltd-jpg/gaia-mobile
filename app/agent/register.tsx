@@ -77,6 +77,24 @@ export default function AgentRegister() {
         setBusy(false);
         return;
       }
+
+      // Client-side: link this farmer to the current agent via agent_commissions.
+      // This is what makes the farmer show up in the agent's verify list.
+      try {
+        const { data: { user: me } } = await supabase.auth.getUser();
+        if (me && data.farmer_id) {
+          await supabase.from('agent_commissions').insert({
+            agent_id: me.id,
+            farmer_id: data.farmer_id,
+            amount: 500,
+            status: 'pending',
+          });
+          console.log('[agent] commission queued for farmer', data.farmer_id);
+        }
+      } catch (e) {
+        console.warn('[agent] commission insert failed', e);
+      }
+
       setResult(data);
     } catch (e: any) {
       Alert.alert('Failed', e.message);
