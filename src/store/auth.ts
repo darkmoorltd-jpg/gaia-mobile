@@ -128,14 +128,21 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return error.message;
+
+      // Check ban BEFORE flipping state
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
+
+      // Set context + state
       await get().setLoginContext('user');
-      set({ user: data.user, session: data.session, loading: false });
-      await Promise.all([get().refreshScans(), get().refreshRole()]);
-      await logLogin(data.user.id, data.user.email);
+      set({ user: data.user, session: data.session, loading: false, role: null });
+      try { await get().refreshScans(); } catch {}
+      try { await get().refreshRole(); } catch {}
+      try { await logLogin(data.user.id, data.user.email); } catch {}
       return null;
-    } catch (e: any) { return e?.message ?? 'Sign in failed'; }
+    } catch (e: any) {
+      return e?.message ?? 'Sign in failed';
+    }
   },
 
   signUp: async (email, password) => {
