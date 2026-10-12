@@ -85,16 +85,17 @@ function RootNavigator() {
     const PUBLIC_ROUTES = ['agent-apply', 'auth-callback', 'reset-password'];
     const isPublic = PUBLIC_ROUTES.includes(String(segments[0] || ''));
 
+    // Prefer loginContext; fall back to role if context is null
+    const eff = loginContext || (role === 'agent' ? 'agent' : null);
+
     if (!user && !inAuth && !isPublic) {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
-      const dest = loginContext === 'agent' ? '/agent/home' : '/(tabs)';
-      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 100);
-    } else if (user && loginContext === 'agent' && inTabs) {
-      // Safety net: agent logged in but landed on tabs — send them home
+      const dest = eff === 'agent' ? '/agent/home' : '/(tabs)';
+      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 150);
+    } else if (user && eff === 'agent' && inTabs) {
       router.replace('/agent/home');
-    } else if (user && loginContext === 'user' && inAgent) {
-      // Safety net: user logged in but landed on agent — send them to tabs
+    } else if (user && eff !== 'agent' && inAgent) {
       router.replace('/(tabs)');
     }
   }, [user, ready, loading, segments, loginContext]);

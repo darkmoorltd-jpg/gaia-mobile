@@ -201,58 +201,64 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signInAsAgent: async (email, agentCode, password) => {
+    // Set intent FIRST — this runs before signInWithPassword fires
+    // onAuthStateChange, so the layout guard sees 'agent' immediately.
+    await get().setLoginContext('agent');
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return error.message;
+      if (error) {
+        await get().setLoginContext(null);
+        return error.message;
+      }
 
-      // Fetch status via security-definer RPC (bypasses RLS on agent_applications)
       const status = await supabase.rpc('agent_check_my_status');
       const statusData: any = status.data || {};
       const agentRow = statusData.agent;
       const appRow = statusData.application;
 
-      // No agent record → check if they have an application and give a friendly reason
       if (!agentRow) {
         await supabase.auth.signOut();
+        await get().setLoginContext(null);
         if (appRow) {
-          if (appRow.status === 'rejected') {
-            return 'Your agent application was not approved. You can log in as a normal user, or contact support.';
-          }
-          if (appRow.status === 'approved' && !agentRow) {
-            return 'Your application was approved but your agent profile is still being set up. Try again in a few minutes.';
-          }
-          if (appRow.payment_status !== 'paid') {
-            return 'Your agent application is awaiting payment (N3,000). Finish the fee to submit it for approval.';
-          }
-          return 'Your agent application is pending admin approval. You can still log in as a normal user.';
+          if (appRow.status === 'rejected') return 'Your agent application was not approved. You can log in as a normal user.';
+          if (appRow.payment_status !== 'paid') return 'Your agent application is awaiting payment (N3,000).';
+          return 'Your agent application is pending admin approval. Log in as a normal user.';
         }
-        return 'This account is not an agent account. Apply to become an agent from the login screen.';
+        return 'This account is not an agent account.';
       }
 
       if (agentRow.status === 'suspended') {
         await supabase.auth.signOut();
-        return 'Your agent account is suspended. Contact support for help.';
+        await get().setLoginContext(null);
+        return 'Your agent account is suspended.';
       }
       if (agentRow.status !== 'active') {
         await supabase.auth.signOut();
+        await get().setLoginContext(null);
         return 'Your agent account is not active yet.';
       }
-
-      // Agent code must match
       if (!agentRow.agent_code || agentRow.agent_code.toLowerCase() !== agentCode.trim().toLowerCase()) {
         await supabase.auth.signOut();
-        return 'Agent code does not match. Check with admin.';
+        await get().setLoginContext(null);
+        return 'Agent code does not match.';
       }
 
       const ban = await checkBan(data.user.id);
-      if (ban) return ban;
+      if (ban) {
+        await get().setLoginContext(null);
+        return ban;
+      }
 
-      await get().setLoginContext('agent');
       set({ user: data.user, session: data.session, loading: false, role: 'agent' });
       await Promise.all([get().refreshScans(), get().refreshRole()]);
       await logLogin(data.user.id, data.user.email);
       return null;
-    } catch (e: any) { return e?.message ?? 'Agent sign in failed'; }
+    } catch (e: any) {
+      try { await supabase.auth.signOut(); } catch {}
+      await get().setLoginContext(null);
+      return e?.message ?? 'Agent sign in failed';
+    }
   },
 
   signOut: async () => {
