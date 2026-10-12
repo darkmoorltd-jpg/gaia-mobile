@@ -242,6 +242,7 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
   const [org, setOrg] = useState('');
   const [agentCode, setAgentCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [statePicker, setStatePicker] = useState(false);
   const [busy, setBusy] = useState(false);
   const [suggestedCode, setSuggestedCode] = useState('');
 
@@ -329,6 +330,7 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
   };
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.modalBg}>
@@ -352,10 +354,17 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
               <Text style={styles.label}>LAST NAME *</Text>
               <TextInput value={lastName} onChangeText={setLastName} style={styles.input} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>GENDER</Text>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
                 {['Male','Female','Other'].map((g) => (
-                  <Pressable key={g} onPress={() => setGender(g)} style={[styles.chip, gender === g && styles.chipOn]}>
-                    <Text style={[styles.chipText, gender === g && styles.chipTextOn]}>{g}</Text>
+                  <Pressable
+                    key={g}
+                    onPress={() => setGender(g)}
+                    style={[
+                      styles.bigChip,
+                      gender === g && styles.bigChipOn,
+                    ]}
+                  >
+                    <Text style={[styles.bigChipText, gender === g && styles.bigChipTextOn]}>{g}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -370,13 +379,10 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
               <Text style={styles.label}>STREET ADDRESS</Text>
               <TextInput value={streetAddress} onChangeText={setStreetAddress} multiline style={[styles.input, { minHeight: 60 }]} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>STATE</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12 }}>
-                {NIGERIAN_STATES.map((st) => (
-                  <Pressable key={st} onPress={() => setStateVal(st)} style={[styles.chip, stateVal === st && styles.chipOn]}>
-                    <Text style={[styles.chipText, stateVal === st && styles.chipTextOn]}>{st}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <Pressable onPress={() => setStatePicker(true)} style={styles.stateButton}>
+                <Text style={styles.stateButtonText}>{stateVal || 'Select state'}</Text>
+                <Text style={styles.stateButtonChevron}>▾</Text>
+              </Pressable>
               <Text style={styles.label}>LGA</Text>
               <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>CITY</Text>
@@ -388,13 +394,20 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
               <Text style={styles.label}>NIN (11 DIGITS)</Text>
               <TextInput value={nin} onChangeText={setNin} keyboardType="number-pad" maxLength={11} style={styles.input} placeholderTextColor={palette.textDim} />
               <Text style={styles.label}>ID TYPE</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {ID_TYPES.map((it) => (
-                  <Pressable key={it} onPress={() => setIdType(it)} style={[styles.chip, idType === it && styles.chipOn]}>
-                    <Text style={[styles.chipText, idType === it && styles.chipTextOn]}>{it}</Text>
+                  <Pressable
+                    key={it}
+                    onPress={() => setIdType(it)}
+                    style={[
+                      styles.bigChipWide,
+                      idType === it && styles.bigChipOn,
+                    ]}
+                  >
+                    <Text style={[styles.bigChipText, idType === it && styles.bigChipTextOn]}>{it}</Text>
                   </Pressable>
                 ))}
-              </ScrollView>
+              </View>
               <Text style={styles.label}>ID NUMBER</Text>
               <TextInput value={idNumber} onChangeText={setIdNumber} style={styles.input} placeholderTextColor={palette.textDim} />
 
@@ -439,6 +452,35 @@ function CreateAgentModal({ visible, onClose, palette, styles }: any) {
         </View>
       </KeyboardAvoidingView>
     </Modal>
+
+    <Modal visible={statePicker} animationType="slide" transparent onRequestClose={() => setStatePicker(false)}>
+      <View style={styles.modalBg}>
+        <View style={styles.modalSheet}>
+          <Pressable onPress={() => setStatePicker(false)}>
+            <Text style={styles.back}>CLOSE</Text>
+          </Pressable>
+          <Text style={styles.title}>Select State</Text>
+          <Text style={styles.sub}>Tap to choose</Text>
+          <ScrollView>
+            {NIGERIAN_STATES.map((st) => (
+              <Pressable
+                key={st}
+                onPress={() => { setStateVal(st); setStatePicker(false); }}
+                style={[
+                  styles.stateRow,
+                  stateVal === st && styles.stateRowOn,
+                ]}
+              >
+                <Text style={[styles.stateRowText, stateVal === st && styles.stateRowTextOn]}>{st}</Text>
+                {stateVal === st ? <Text style={styles.stateRowCheck}>✓</Text> : null}
+              </Pressable>
+            ))}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
