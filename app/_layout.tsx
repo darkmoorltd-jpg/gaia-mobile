@@ -129,6 +129,7 @@ function RootNavigator() {
       <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
       <Stack.Screen name="agent" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />

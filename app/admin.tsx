@@ -30,6 +30,7 @@ export default function Admin() {
       { label: 'Analytics', route: '/admin-analytics' },
     ]},
     { title: 'Users', items: [
+      { label: 'Advanced Search', route: '/admin-advanced-search' },
       { label: 'Manage Agents', route: '/admin-agents' },
       { label: 'All Users', route: '/admin-users' },
       { label: 'Verifications', route: '/admin-verifications' },
