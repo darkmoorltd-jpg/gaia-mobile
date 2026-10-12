@@ -99,7 +99,13 @@ export default function Login() {
     }
     setBusy(true); setError('');
     const err = await signInAsAgent(email.trim(), agentCode.trim(), password);
-    if (err) setError(err);
+    if (err) {
+      setError(err);
+      setBusy(false);
+      return;
+    }
+    // Explicit navigation — the layout's auto-redirect races with onAuthStateChange
+    router.replace('/agent/home' as any);
     setBusy(false);
   };
 
