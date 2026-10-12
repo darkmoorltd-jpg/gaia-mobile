@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
@@ -58,6 +58,22 @@ function RootNavigator() {
       if (setUser) setUser(s?.user ?? null);
     });
     return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  // Refresh config when app comes back to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') useSettings.getState().load().catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Poll remote config every 60s so admin toggles apply without app restart
+  useEffect(() => {
+    const id = setInterval(() => {
+      useSettings.getState().load().catch(() => {});
+    }, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
