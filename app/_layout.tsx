@@ -88,7 +88,8 @@ function RootNavigator() {
     if (!user && !inAuth && !isPublic) {
       router.replace('/(auth)/login');
     } else if (user && inAuth) {
-      router.replace(loginContext === 'agent' ? '/agent/home' : '/(tabs)');
+      const dest = loginContext === 'agent' ? '/agent/home' : '/(tabs)';
+      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 100);
     } else if (user && loginContext === 'agent' && inTabs) {
       // Safety net: agent logged in but landed on tabs — send them home
       router.replace('/agent/home');

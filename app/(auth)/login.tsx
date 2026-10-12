@@ -23,6 +23,7 @@ export default function Login() {
   const signIn = useAuth((s) => s.signIn);
   const signInWithGoogle = useAuth((s) => s.signInWithGoogle);
   const signInAsAgent = useAuth((s) => s.signInAsAgent);
+  const setLoginContext = useAuth((s: any) => s.setLoginContext);
   const user = useAuth((s) => s.user);
 
   const [tab, setTab] = useState<Tab>('password');
@@ -98,14 +99,18 @@ export default function Login() {
       return;
     }
     setBusy(true); setError('');
+    try {
+      await setLoginContext('agent');
+    } catch {}
+
     const err = await signInAsAgent(email.trim(), agentCode.trim(), password);
     if (err) {
+      try { await setLoginContext(null); } catch {}
       setError(err);
       setBusy(false);
       return;
     }
-    // Explicit navigation — the layout's auto-redirect races with onAuthStateChange
-    router.replace('/agent/home' as any);
+    setTimeout(() => { try { router.replace('/agent/home' as any); } catch {} }, 50);
     setBusy(false);
   };
 
