@@ -11,6 +11,8 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
+import { MarkdownOutput } from '../components/MarkdownOutput';
+import AskGaiaPanel from '../components/AskGaiaPanel';
 
 
 // ============================================================
@@ -166,7 +168,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
         throw new Error('On-device AI not installed. Please install the latest GAIA APK.');
       }
 
-      if (!res) {
+      if (!res || !res.recommendations) {
         res = await diagnose(imageUri, selected.key, token);
       }
 
@@ -221,17 +223,24 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
                 </View>
               ))}
 
-              <Text style={styles.sectionLabel}>RECOMMENDED ACTIONS</Text>
-              <View style={styles.actionsCard}>
-                <Text style={styles.actionTitle}>Organic</Text>
-                <Text style={styles.actionBody}>Apply neem oil spray at 5ml/L every 7 days.</Text>
-                <View style={styles.divider} />
-                <Text style={styles.actionTitle}>Chemical</Text>
-                <Text style={styles.actionBody}>Mancozeb 80% WP at 2g/L. Spray in the evening.</Text>
-                <View style={styles.divider} />
-                <Text style={styles.actionTitle}>Water</Text>
-                <Text style={styles.actionBody}>Avoid overhead irrigation to reduce leaf wetness.</Text>
-              </View>
+              <Text style={styles.sectionLabel}>GAIA'S ACTION PLAN</Text>
+              {result.recommendations ? (
+                <View style={styles.adviceCard}>
+                  <MarkdownOutput content={result.recommendations} />
+                </View>
+              ) : (
+                <View style={styles.adviceCard}>
+                  <ActivityIndicator color={palette.neon} />
+                  <Text style={styles.adviceLoading}>Preparing your action plan…</Text>
+                </View>
+              )}
+
+              <AskGaiaPanel
+                disease={top?.label || ''}
+                cropLabel={selected.label}
+                contextType={config.contextType || 'crop'}
+                confidence={typeof top?.confidence === 'number' ? top.confidence : undefined}
+              />
 
               <View style={{ height: 120 }} />
             </ScrollView>
