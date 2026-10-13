@@ -85,7 +85,7 @@ function goodbyeFor(lang: string): string {
   return 'Goodbye. Talk to you soon.';
 }
 
-export default function Voice() {
+function Voice() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
