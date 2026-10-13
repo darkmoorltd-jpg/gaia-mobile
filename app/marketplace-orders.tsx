@@ -89,10 +89,14 @@ export default function Orders() {
     setShipBusy(true);
     try {
       const h = await authHdr();
-      const r = await fetch(API_BASE + '/marketplace/ship', {
-        method: 'POST', headers: h,
-        body: JSON.stringify({ order_id: String(shipModal.id), carrier: carrier.trim(), tracking_number: tracking.trim() }),
+      const { data: shipRes, error: shipErr } = await supabase.rpc('marketplace_ship_order', {
+        p_order_id: order.id,
+        p_carrier: null,
+        p_tracking_number: null,
+        p_estimated_delivery: null,
       });
+      if (shipErr) throw new Error(shipErr.message);
+      Alert.alert('Order shipped');
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.detail || d.error || 'Failed');
       setShipModal(null); setCarrier(''); setTracking('');
