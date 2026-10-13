@@ -12,6 +12,51 @@ import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
 
+
+// ============================================================
+// On-device diagnostics
+// ============================================================
+const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels: string[] } | undefined> = {
+  // pests
+  pests_102class: { key: 'pests_102class', H: 224, W: 224, labels: [] },
+  // soil
+  soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
+  // livestock — server still uses 'cattle'/'poultry'; we ship poultry on-device
+  poultry:        { key: 'poultry',        H: 224, W: 224, labels: [] },
+};
+
+async function onDeviceDiagnose(imageUri: string, modelKey: string): Promise<any | null> {
+  const meta = ON_DEVICE_MAP[modelKey];
+  if (!meta) return null;
+
+  // Ensure the model file is present (silently downloads on first use)
+  const sess = await getSession(meta.key);
+  if (!sess) return null;
+
+  const tensor = await imageUriToTensor(imageUri, meta.H, meta.W);
+  if (!tensor) return null;
+
+  const t0 = Date.now();
+  const out = await runModel(meta.key, tensor, meta.H, meta.W);
+  if (!out) return null;
+
+  const probs = softmax(out.logits);
+  const topIdx = probs.indexOf(Math.max(...probs));
+  const labels = meta.labels.length ? meta.labels : probs.map((_, i) => 'Class ' + i);
+
+  const predictions = probs
+    .map((p, i) => ({ label: labels[i] || ('Class ' + i), confidence: p * 100 }))
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5);
+
+  return {
+    predictions,
+    top: predictions[0],
+    model: meta.key + ' (on-device)',
+    processingMs: Date.now() - t0,
+  };
+}
+
 const { width } = Dimensions.get('window');
 
 const BACKDROPS: Record<string, string> = {
@@ -103,7 +148,23 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired — please log in again');
 
-      const res = await diagnose(imageUri, selected.key, token);
+      // Try on-device first (fast, offline), fall back to server on any failure
+      let res: any = null;
+      try {
+        const od = await onDeviceDiagnose(imageUri, selected.key);
+        if (od) {
+          res = od;
+          console.log('[diagnose] on-device result for', selected.key);
+        }
+      } catch (e) {
+        console.warn('[diagnose] on-device failed, using server', e);
+      }
+
+      if (!res) {
+        res = await diagnose(imageUri, selected.key, token);
+        console.log('[diagnose] server result for', selected.key);
+      }
+
       setResult(res);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await refreshScans();
