@@ -1,5 +1,17 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { InferenceSession, Tensor } from 'onnxruntime-react-native';
+
+// Lazy-load onnxruntime — the native module may not be present in older APKs.
+// If missing, throw a clear error when actually used rather than crashing at import.
+let _ort: any = null;
+function getORT() {
+  if (_ort) return _ort;
+  try {
+    _ort = require('onnxruntime-react-native');
+    return _ort;
+  } catch (e) {
+    throw new Error('onnxruntime-react-native not installed. Please reinstall the app.');
+  }
+}
 
 const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v1/manifest.json';
 const CACHE_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'gaia-models/';
@@ -92,7 +104,7 @@ export async function getSession(key: string): Promise<InferenceSession | null> 
   const path = await ensureModel(key);
   if (!path) return null;
   try {
-    const sess = await InferenceSession.create(path);
+    const sess = await getORT().InferenceSession.create(path);
     _sessions[key] = sess;
     return sess;
   } catch (e) {
@@ -116,7 +128,7 @@ export async function runModel(
   if (!sess) return null;
   try {
     const feeds: Record<string, Tensor> = {
-      input: new Tensor('float32', imgArray, [1, 3, H, W]),
+      input: new (getORT().Tensor)('float32', imgArray, [1, 3, H, W]),
     };
     const out = await sess.run(feeds);
     const logits = out.logits?.data as Float32Array;

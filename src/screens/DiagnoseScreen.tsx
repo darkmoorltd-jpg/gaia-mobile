@@ -148,21 +148,26 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const token = session?.access_token ?? '';
       if (!token) throw new Error('Session expired — please log in again');
 
-      // Try on-device first (fast, offline), fall back to server on any failure
+      // On-device keys must run locally — NEVER fall back to server for these
+      const ON_DEVICE_KEYS = ['pests_102class', 'soil_11class', 'poultry'];
+      const isOnDevice = ON_DEVICE_KEYS.includes(selected.key);
+
       let res: any = null;
       try {
         const od = await onDeviceDiagnose(imageUri, selected.key);
-        if (od) {
-          res = od;
-          console.log('[diagnose] on-device result for', selected.key);
-        }
-      } catch (e) {
-        console.warn('[diagnose] on-device failed, using server', e);
+        if (od) res = od;
+      } catch (e: any) {
+        console.warn('[diagnose] on-device threw', e);
+        if (isOnDevice) throw new Error('On-device AI failed: ' + (e?.message || 'unknown'));
+      }
+
+      if (!res && isOnDevice) {
+        // On-device key but od returned null — the native module probably isn't installed
+        throw new Error('On-device AI not installed. Please install the latest GAIA APK.');
       }
 
       if (!res) {
         res = await diagnose(imageUri, selected.key, token);
-        console.log('[diagnose] server result for', selected.key);
       }
 
       setResult(res);
