@@ -65,12 +65,6 @@ export default function AgentHome() {
           <Pressable onPress={logout} style={styles.logout}>
             <Text style={styles.logoutText}>EXIT</Text>
           </Pressable>
-
-        <View style={{ alignItems: 'center', marginTop: 30 }}>
-          <Text style={{ fontSize: 9, color: '#6b7280', fontFamily: 'monospace' }}>
-            OTA: {(Updates.updateId || 'embedded').slice(0, 8)} | v1.0.0
-          </Text>
-        </View>
         </View>
 
         <LinearGradient
@@ -190,6 +184,12 @@ export default function AgentHome() {
             </View>
           );
         })}
+
+        <View style={{ alignItems: 'center', marginTop: 30 }}>
+          <Text style={{ fontSize: 9, color: '#6b7280', fontFamily: 'monospace' }}>
+            OTA: {(Updates.updateId || 'embedded').slice(0, 8)} | v1.0.0
+          </Text>
+        </View>
 
         <View style={{ height: 60 }} />
       </ScrollView>

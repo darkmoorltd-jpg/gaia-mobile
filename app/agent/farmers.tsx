@@ -32,7 +32,6 @@ export default function AgentFarmers() {
   }, [filter, search]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { const t = setTimeout(load, 400); return () => clearTimeout(t); }, [search]);
 
   return (
     <View style={styles.container}>
