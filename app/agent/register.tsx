@@ -78,23 +78,6 @@ export default function AgentRegister() {
         return;
       }
 
-      // Link this farmer to the current agent in farmer_registry.
-      // Commission fires ONLY when admin approves the verification (DB trigger).
-      try {
-        const { data: { user: me } } = await supabase.auth.getUser();
-        if (me && data.farmer_id) {
-          await new Promise((r) => setTimeout(r, 400));
-          const upd = await supabase
-            .from('farmer_registry')
-            .update({ registered_by_agent: me.id })
-            .eq('user_id', data.farmer_id);
-          if (upd.error) console.warn('[agent] link failed', upd.error.message);
-          else console.log('[agent] farmer linked to agent', me.id);
-        }
-      } catch (e) {
-        console.warn('[agent] link exception', e);
-      }
-
       setResult(data);
     } catch (e: any) {
       Alert.alert('Failed', e.message);
