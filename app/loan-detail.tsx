@@ -61,7 +61,7 @@ export default function LoanDetail() {
         { text: 'PAY', onPress: async () => {
           setRepaying(true);
           try {
-            const r = await supabase.rpc('loan_repay', { p_loan_id: loan.id, p_amount: amount });
+            const r = await supabase.rpc('loan_repay', { p_loan_id: Number(loan.id), p_amount: amount });
             if (r.error) throw new Error(r.error.message);
             Alert.alert('Payment sent', 'Outstanding: ' + money(r.data.outstanding));
             setRepayAmount('');
