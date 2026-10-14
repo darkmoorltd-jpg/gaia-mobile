@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView,
+  View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, TextInput,
   Alert, Modal, Animated, Vibration,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -15,6 +15,10 @@ import { getSession, runModel, softmax, imageUriToTensor } from '../src/utils/on
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
 import Sparkline from '../src/components/Sparkline';
 import { gridScan, countDistinctSubjects } from '../src/utils/scanGrid';
+import { enqueueScan, listQueue, removeFromQueue, queueSize } from '../src/utils/offlineQueue';
+import { shareToWhatsApp, sendSmsReport } from '../src/utils/shareHelpers';
+import { t as tr, cropLabel as trCrop, detectLangFromText, Lang } from '../src/utils/cropTranslations';
+import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
@@ -77,12 +81,25 @@ export default function VideoScan() {
   const [previousLabel, setPreviousLabel] = useState<string | null>(null);
   const [changeAlarm, setChangeAlarm] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [lang, setLang] = useState<Lang>('en');
+  const [queueCount, setQueueCount] = useState(0);
+  const [smsPhone, setSmsPhone] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
   const stopFlag = useRef(false);
   const healthyStreak = useRef(0);
   const sessionStart = useRef<number>(0);
   const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const n = await queueSize();
+        setQueueCount(n);
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -284,6 +301,44 @@ export default function VideoScan() {
     }
     setPreviousLabel(winnerLabel);
 
+    // Growth site auto-save (features 13/14)
+    let autoGrowthSiteId: string | null = growthSiteId;
+    try {
+      const { data: { user: me } } = await supabase.auth.getUser();
+      if (me && gps) {
+        // look for existing site within 30m
+        const { data: sites } = await supabase
+          .from('growth_sites')
+          .select('id,gps_lat,gps_lon,label')
+          .eq('user_id', me.id)
+          .eq('crop', crop.key);
+        let nearest: any = null;
+        let nearestDist = Infinity;
+        for (const s of (sites || [])) {
+          if (!s.gps_lat || !s.gps_lon) continue;
+          const dx = (s.gps_lat - gps.lat) * 111000;
+          const dy = (s.gps_lon - gps.lon) * 111000 * Math.cos(gps.lat * Math.PI / 180);
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearestDist) { nearestDist = d; nearest = s; }
+        }
+        if (nearest && nearestDist < 30) {
+          autoGrowthSiteId = nearest.id;
+        } else {
+          const { data: created } = await supabase.from('growth_sites').insert({
+            user_id: me.id,
+            crop: crop.key,
+            label: growthSiteLabel || `${crop.label} ${new Date().toLocaleDateString()}`,
+            gps_lat: gps.lat,
+            gps_lon: gps.lon,
+          }).select('id').single();
+          if (created?.id) {
+            autoGrowthSiteId = created.id;
+            setGrowthSiteId(created.id);
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     // Save session
     try {
       const { data: { user: me } } = await supabase.auth.getUser();
@@ -307,13 +362,37 @@ export default function VideoScan() {
           infected_count: infected,
           gps_lat: gps?.lat ?? null,
           gps_lon: gps?.lon ?? null,
-          growth_site_id: growthSiteId,
+          growth_site_id: autoGrowthSiteId,
           location_label: growthSiteLabel || null,
           previous_label: previousLabel,
         }).select('id').single();
         if (sess?.id) setSessionId(sess.id);
+      } else {
+        // No user — nothing to do
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      // Session save failed — queue for later
+      try {
+        await enqueueScan({
+          id: 'scan-' + Date.now(),
+          crop: crop.key,
+          consensusLabel: winnerLabel,
+          consensusConf: winner.confidence,
+          severity,
+          framesAnalyzed: snapshot.length,
+          voteCount: winner.voteCount,
+          voteTotal: winner.voteTotal,
+          durationSec: Math.round((Date.now() - sessionStart.current) / 1000),
+          gpsLat: gps?.lat ?? null,
+          gpsLon: gps?.lon ?? null,
+          locationLabel: growthSiteLabel || null,
+          createdAt: new Date().toISOString(),
+          retries: 0,
+        });
+        const n = await queueSize();
+        setQueueCount(n);
+      } catch {}
+    }
 
     // Voice narration
     if (voiceOn) {
@@ -557,6 +636,45 @@ export default function VideoScan() {
           </View>
         ) : null}
 
+        {/* Share buttons (features 24/25) */}
+        {consensus ? (
+          <View style={styles.shareRow}>
+            <Pressable
+              onPress={() => shareToWhatsApp({
+                crop: crop.key,
+                consensusLabel: consensus.label,
+                consensusConf: consensus.confidence,
+                severity: consensus.severity,
+                framesAnalyzed: frames.length,
+                gpsLat: gps?.lat, gpsLon: gps?.lon,
+                locationLabel: growthSiteLabel,
+              })}
+              style={[styles.shareBtn, { borderColor: '#25d366' }]}
+            >
+              <Text style={[styles.shareTxt, { color: '#25d366' }]}>📱 {tr('share_whatsapp', lang)}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setShareOpen(true)}
+              style={[styles.shareBtn, { borderColor: palette.neon }]}
+            >
+              <Text style={[styles.shareTxt, { color: palette.neon }]}>✉ {tr('send_sms', lang)}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {/* Hand-off to Voice (feature 26) */}
+        {consensus ? (
+          <Pressable
+            onPress={() => {
+              router.push(('/voice?disease=' + encodeURIComponent(consensus.label) +
+                '&crop=' + encodeURIComponent(crop.label)) as any);
+            }}
+            style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#7c4dff', marginTop: 8 }]}
+          >
+            <Text style={[styles.ctaText, { color: '#7c4dff' }]}>🎙 {tr('talk_to_gaia', lang)}</Text>
+          </Pressable>
+        ) : null}
+
         {advice ? (
           <View style={styles.adviceBox}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -631,6 +749,50 @@ export default function VideoScan() {
         </View>
       </Modal>
 
+      {/* SMS modal */}
+      <Modal visible={shareOpen} transparent animationType="slide" onRequestClose={() => setShareOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalSheet}>
+            <Pressable onPress={() => setShareOpen(false)}>
+              <Text style={styles.back}>CLOSE</Text>
+            </Pressable>
+            <Text style={styles.title}>Send by SMS</Text>
+            <Text style={styles.sub}>Report will be sent as a text message</Text>
+            <TextInput
+              value={smsPhone}
+              onChangeText={setSmsPhone}
+              keyboardType="phone-pad"
+              placeholder="08031234567"
+              placeholderTextColor={palette.textDim}
+              style={[styles.input, { marginTop: 12 }]}
+            />
+            <Pressable
+              onPress={async () => {
+                if (!consensus) return;
+                const r = await sendSmsReport(smsPhone, {
+                  crop: crop.key,
+                  consensusLabel: consensus.label,
+                  consensusConf: consensus.confidence,
+                  severity: consensus.severity,
+                  framesAnalyzed: frames.length,
+                  gpsLat: gps?.lat, gpsLon: gps?.lon,
+                  locationLabel: growthSiteLabel,
+                });
+                if (r.ok) {
+                  setShareOpen(false);
+                  Alert.alert('Sent', 'SMS report sent');
+                } else {
+                  Alert.alert('Failed', r.err || 'Try again');
+                }
+              }}
+              style={styles.cta}
+            >
+              <Text style={styles.ctaText}>SEND SMS</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Full advice modal */}
       <Modal visible={showAdvice} animationType="slide" onRequestClose={() => setShowAdvice(false)}>
         <View style={{ flex: 1, backgroundColor: palette.obsidian }}>
@@ -695,6 +857,10 @@ const createStyles = (p: any) => StyleSheet.create({
   hint: { fontSize: 13, lineHeight: 20, color: p.textMuted, textAlign: 'center', marginTop: 16, paddingHorizontal: 8 },
   error: { color: p.danger, textAlign: 'center', marginTop: 12, fontSize: 13 },
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 16 },
+  shareRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  shareBtn: { flex: 1, padding: 14, borderRadius: 12, borderWidth: 1.5, alignItems: 'center' },
+  shareTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
   ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
