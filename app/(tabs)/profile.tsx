@@ -52,6 +52,8 @@ const SECTIONS: Section[] = [
     { label: 'Video Scan', route: '/video-scan' },
     { label: 'Scan History', route: '/history' },
     { label: 'Early Warning', route: '/early-warning' },
+      { label: 'Aflatoxin Risk Check', route: '/aflatoxin' },
+      { label: 'Land Size Estimator', route: '/land-estimator' },
   ]},
   { title: 'FARM TOOLS', icon: 'FM', items: [
     { label: 'Farm Mapping', route: '/farm-mapping' },
