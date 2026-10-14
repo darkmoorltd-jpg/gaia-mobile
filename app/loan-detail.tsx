@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Alert, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../src/theme';
@@ -9,6 +9,13 @@ import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
 const money = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+const money2 = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 2 });
+const fmtDate = (s?: string) => {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleString(); } catch { return '—'; }
+};
+
+type Tab = 'loan' | 'schedule' | 'repayments' | 'wallet' | 'history';
 
 export default function LoanDetail() {
   const router = useRouter();
@@ -17,66 +24,53 @@ export default function LoanDetail() {
   const styles = createStyles(palette);
   const { user } = useAuth();
 
-  const [loan, setLoan] = useState<any>(null);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [wallet, setWallet] = useState<any>(null);
+  const [D, setD] = useState<any>(null);
   const [busy, setBusy] = useState(true);
+  const [ref, setRef] = useState(false);
+  const [tab, setTab] = useState<Tab>('loan');
   const [repayAmount, setRepayAmount] = useState('');
   const [repaying, setRepaying] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!id || !user) return;
     setBusy(true);
     try {
-      const [l, p, w] = await Promise.all([
-        supabase.from('loan_applications').select('*').eq('id', Number(id)).eq('user_id', user.id).maybeSingle(),
-        supabase.from('loan_repayments').select('*').eq('loan_id', id).order('paid_at', { ascending: false }),
-        supabase.from('farmer_wallets').select('balance').eq('user_id', user.id).maybeSingle(),
-      ]);
-      if (l.data) setLoan(l.data);
-      if (p.data) setPayments(p.data);
-      if (w.data) setWallet(w.data);
+      const { data, error } = await supabase.rpc('loan_my_detail', { p_loan_id: Number(id) });
+      if (!error) setD(data);
     } catch {}
-    setBusy(false);
-  };
+    setBusy(false); setRef(false);
+  }, [id, user?.id]);
 
-  useEffect(() => { load(); }, [id, user?.id]);
+  useEffect(() => { load(); }, [load]);
 
   const repay = async (amount: number) => {
-    if (!loan) return;
+    if (!D || !D.loan) return;
+    const L = D.loan;
     if (amount <= 0) { Alert.alert('Enter amount'); return; }
-    if (amount > (loan.outstanding_balance || 0)) {
-      Alert.alert('Exceeds outstanding', 'You only owe ' + money(loan.outstanding_balance));
+    if (amount > (L.outstanding_balance || 0)) {
+      Alert.alert('Exceeds outstanding', 'You only owe ' + money(L.outstanding_balance));
       return;
     }
-    if (!wallet || wallet.balance < amount) {
-      Alert.alert('Insufficient wallet', 'Top up your wallet first. Balance: ' + money(wallet?.balance || 0));
+    const walletBal = D.wallet?.balance || 0;
+    if (walletBal < amount) {
+      Alert.alert('Insufficient wallet', 'Top up first. Balance: ' + money(walletBal));
       return;
     }
-    Alert.alert(
-      'Confirm repayment',
-      'Pay ' + money(amount) + ' from your wallet?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'PAY', onPress: async () => {
-          setRepaying(true);
-          try {
-            const r = await supabase.rpc('loan_repay', { p_loan_id: Number(loan.id), p_amount: amount });
-            if (r.error) throw new Error(r.error.message);
-            Alert.alert('Payment sent', 'Outstanding: ' + money(r.data.outstanding));
-            setRepayAmount('');
-            await load();
-          } catch (e: any) {
-            Alert.alert('Failed', e.message);
-          } finally {
-            setRepaying(false);
-          }
-        }},
-      ]
-    );
+    Alert.alert('Confirm', 'Pay ' + money(amount) + ' from wallet?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'PAY', onPress: async () => {
+        setRepaying(true);
+        const { error } = await supabase.rpc('loan_repay', { p_loan_id: Number(L.id), p_amount: amount });
+        setRepaying(false);
+        if (error) { Alert.alert('Failed', error.message); return; }
+        Alert.alert('Payment sent');
+        setRepayAmount('');
+        load();
+      }},
+    ]);
   };
 
-  if (busy) {
+  if (busy && !D) {
     return (
       <View style={styles.container}>
         <ActivityIndicator color={palette.neon} style={{ marginTop: 100 }} />
@@ -84,58 +78,184 @@ export default function LoanDetail() {
     );
   }
 
-  if (!loan) {
+  if (!D || !D.loan) {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
           <Text style={styles.title}>Loan not found</Text>
+          <Text style={styles.sub}>Refresh or go back to the Loans tab.</Text>
         </ScrollView>
       </View>
     );
   }
 
-  const repaid = (loan.total_repayable || 0) - (loan.outstanding_balance || 0);
-  const pct = Math.max(0, Math.min(100, ((repaid) / (loan.total_repayable || 1)) * 100));
+  const L = D.loan;
+  const P = D.profile || {};
+  const W = D.wallet || {};
+  const S = D.stats || {};
+  const reps = D.repayments || [];
+  const others = D.other_loans || [];
+  const schedule = D.schedule || [];
+
+  const repaid = (L.total_repayable || 0) - (L.outstanding_balance || 0);
+  const pct = Math.max(0, Math.min(100, (repaid / (L.total_repayable || 1)) * 100));
   const statusColor =
-    loan.status === 'repaid' ? '#00ff88'
-    : loan.status === 'overdue' ? '#ff3b5c'
-    : loan.status === 'disbursed' ? '#ffb300'
-    : '#4fc3f7';
+    L.status === 'repaid' ? '#00ff88'
+    : L.status === 'overdue' ? '#ff3b5c'
+    : L.status === 'disbursed' ? '#ffb300'
+    : L.status === 'approved' ? '#4fc3f7'
+    : L.status === 'rejected' ? '#8899a6'
+    : '#8899a6';
+
+  const walletBal = W.balance || 0;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}
+      >
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.kicker}>LOAN</Text>
-        <Text style={styles.title}>{money(loan.loan_amount)}</Text>
+        <Text style={styles.title}>{money(L.loan_amount)}</Text>
         <View style={[styles.statusChip, { borderColor: statusColor }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>{(loan.status || '').toUpperCase()}</Text>
+          <Text style={[styles.statusText, { color: statusColor }]}>{(L.status || '').toUpperCase()}</Text>
         </View>
 
         <View style={styles.progressBox}>
           <View style={styles.progressBg}>
             <View style={[styles.progressFill, { width: pct + '%' }]} />
           </View>
-          <Text style={styles.progressPct}>{pct.toFixed(0)}% repaid</Text>
+          <Text style={styles.progressPct}>{pct.toFixed(0)}% repaid · {money(L.outstanding_balance)} outstanding</Text>
         </View>
 
-        <View style={styles.summary}>
-          <Row k="Principal" v={money(loan.loan_amount)} styles={styles} />
-          <Row k="Total repayable" v={money(loan.total_repayable)} styles={styles} />
-          <Row k="Already paid" v={money(repaid)} styles={styles} />
-          <Row k="Outstanding" v={money(loan.outstanding_balance)} styles={styles} highlight />
-          <Row k="Interest rate" v={loan.interest_rate + '% per month'} styles={styles} />
-          <Row k="Monthly payment" v={money(loan.monthly_payment)} styles={styles} />
-          <Row k="Term" v={loan.duration_months + ' months'} styles={styles} />
-          <Row k="Due date" v={loan.due_date ? new Date(loan.due_date).toLocaleDateString() : '—'} styles={styles} />
-          <Row k="Disbursed" v={loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : 'Pending'} styles={styles} />
-        </View>
+        {/* Tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarInner}>
+          {(['loan', 'schedule', 'repayments', 'wallet', 'history'] as Tab[]).map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnOn]}>
+              <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t.toUpperCase()}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
 
-        {(loan.status === 'disbursed' || loan.status === 'overdue') ? (
+        {/* ============ LOAN ============ */}
+        {tab === 'loan' ? (
+          <>
+            <Text style={styles.sectionLabel}>LOAN TERMS</Text>
+            <Row k="Reference" v={'#' + L.id} styles={styles} />
+            <Row k="Principal" v={money(L.loan_amount)} styles={styles} />
+            <Row k="Interest rate" v={(L.interest_rate || 0) + '% per month'} styles={styles} />
+            <Row k="Duration" v={(L.duration_months || 0) + ' months'} styles={styles} />
+            <Row k="Total repayable" v={money(L.total_repayable)} styles={styles} highlight />
+            <Row k="Monthly payment" v={money(L.monthly_payment)} styles={styles} />
+            <Row k="Already paid" v={money(repaid)} styles={styles} />
+            <Row k="Outstanding" v={money(L.outstanding_balance)} styles={styles} />
+            <Row k="Tier" v={(L.tier || '').toUpperCase()} styles={styles} />
+            <Row k="Purpose" v={L.purpose || '—'} styles={styles} />
+
+            <Text style={styles.sectionLabel}>TIMELINE</Text>
+            <Row k="Applied" v={fmtDate(L.created_at)} styles={styles} />
+            <Row k="Approved" v={fmtDate(L.approved_at)} styles={styles} />
+            <Row k="Disbursed" v={fmtDate(L.disbursed_at)} styles={styles} />
+            <Row k="Due date" v={fmtDate(L.due_date)} styles={styles} />
+            <Row k="Repaid on" v={fmtDate(L.repaid_at)} styles={styles} />
+
+            {L.rejection_reason ? (
+              <>
+                <Text style={styles.sectionLabel}>REJECTION</Text>
+                <Text style={styles.rejectBox}>{L.rejection_reason}</Text>
+              </>
+            ) : null}
+
+            <Text style={styles.sectionLabel}>YOUR LOAN STATS</Text>
+            <Row k="Total loans" v={String(S.total_loans || 0)} styles={styles} />
+            <Row k="Total borrowed" v={money(S.total_borrowed)} styles={styles} />
+            <Row k="Total repaid" v={money(S.total_repaid)} styles={styles} />
+            <Row k="Loans repaid" v={String(S.loans_repaid || 0)} styles={styles} />
+          </>
+        ) : null}
+
+        {/* ============ SCHEDULE ============ */}
+        {tab === 'schedule' ? (
+          <>
+            <Text style={styles.sectionLabel}>REPAYMENT SCHEDULE</Text>
+            {schedule.length === 0 ? <Text style={styles.kvMuted}>Not yet disbursed.</Text> :
+              schedule.map((s: any, i: number) => {
+                const paid = i < Math.floor(repaid / (L.monthly_payment || 1));
+                return (
+                  <View key={i} style={[styles.schedRow, paid && styles.schedRowPaid]}>
+                    <View style={[styles.schedDot, { backgroundColor: paid ? '#00ff88' : '#666' }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.schedMonth}>Month {s.index}</Text>
+                      <Text style={styles.schedDate}>Due {new Date(s.due_date).toLocaleDateString()}</Text>
+                    </View>
+                    <Text style={[styles.schedAmount, paid && { color: '#00ff88' }]}>{money(s.amount)}</Text>
+                  </View>
+                );
+              })
+            }
+          </>
+        ) : null}
+
+        {/* ============ REPAYMENTS ============ */}
+        {tab === 'repayments' ? (
+          <>
+            <Text style={styles.sectionLabel}>PAYMENT HISTORY ({reps.length})</Text>
+            {reps.length === 0 ? <Text style={styles.kvMuted}>No repayments yet.</Text> :
+              reps.map((r: any, i: number) => (
+                <View key={i} style={styles.card2}>
+                  <Text style={styles.card2Title}>{money2(r.amount)}</Text>
+                  <Text style={styles.card2Meta}>{fmtDate(r.paid_at)}</Text>
+                </View>
+              ))
+            }
+          </>
+        ) : null}
+
+        {/* ============ WALLET ============ */}
+        {tab === 'wallet' ? (
+          <>
+            <Text style={styles.sectionLabel}>WALLET</Text>
+            <View style={styles.walletHero}>
+              <Text style={styles.walletLbl}>AVAILABLE BALANCE</Text>
+              <Text style={styles.walletAmt}>{money(walletBal)}</Text>
+              <Text style={styles.walletSub}>{W.virtual_account || 'no virtual account'}</Text>
+            </View>
+
+            <Text style={styles.sectionLabel}>PAYOUT ACCOUNT</Text>
+            <Row k="Bank" v={P.bank_name || '—'} styles={styles} />
+            <Row k="Account #" v={P.account_number || '—'} styles={styles} />
+            <Row k="Account name" v={P.account_name || '—'} styles={styles} />
+
+            <Pressable onPress={() => router.push('/wallet' as any)} style={styles.ctaGhost}>
+              <Text style={styles.ctaGhostText}>OPEN WALLET</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {/* ============ HISTORY ============ */}
+        {tab === 'history' ? (
+          <>
+            <Text style={styles.sectionLabel}>OTHER LOANS ({others.length})</Text>
+            {others.length === 0 ? <Text style={styles.kvMuted}>No other loans.</Text> :
+              others.map((ol: any, i: number) => (
+                <Pressable key={i} onPress={() => router.replace(('/loan-detail?id=' + ol.id) as any)} style={styles.card2}>
+                  <Text style={styles.card2Title}>#{ol.id} — {money(ol.loan_amount)}</Text>
+                  <Text style={styles.card2Meta}>{(ol.status || '').toUpperCase()} · {(ol.purpose || '').toUpperCase()} · {ol.tier || ''}</Text>
+                  <Text style={styles.card2Meta}>Outstanding {money(ol.outstanding_balance)}</Text>
+                  <Text style={styles.card2Meta}>{fmtDate(ol.created_at)}</Text>
+                </Pressable>
+              ))
+            }
+          </>
+        ) : null}
+
+        {/* ============ REPAY UI (always visible if repayable) ============ */}
+        {(L.status === 'disbursed' || L.status === 'overdue') ? (
           <>
             <Text style={styles.sectionLabel}>MAKE A REPAYMENT</Text>
-            <Text style={styles.walletInfo}>Wallet balance: {money(wallet?.balance || 0)}</Text>
+            <Text style={styles.walletInfo}>Wallet: {money(walletBal)} · Outstanding: {money(L.outstanding_balance)}</Text>
             <TextInput
               value={repayAmount}
               onChangeText={setRepayAmount}
@@ -145,13 +265,13 @@ export default function LoanDetail() {
               style={styles.input}
             />
             <View style={styles.quickRow}>
-              <Pressable onPress={() => setRepayAmount(String(Math.ceil((loan.monthly_payment || 0))))} style={styles.quickBtn}>
+              <Pressable onPress={() => setRepayAmount(String(Math.ceil(L.monthly_payment || 0)))} style={styles.quickBtn}>
                 <Text style={styles.quickText}>1 month</Text>
               </Pressable>
-              <Pressable onPress={() => setRepayAmount(String(Math.ceil((loan.outstanding_balance || 0) / 2)))} style={styles.quickBtn}>
+              <Pressable onPress={() => setRepayAmount(String(Math.ceil((L.outstanding_balance || 0) / 2)))} style={styles.quickBtn}>
                 <Text style={styles.quickText}>Half</Text>
               </Pressable>
-              <Pressable onPress={() => setRepayAmount(String(loan.outstanding_balance || 0))} style={styles.quickBtn}>
+              <Pressable onPress={() => setRepayAmount(String(L.outstanding_balance || 0))} style={styles.quickBtn}>
                 <Text style={styles.quickText}>Full</Text>
               </Pressable>
             </View>
@@ -165,26 +285,14 @@ export default function LoanDetail() {
           </>
         ) : null}
 
-        {payments.length > 0 ? (
-          <>
-            <Text style={styles.sectionLabel}>REPAYMENT HISTORY</Text>
-            {payments.map((p, i) => (
-              <View key={i} style={styles.payRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.payAmount}>{money(p.amount)}</Text>
-                  <Text style={styles.payMeta}>{new Date(p.paid_at).toLocaleString()}</Text>
-                </View>
-                <Text style={styles.payCheck}>✓</Text>
-              </View>
-            ))}
-          </>
-        ) : null}
+        <Pressable
+          onPress={() => router.push(('/loan-receipt?id=' + L.id) as any)}
+          style={styles.ctaGhost}
+        >
+          <Text style={styles.ctaGhostText}>VIEW STATEMENT</Text>
+        </Pressable>
 
         <View style={{ height: 100 }} />
-
-        <Pressable onPress={() => router.push(('/loan-receipt?id=' + loan.id) as any)} style={styles.cta}>
-          <Text style={styles.ctaText}>VIEW STATEMENT</Text>
-        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -205,17 +313,38 @@ const createStyles = (p: any) => StyleSheet.create({
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   kicker: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: p.neon },
   title: { fontSize: 34, fontWeight: '900', color: p.text, letterSpacing: -1.5, marginTop: 4 },
+  sub: { fontSize: 13, color: p.textMuted, marginTop: 6 },
   statusChip: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1.5 },
   statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 2 },
-  progressBox: { marginTop: 24 },
+  progressBox: { marginTop: 20 },
   progressBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 4 },
   progressFill: { height: '100%', backgroundColor: '#00ff88', borderRadius: 4 },
-  progressPct: { fontSize: 11, color: p.textMuted, marginTop: 8, fontWeight: '800', letterSpacing: 1 },
-  summary: { marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
+  progressPct: { fontSize: 11, color: p.textMuted, marginTop: 8, fontWeight: '800', letterSpacing: 0.5 },
+  tabBar: { marginTop: 20, marginBottom: 4, maxHeight: 44 },
+  tabBarInner: { gap: 6, paddingRight: 8 },
+  tabBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
+  tabBtnOn: { backgroundColor: 'rgba(0,255,136,0.12)', borderColor: p.neon },
+  tabText: { fontSize: 10, fontWeight: '700', color: p.textDim },
+  tabTextOn: { color: p.neon },
+  sectionLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: p.neon, marginTop: 22, marginBottom: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
   rowK: { fontSize: 12, color: p.textMuted, flex: 1 },
-  rowV: { fontSize: 13, color: p.text, fontWeight: '700', textAlign: 'right', flex: 1 },
-  sectionLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: p.neon, marginTop: 26, marginBottom: 10 },
+  rowV: { fontSize: 13, color: p.text, fontWeight: '700', textAlign: 'right', flex: 1.4 },
+  kvMuted: { fontSize: 12, color: p.textMuted, fontStyle: 'italic' },
+  rejectBox: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(255,59,92,0.1)', borderLeftWidth: 3, borderLeftColor: '#ff3b5c', fontSize: 12, color: p.text, lineHeight: 18 },
+  schedRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 6 },
+  schedRowPaid: { borderColor: 'rgba(0,255,136,0.3)' },
+  schedDot: { width: 10, height: 10, borderRadius: 5 },
+  schedMonth: { fontSize: 13, fontWeight: '700', color: p.text },
+  schedDate: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  schedAmount: { fontSize: 13, fontWeight: '800', color: p.text },
+  card2: { padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 6 },
+  card2Title: { fontSize: 14, fontWeight: '800', color: p.text },
+  card2Meta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
+  walletHero: { padding: 20, borderRadius: 16, backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', alignItems: 'center', marginBottom: 12 },
+  walletLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted },
+  walletAmt: { fontSize: 32, fontWeight: '900', color: p.neon, letterSpacing: -1, marginTop: 6 },
+  walletSub: { fontSize: 11, color: p.textMuted, marginTop: 4, fontFamily: 'monospace' },
   walletInfo: { fontSize: 12, color: p.textMuted, marginBottom: 10 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
   quickRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
@@ -223,8 +352,6 @@ const createStyles = (p: any) => StyleSheet.create({
   quickText: { fontSize: 11, fontWeight: '800', color: p.text },
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 16 },
   ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  payRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
-  payAmount: { fontSize: 14, fontWeight: '800', color: p.text },
-  payMeta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
-  payCheck: { fontSize: 20, color: p.neon, fontWeight: '900' },
+  ctaGhost: { padding: 16, borderRadius: 12, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center', marginTop: 12 },
+  ctaGhostText: { fontSize: 12, fontWeight: '900', letterSpacing: 1, color: p.neon },
 });
