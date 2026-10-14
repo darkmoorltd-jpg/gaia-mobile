@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  Alert, ActivityIndicator, KeyboardAvoidingView, Platform, RefreshControl,
+  Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  RefreshControl, Image, Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../src/theme';
@@ -15,7 +16,7 @@ const fmtDate = (s?: string) => {
   try { return new Date(s).toLocaleString(); } catch { return '—'; }
 };
 
-type Tab = 'loan' | 'schedule' | 'repayments' | 'wallet' | 'history';
+type Tab = 'loan' | 'schedule' | 'repayments' | 'kyc' | 'wallet' | 'history';
 
 export default function LoanDetail() {
   const router = useRouter();
@@ -94,6 +95,7 @@ export default function LoanDetail() {
   const P = D.profile || {};
   const W = D.wallet || {};
   const S = D.stats || {};
+  const K = D.kyc || null;
   const reps = D.repayments || [];
   const others = D.other_loans || [];
   const schedule = D.schedule || [];
@@ -105,10 +107,15 @@ export default function LoanDetail() {
     : L.status === 'overdue' ? '#ff3b5c'
     : L.status === 'disbursed' ? '#ffb300'
     : L.status === 'approved' ? '#4fc3f7'
-    : L.status === 'rejected' ? '#8899a6'
     : '#8899a6';
 
   const walletBal = W.balance || 0;
+
+  const kycStatus = P.verification_status || (K && K.status) || 'pending';
+  const kycStatusColor =
+    kycStatus === 'approved' ? '#00ff88'
+    : kycStatus === 'rejected' ? '#ff3b5c'
+    : '#ffb300';
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
@@ -130,9 +137,9 @@ export default function LoanDetail() {
           <Text style={styles.progressPct}>{pct.toFixed(0)}% repaid · {money(L.outstanding_balance)} outstanding</Text>
         </View>
 
-        {/* Tabs */}
+        {/* Tabs — now includes KYC */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarInner}>
-          {(['loan', 'schedule', 'repayments', 'wallet', 'history'] as Tab[]).map((t) => (
+          {(['loan', 'schedule', 'repayments', 'kyc', 'wallet', 'history'] as Tab[]).map((t) => (
             <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnOn]}>
               <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t.toUpperCase()}</Text>
             </Pressable>
@@ -213,6 +220,92 @@ export default function LoanDetail() {
           </>
         ) : null}
 
+        {/* ============ KYC ============ */}
+        {tab === 'kyc' ? (
+          <>
+            <Text style={styles.sectionLabel}>VERIFICATION STATUS</Text>
+            <View style={[styles.kycStatus, { borderColor: kycStatusColor }]}>
+              <Text style={[styles.kycStatusText, { color: kycStatusColor }]}>
+                {kycStatus.toUpperCase()}
+              </Text>
+              <Text style={styles.kycStatusSub}>
+                {kycStatus === 'approved' ? 'Verified. Full access.'
+                  : kycStatus === 'rejected' ? 'Rejected — resubmit to unlock more.'
+                  : 'Under review. Lenders see this status.'}
+              </Text>
+            </View>
+
+            <Text style={styles.sectionLabel}>IDENTITY</Text>
+            <Row k="Full name" v={[P.first_name, P.middle_name, P.last_name].filter(Boolean).join(' ') || '—'} styles={styles} />
+            <Row k="Username" v={P.username || '—'} styles={styles} />
+            <Row k="Gender" v={P.gender || '—'} styles={styles} />
+            <Row k="Date of birth" v={P.date_of_birth || '—'} styles={styles} />
+            <Row k="Phone" v={P.phone || '—'} styles={styles} />
+            <Row k="WhatsApp" v={P.whatsapp || '—'} styles={styles} />
+
+            <Text style={styles.sectionLabel}>ADDRESS</Text>
+            <Row k="Country" v={P.country || '—'} styles={styles} />
+            <Row k="State" v={P.state || '—'} styles={styles} />
+            <Row k="LGA" v={P.lga || '—'} styles={styles} />
+            <Row k="City" v={P.city || '—'} styles={styles} />
+            <Row k="Street" v={P.street_address || '—'} styles={styles} />
+
+            <Text style={styles.sectionLabel}>FARM</Text>
+            <Row k="Farm state" v={P.farm_state || '—'} styles={styles} />
+            <Row k="Farm LGA" v={P.farm_lga || '—'} styles={styles} />
+            <Row k="Farm size" v={(P.farm_size_acres || 0) + ' acres'} styles={styles} />
+            <Row k="Primary crops" v={P.primary_crops || '—'} styles={styles} />
+            <Row k="Farming type" v={P.farming_type || '—'} styles={styles} />
+
+            <Text style={styles.sectionLabel}>KYC NUMBERS</Text>
+            <Row k="BVN" v={P.bvn || '—'} styles={styles} />
+            <Row k="NIN" v={P.nin || '—'} styles={styles} />
+            <Row k="ID type" v={P.govt_id_type || '—'} styles={styles} />
+            <Row k="ID number" v={P.govt_id_number || '—'} styles={styles} />
+
+            {K ? (
+              <>
+                <Text style={styles.sectionLabel}>SUBMISSION</Text>
+                <Row k="Submitted name" v={K.full_name || '—'} styles={styles} />
+                <Row k="Status" v={(K.status || '').toUpperCase()} styles={styles} />
+                <Row k="Payment" v={(K.payment_status || '').toUpperCase()} styles={styles} />
+                <Row k="Submitted at" v={fmtDate(K.created_at)} styles={styles} />
+
+                {K.id_image_url ? (
+                  <View style={styles.docBox}>
+                    <Text style={styles.docLabel}>ID IMAGE</Text>
+                    <Pressable onPress={() => Linking.openURL(K.id_image_url)}>
+                      <Image source={{ uri: K.id_image_url }} style={styles.docImg} resizeMode="contain" />
+                    </Pressable>
+                  </View>
+                ) : null}
+                {K.selfie_url ? (
+                  <View style={styles.docBox}>
+                    <Text style={styles.docLabel}>SELFIE WITH ID</Text>
+                    <Pressable onPress={() => Linking.openURL(K.selfie_url)}>
+                      <Image source={{ uri: K.selfie_url }} style={styles.docImg} resizeMode="contain" />
+                    </Pressable>
+                  </View>
+                ) : null}
+                {K.rejection_reason ? (
+                  <Text style={styles.rejectBox}>Rejection: {K.rejection_reason}</Text>
+                ) : null}
+              </>
+            ) : null}
+
+            <Text style={styles.sectionLabel}>PAYOUT ACCOUNT</Text>
+            <Row k="Bank" v={P.bank_name || '—'} styles={styles} />
+            <Row k="Account #" v={P.account_number || '—'} styles={styles} />
+            <Row k="Account name" v={P.account_name || '—'} styles={styles} />
+
+            {kycStatus !== 'approved' ? (
+              <Pressable onPress={() => router.push('/verification' as any)} style={styles.cta}>
+                <Text style={styles.ctaText}>COMPLETE VERIFICATION</Text>
+              </Pressable>
+            ) : null}
+          </>
+        ) : null}
+
         {/* ============ WALLET ============ */}
         {tab === 'wallet' ? (
           <>
@@ -224,9 +317,9 @@ export default function LoanDetail() {
             </View>
 
             <Text style={styles.sectionLabel}>PAYOUT ACCOUNT</Text>
-            <Row k="Bank" v={P.bank_name || '—'} styles={styles} />
+            <Row k="Bank" v={W.account_bank || W.bank_name || P.bank_name || '—'} styles={styles} />
             <Row k="Account #" v={P.account_number || '—'} styles={styles} />
-            <Row k="Account name" v={P.account_name || '—'} styles={styles} />
+            <Row k="Account name" v={W.account_name || P.account_name || '—'} styles={styles} />
 
             <Pressable onPress={() => router.push('/wallet' as any)} style={styles.ctaGhost}>
               <Text style={styles.ctaGhostText}>OPEN WALLET</Text>
@@ -251,7 +344,7 @@ export default function LoanDetail() {
           </>
         ) : null}
 
-        {/* ============ REPAY UI (always visible if repayable) ============ */}
+        {/* ============ REPAY UI ============ */}
         {(L.status === 'disbursed' || L.status === 'overdue') ? (
           <>
             <Text style={styles.sectionLabel}>MAKE A REPAYMENT</Text>
@@ -331,7 +424,7 @@ const createStyles = (p: any) => StyleSheet.create({
   rowK: { fontSize: 12, color: p.textMuted, flex: 1 },
   rowV: { fontSize: 13, color: p.text, fontWeight: '700', textAlign: 'right', flex: 1.4 },
   kvMuted: { fontSize: 12, color: p.textMuted, fontStyle: 'italic' },
-  rejectBox: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(255,59,92,0.1)', borderLeftWidth: 3, borderLeftColor: '#ff3b5c', fontSize: 12, color: p.text, lineHeight: 18 },
+  rejectBox: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(255,59,92,0.1)', borderLeftWidth: 3, borderLeftColor: '#ff3b5c', fontSize: 12, color: p.text, lineHeight: 18, marginTop: 8 },
   schedRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 6 },
   schedRowPaid: { borderColor: 'rgba(0,255,136,0.3)' },
   schedDot: { width: 10, height: 10, borderRadius: 5 },
@@ -341,6 +434,12 @@ const createStyles = (p: any) => StyleSheet.create({
   card2: { padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 6 },
   card2Title: { fontSize: 14, fontWeight: '800', color: p.text },
   card2Meta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
+  kycStatus: { padding: 16, borderRadius: 14, borderWidth: 2, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', marginBottom: 8 },
+  kycStatusText: { fontSize: 18, fontWeight: '900', letterSpacing: 2 },
+  kycStatusSub: { fontSize: 11, color: p.textMuted, marginTop: 6, textAlign: 'center' },
+  docBox: { marginTop: 12 },
+  docLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
+  docImg: { width: '100%', height: 200, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.2)' },
   walletHero: { padding: 20, borderRadius: 16, backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', alignItems: 'center', marginBottom: 12 },
   walletLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted },
   walletAmt: { fontSize: 32, fontWeight: '900', color: p.neon, letterSpacing: -1, marginTop: 6 },
