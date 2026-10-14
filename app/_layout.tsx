@@ -147,6 +147,9 @@ function RootNavigator() {
       <Stack.Screen name="loan-receipt" options={{ headerShown: false }} />
       <Stack.Screen name="admin-loans-mobile" options={{ headerShown: false }} />
       <Stack.Screen name="loan-detail" options={{ headerShown: false }} />
+      <Stack.Screen name="video-history-map" options={{ headerShown: false }} />
+      <Stack.Screen name="video-growth" options={{ headerShown: false }} />
+      <Stack.Screen name="video-session-report" options={{ headerShown: false }} />
     </Stack>
   );
 }
