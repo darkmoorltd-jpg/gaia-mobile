@@ -29,7 +29,7 @@ export default function LoanDetail() {
     setBusy(true);
     try {
       const [l, p, w] = await Promise.all([
-        supabase.from('loan_applications').select('*').eq('id', id).eq('user_id', user.id).maybeSingle(),
+        supabase.from('loan_applications').select('*').eq('id', Number(id)).eq('user_id', user.id).maybeSingle(),
         supabase.from('loan_repayments').select('*').eq('loan_id', id).order('paid_at', { ascending: false }),
         supabase.from('farmer_wallets').select('balance').eq('user_id', user.id).maybeSingle(),
       ]);
