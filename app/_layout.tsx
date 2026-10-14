@@ -139,9 +139,9 @@ function RootNavigator() {
       <Stack.Screen name="farm-mapping" />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />
-      <Stack.Screen name="aflatoxin" options={ headerShown: false } />
-      <Stack.Screen name="land-estimator" options={ headerShown: false } />
-      <Stack.Screen name="briefing" options={ headerShown: false } />
+      <Stack.Screen name="aflatoxin" options={{ headerShown: false }} />
+      <Stack.Screen name="land-estimator" options={{ headerShown: false }} />
+      <Stack.Screen name="briefing" options={{ headerShown: false }} />
     </Stack>
   );
 }
