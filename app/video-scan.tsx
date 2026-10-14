@@ -16,7 +16,6 @@ import { MarkdownOutput } from '../src/components/MarkdownOutput';
 import Sparkline from '../src/components/Sparkline';
 import { gridScan, countDistinctSubjects } from '../src/utils/scanGrid';
 import * as Location from 'expo-location';
-import { Vibration } from 'react-native';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const FRAME_INTERVAL_MS = 1500;
