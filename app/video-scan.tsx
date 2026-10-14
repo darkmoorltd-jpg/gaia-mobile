@@ -13,6 +13,10 @@ import { supabase } from '../src/api/supabase';
 import { diagnose } from '../src/api/models';
 import { getSession, runModel, softmax, imageUriToTensor } from '../src/utils/onDeviceModel';
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
+import Sparkline from '../src/components/Sparkline';
+import { gridScan, countDistinctSubjects } from '../src/utils/scanGrid';
+import * as Location from 'expo-location';
+import { Vibration } from 'react-native';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const FRAME_INTERVAL_MS = 1500;
@@ -65,6 +69,15 @@ export default function VideoScan() {
   const [showAdvice, setShowAdvice] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autoStopOnHealthy, setAutoStopOnHealthy] = useState(true);
+  const [gridMode, setGridMode] = useState(false);
+  const [quadResults, setQuadResults] = useState<any[]>([]);
+  const [growthSiteId, setGrowthSiteId] = useState<string | null>(null);
+  const [growthSiteLabel, setGrowthSiteLabel] = useState('');
+  const [gps, setGps] = useState<{ lat: number; lon: number } | null>(null);
+  const [nearby, setNearby] = useState<any[]>([]);
+  const [previousLabel, setPreviousLabel] = useState<string | null>(null);
+  const [changeAlarm, setChangeAlarm] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
   const stopFlag = useRef(false);
@@ -88,13 +101,29 @@ export default function VideoScan() {
     }
     setScanning(true);
     setFrames([]);
+    setQuadResults([]);
     setConsensus(null);
     setAdvice(null);
+    setNearby([]);
+    setChangeAlarm(false);
     setError('');
     setCountdown(3);
     stopFlag.current = false;
     healthyStreak.current = 0;
     sessionStart.current = Date.now();
+
+    // capture GPS silently
+    (async () => {
+      try {
+        setGpsLoading(true);
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setGps({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+        }
+      } catch {}
+      setGpsLoading(false);
+    })();
 
     // 3-2-1 countdown
     for (let n = 3; n > 0; n--) {
@@ -116,6 +145,27 @@ export default function VideoScan() {
       const photo = await cameraRef.current?.takePictureAsync({ quality: 0.5 });
       if (photo?.uri) {
         let result: any = null;
+
+        // GRID MODE — 5-region scan
+        if (gridMode) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const tok = session?.access_token;
+            const quads = await gridScan(
+              photo.uri, crop.key, LABELS_BY_KEY[crop.key] || [], crop.onDeviceKey, 224, tok,
+            );
+            if (quads.length > 0) {
+              setQuadResults(quads);
+              // majority vote
+              const counts: Record<string, number> = {};
+              quads.forEach((q) => { counts[q.label] = (counts[q.label] || 0) + 1; });
+              const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+              const winnerQuads = quads.filter((q) => q.label === top[0]);
+              const avgConf = winnerQuads.reduce((s, q) => s + q.confidence, 0) / winnerQuads.length;
+              result = { top: { label: top[0], confidence: avgConf }, source: 'grid' };
+            }
+          } catch (e) { /* fall through */ }
+        }
 
         // 1. Try on-device first
         if (crop.onDeviceKey) {
@@ -216,10 +266,31 @@ export default function VideoScan() {
 
     setConsensus(winner);
 
+    // Change alarm — detect sudden flip
+    if (previousLabel && previousLabel !== winnerLabel) {
+      const wasHealthy = previousLabel.toLowerCase().includes('healthy');
+      const nowHealthy = winnerLabel.toLowerCase().includes('healthy');
+      const nowDiseased = !nowHealthy;
+      const severitySpike = severity > 40;
+      if ((wasHealthy && nowDiseased) || severitySpike) {
+        setChangeAlarm(true);
+        try { Vibration.vibrate([100, 100, 100, 100, 100]); } catch {}
+        try {
+          Speech.speak(
+            `Alert. Change detected. Now ${winnerLabel}. Severity ${severity} percent.`,
+            { language: detectLanguage(winnerLabel), rate: 0.95 },
+          );
+        } catch {}
+      }
+    }
+    setPreviousLabel(winnerLabel);
+
     // Save session
     try {
       const { data: { user: me } } = await supabase.auth.getUser();
       if (me) {
+        const distinct = countDistinctSubjects(snapshot.map((f) => f.conf));
+        const infected = snapshot.filter((f) => !f.label.toLowerCase().includes('healthy')).length;
         const { data: sess } = await supabase.from('scan_sessions').insert({
           user_id: me.id,
           crop: crop.key,
@@ -231,6 +302,15 @@ export default function VideoScan() {
           vote_total: winner.voteTotal,
           severity_pct: severity,
           duration_sec: Math.round((Date.now() - sessionStart.current) / 1000),
+          grid_mode: gridMode,
+          quad_results: quadResults,
+          plants_count: distinct,
+          infected_count: infected,
+          gps_lat: gps?.lat ?? null,
+          gps_lon: gps?.lon ?? null,
+          growth_site_id: growthSiteId,
+          location_label: growthSiteLabel || null,
+          previous_label: previousLabel,
         }).select('id').single();
         if (sess?.id) setSessionId(sess.id);
       }
@@ -246,6 +326,20 @@ export default function VideoScan() {
 
     // Deduct 1 scan for the whole session
     try { await refreshScans(); } catch {}
+
+    // Outbreak check — same pest nearby?
+    if (gps && !winnerLabel.toLowerCase().includes('healthy')) {
+      try {
+        const { data } = await supabase.rpc('nearby_outbreaks', {
+          p_crop: crop.key,
+          p_label: winnerLabel,
+          p_lat: gps.lat,
+          p_lon: gps.lon,
+          p_km: 20,
+        });
+        if (Array.isArray(data)) setNearby(data);
+      } catch {}
+    }
 
     // Fetch advice via Groq
     setAdviceBusy(true);
@@ -342,6 +436,12 @@ export default function VideoScan() {
           <Pressable onPress={() => setVoiceOn((v) => !v)} style={[styles.iconBtn, voiceOn && styles.iconBtnOn]}>
             <Text style={styles.iconText}>{voiceOn ? '🔊' : '🔇'}</Text>
           </Pressable>
+          <Pressable
+            onPress={() => setGridMode((v) => !v)}
+            style={[styles.iconBtn, gridMode && styles.iconBtnOn]}
+          >
+            <Text style={styles.iconText}>⊞</Text>
+          </Pressable>
           <Pressable onPress={() => setSettingsOpen(true)} style={styles.iconBtn}>
             <Text style={styles.iconText}>⚙</Text>
           </Pressable>
@@ -368,6 +468,20 @@ export default function VideoScan() {
           </View>
         ) : null}
 
+        {/* Change alarm banner */}
+        {changeAlarm ? (
+          <View style={styles.alarmBanner}>
+            <Text style={styles.alarmIcon}>⚠</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.alarmTitle}>CHANGE DETECTED</Text>
+              <Text style={styles.alarmBody}>
+                Field status shifted from {previousLabel || 'healthy'} to {consensus?.label}.
+                Inspect immediately.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* Consensus result */}
         {consensus ? (
           <View style={[styles.consensusCard, { borderColor: consensus.label.toLowerCase().includes('healthy') ? palette.neon : palette.warning }]}>
@@ -391,6 +505,48 @@ export default function VideoScan() {
                 <Text style={styles.consensusKey}>SEVERITY</Text>
               </View>
             </View>
+
+            {/* Sparkline */}
+            <View style={styles.sparkWrap}>
+              <Sparkline
+                values={frames.map((f) => f.conf)}
+                width={280}
+                height={50}
+                color={consensus.label.toLowerCase().includes('healthy') ? palette.neon : palette.warning}
+                label="CONFIDENCE OVER TIME"
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {/* Quadrant results */}
+        {quadResults.length > 0 ? (
+          <View style={styles.quadCard}>
+            <Text style={styles.quadTitle}>QUADRANT SCAN</Text>
+            <View style={styles.quadGrid}>
+              {quadResults.map((q: any, i: number) => (
+                <View key={i} style={styles.quadCell}>
+                  <Text style={styles.quadCorner}>{q.quadrant}</Text>
+                  <Text style={styles.quadLabel} numberOfLines={1}>{q.label}</Text>
+                  <Text style={styles.quadConf}>{Number(q.confidence || 0).toFixed(0)}%</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Nearby outbreaks */}
+        {nearby.length > 0 ? (
+          <View style={styles.outbreakBox}>
+            <Text style={styles.outbreakTitle}>🔔 NEARBY OUTBREAK ALERT</Text>
+            <Text style={styles.outbreakBody}>
+              {nearby.length} similar {crop.label} case{nearby.length === 1 ? '' : 's'} reported within 20 km in the last 30 days.
+            </Text>
+            {nearby.slice(0, 3).map((n: any, i: number) => (
+              <Text key={i} style={styles.outbreakRow}>
+                • {n.km} km away · {new Date(n.at).toLocaleDateString()}
+              </Text>
+            ))}
           </View>
         ) : null}
 
