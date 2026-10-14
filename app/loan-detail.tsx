@@ -181,6 +181,10 @@ export default function LoanDetail() {
         ) : null}
 
         <View style={{ height: 100 }} />
+
+        <Pressable onPress={() => router.push(('/loan-receipt?id=' + loan.id) as any)} style={styles.cta}>
+          <Text style={styles.ctaText}>VIEW STATEMENT</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );

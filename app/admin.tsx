@@ -42,6 +42,7 @@ export default function Admin() {
       { label: 'Payments', route: '/admin-payments' },
       { label: 'Wallets', route: '/admin-wallets' },
       { label: 'Loans', route: '/admin-loans' },
+      { label: 'Loan Approvals', route: '/admin-loans-mobile' },
       { label: 'Withdrawals & Disputes', route: '/admin-ops' },
     ]},
     { title: 'Content', items: [
