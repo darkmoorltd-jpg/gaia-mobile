@@ -62,6 +62,7 @@ const SECTIONS: Section[] = [
     { label: 'Satellite Monitor', route: '/satellite' },
   ]},
   { title: 'MONEY & BUSINESS', icon: '$$', items: [
+    { label: 'Loans', route: '/loans' },
     { label: 'Wallet', route: '/wallet' },
     { label: 'Payment History', route: '/payment-history' },
     { label: 'Savings Groups', route: '/savings-groups' },
