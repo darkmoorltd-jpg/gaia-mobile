@@ -226,7 +226,7 @@ export default function LoanApply() {
               </View>
               <View style={[styles.breakRow, styles.breakTotal]}>
                 <Text style={styles.breakK}>Total to repay</Text>
-                <Text style={[styles.breakV, { color: p.neon, fontWeight: '900' }]}>{money(total)}</Text>
+                <Text style={[styles.breakV, { color: palette.neon, fontWeight: '900' }]}>{money(total)}</Text>
               </View>
               <View style={styles.breakRow}>
                 <Text style={styles.breakK}>Monthly</Text>
@@ -235,8 +235,8 @@ export default function LoanApply() {
             </View>
 
             <View style={styles.btnRow}>
-              <Pressable onPress={() => setStep(1)} style={[styles.cta, { flex: 1, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border }]}>
-                <Text style={[styles.ctaText, { color: p.text }]}>BACK</Text>
+              <Pressable onPress={() => setStep(1)} style={[styles.cta, { flex: 1, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border }]}>
+                <Text style={[styles.ctaText, { color: palette.text }]}>BACK</Text>
               </Pressable>
               <Pressable onPress={() => setStep(3)} style={[styles.cta, { flex: 2 }]}>
                 <Text style={styles.ctaText}>REVIEW</Text>
@@ -261,8 +261,8 @@ export default function LoanApply() {
               {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SUBMIT APPLICATION</Text>}
             </Pressable>
 
-            <Pressable onPress={() => setStep(2)} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1, borderColor: p.border, marginTop: 10 }]}>
-              <Text style={[styles.ctaText, { color: p.text }]}>EDIT</Text>
+            <Pressable onPress={() => setStep(2)} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.border, marginTop: 10 }]}>
+              <Text style={[styles.ctaText, { color: palette.text }]}>EDIT</Text>
             </Pressable>
           </>
         )}
