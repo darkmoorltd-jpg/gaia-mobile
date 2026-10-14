@@ -20,18 +20,25 @@ export default function Loans() {
   const [active, setActive] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
+  const [kycApproved, setKycApproved] = useState(false);
+  const [kycStatus, setKycStatus] = useState<string>('pending');
   const [ref, setRef] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     setBusy(true);
     try {
-      const [e, a, h] = await Promise.all([
+      const [e, a, h, p] = await Promise.all([
         supabase.rpc('loan_eligibility'),
         supabase.rpc('loan_my_active'),
         supabase.rpc('loan_my_history'),
+        supabase.from('user_profiles').select('verification_status').eq('user_id', user.id).maybeSingle(),
       ]);
       if (!e.error) setElig(e.data);
+      if (p.data) {
+        setKycStatus(p.data.verification_status || 'pending');
+        setKycApproved(p.data.verification_status === 'approved');
+      }
       if (!a.error) setActive(Object.keys(a.data || {}).length ? a.data : null);
       if (!h.error) setHistory(h.data || []);
     } catch {}
@@ -129,6 +136,23 @@ export default function Loans() {
                 </View>
                 <Text style={styles.activeDue}>Due {new Date(active.due_date).toLocaleDateString()}</Text>
               </Pressable>
+            ) : !kycApproved ? (
+              <View style={styles.lockedCard}>
+                <Text style={styles.lockedTitle}>VERIFICATION REQUIRED</Text>
+                <Text style={styles.lockedBody}>
+                  Before applying for a loan, you must be a verified GAIA account.
+                  Complete your KYC: full name, phone, BVN, NIN, ID photo, and selfie.
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/verification' as any)}
+                  style={styles.lockedBtn}
+                >
+                  <Text style={styles.lockedBtnText}>START VERIFICATION</Text>
+                </Pressable>
+                <Text style={{ fontSize: 11, color: '#8899a6', marginTop: 10, textAlign: 'center' }}>
+                  Current status: {kycStatus.toUpperCase()}
+                </Text>
+              </View>
             ) : elig.max_amount > 0 ? (
               <Pressable onPress={() => router.push('/loans-apply' as any)} style={styles.applyBtn}>
                 <Text style={styles.applyText}>APPLY FOR LOAN</Text>

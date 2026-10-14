@@ -49,12 +49,20 @@ export default function LoanApply() {
     (async () => {
       const [e, p] = await Promise.all([
         supabase.rpc('loan_eligibility'),
-        supabase.from('user_profiles').select('farm_lga,farm_state,primary_crops').eq('user_id', user?.id).maybeSingle(),
+        supabase.from('user_profiles').select('farm_lga,farm_state,primary_crops,verification_status').eq('user_id', user?.id).maybeSingle(),
       ]);
       if (!e.error) setElig(e.data);
       if (p.data) {
         setLocation([p.data.farm_lga, p.data.farm_state].filter(Boolean).join(', '));
         setCrop(p.data.primary_crops || '');
+        if (p.data.verification_status !== 'approved') {
+          Alert.alert(
+            'Verification required',
+            'You must be a verified GAIA account before applying for a loan. Complete KYC first.',
+            [{ text: 'Go to Verification', onPress: () => router.replace('/verification' as any) },
+             { text: 'Cancel', style: 'cancel', onPress: () => router.back() }]
+          );
+        }
       }
       setLoading(false);
     })();
