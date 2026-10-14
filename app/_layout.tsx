@@ -142,6 +142,9 @@ function RootNavigator() {
       <Stack.Screen name="aflatoxin" options={{ headerShown: false }} />
       <Stack.Screen name="land-estimator" options={{ headerShown: false }} />
       <Stack.Screen name="briefing" options={{ headerShown: false }} />
+      <Stack.Screen name="loans" options={{ headerShown: false }} />
+      <Stack.Screen name="loans-apply" options={{ headerShown: false }} />
+      <Stack.Screen name="loan-detail" options={{ headerShown: false }} />
     </Stack>
   );
 }
