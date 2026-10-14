@@ -1,9 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
 
 interface Props {
-  values: number[];      // 0-100 confidence values
+  values: number[];
   width?: number;
   height?: number;
   color?: string;
@@ -12,50 +11,45 @@ interface Props {
 
 export default function Sparkline({
   values,
-  width = 220,
-  height = 44,
+  width = 280,
+  height = 50,
   color = '#00ff88',
   label,
 }: Props) {
   if (!values || values.length === 0) {
-    return (
-      <View style={[styles.wrap, { width, height }]}>
-        <Text style={styles.empty}>No data</Text>
-      </View>
-    );
+    return <View style={{ width, height }} />;
   }
-
-  const min = 0;
-  const max = 100;
-  const n = values.length;
-  const padX = 4;
-  const padY = 4;
-  const innerW = width - padX * 2;
-  const innerH = height - padY * 2;
-
-  const pts = values.map((v, i) => {
-    const x = padX + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
-    const y = padY + innerH - ((v - min) / (max - min)) * innerH;
-    return { x, y, v };
-  });
-
-  const pathD = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = Math.max(max - min, 1);
+  const barW = Math.max(2, Math.floor(width / values.length) - 2);
 
   return (
     <View style={{ width }}>
-      {label ? <Text style={[styles.label, { color }]}>{label}</Text> : null}
-      <Svg width={width} height={height}>
-        <Path d={pathD} stroke={color} strokeWidth={2} fill="none" />
-        {pts.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={2} fill={color} />
-        ))}
-      </Svg>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <View style={[styles.row, { width, height }]}>
+        {values.map((v, i) => {
+          const h = Math.max(3, ((v - min) / range) * height);
+          return (
+            <View
+              key={i}
+              style={{
+                width: barW,
+                height: h,
+                backgroundColor: color,
+                marginRight: 2,
+                borderRadius: 2,
+                alignSelf: 'flex-end',
+              }}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center' },
-  empty: { fontSize: 10, color: '#8899a6' },
-  label: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginBottom: 4 },
+  label: { fontSize: 9, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 4 },
+  row: { flexDirection: 'row', alignItems: 'flex-end' },
 });
