@@ -137,6 +137,7 @@ function RootNavigator() {
       <Stack.Screen name="agent" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />
+      <Stack.Screen name="video-scan" options={{ headerShown: false }} />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />
       <Stack.Screen name="aflatoxin" options={{ headerShown: false }} />
