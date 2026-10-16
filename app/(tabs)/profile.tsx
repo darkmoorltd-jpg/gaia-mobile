@@ -1,7 +1,7 @@
 import {  useCallback, useState, useRef } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
-  ActivityIndicator, TextInput, Modal,, Animated } from 'react-native';
+  ActivityIndicator, TextInput, Modal, Animated } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
