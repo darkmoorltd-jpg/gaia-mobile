@@ -12,6 +12,8 @@ import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
 import { walletMe } from '../../src/utils/wallet';
+import WeatherWidget from '../../src/components/WeatherWidget';
+import StreakWidget from '../../src/components/StreakWidget';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
@@ -50,6 +52,8 @@ const SECTIONS = [
 // Top-level blocks the user can hide/reorder
 const BLOCKS = [
   { id: 'header',       label: 'Header (greeting + scans)' },
+  { id: 'weather',      label: 'Weather (live)' },
+  { id: 'streak',       label: 'Streak counter' },
   { id: 'plan',         label: 'Plan card' },
   { id: 'wallet',       label: 'Wallet card' },
   { id: 'season',       label: 'Season hero' },
@@ -336,6 +340,20 @@ export default function Home() {
               <Text style={styles.scanNum}>{scansRemaining}</Text>
               <Text style={styles.scanLbl}>SCANS</Text>
             </LinearGradient>
+          </Animated.View>
+        );
+
+      case 'weather':
+        return (
+          <Animated.View entering={FadeInDown.delay(40).duration(500)}>
+            <WeatherWidget />
+          </Animated.View>
+        );
+
+      case 'streak':
+        return (
+          <Animated.View entering={FadeInDown.delay(60).duration(500)}>
+            <StreakWidget />
           </Animated.View>
         );
 
