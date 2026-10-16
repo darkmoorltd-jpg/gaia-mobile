@@ -11,6 +11,7 @@ import { useAuth } from '../../src/store/auth';
 import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
 import StreakWidget from '../../src/components/StreakWidget';
+import RadialFAB from '../../src/components/RadialFAB';
 
 const { width } = Dimensions.get('window');
 const TILE_W = (width - 52) / 2;
@@ -300,6 +301,8 @@ export default function Home() {
 
         <View style={styles.spacer} />
       </ScrollView>
+    
+      <RadialFAB />
     </View>
   );
 }

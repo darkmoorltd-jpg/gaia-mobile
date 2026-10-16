@@ -1,8 +1,7 @@
-import { useCallback, useState } from 'react';
-import {
+import {  useCallback, useState, useRef } from 'react';
+import { 
   View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
-  ActivityIndicator, TextInput, Modal,
-} from 'react-native';
+  ActivityIndicator, TextInput, Modal,, Animated } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -11,6 +10,7 @@ import { useAuth } from '../../src/store/auth';
 import { useSettings } from '../../src/store/settings';
 import { flagAllows } from '../../src/components/FeatureGate';
 import { supabase } from '../../src/api/supabase';
+import ParallaxHeader from '../../src/components/ParallaxHeader';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
@@ -89,6 +89,8 @@ const SECTIONS: Section[] = [
 ];
 
 export default function Profile() {
+export default function Profile() {
+  const scrollY = useRef(new Animated.Value(0)).current;
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
@@ -370,7 +372,13 @@ export default function Profile() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })} scrollEventThrottle={16}>
+        <ParallaxHeader
+          imageUri="https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+          title="My Profile"
+          subtitle="Your GAIA account"
+          scrollY={scrollY}
+        />
         {/* Hero */}
         <View style={styles.hero}>
           <Pressable onPress={onAvatarTap} style={styles.avatarWrap}>

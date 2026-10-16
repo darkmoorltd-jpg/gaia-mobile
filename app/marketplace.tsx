@@ -7,6 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import {
+import { SkeletonList } from '../src/components/Skeleton';
   fetchListings, isVerifiedSeller, CATEGORIES, naira, Listing,
 } from '../src/utils/marketplace';
 
