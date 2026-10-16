@@ -206,7 +206,8 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
 
     return (
       <View style={styles.root}>
-      <ConfettiBurst fire={confettiFire} origin="top" />ce={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.18 }}>
+        <ImageBackground source={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.18 }}>
+          <ConfettiBurst fire={confettiFire} origin="top" />
           <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)'] as any} style={styles.overlay}>
             <ScrollView contentContainerStyle={styles.scroll}>
               <Pressable onPress={() => setResult(null)}>
