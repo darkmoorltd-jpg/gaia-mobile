@@ -89,7 +89,6 @@ const SECTIONS: Section[] = [
 ];
 
 export default function Profile() {
-export default function Profile() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const router = useRouter();
   const { palette } = useTheme();
