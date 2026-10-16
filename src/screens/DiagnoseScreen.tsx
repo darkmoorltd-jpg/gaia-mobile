@@ -11,6 +11,8 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
+import ConfettiBurst from '../components/ConfettiBurst';
+import { success as hapticSuccess, warn as hapticWarn, error as hapticError, tap as hapticTap } from '../utils/haptics';
 import { MarkdownOutput } from '../components/MarkdownOutput';
 import AskGaiaPanel from '../components/AskGaiaPanel';
 
@@ -89,6 +91,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
+  const [confettiFire, setConfettiFire] = React.useState(false);
   const [error, setError] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
@@ -173,9 +176,17 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       }
 
       setResult(res);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const healthy = (res?.top?.label || '').toLowerCase().includes('healthy');
+      if (healthy) {
+        hapticSuccess();
+        setConfettiFire(false);
+        setTimeout(() => setConfettiFire(true), 30);
+      } else {
+        hapticWarn();
+      }
       await refreshScans();
     } catch (e: any) {
+      hapticError();
       if (e instanceof DiagnosisError) {
         if (e.status === 402) setError('No scans left. Please buy more.');
         else setError(e.message);
@@ -195,7 +206,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
 
     return (
       <View style={styles.root}>
-        <ImageBackground source={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.18 }}>
+      <ConfettiBurst fire={confettiFire} origin="top" />ce={{ uri: backdrop }} style={styles.bg} imageStyle={{ opacity: 0.18 }}>
           <LinearGradient colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)'] as any} style={styles.overlay}>
             <ScrollView contentContainerStyle={styles.scroll}>
               <Pressable onPress={() => setResult(null)}>
