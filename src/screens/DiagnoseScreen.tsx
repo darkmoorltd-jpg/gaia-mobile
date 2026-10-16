@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
 import ConfettiBurst from '../components/ConfettiBurst';
+import { playSound, primeSounds } from '../utils/sounds';
 import { success as hapticSuccess, warn as hapticWarn, error as hapticError, tap as hapticTap } from '../utils/haptics';
 import { MarkdownOutput } from '../components/MarkdownOutput';
 import AskGaiaPanel from '../components/AskGaiaPanel';
@@ -92,6 +93,8 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [confettiFire, setConfettiFire] = React.useState(false);
+  React.useEffect(() => { primeSounds(); }, []);
+
   const [error, setError] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
@@ -179,10 +182,12 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const healthy = (res?.top?.label || '').toLowerCase().includes('healthy');
       if (healthy) {
         hapticSuccess();
+        playSound('success');
         setConfettiFire(false);
         setTimeout(() => setConfettiFire(true), 30);
       } else {
         hapticWarn();
+        playSound('error');
       }
       await refreshScans();
     } catch (e: any) {

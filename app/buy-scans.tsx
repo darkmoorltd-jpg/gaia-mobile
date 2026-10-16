@@ -10,6 +10,8 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { fetchPlans, verifyPurchase, newRef, type Plan } from '../src/utils/purchases';
+import PaymentCelebration from '../src/components/PaymentCelebration';
+import { playSound, primeSounds } from '../src/utils/sounds';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const num = (n: any) => Number(n || 0).toLocaleString('en-NG');
@@ -24,6 +26,9 @@ export default function BuyScans() {
   const refreshScans = useAuth((s: any) => s.refreshScans);
 
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [celebration, setCelebration] = React.useState<{ amount: number; scans: number; plan: string } | null>(null);
+  const [pendingSuccess, setPendingSuccess] = React.useState<any>(null);
+  React.useEffect(() => { primeSounds(); }, []);
   const [busy, setBusy] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [selected, setSelected] = useState<Plan | null>(null);
@@ -104,7 +109,9 @@ export default function BuyScans() {
           const res = await verifyPurchase(d.reference, selected.key);
           await refreshScans();
           await loadHistory();
-          setSuccess({ ...res, plan_name: selected.name });
+          playSound('cash');
+          setCelebration({ amount: (res as any).amount || 0, scans: (res as any).scans_added || 0, plan: selected.name });
+          setPendingSuccess({ ...res, plan_name: selected.name });
           setSelected(null);
           setPayRef(null);
         } catch (e: any) {
@@ -123,7 +130,9 @@ export default function BuyScans() {
       const res = await verifyPurchase(manualRef.trim(), manualPlan);
       await refreshScans();
       await loadHistory();
-      setSuccess({ ...res, plan_name: manualPlan.toUpperCase() });
+      playSound('cash');
+      setCelebration({ amount: (res as any).amount || 0, scans: (res as any).scans_added || 0, plan: manualPlan.toUpperCase() });
+      setPendingSuccess({ ...res, plan_name: manualPlan.toUpperCase() });
       setShowManual(false);
       setManualRef('');
     } catch (e: any) {
@@ -313,6 +322,19 @@ export default function BuyScans() {
           </View>
         </View>
       </Modal>
+      <PaymentCelebration
+        visible={!!celebration}
+        amount={celebration?.amount || 0}
+        scansAdded={celebration?.scans}
+        planName={celebration?.plan}
+        onDone={() => {
+          setCelebration(null);
+          if (pendingSuccess) {
+            setSuccess(pendingSuccess);
+            setPendingSuccess(null);
+          }
+        }}
+      />
     </View>
   );
 }

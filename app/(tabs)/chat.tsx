@@ -9,6 +9,7 @@ import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
 import { useChatStore } from '../../src/store/chat';
 import { blockUser, hideConversation, listBlockedIds, listHiddenIds } from '../../src/utils/friends';
+import { SkeletonList } from '../../src/components/Skeleton';
 
 interface Row {
   room_id: string;
@@ -487,7 +488,7 @@ const load = useCallback(async () => {
       </View>
 
       {busy && rows.length === 0 ? (
-        <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>
+        <SkeletonList count={6} variant="row" />
       ) : (
         <FlatList
           ref={listRef}
