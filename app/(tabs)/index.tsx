@@ -1,425 +1,360 @@
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ImageBackground,
-  Dimensions,
+  View, Text, StyleSheet, ScrollView, Pressable, Alert,
+  RefreshControl, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useTheme, spacing } from '../../src/theme';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useTheme, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
-import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
 import StreakWidget from '../../src/components/StreakWidget';
 import RadialFAB from '../../src/components/RadialFAB';
+import DashboardWidget from '../../src/components/DashboardWidget';
+import WidgetLibraryModal from '../../src/components/WidgetLibraryModal';
+import { loadLayout, saveLayout, defaultLayout, Widget, WIDGET_REGISTRY } from '../../src/utils/dashboardLayout';
+import { tap as hapticTap } from '../../src/utils/haptics';
 
-const { width } = Dimensions.get('window');
-const TILE_W = (width - 52) / 2;
-
-const DIAGNOSE = [
-  { key: 'crops',     title: 'Crops',     sub: '60+ diseases',     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/(tabs)/crops' },
-  { key: 'pests',     title: 'Pests',     sub: '102 species',      img: 'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800', route: '/(tabs)/pests' },
-  { key: 'soil',      title: 'Soil',      sub: '11 types',         img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/(tabs)/soil' },
-  { key: 'livestock', title: 'Livestock', sub: 'Cattle + Poultry', img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock' },
-];
-
-const MY_FARM = [
-  { key: 'seller',    title: 'Seller',           sub: 'Your listings & sales',    img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store' },
-  { key: 'mapping',   title: 'Farm Mapping',     sub: 'Walk your farm boundary',  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
-  { key: 'journal',   title: 'Farm Journal',     sub: 'Daily notes & records',    img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
-  { key: 'calendar',  title: 'Farming Calendar', sub: 'Season plan by crop',      img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar' },
-];
-
-const AI_TOOLS = [
-  { key: 'agro',      title: 'Agro Tools',       sub: 'Yield, profit, fertilizer', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
-  { key: 'satellite', title: 'Satellite',        sub: 'Monitor from space',       img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite' },
-];
-
-const MARKET = [
-  { key: 'marketplace', title: 'Marketplace',    sub: 'Buy and sell produce',     img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace' },
-  { key: 'buy-scans',   title: 'Buy Scans',      sub: 'Top up your balance',      img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
-];
-
-export default function Home() {
+export default function Dashboard() {
   const router = useRouter();
-  const palette = useTheme((s) => s.palette);
-  const scansRemaining = useAuth((s) => s.scansRemaining);
-  const plan = useAuth((s) => s.plan);
-  const user = useAuth((s) => s.user);
-  const refreshScans = useAuth((s) => s.refreshScans);
-  const [badgeTier, setBadgeTier] = useState<string | null>(null);
+  const { palette } = useTheme();
   const styles = createStyles(palette);
-  const isAdmin = user?.email?.toLowerCase() === 'darkmoorltd@gmail.com';
-  const [gaiaAcct, setGaiaAcct] = useState<string | null>(null);
-  const [gaiaBal, setGaiaBal] = useState<number>(0);
+  const user = useAuth((s: any) => s.user);
+  const scansRemaining = useAuth((s: any) => s.scansRemaining);
+  const plan = useAuth((s: any) => s.plan);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const r = await walletMe();
-      if (cancelled || !r) return;
-      setGaiaAcct(r.wallet.account_number);
-      setGaiaBal(r.wallet.balance);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const [layout, setLayout] = useState<Widget[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [busy, setBusy] = useState(true);
+  const [ref, setRef] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!cancelled) {
-        try { await refreshScans(); } catch (e) {}
-        try {
-          const { supabase } = await import('../../src/api/supabase');
-          const r = await supabase.rpc('badge_current');
-          if (!cancelled && r.data && r.data.tier) setBadgeTier(r.data.tier);
-        } catch (e) {}
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const reload = useCallback(async () => {
+    const l = await loadLayout(user?.id);
+    setLayout(l);
+    setBusy(false);
+    setRef(false);
+  }, [user?.id]);
 
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const firstName = user?.email?.split('@')[0] || 'farmer';
+  useEffect(() => { reload(); }, [reload]);
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
 
-  const Tile = ({ item, delay }: any) => (
-    <Animated.View entering={FadeInDown.delay(delay).duration(500)} style={styles.tileOuter}>
-      <Pressable onPress={() => router.push(item.route as any)} style={styles.tilePress}>
-        <ImageBackground source={{ uri: item.img }} style={styles.tile} imageStyle={styles.tileImage}>
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.88)']} style={styles.tileOverlay}>
-            <Text style={styles.tileTitle}>{item.title}</Text>
-            <Text style={styles.tileSub}>{item.sub}</Text>
-          </LinearGradient>
-        </ImageBackground>
-      </Pressable>
-    </Animated.View>
-  );
+  const persist = (next: Widget[]) => {
+    setLayout(next);
+    saveLayout(user?.id, next).catch(() => {});
+  };
+
+  const move = (id: string, dir: -1 | 1) => {
+    hapticTap();
+    const enabled = layout.filter((w) => w.enabled);
+    const disabled = layout.filter((w) => !w.enabled);
+    const idx = enabled.findIndex((w) => w.id === id);
+    if (idx < 0) return;
+    const j = idx + dir;
+    if (j < 0 || j >= enabled.length) return;
+    const next = [...enabled];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    persist([...next, ...disabled]);
+  };
+
+  const toggle = (id: string, enabled: boolean) => {
+    persist(layout.map((w) => (w.id === id ? { ...w, enabled } : w)));
+  };
+
+  const reset = () => {
+    Alert.alert('Reset dashboard', 'Restore the default layout?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', style: 'destructive', onPress: () => persist(defaultLayout()) },
+    ]);
+  };
+
+  const enabled = layout.filter((w) => w.enabled);
+
+  const renderWidget = (w: Widget) => {
+    switch (w.id) {
+      case 'greeting':     return <Greeting />;
+      case 'weather':      return <WeatherWidget />;
+      case 'streak':       return <StreakWidget />;
+      case 'scans':        return <ScansCard scans={scansRemaining} plan={plan} />;
+      case 'quickActions': return <QuickActions onNav={(r) => router.push(r as any)} palette={palette} />;
+      case 'tips':         return <FarmingTip palette={palette} />;
+      case 'marketplace':  return <FeatureCard
+        icon={'\uD83D\uDED2'} title="Marketplace"
+        body="Buy and sell farm produce. Fresh listings from farmers near you."
+        cta="Open marketplace"
+        accent={palette.warning}
+        onPress={() => router.push('/marketplace' as any)} palette={palette} />;
+      case 'voice':        return <FeatureCard
+        icon={'\uD83C\uDF99\uFE0F'} title="Voice Agronomist"
+        body="Ask GAIA anything about your crops — in English, Hausa, Yoruba, Igbo or Pidgin."
+        cta="Talk to GAIA"
+        accent={'#00bcd4'}
+        onPress={() => router.push('/(tabs)/voice' as any)} palette={palette} />;
+      case 'satellite':    return <FeatureCard
+        icon={'\uD83D\uDEF0\uFE0F'} title="Satellite Monitor"
+        body="See how healthy your fields look from space. Track NDVI over time."
+        cta="Check my fields"
+        accent={'#7c4dff'}
+        onPress={() => router.push('/(tabs)/satellite' as any)} palette={palette} />;
+      case 'help':         return <FeatureCard
+        icon={'\uD83C\uDD98'} title="Help & Support"
+        body="Questions? Open a ticket and the GAIA team will reply within 24 hours."
+        cta="Open support"
+        accent={'#ff3b5c'}
+        onPress={() => router.push('/(tabs)/help' as any)} palette={palette} />;
+      default: return null;
+    }
+  };
+
+  if (busy) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator color={palette.neon} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <WeatherWidget />
-      <StreakWidget />
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
-          <View style={styles.flex1}>
-            <Text style={styles.greeting}>{greeting},</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Text style={styles.name} numberOfLines={1}>{firstName}</Text>
-              {badgeTier ? (
-                <View style={{
-                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-                  backgroundColor: badgeTier === 'platinum' ? '#e5e4e2'
-                    : badgeTier === 'gold' ? '#ffd700'
-                    : badgeTier === 'silver' ? '#b0bec5'
-                    : '#c68a5c',
-                }}>
-                  <Text style={{ fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
-                    {String(badgeTier).toUpperCase()}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); reload(); }} tintColor={palette.neon} />}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>DASHBOARD</Text>
+            <Text style={styles.title}>GAIA</Text>
           </View>
-          <LinearGradient colors={[palette.neon, palette.neonDim]} style={styles.scanBadge}>
-            <Text style={styles.scanNum}>{scansRemaining}</Text>
-            <Text style={styles.scanLbl}>SCANS</Text>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* Plan card */}
-        <Animated.View entering={FadeInDown.delay(80).duration(500)}>
-          <LinearGradient colors={[palette.neonSoft, palette.surface]} style={styles.planCard}>
-            <View style={styles.flex1}>
-              <Text style={styles.planLabel}>PLAN</Text>
-              <Text style={styles.planValue}>{plan.toUpperCase()}</Text>
-            </View>
-            <Pressable onPress={() => router.push('/buy-scans' as any)} style={styles.planBtn}>
-              <Text style={styles.planBtnText}>UPGRADE</Text>
-            </Pressable>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* GAIA Account Card */}
-        {gaiaAcct ? (
-          <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-            <LinearGradient
-              colors={['#0d1410', '#0a1a10', '#0d1410']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{ marginTop: 16, padding: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', flexDirection: 'row', alignItems: 'center' }}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {editing ? (
+              <>
+                <Pressable onPress={() => { hapticTap(); setShowPicker(true); }} style={styles.headerBtn}>
+                  <Text style={styles.headerBtnText}>+ ADD</Text>
+                </Pressable>
+                <Pressable onPress={reset} style={styles.headerBtn}>
+                  <Text style={styles.headerBtnText}>{'\u21BA'}</Text>
+                </Pressable>
+              </>
+            ) : null}
+            <Pressable
+              onPress={() => { hapticTap(); setEditing((e) => !e); }}
+              style={[styles.headerBtn, editing && styles.headerBtnActive]}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 10, fontWeight: '900', letterSpacing: 2, color: 'rgba(0,255,136,0.8)' }}>MY GAIA ACCOUNT</Text>
-                <Text style={{ fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: 2, marginTop: 6 }}>{gaiaAcct}</Text>
-                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>Balance N{Number(gaiaBal).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-              </View>
-              <Pressable onPress={() => router.push('/wallet' as any)} style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#00ff88' }}>
-                <Text style={{ fontSize: 10, fontWeight: '900', color: '#000', letterSpacing: 1.2 }}>WALLET</Text>
-              </Pressable>
-            </LinearGradient>
-          </Animated.View>
+              <Text style={[styles.headerBtnText, editing && { color: '#000' }]}>
+                {editing ? 'DONE' : 'EDIT'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {editing ? (
+          <View style={styles.editHint}>
+            <Text style={styles.editHintText}>
+              Use { '\u2191\u2193' } to reorder, X to hide. Tap + ADD for more.
+            </Text>
+          </View>
         ) : null}
 
-        {/* ============================================ */}
-        {/* SEASON — flagship feature                    */}
-        {/* ============================================ */}
-        <Animated.View entering={FadeInDown.delay(120).duration(550)}>
-          <Pressable
-            onPress={() => router.push('/season' as any)}
-            style={({ pressed }) => [
-              styles.seasonOuter,
-              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
-            ]}
+        {enabled.map((w, i) => (
+          <DashboardWidget
+            key={w.id}
+            id={w.id}
+            editing={editing}
+            canUp={i > 0}
+            canDown={i < enabled.length - 1}
+            onUp={() => move(w.id, -1)}
+            onDown={() => move(w.id, 1)}
+            onRemove={() => toggle(w.id, false)}
           >
-            <LinearGradient
-              colors={['#ffb300', '#ff8f00', '#e65100']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.seasonBg}
-            >
-              <View style={styles.seasonLeft}>
-                <Text style={styles.seasonEmoji}>🌾</Text>
-              </View>
-              <View style={styles.seasonRight}>
-                <Text style={styles.seasonBadgeText}>SEASON</Text>
-                <Text style={styles.seasonTitle}>Follow my crop</Text>
-                <Text style={styles.seasonSub}>Plant · Track · Harvest · Profit</Text>
-              </View>
-              <Text style={styles.seasonArrow}>›</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+            {renderWidget(w)}
+          </DashboardWidget>
+        ))}
 
-        {/* ============================================ */}
-        {/* COMMUNITY TIER                               */}
-        {/* ============================================ */}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-          <Pressable
-            onPress={() => router.push('/pulse' as any)}
-            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(179,136,255,0.06)', borderWidth: 1, borderColor: 'rgba(179,136,255,0.3)' }, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={{ fontSize: 20 }}>📡</Text>
-            <Text style={{ fontSize: 11, fontWeight: '900', color: '#b388ff', marginTop: 6, letterSpacing: 0.4 }}>Pulse</Text>
-            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>What's happening</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/coop' as any)}
-            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(0,200,83,0.06)', borderWidth: 1, borderColor: 'rgba(0,200,83,0.3)' }, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={{ fontSize: 20 }}>🤝</Text>
-            <Text style={{ fontSize: 11, fontWeight: '900', color: '#00c853', marginTop: 6, letterSpacing: 0.4 }}>Coop Pool</Text>
-            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Sell as one</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/sos' as any)}
-            style={({ pressed }) => [{ flex: 1, padding: 14, borderRadius: 16, backgroundColor: 'rgba(255,59,92,0.06)', borderWidth: 1, borderColor: 'rgba(255,59,92,0.3)' }, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={{ fontSize: 20 }}>🆘</Text>
-            <Text style={{ fontSize: 11, fontWeight: '900', color: '#ff3b5c', marginTop: 6, letterSpacing: 0.4 }}>SOS</Text>
-            <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Emergency</Text>
-          </Pressable>
-        </View>
-
-        {/* ============================================ */}
-        {/* GAIA AGRONOMIST — hero tile                  */}
-        {/* ============================================ */}
-        <Animated.View entering={FadeInDown.delay(140).duration(550)}>
-          <Pressable
-            onPress={() => router.push('/voice' as any)}
-            style={({ pressed }) => [
-              styles.heroOuter,
-              pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
-            ]}
-          >
-            <LinearGradient
-              colors={['#00cc6a', '#009e52', '#00582e']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroBg}
-            >
-              <View style={styles.heroLeft}>
-                <Text style={styles.heroEmoji}>🧑‍🌾</Text>
-              </View>
-              <View style={styles.heroRight}>
-                <View style={styles.heroBadgeRow}>
-                  <View style={styles.heroDot} />
-                  <Text style={styles.heroBadgeText}>LIVE</Text>
-                </View>
-                <Text style={styles.heroTitle}>GAIA Agronomist</Text>
-                <Text style={styles.heroSub}>Voice + chat · ask me anything</Text>
-              </View>
-              <View style={styles.heroArrowWrap}>
-                <Text style={styles.heroArrow}>›</Text>
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-
-        <Text style={styles.sectionLabel}>DIAGNOSE</Text>
-        <View style={styles.grid}>
-          {DIAGNOSE.map((item, i) => (
-            <Tile key={item.key} item={item} delay={220 + i * 60} />
-          ))}
-        </View>
-
-        {/* My Farm */}
-        <Text style={styles.sectionLabel}>MY FARM</Text>
-        <View style={styles.grid}>
-          {MY_FARM.map((item, i) => (
-            <Tile key={item.key} item={item} delay={480 + i * 60} />
-          ))}
-        </View>
-
-        {/* AI Tools */}
-        <Text style={styles.sectionLabel}>AI TOOLS</Text>
-        <View style={styles.grid}>
-          {AI_TOOLS.map((item, i) => (
-            <Tile key={item.key} item={item} delay={720 + i * 60} />
-          ))}
-        </View>
-
-        {/* Market */}
-        <Text style={styles.sectionLabel}>MARKET</Text>
-        <View style={styles.grid}>
-          {MARKET.map((item, i) => (
-            <Tile key={item.key} item={item} delay={860 + i * 60} />
-          ))}
-        </View>
-
-        {/* Admin */}
-        {isAdmin ? (
-          <Animated.View entering={FadeInDown.delay(1100).duration(400)}>
-            <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
-              <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
-              <Text style={styles.adminArrow}>›</Text>
-            </Pressable>
-          </Animated.View>
+        {!editing && enabled.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Your dashboard is empty</Text>
+            <Text style={styles.emptyBody}>Tap EDIT above to add widgets.</Text>
+          </View>
         ) : null}
 
-        <View style={styles.spacer} />
+        <View style={{ height: 140 }} />
       </ScrollView>
-    
+
       <RadialFAB />
+
+      <WidgetLibraryModal
+        visible={showPicker}
+        layout={layout}
+        onToggle={toggle}
+        onClose={() => setShowPicker(false)}
+      />
     </View>
   );
 }
 
-const createStyles = (p: any) =>
-  StyleSheet.create({
-    container: { flex: 1, backgroundColor: p.obsidian },
-    scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
-    flex1: { flex: 1 },
-    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    greeting: { fontSize: 15, fontWeight: '500', color: p.textMuted },
-    name: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1.2, textTransform: 'capitalize', marginTop: 2 },
-    scanBadge: { width: 78, height: 78, borderRadius: 39, alignItems: 'center', justifyContent: 'center' },
-    scanNum: { fontSize: 28, fontWeight: '900', color: p.obsidian },
-    scanLbl: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: p.obsidian },
-    planCard: { marginTop: 24, padding: 24, borderRadius: 22, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: p.border },
-    planLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted },
-    planValue: { fontSize: 22, fontWeight: '900', color: p.neon, marginTop: 2 },
-    planBtn: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: p.neon },
-    planBtnText: { fontSize: 11, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+// ============================================================
+// WIDGETS
+// ============================================================
 
-    // ============================================
-    // HERO TILE — GAIA Agronomist
-    // ============================================
-    seasonOuter: {
-      marginTop: 20,
-      borderRadius: 24,
-      overflow: 'hidden',
-      shadowColor: '#ffb300',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    seasonBg: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 20,
-      paddingHorizontal: 20,
-      borderRadius: 24,
-    },
-    seasonLeft: {
-      width: 64, height: 64, borderRadius: 32,
-      backgroundColor: 'rgba(255,255,255,0.22)',
-      alignItems: 'center', justifyContent: 'center',
-      marginRight: 16,
-      borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
-    },
-    seasonEmoji: { fontSize: 34 },
-    seasonRight: { flex: 1 },
-    seasonBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 2, color: 'rgba(255,255,255,0.85)', marginBottom: 4 },
-    seasonTitle: { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
-    seasonSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2, fontWeight: '500' },
-    seasonArrow: { fontSize: 26, color: '#ffffff', fontWeight: '300', marginLeft: 8 },
-    heroOuter: {
-      marginTop: 20,
-      borderRadius: 24,
-      overflow: 'hidden',
-      shadowColor: '#00cc6a',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.35,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    heroBg: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 20,
-      paddingHorizontal: 20,
-      borderRadius: 24,
-    },
-    heroLeft: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: 'rgba(255,255,255,0.22)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 16,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.35)',
-    },
-    heroEmoji: { fontSize: 34 },
-    heroRight: { flex: 1 },
-    heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-    heroDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ffffff' },
-    heroBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: '#ffffff' },
-    heroTitle: { fontSize: 20, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
-    heroSub: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2, fontWeight: '500' },
-    heroArrowWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: 'rgba(255,255,255,0.22)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    heroArrow: { fontSize: 22, color: '#ffffff', fontWeight: '300', lineHeight: 24 },
+function Greeting() {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
+  const user = useAuth((s: any) => s.user);
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const raw = (user?.email || 'farmer').split('@')[0];
+  const name = raw.charAt(0).toUpperCase() + raw.slice(1);
+  return (
+    <View style={styles.greetWrap}>
+      <Text style={styles.greetSmall}>{greet},</Text>
+      <Text style={styles.greetBig}>{name}</Text>
+    </View>
+  );
+}
 
-    // ============================================
-    // GRIDS
-    // ============================================
-    sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.5, color: p.textMuted, marginTop: 32, marginBottom: 12 },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    tileOuter: { width: TILE_W },
-    tilePress: { borderRadius: 22, overflow: 'hidden' },
-    tile: { borderRadius: 22, overflow: 'hidden', height: 150, justifyContent: 'flex-end' },
-    tileImage: { borderRadius: 22 },
-    tileOverlay: { padding: 14 },
-    tileTitle: { fontSize: 18, fontWeight: '900', color: '#ffffff', letterSpacing: -0.5 },
-    tileSub: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+function ScansCard({ scans, plan }: any) {
+  const { palette } = useTheme();
+  const styles = createStyles(palette);
+  const total = 30;
+  const pct = Math.max(0, Math.min(1, scans / Math.max(scans, total)));
+  return (
+    <View style={styles.scansCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.scansLabel}>SCANS REMAINING</Text>
+        <Text style={styles.scansBig}>{scans}</Text>
+        <Text style={styles.scansPlan}>Plan: {String(plan || 'free').toUpperCase()}</Text>
+      </View>
+      <View style={styles.scansBarWrap}>
+        <View style={[styles.scansBarFill, { width: (pct * 100) + '%' }]} />
+      </View>
+    </View>
+  );
+}
 
-    // ============================================
-    // ADMIN
-    // ============================================
-    adminCard: { marginTop: 24, padding: 16, borderRadius: 16, borderWidth: 1.5, borderColor: p.danger, backgroundColor: 'rgba(255,60,90,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    adminLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: p.danger },
-    adminArrow: { fontSize: 22, color: p.danger },
-    spacer: { height: 140 },
-  });
+function QuickActions({ onNav, palette }: any) {
+  const styles = createStyles(palette);
+  const items = [
+    { emoji: '\uD83C\uDF3F', label: 'Crops',   route: '/(tabs)/crops' },
+    { emoji: '\uD83D\uDC1B', label: 'Pests',   route: '/(tabs)/pests' },
+    { emoji: '\uD83C\uDFE0', label: 'Soil',    route: '/(tabs)/soil' },
+    { emoji: '\uD83D\uDC04', label: 'Livestock', route: '/(tabs)/livestock' },
+  ];
+  return (
+    <View style={styles.qaRow}>
+      {items.map((it) => (
+        <Pressable
+          key={it.label}
+          onPress={() => { hapticTap(); onNav(it.route); }}
+          style={styles.qaBtn}
+        >
+          <Text style={styles.qaEmoji}>{it.emoji}</Text>
+          <Text style={styles.qaLabel}>{it.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function FarmingTip({ palette }: any) {
+  const styles = createStyles(palette);
+  const tips = [
+    'Spray herbicides early morning or late evening — wind is calmer.',
+    'Add organic mulch to keep soil moist through the dry spell.',
+    'Rotate maize with legumes next season to restore nitrogen.',
+    'Inspect leaf undersides weekly — most pests hide there.',
+    'Dry maize to 13% moisture before storage to prevent aflatoxin.',
+    'Add lime to acidic soil — ask GAIA for the exact rate.',
+  ];
+  const day = new Date().getDate();
+  const tip = tips[day % tips.length];
+  return (
+    <View style={styles.tipCard}>
+      <Text style={styles.tipLabel}>{'\uD83D\uDCA1'} TIP OF THE DAY</Text>
+      <Text style={styles.tipBody}>{tip}</Text>
+    </View>
+  );
+}
+
+function FeatureCard({ icon, title, body, cta, accent, onPress, palette }: any) {
+  const styles = createStyles(palette);
+  return (
+    <Pressable onPress={() => { hapticTap(); onPress(); }} style={[styles.featureCard, { borderColor: accent }]}>
+      <Text style={styles.featureIcon}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.featureTitle, { color: accent }]}>{title}</Text>
+        <Text style={styles.featureBody}>{body}</Text>
+        <Text style={[styles.featureCta, { color: accent }]}>{cta} {'\u203A'}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// ============================================================
+// STYLES
+// ============================================================
+
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end',
+    marginBottom: 18,
+  },
+  kicker: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.neon },
+  title: { fontSize: 34, fontWeight: '900', letterSpacing: -1, color: p.text, marginTop: 2 },
+  headerBtn: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1.5, borderColor: p.neon, alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBtnActive: { backgroundColor: p.neon },
+  headerBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 1, color: p.neon },
+  editHint: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: 'rgba(0,255,136,0.08)',
+    borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', marginBottom: 16,
+  },
+  editHintText: { fontSize: 12, color: p.neon, fontWeight: '600', textAlign: 'center' },
+  empty: { alignItems: 'center', paddingVertical: 60 },
+  emptyTitle: { fontSize: 18, fontWeight: '900', color: p.text },
+  emptyBody: { fontSize: 13, color: p.textMuted, marginTop: 8, textAlign: 'center' },
+  greetWrap: { paddingVertical: 6 },
+  greetSmall: { fontSize: 14, color: p.textMuted, fontWeight: '600', letterSpacing: 0.4 },
+  greetBig: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -0.6, textTransform: 'capitalize', marginTop: 2 },
+  scansCard: {
+    padding: 18, borderRadius: 18, backgroundColor: p.surface,
+    borderWidth: 1, borderColor: p.border,
+  },
+  scansLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
+  scansBig: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: -1, marginTop: 4 },
+  scansPlan: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  scansBarWrap: {
+    height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.06)',
+    marginTop: 12, overflow: 'hidden',
+  },
+  scansBarFill: { height: 6, backgroundColor: p.neon },
+  qaRow: { flexDirection: 'row', gap: 10 },
+  qaBtn: {
+    flex: 1, paddingVertical: 16, borderRadius: 16,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  qaEmoji: { fontSize: 24 },
+  qaLabel: { fontSize: 10, fontWeight: '800', color: p.text, letterSpacing: 0.5 },
+  tipCard: {
+    padding: 18, borderRadius: 18, backgroundColor: p.surface,
+    borderWidth: 1, borderColor: p.border, borderLeftWidth: 4, borderLeftColor: '#ffd700',
+  },
+  tipLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: '#ffd700', marginBottom: 6 },
+  tipBody: { fontSize: 13, color: p.text, lineHeight: 20 },
+  featureCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 14,
+    padding: 18, borderRadius: 18, backgroundColor: p.surface,
+    borderWidth: 1.5,
+  },
+  featureIcon: { fontSize: 30 },
+  featureTitle: { fontSize: 15, fontWeight: '900', letterSpacing: 0.4 },
+  featureBody: { fontSize: 12, color: p.textMuted, marginTop: 4, lineHeight: 18 },
+  featureCta: { fontSize: 12, fontWeight: '800', marginTop: 10, letterSpacing: 0.5 },
+});
