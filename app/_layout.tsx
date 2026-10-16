@@ -10,6 +10,7 @@ import { useSettings } from '../src/store/settings';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
+import GaiaSplash from '../src/components/GaiaSplash';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -33,6 +34,7 @@ function RootNavigator() {
   const loading = useAuth((s: any) => s.loading);
 
   const [ready, setReady] = useState(false);
+  const [minSplashDone, setMinSplashDone] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +68,12 @@ function RootNavigator() {
       if (state === 'active') useSettings.getState().load().catch(() => {});
     });
     return () => sub.remove();
+  }, []);
+
+  // Enforce a minimum splash duration so it feels intentional, not flickery
+  useEffect(() => {
+    const t = setTimeout(() => setMinSplashDone(true), 1600);
+    return () => clearTimeout(t);
   }, []);
 
   // Poll remote config every 60s so admin toggles apply without app restart
@@ -114,12 +122,8 @@ function RootNavigator() {
     })();
   }, []);
 
-  if (!ready) {
-    return (
-      <View style={styles.splash}>
-        <ActivityIndicator color={palette.neon} size="large" />
-      </View>
-    );
+  if (!ready || !minSplashDone) {
+    return <GaiaSplash />;
   }
 
   return (
