@@ -47,6 +47,23 @@ const SECTIONS = [
   ]},
 ];
 
+// Top-level blocks the user can hide/reorder
+const BLOCKS = [
+  { id: 'header',       label: 'Header (greeting + scans)' },
+  { id: 'plan',         label: 'Plan card' },
+  { id: 'wallet',       label: 'Wallet card' },
+  { id: 'season',       label: 'Season hero' },
+  { id: 'community',    label: 'Community row (Pulse/Coop/SOS)' },
+  { id: 'agronomist',   label: 'GAIA Agronomist' },
+  { id: 'section:diagnose', label: 'DIAGNOSE section' },
+  { id: 'section:my_farm',  label: 'MY FARM section' },
+  { id: 'section:ai_tools', label: 'AI TOOLS section' },
+  { id: 'section:market',   label: 'MARKET section' },
+  { id: 'admin',        label: 'Admin console' },
+];
+
+const DEFAULT_BLOCK_ORDER = BLOCKS.map((b) => b.id);
+
 type Prefs = { hidden: string[]; ordering: Record<string, string[]> };
 const EMPTY_PREFS: Prefs = { hidden: [], ordering: {} };
 
@@ -71,7 +88,7 @@ export default function Home() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // -------- load everything --------
+  // -------- load --------
   const load = useCallback(async () => {
     if (!user) return;
     try {
@@ -81,20 +98,15 @@ export default function Home() {
         supabase.from('app_settings').select('value').eq('key', 'feature_flags').maybeSingle(),
         supabase.from('user_dashboard_prefs').select('hidden,ordering').eq('user_id', user.id).maybeSingle(),
       ]);
-
       if (walletRes.status === 'fulfilled' && walletRes.value) {
         setGaiaAcct(walletRes.value.wallet.account_number);
         setGaiaBal(Number(walletRes.value.wallet.balance || 0));
       }
-      if (badgeRes.status === 'fulfilled') {
-        setBadgeTier(badgeRes.value.data?.tier || null);
-      }
+      if (badgeRes.status === 'fulfilled') setBadgeTier(badgeRes.value.data?.tier || null);
       if (flagsRes.status === 'fulfilled') {
         const v = flagsRes.value.data?.value;
         setFlags(v && typeof v === 'object' ? v : {});
-      } else {
-        setFlags({});
-      }
+      } else setFlags({});
       if (prefsRes.status === 'fulfilled' && prefsRes.value.data) {
         setPrefs({
           hidden: Array.isArray(prefsRes.value.data.hidden) ? prefsRes.value.data.hidden : [],
@@ -114,7 +126,7 @@ export default function Home() {
     finally { setRefreshing(false); }
   }, [load, refreshScans]);
 
-  // -------- save prefs --------
+  // -------- save --------
   const savePrefs = useCallback(async (next: Prefs) => {
     if (!user) return;
     setSaving(true);
@@ -140,26 +152,25 @@ export default function Home() {
     });
   }, [savePrefs]);
 
-  const moveTile = useCallback((sectionId: string, key: string, dir: -1 | 1, defaultOrder: string[]) => {
+  const moveItem = useCallback((listKey: string, key: string, dir: -1 | 1, defaultOrder: string[]) => {
     setPrefs((p) => {
-      const current = p.ordering[sectionId] && p.ordering[sectionId].length
-        ? [...p.ordering[sectionId]]
+      const current = p.ordering[listKey] && p.ordering[listKey].length
+        ? [...p.ordering[listKey]]
         : [...defaultOrder];
       const idx = current.indexOf(key);
       if (idx === -1) return p;
       const swap = idx + dir;
       if (swap < 0 || swap >= current.length) return p;
       [current[idx], current[swap]] = [current[swap], current[idx]];
-      const next = { ...p, ordering: { ...p.ordering, [sectionId]: current } };
+      const next = { ...p, ordering: { ...p.ordering, [listKey]: current } };
       savePrefs(next);
       return next;
     });
   }, [savePrefs]);
 
   const resetPrefs = useCallback(() => {
-    const next = EMPTY_PREFS;
-    setPrefs(next);
-    savePrefs(next);
+    setPrefs(EMPTY_PREFS);
+    savePrefs(EMPTY_PREFS);
   }, [savePrefs]);
 
   const hour = new Date().getHours();
@@ -172,15 +183,23 @@ export default function Home() {
     return flags[tile.flag] !== false;
   }, [flags]);
 
+  const orderedBlocks = useMemo(() => {
+    const order = prefs.ordering['__blocks__'] && prefs.ordering['__blocks__'].length
+      ? prefs.ordering['__blocks__']
+      : DEFAULT_BLOCK_ORDER;
+    const map = new Map(BLOCKS.map((b) => [b.id, b]));
+    const out = order.map((id) => map.get(id)).filter(Boolean) as typeof BLOCKS;
+    BLOCKS.forEach((b) => { if (!order.includes(b.id)) out.push(b); });
+    return out;
+  }, [prefs.ordering]);
+
   const getSectionTiles = useCallback((section: typeof SECTIONS[0]) => {
     const order = prefs.ordering[section.id] && prefs.ordering[section.id].length
       ? prefs.ordering[section.id]
       : section.tiles.map((t) => t.key);
     const map = new Map(section.tiles.map((t) => [t.key, t]));
     const ordered = order.map((k) => map.get(k)).filter(Boolean) as TileItem[];
-    // append any tiles not in order (safety)
     section.tiles.forEach((t) => { if (!order.includes(t.key)) ordered.push(t); });
-    // flag filter (only outside edit mode)
     return ordered.filter((t) => editMode || passFlag(t));
   }, [prefs, editMode, passFlag]);
 
@@ -194,14 +213,53 @@ export default function Home() {
     }
   }, [badgeTier]);
 
-  // -------- tile render --------
-  const Tile = useCallback(({ item, sectionId, index, delay }: any) => {
+  // -------- Block wrapper (edit controls) --------
+  const Block = ({ id, index, total, children }: { id: string; index: number; total: number; children: React.ReactNode }) => {
+    const hidden = prefs.hidden.includes(id);
+    const blockDef = BLOCKS.find((b) => b.id === id);
+    if (!editMode && hidden) return null;
+    return (
+      <View style={[styles.blockWrap, hidden && editMode && { opacity: 0.35 }]}>
+        {editMode ? (
+          <View style={styles.blockBar}>
+            <Text style={styles.blockBarLabel} numberOfLines={1}>{blockDef?.label || id}</Text>
+            <View style={styles.blockBarBtns}>
+              <Pressable
+                onPress={() => moveItem('__blocks__', id, -1, DEFAULT_BLOCK_ORDER)}
+                disabled={index === 0}
+                style={[styles.blockBtn, index === 0 && { opacity: 0.3 }]}
+              >
+                <Text style={styles.blockBtnTxt}>↑</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => moveItem('__blocks__', id, 1, DEFAULT_BLOCK_ORDER)}
+                disabled={index === total - 1}
+                style={[styles.blockBtn, index === total - 1 && { opacity: 0.3 }]}
+              >
+                <Text style={styles.blockBtnTxt}>↓</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => toggleHidden(id)}
+                style={[styles.blockBtn, { backgroundColor: hidden ? '#00c853' : '#ff3b5c' }]}
+              >
+                <Text style={styles.blockBtnTxt}>{hidden ? '+' : '×'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {children}
+      </View>
+    );
+  };
+
+  // -------- Tile --------
+  const Tile = ({ item, sectionId, index, total }: any) => {
     const hidden = prefs.hidden.includes(item.key);
     return (
-      <Animated.View entering={FadeInDown.delay(delay).duration(500)} style={styles.tileOuter}>
+      <View style={[styles.tileOuter, hidden && editMode && { opacity: 0.35 }]}>
         <Pressable
           onPress={() => { if (!editMode) router.push(item.route as any); }}
-          style={({ pressed }) => [styles.tilePress, pressed && !editMode && { opacity: 0.85 }, hidden && editMode && { opacity: 0.35 }]}
+          style={({ pressed }) => [styles.tilePress, pressed && !editMode && { opacity: 0.85 }]}
         >
           <ImageBackground source={{ uri: item.img }} style={styles.tile} imageStyle={styles.tileImage}>
             <LinearGradient colors={['transparent', 'rgba(0,0,0,0.88)']} style={styles.tileOverlay}>
@@ -210,93 +268,95 @@ export default function Home() {
             </LinearGradient>
           </ImageBackground>
         </Pressable>
-
         {editMode ? (
-          <View style={styles.tileControls} pointerEvents="box-none">
-            <Pressable onPress={() => toggleHidden(item.key)} style={[styles.tileBtn, { backgroundColor: hidden ? '#00c853' : '#ff3b5c' }]}>
+          <View style={styles.tileControls}>
+            <Pressable
+              onPress={() => toggleHidden(item.key)}
+              style={[styles.tileBtn, { backgroundColor: hidden ? '#00c853' : '#ff3b5c' }]}
+            >
               <Text style={styles.tileBtnTxt}>{hidden ? '+' : '×'}</Text>
             </Pressable>
             <View style={styles.moveGroup}>
               <Pressable
-                onPress={() => moveTile(sectionId, item.key, -1, [])}
+                onPress={() => moveItem(sectionId, item.key, -1, [])}
                 disabled={index === 0}
-                style={[styles.tileBtn, styles.tileBtnSmall, index === 0 && { opacity: 0.3 }]}
+                style={[styles.tileBtnSmall, index === 0 && { opacity: 0.3 }]}
               >
                 <Text style={styles.tileBtnTxt}>↑</Text>
               </Pressable>
               <Pressable
-                onPress={() => moveTile(sectionId, item.key, 1, [])}
-                style={[styles.tileBtn, styles.tileBtnSmall, { marginLeft: 6 }]}
+                onPress={() => moveItem(sectionId, item.key, 1, [])}
+                disabled={index === total - 1}
+                style={[styles.tileBtnSmall, { marginLeft: 6 }, index === total - 1 && { opacity: 0.3 }]}
               >
                 <Text style={styles.tileBtnTxt}>↓</Text>
               </Pressable>
             </View>
           </View>
         ) : null}
-      </Animated.View>
+      </View>
     );
-  }, [editMode, prefs.hidden, router, styles, toggleHidden, moveTile]);
+  };
 
-  return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.neon} />}
-      >
-        {/* HEADER */}
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
-          <View style={styles.flex1}>
-            <Text style={styles.greeting}>{greeting},</Text>
-            <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>{firstName}</Text>
-              {badgeColor ? (
-                <View style={[styles.badgeChip, { backgroundColor: badgeColor }]}>
-                  <Text style={styles.badgeChipTxt}>{String(badgeTier).toUpperCase()}</Text>
-                </View>
-              ) : null}
+  // -------- Section renderer --------
+  const renderSection = (section: typeof SECTIONS[0]) => {
+    const tiles = getSectionTiles(section);
+    const visible = tiles.filter((t) => editMode || !prefs.hidden.includes(t.key));
+    if (visible.length === 0 && !editMode) return null;
+    return (
+      <>
+        <Text style={styles.sectionLabel}>{section.label}</Text>
+        <View style={styles.grid}>
+          {visible.map((item, i) => (
+            <Tile key={item.key} item={item} sectionId={section.id} index={i} total={visible.length} />
+          ))}
+        </View>
+      </>
+    );
+  };
+
+  // -------- BLOCK RENDERERS --------
+  const renderBlock = (id: string) => {
+    switch (id) {
+      case 'header':
+        return (
+          <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
+            <View style={styles.flex1}>
+              <Text style={styles.greeting}>{greeting},</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={1}>{firstName}</Text>
+                {badgeColor ? (
+                  <View style={[styles.badgeChip, { backgroundColor: badgeColor }]}>
+                    <Text style={styles.badgeChipTxt}>{String(badgeTier).toUpperCase()}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          </View>
-          <View style={{ alignItems: 'center' }}>
             <LinearGradient colors={[palette.neon, palette.neonDim]} style={styles.scanBadge}>
               <Text style={styles.scanNum}>{scansRemaining}</Text>
               <Text style={styles.scanLbl}>SCANS</Text>
             </LinearGradient>
-            <Pressable
-              onPress={() => setEditMode((v) => !v)}
-              style={[styles.editToggle, editMode && { backgroundColor: '#00c853' }]}
-            >
-              <Text style={styles.editToggleTxt}>{editMode ? 'DONE' : 'EDIT'}</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        );
 
-        {editMode ? (
-          <View style={styles.editBanner}>
-            <Text style={styles.editBannerTxt}>
-              Tap tiles to hide / show. Use ↑↓ to reorder. {saving ? 'Saving…' : 'Saved'}
-            </Text>
-            <Pressable onPress={resetPrefs} style={styles.resetBtn}>
-              <Text style={styles.resetTxt}>RESET</Text>
-            </Pressable>
-          </View>
-        ) : null}
+      case 'plan':
+        return (
+          <Animated.View entering={FadeInDown.delay(80).duration(500)}>
+            <LinearGradient colors={[palette.neonSoft, palette.surface]} style={styles.planCard}>
+              <View style={styles.flex1}>
+                <Text style={styles.planLabel}>PLAN</Text>
+                <Text style={styles.planValue}>{String(plan || 'free').toUpperCase()}</Text>
+              </View>
+              <Pressable onPress={() => router.push('/buy-scans' as any)} style={styles.planBtn}>
+                <Text style={styles.planBtnText}>UPGRADE</Text>
+              </Pressable>
+            </LinearGradient>
+          </Animated.View>
+        );
 
-        {/* PLAN */}
-        <Animated.View entering={FadeInDown.delay(80).duration(500)}>
-          <LinearGradient colors={[palette.neonSoft, palette.surface]} style={styles.planCard}>
-            <View style={styles.flex1}>
-              <Text style={styles.planLabel}>PLAN</Text>
-              <Text style={styles.planValue}>{String(plan || 'free').toUpperCase()}</Text>
-            </View>
-            <Pressable onPress={() => router.push('/buy-scans' as any)} style={styles.planBtn}>
-              <Text style={styles.planBtnText}>UPGRADE</Text>
-            </Pressable>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* WALLET */}
-        {gaiaAcct ? (
+      case 'wallet':
+        if (!gaiaAcct) return null;
+        return (
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
             <LinearGradient colors={['#0d1410', '#0a1a10', '#0d1410']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.walletCard}>
               <View style={styles.flex1}>
@@ -309,89 +369,123 @@ export default function Home() {
               </Pressable>
             </LinearGradient>
           </Animated.View>
-        ) : null}
+        );
 
-        {/* SEASON */}
-        <Animated.View entering={FadeInDown.delay(120).duration(550)}>
-          <Pressable onPress={() => router.push('/season' as any)} style={({ pressed }) => [styles.seasonOuter, pressed && { opacity: 0.9 }]}>
-            <LinearGradient colors={['#ffb300', '#ff8f00', '#e65100']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.seasonBg}>
-              <View style={styles.seasonLeft}><Text style={styles.seasonEmoji}>🌾</Text></View>
-              <View style={styles.seasonRight}>
-                <Text style={styles.seasonBadgeText}>SEASON</Text>
-                <Text style={styles.seasonTitle}>Follow my crop</Text>
-                <Text style={styles.seasonSub}>Plant · Track · Harvest · Profit</Text>
-              </View>
-              <Text style={styles.seasonArrow}>›</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-
-        {/* COMMUNITY */}
-        <View style={styles.communityRow}>
-          <Pressable onPress={() => router.push('/pulse' as any)} style={[styles.communityBtn, styles.communityPulse]}>
-            <Text style={styles.communityEmoji}>📡</Text>
-            <Text style={[styles.communityTitle, { color: '#b388ff' }]}>Pulse</Text>
-            <Text style={styles.communitySub}>What's happening</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/coop' as any)} style={[styles.communityBtn, styles.communityCoop]}>
-            <Text style={styles.communityEmoji}>🤝</Text>
-            <Text style={[styles.communityTitle, { color: '#00c853' }]}>Coop Pool</Text>
-            <Text style={styles.communitySub}>Sell as one</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/sos' as any)} style={[styles.communityBtn, styles.communitySos]}>
-            <Text style={styles.communityEmoji}>🆘</Text>
-            <Text style={[styles.communityTitle, { color: '#ff3b5c' }]}>SOS</Text>
-            <Text style={styles.communitySub}>Emergency</Text>
-          </Pressable>
-        </View>
-
-        {/* AGRONOMIST */}
-        <Animated.View entering={FadeInDown.delay(140).duration(550)}>
-          <Pressable onPress={() => router.push('/voice' as any)} style={({ pressed }) => [styles.heroOuter, pressed && { opacity: 0.9 }]}>
-            <LinearGradient colors={['#00cc6a', '#009e52', '#00582e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBg}>
-              <View style={styles.heroLeft}><Text style={styles.heroEmoji}>🧑‍🌾</Text></View>
-              <View style={styles.heroRight}>
-                <View style={styles.heroBadgeRow}>
-                  <View style={styles.heroDot} />
-                  <Text style={styles.heroBadgeText}>LIVE</Text>
+      case 'season':
+        return (
+          <Animated.View entering={FadeInDown.delay(120).duration(550)}>
+            <Pressable onPress={() => router.push('/season' as any)} style={({ pressed }) => [styles.seasonOuter, pressed && { opacity: 0.9 }]}>
+              <LinearGradient colors={['#ffb300', '#ff8f00', '#e65100']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.seasonBg}>
+                <View style={styles.seasonLeft}><Text style={styles.seasonEmoji}>🌾</Text></View>
+                <View style={styles.seasonRight}>
+                  <Text style={styles.seasonBadgeText}>SEASON</Text>
+                  <Text style={styles.seasonTitle}>Follow my crop</Text>
+                  <Text style={styles.seasonSub}>Plant · Track · Harvest · Profit</Text>
                 </View>
-                <Text style={styles.heroTitle}>GAIA Agronomist</Text>
-                <Text style={styles.heroSub}>Voice + chat · ask me anything</Text>
-              </View>
-              <View style={styles.heroArrowWrap}><Text style={styles.heroArrow}>›</Text></View>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+                <Text style={styles.seasonArrow}>›</Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        );
 
-        {/* SECTIONS */}
-        {SECTIONS.map((section, si) => {
-          const tiles = getSectionTiles(section);
-          const visible = tiles.filter((t) => editMode || !prefs.hidden.includes(t.key));
-          if (visible.length === 0 && !editMode) return null;
-          return (
-            <View key={section.id}>
-              <Text style={styles.sectionLabel}>{section.label}</Text>
-              <View style={styles.grid}>
-                {visible.map((item, i) => (
-                  <Tile
-                    key={item.key}
-                    item={item}
-                    sectionId={section.id}
-                    index={i}
-                    delay={220 + si * 120 + i * 60}
-                  />
-                ))}
-              </View>
-            </View>
-          );
-        })}
+      case 'community':
+        return (
+          <View style={styles.communityRow}>
+            <Pressable onPress={() => router.push('/pulse' as any)} style={[styles.communityBtn, styles.communityPulse]}>
+              <Text style={styles.communityEmoji}>📡</Text>
+              <Text style={[styles.communityTitle, { color: '#b388ff' }]}>Pulse</Text>
+              <Text style={styles.communitySub}>What's happening</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/coop' as any)} style={[styles.communityBtn, styles.communityCoop]}>
+              <Text style={styles.communityEmoji}>🤝</Text>
+              <Text style={[styles.communityTitle, { color: '#00c853' }]}>Coop Pool</Text>
+              <Text style={styles.communitySub}>Sell as one</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/sos' as any)} style={[styles.communityBtn, styles.communitySos]}>
+              <Text style={styles.communityEmoji}>🆘</Text>
+              <Text style={[styles.communityTitle, { color: '#ff3b5c' }]}>SOS</Text>
+              <Text style={styles.communitySub}>Emergency</Text>
+            </Pressable>
+          </View>
+        );
 
-        {isAdmin ? (
+      case 'agronomist':
+        return (
+          <Animated.View entering={FadeInDown.delay(140).duration(550)}>
+            <Pressable onPress={() => router.push('/voice' as any)} style={({ pressed }) => [styles.heroOuter, pressed && { opacity: 0.9 }]}>
+              <LinearGradient colors={['#00cc6a', '#009e52', '#00582e']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroBg}>
+                <View style={styles.heroLeft}><Text style={styles.heroEmoji}>🧑‍🌾</Text></View>
+                <View style={styles.heroRight}>
+                  <View style={styles.heroBadgeRow}>
+                    <View style={styles.heroDot} />
+                    <Text style={styles.heroBadgeText}>LIVE</Text>
+                  </View>
+                  <Text style={styles.heroTitle}>GAIA Agronomist</Text>
+                  <Text style={styles.heroSub}>Voice + chat · ask me anything</Text>
+                </View>
+                <View style={styles.heroArrowWrap}><Text style={styles.heroArrow}>›</Text></View>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        );
+
+      case 'section:diagnose': return renderSection(SECTIONS[0]);
+      case 'section:my_farm':  return renderSection(SECTIONS[1]);
+      case 'section:ai_tools': return renderSection(SECTIONS[2]);
+      case 'section:market':   return renderSection(SECTIONS[3]);
+
+      case 'admin':
+        if (!isAdmin) return null;
+        return (
           <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
             <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
             <Text style={styles.adminArrow}>›</Text>
           </Pressable>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.neon} />}
+      >
+        {/* EDIT toggle bar */}
+        <View style={styles.topBar}>
+          <View style={styles.flex1} />
+          <Pressable
+            onPress={() => setEditMode((v) => !v)}
+            style={[styles.editToggle, editMode && { backgroundColor: '#00c853', borderColor: '#00c853' }]}
+          >
+            <Text style={[styles.editToggleTxt, editMode && { color: '#000' }]}>{editMode ? 'DONE' : 'EDIT LAYOUT'}</Text>
+          </Pressable>
+        </View>
+
+        {editMode ? (
+          <View style={styles.editBanner}>
+            <Text style={styles.editBannerTxt}>
+              Tap × to hide, ↑↓ to reorder any block. {saving ? 'Saving…' : 'Saved'}
+            </Text>
+            <Pressable onPress={resetPrefs} style={styles.resetBtn}>
+              <Text style={styles.resetTxt}>RESET ALL</Text>
+            </Pressable>
+          </View>
         ) : null}
+
+        {orderedBlocks.map((block, i) => {
+          const content = renderBlock(block.id);
+          if (!content) return null;
+          return (
+            <Block key={block.id} id={block.id} index={i} total={orderedBlocks.length}>
+              {content}
+            </Block>
+          );
+        })}
 
         <View style={styles.spacer} />
       </ScrollView>
@@ -406,6 +500,36 @@ const createStyles = (p: any, screenWidth: number) => {
     scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
     flex1: { flex: 1 },
 
+    topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    editToggle: {
+      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10,
+      backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    },
+    editToggleTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, color: p.text },
+
+    editBanner: {
+      marginBottom: 14, padding: 12, borderRadius: 12,
+      backgroundColor: 'rgba(0,200,83,0.1)',
+      borderWidth: 1, borderColor: 'rgba(0,200,83,0.35)',
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    editBannerTxt: { flex: 1, fontSize: 11, color: '#00c853', fontWeight: '700' },
+    resetBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,59,92,0.15)', borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)' },
+    resetTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#ff3b5c' },
+
+    blockWrap: { position: 'relative' },
+    blockBar: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6,
+      backgroundColor: 'rgba(0,200,83,0.08)',
+      borderWidth: 1, borderColor: 'rgba(0,200,83,0.3)', borderRadius: 10,
+    },
+    blockBarLabel: { flex: 1, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, color: '#00c853' },
+    blockBarBtns: { flexDirection: 'row', gap: 6 },
+    blockBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+    blockBtnTxt: { fontSize: 13, fontWeight: '900', color: '#fff' },
+
+    // existing styles
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     greeting: { fontSize: 15, fontWeight: '500', color: p.textMuted },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
@@ -415,18 +539,6 @@ const createStyles = (p: any, screenWidth: number) => {
     scanBadge: { width: 78, height: 78, borderRadius: 39, alignItems: 'center', justifyContent: 'center' },
     scanNum: { fontSize: 28, fontWeight: '900', color: p.obsidian },
     scanLbl: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: p.obsidian },
-    editToggle: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
-    editToggleTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, color: p.text },
-
-    editBanner: {
-      marginTop: 14, padding: 12, borderRadius: 12,
-      backgroundColor: 'rgba(0,200,83,0.1)',
-      borderWidth: 1, borderColor: 'rgba(0,200,83,0.35)',
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    },
-    editBannerTxt: { flex: 1, fontSize: 11, color: '#00c853', fontWeight: '700' },
-    resetBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,59,92,0.15)', borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)' },
-    resetTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1, color: '#ff3b5c' },
 
     planCard: { marginTop: 24, padding: 24, borderRadius: 22, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: p.border },
     planLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted },
@@ -484,7 +596,7 @@ const createStyles = (p: any, screenWidth: number) => {
     tileSub: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.8)', marginTop: 2 },
     tileControls: { position: 'absolute', top: 8, right: 8, left: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     tileBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-    tileBtnSmall: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.7)' },
+    tileBtnSmall: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
     tileBtnTxt: { fontSize: 14, fontWeight: '900', color: '#fff' },
     moveGroup: { flexDirection: 'row' },
 
