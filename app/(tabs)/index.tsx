@@ -9,6 +9,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme, spacing } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { walletMe } from '../../src/utils/wallet';
+import WeatherWidget from '../../src/components/WeatherWidget';
+import StreakWidget from '../../src/components/StreakWidget';
 
 const { width } = Dimensions.get('window');
 const TILE_W = (width - 52) / 2;
@@ -97,6 +99,8 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <WeatherWidget />
+      <StreakWidget />
         {/* Header */}
         <Animated.View entering={FadeInDown.duration(500)} style={styles.headerRow}>
           <View style={styles.flex1}>

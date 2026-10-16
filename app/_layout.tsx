@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +7,7 @@ import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
+import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
@@ -69,6 +70,15 @@ function RootNavigator() {
     });
     return () => sub.remove();
   }, []);
+
+  // Fire streak bump once per session when user is ready
+  const streakBumpedRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    if (streakBumpedRef.current === user.id) return;
+    streakBumpedRef.current = user.id;
+    bumpStreak().catch(() => {});
+  }, [user?.id]);
 
   // Enforce a minimum splash duration so it feels intentional, not flickery
   useEffect(() => {
