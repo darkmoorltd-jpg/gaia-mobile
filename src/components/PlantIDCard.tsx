@@ -37,6 +37,7 @@ export default function PlantIDCard() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [top, setTop] = useState<PlantPrediction[] | null>(null);
+  const [testStatus, setTestStatus] = useState<string>('');
 
   const pickImage = async () => {
     hapticTap();
@@ -71,6 +72,46 @@ export default function PlantIDCard() {
       if (preds[0]?.hasDiseaseModel) hapticSuccess(); else hapticWarn();
     } catch (e: any) { Alert.alert('Error', e?.message || 'Failed'); }
     finally { setBusy(false); }
+  };
+
+  const runDownloadTest = async () => {
+    setTestStatus('Starting test...');
+    try {
+      const { getInfoAsync, makeDirectoryAsync, downloadAsync, documentDirectory, cacheDirectory } = FileSystem;
+      const baseDir = documentDirectory || cacheDirectory || '';
+      const dir = baseDir + 'gaia-models/';
+      const path = dir + 'plant_id.onnx';
+
+      setTestStatus('Checking cache dir: ' + dir);
+      const dirInfo = await getInfoAsync(dir).catch((e: any) => ({ exists: false, err: e.message }));
+      if (!dirInfo.exists) {
+        setTestStatus('Creating dir...');
+        await makeDirectoryAsync(dir, { intermediates: true });
+      }
+
+      const cacheInfo = await getInfoAsync(path).catch(() => ({ exists: false }));
+      setTestStatus('Cache exists: ' + cacheInfo.exists + (cacheInfo.exists ? ' (' + ((cacheInfo as any).size || 0) / 1e6 + ' MB)' : ''));
+
+      if (!cacheInfo.exists || ((cacheInfo as any).size || 0) < 1000) {
+        setTestStatus('Downloading 100 MB (may take 1-2 min)...');
+        const url = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/model_int8.onnx';
+        const res = await downloadAsync(url, path);
+        if (res.status !== 200) {
+          setTestStatus('Download failed: HTTP ' + res.status);
+          return;
+        }
+        setTestStatus('Downloaded. Creating ONNX session...');
+      }
+
+      const sess = await getSession('plant_id');
+      if (!sess) {
+        setTestStatus('Session creation failed — ONNX cannot load this model');
+        return;
+      }
+      setTestStatus('✅ Model loaded! Ready to identify.');
+    } catch (e: any) {
+      setTestStatus('Error: ' + (e?.message || String(e)));
+    }
   };
 
   const top1 = top?.[0];
@@ -126,6 +167,16 @@ export default function PlantIDCard() {
           ) : null}
         </View>
       ) : null}
+
+      {testStatus ? (
+        <View style={{ marginTop: 10, padding: 12, backgroundColor: 'rgba(0,255,136,0.1)', borderRadius: 10 }}>
+          <Text style={{ fontSize: 11, color: palette.text, fontFamily: 'monospace' }}>{testStatus}</Text>
+        </View>
+      ) : null}
+
+      <Pressable onPress={runDownloadTest} disabled={busy} style={[styles.pickBtn, { marginTop: 8, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.neon }]}>
+        <Text style={[styles.pickBtnText, { color: palette.neon }]}>TEST MODEL DOWNLOAD</Text>
+      </Pressable>
 
       <Pressable onPress={pickImage} disabled={busy} style={[styles.pickBtn, busy && { opacity: 0.5 }]}>
         <Text style={styles.pickBtnText}>{imageUri ? 'Try Another Photo' : 'Take Photo'}</Text>
