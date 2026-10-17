@@ -222,37 +222,72 @@ export async function clearAllModels(): Promise<void> {
   } catch {}
 }
 
-// ---------- plant id helper ----------
-export interface PlantCrop {
-  key: string;
-  common: string;
+
+
+// ============================================================
+// Plant identification — Propanito 14,829 classes
+// ============================================================
+const PLANT_LABELS_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/labels.json';
+const PLANT_CROP_MAP_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/crop_map.json';
+
+let _plantLabels: Record<string, string> | null = null;
+let _plantCrops: Record<string, any> | null = null;
+
+export interface PlantPrediction {
+  idx: number;
   latin: string;
-  modelIdx: number;
+  common?: string;
+  hasDiseaseModel?: boolean;
+  modelKey?: string;
+  confidence: number;
 }
 
-export const NIGERIAN_CROPS: Record<string, PlantCrop> = {
-  maize:       { key: 'maize',       common: 'Maize',        latin: 'Zea mays',              modelIdx: 14778 },
-  cassava:     { key: 'cassava',     common: 'Cassava',      latin: 'Manihot esculenta',     modelIdx: 8584 },
-  yam:         { key: 'yam',         common: 'Yam',          latin: 'Dioscorea alata',       modelIdx: 4379 },
-  beans:       { key: 'beans',       common: 'Beans',        latin: 'Phaseolus vulgaris',    modelIdx: 10313 },
-  soybean:     { key: 'soybean',     common: 'Soybean',      latin: 'Glycine max',           modelIdx: 6286 },
-  tomato:      { key: 'tomato',      common: 'Tomato',       latin: 'Solanum lycopersicum',  modelIdx: 12982 },
-  pepper:      { key: 'pepper',      common: 'Pepper',       latin: 'Capsicum annuum',       modelIdx: 2335 },
-  cabbage:     { key: 'cabbage',     common: 'Cabbage',      latin: 'Brassica oleracea',     modelIdx: 1916 },
-  sorghum:     { key: 'sorghum',     common: 'Sorghum',      latin: 'Sorghum bicolor',       modelIdx: 13087 },
-  wheat:       { key: 'wheat',       common: 'Wheat',        latin: 'Triticum aestivum',     modelIdx: 14070 },
-  cotton:      { key: 'cotton',      common: 'Cotton',       latin: 'Gossypium hirsutum',    modelIdx: 6355 },
-  cocoa:       { key: 'cocoa',       common: 'Cocoa',        latin: 'Theobroma cacao',       modelIdx: 13714 },
-  potato:      { key: 'potato',      common: 'Potato',       latin: 'Solanum tuberosum',     modelIdx: 13005 },
-  sweetpotato: { key: 'sweetpotato', common: 'Sweet Potato', latin: 'Ipomoea batatas',       modelIdx: 7172 },
-  cocoyam:     { key: 'cocoyam',     common: 'Cocoyam',      latin: 'Colocasia esculenta',   modelIdx: 3355 },
-  okra:        { key: 'okra',        common: 'Okra',         latin: 'Abelmoschus esculentus', modelIdx: 0 },
-  sunflower:   { key: 'sunflower',   common: 'Sunflower',    latin: 'Helianthus annuus',     modelIdx: 6582 },
-};
+async function _dlOnce(url: string, filename: string): Promise<string | null> {
+  try {
+    const path = CACHE_DIR + filename;
+    const info = await FileSystem.getInfoAsync(path);
+    if (info.exists && (info as any).size > 100) return path;
+    await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true }).catch(() => {});
+    const dl = await FileSystem.downloadAsync(url, path);
+    return dl.status === 200 ? dl.uri : null;
+  } catch { return null; }
+}
 
-export function cropByModelIdx(idx: number): PlantCrop | null {
-  for (const c of Object.values(NIGERIAN_CROPS)) {
-    if (c.modelIdx === idx) return c;
-  }
-  return null;
+export async function getPlantLabels(): Promise<Record<string, string>> {
+  if (_plantLabels) return _plantLabels;
+  const p = await _dlOnce(PLANT_LABELS_URL, 'plant_labels.json');
+  if (!p) return {};
+  try {
+    _plantLabels = JSON.parse(await FileSystem.readAsStringAsync(p));
+    return _plantLabels!;
+  } catch { return {}; }
+}
+
+export async function getPlantCrops(): Promise<Record<string, any>> {
+  if (_plantCrops) return _plantCrops;
+  const p = await _dlOnce(PLANT_CROP_MAP_URL, 'plant_crops.json');
+  if (!p) return {};
+  try {
+    _plantCrops = JSON.parse(await FileSystem.readAsStringAsync(p));
+    return _plantCrops!;
+  } catch { return {}; }
+}
+
+export async function plantTopK(logits: Float32Array, k: number = 5): Promise<PlantPrediction[]> {
+  const labels = await getPlantLabels();
+  const crops = await getPlantCrops();
+  const probs = softmax(logits);
+  const idxs = Array.from(probs.keys());
+  idxs.sort((a, b) => probs[b] - probs[a]);
+  return idxs.slice(0, k).map((idx) => {
+    const latin = labels[String(idx)] || `Class ${idx}`;
+    const meta = crops[String(idx)] || {};
+    return {
+      idx, latin,
+      common: meta.common,
+      hasDiseaseModel: !!meta.hasDiseaseModel,
+      modelKey: meta.modelKey,
+      confidence: probs[idx],
+    };
+  });
 }
