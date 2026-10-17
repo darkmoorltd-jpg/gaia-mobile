@@ -156,6 +156,8 @@ function RootNavigator() {
       <Stack.Screen name="voice" />
       <Stack.Screen name="rag" />
       <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="escrow-chat" options={{ headerShown: false }} />
+      <Stack.Screen name="escrow-receipt" options={{ headerShown: false }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
       <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
