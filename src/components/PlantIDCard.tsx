@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, Alert, ActivityIndicator } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
@@ -77,35 +78,37 @@ export default function PlantIDCard() {
   const runDownloadTest = async () => {
     setTestStatus('Starting test...');
     try {
-      const { getInfoAsync, makeDirectoryAsync, downloadAsync, documentDirectory, cacheDirectory } = FileSystem;
-      const baseDir = documentDirectory || cacheDirectory || '';
+      const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory || '';
       const dir = baseDir + 'gaia-models/';
       const path = dir + 'plant_id.onnx';
 
-      setTestStatus('Checking cache dir: ' + dir);
-      const dirInfo = await getInfoAsync(dir).catch((e: any) => ({ exists: false, err: e.message }));
+      setTestStatus('Cache dir: ' + dir.slice(-40));
+      const dirInfo = await FileSystem.getInfoAsync(dir).catch(() => ({ exists: false }));
       if (!dirInfo.exists) {
-        setTestStatus('Creating dir...');
-        await makeDirectoryAsync(dir, { intermediates: true });
+        setTestStatus('Creating cache dir...');
+        await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {});
       }
 
-      const cacheInfo = await getInfoAsync(path).catch(() => ({ exists: false }));
-      setTestStatus('Cache exists: ' + cacheInfo.exists + (cacheInfo.exists ? ' (' + ((cacheInfo as any).size || 0) / 1e6 + ' MB)' : ''));
+      const cacheInfo = await FileSystem.getInfoAsync(path).catch(() => ({ exists: false }));
+      const sizeMB = cacheInfo.exists ? (((cacheInfo as any).size || 0) / 1e6).toFixed(1) : '0';
+      setTestStatus('Cache: ' + (cacheInfo.exists ? sizeMB + ' MB' : 'not downloaded'));
 
       if (!cacheInfo.exists || ((cacheInfo as any).size || 0) < 1000) {
         setTestStatus('Downloading 100 MB (may take 1-2 min)...');
         const url = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/model_int8.onnx';
-        const res = await downloadAsync(url, path);
+        const res = await FileSystem.downloadAsync(url, path);
         if (res.status !== 200) {
           setTestStatus('Download failed: HTTP ' + res.status);
           return;
         }
         setTestStatus('Downloaded. Creating ONNX session...');
+      } else {
+        setTestStatus('Using cached model. Creating ONNX session...');
       }
 
       const sess = await getSession('plant_id');
       if (!sess) {
-        setTestStatus('Session creation failed — ONNX cannot load this model');
+        setTestStatus('Session failed — ONNX cannot load this model');
         return;
       }
       setTestStatus('✅ Model loaded! Ready to identify.');
