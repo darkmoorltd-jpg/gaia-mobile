@@ -1,147 +1,110 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '../theme';
-
-const CACHE_KEY = 'gaia_weather_cache';
-const LOC_KEY = 'gaia_loc_cache';
-const CACHE_TTL_MS = 30 * 60 * 1000;
-const LOC_TTL_MS = 24 * 60 * 60 * 1000;
-
-interface Weather {
-  temp: number;
-  humidity: number;
-  wind: number;
-  code: number;
-  daily: { date: string; code: number; tmax: number; tmin: number; precip: number }[];
-}
-
-function weatherEmoji(code: number): string {
-  if (code === 0) return '\u2600\uFE0F';
-  if (code === 1) return '\uD83C\uDF24\uFE0F';
-  if (code === 2) return '\u26C5';
-  if (code === 3) return '\u2601\uFE0F';
-  if (code === 45 || code === 48) return '\uD83C\uDF2B\uFE0F';
-  if (code >= 51 && code <= 57) return '\uD83C\uDF26\uFE0F';
-  if (code >= 61 && code <= 67) return '\uD83C\uDF27\uFE0F';
-  if (code >= 71 && code <= 77) return '\u2744\uFE0F';
-  if (code >= 80 && code <= 82) return '\uD83C\uDF27\uFE0F';
-  if (code >= 95) return '\u26C8\uFE0F';
-  return '\uD83C\uDF21\uFE0F';
-}
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { useTheme, typography, spacing, radius } from '../theme';
+import { fetchWeather, minutesUntilRain, bestSprayDays, WeatherBundle } from '../utils/weather';
 
 export default function WeatherWidget() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
-  const [weather, setWeather] = useState<Weather | null>(null);
+  const [w, setW] = useState<WeatherBundle | null>(null);
   const [busy, setBusy] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
     (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(CACHE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.ts && Date.now() - parsed.ts < CACHE_TTL_MS) {
-            if (mounted) { setWeather(parsed.w); setBusy(false); }
-            return;
-          }
-        }
-
-        let lat: number | null = null;
-        let lon: number | null = null;
-        const locRaw = await AsyncStorage.getItem(LOC_KEY);
-        if (locRaw) {
-          const loc = JSON.parse(locRaw);
-          if (loc.ts && Date.now() - loc.ts < LOC_TTL_MS) { lat = loc.lat; lon = loc.lon; }
-        }
-
-        if (lat === null) {
-          const perm = await Location.requestForegroundPermissionsAsync();
-          if (perm.status !== 'granted') {
-            if (mounted) { setErr('no_permission'); setBusy(false); }
-            return;
-          }
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          lat = loc.coords.latitude;
-          lon = loc.coords.longitude;
-          await AsyncStorage.setItem(LOC_KEY, JSON.stringify({ lat, lon, ts: Date.now() }));
-        }
-
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
-          '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
-          '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
-          '&timezone=auto&forecast_days=3';
-        const res = await fetch(url);
-        const data = await res.json();
-
-        const w: Weather = {
-          temp: Math.round(data.current?.temperature_2m ?? 0),
-          humidity: Math.round(data.current?.relative_humidity_2m ?? 0),
-          wind: Math.round(data.current?.wind_speed_10m ?? 0),
-          code: data.current?.weather_code ?? 0,
-          daily: (data.daily?.time || []).map((d: string, i: number) => ({
-            date: d,
-            code: data.daily.weather_code[i],
-            tmax: Math.round(data.daily.temperature_2m_max[i]),
-            tmin: Math.round(data.daily.temperature_2m_min[i]),
-            precip: data.daily.precipitation_probability_max?.[i] ?? 0,
-          })),
-        };
-        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), w }));
-        if (mounted) { setWeather(w); setBusy(false); }
-      } catch (e: any) {
-        if (mounted) { setErr(e?.message || 'weather_failed'); setBusy(false); }
-      }
+      const r = await fetchWeather();
+      setW(r);
+      setBusy(false);
     })();
-    return () => { mounted = false; };
   }, []);
 
-  if (err === 'no_permission' || (!weather && !busy && err)) return null;
-  if (busy && !weather) {
+  if (busy) {
     return (
       <View style={styles.card}>
-        <ActivityIndicator color={palette.neon} size="small" />
+        <ActivityIndicator color={palette.neon} />
       </View>
     );
   }
-  if (!weather) return null;
+  if (!w) {
+    return (
+      <Pressable onPress={() => setBusy(true)} style={styles.card}>
+        <Text style={styles.muted}>Weather unavailable — tap to retry</Text>
+      </Pressable>
+    );
+  }
+
+  const now = w.hourly[0];
+  const rainMin = minutesUntilRain(w);
+  const spray = bestSprayDays(w, 3);
 
   return (
     <View style={styles.card}>
-      <View style={styles.left}>
-        <Text style={styles.temp}>{weather.temp}C</Text>
-        <Text style={styles.meta}>{weather.humidity}% RH - {weather.wind} km/h</Text>
-      </View>
-      <Text style={styles.bigIcon}>{weatherEmoji(weather.code)}</Text>
-      <View style={styles.right}>
-        {weather.daily.slice(1, 4).map((d) => {
-          const label = new Date(d.date).toLocaleDateString(undefined, { weekday: 'short' });
-          return (
-            <View key={d.date} style={styles.mini}>
-              <Text style={styles.miniDay}>{label}</Text>
-              <Text style={styles.miniIcon}>{weatherEmoji(d.code)}</Text>
-              <Text style={styles.miniT}>{d.tmax} / {d.tmin}</Text>
+      <View style={styles.row}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.kicker}>TODAY</Text>
+          <Text style={styles.temp}>{Math.round(now?.temp ?? 0)}°C</Text>
+          <Text style={styles.muted}>
+            {Math.round(now?.humidity ?? 0)}% RH · {Math.round(now?.wind_kmh ?? 0)} km/h wind
+          </Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          {rainMin != null ? (
+            <View style={styles.rainPill}>
+              <Text style={styles.rainText}>
+                ☔ Rain in ~{rainMin < 60 ? `${rainMin}m` : `${Math.round(rainMin/60)}h`}
+              </Text>
             </View>
-          );
-        })}
+          ) : (
+            <View style={[styles.rainPill, styles.dryPill]}>
+              <Text style={[styles.rainText, { color: palette.neon }]}>☀️ Dry next 24h</Text>
+            </View>
+          )}
+        </View>
       </View>
+
+      <Text style={[styles.kicker, { marginTop: 18 }]}>BEST SPRAY DAYS</Text>
+      <View style={styles.sprayRow}>
+        {spray.length === 0 ? (
+          <Text style={styles.muted}>No good spray days in the next 7 days</Text>
+        ) : (
+          spray.map((d) => {
+            const dt = new Date(d.date);
+            const day = dt.toLocaleDateString(undefined, { weekday: 'short' });
+            return (
+              <View key={d.date} style={styles.sprayDay}>
+                <Text style={styles.sprayDayLabel}>{day}</Text>
+                <Text style={styles.sprayDayScore}>{d.spray_score}</Text>
+              </View>
+            );
+          })
+        )}
+      </View>
+      <Text style={styles.hint}>Score ≥ 70 means low wind, no rain, good temp.</Text>
     </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 18, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 16 },
-  left: { flex: 1 },
-  temp: { fontSize: 28, fontWeight: '900', color: p.neon, letterSpacing: -0.5 },
-  meta: { fontSize: 10, color: p.textMuted, marginTop: 2, letterSpacing: 0.5 },
-  bigIcon: { fontSize: 38, marginHorizontal: 8 },
-  right: { flex: 1.4, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-  mini: { alignItems: 'center', minWidth: 48 },
-  miniDay: { fontSize: 10, color: p.textMuted, fontWeight: '700' },
-  miniIcon: { fontSize: 18, marginVertical: 2 },
-  miniT: { fontSize: 10, color: p.text, fontWeight: '600' },
+  card: {
+    backgroundColor: p.surface, borderRadius: radius.lg, padding: spacing.lg,
+    borderWidth: 1, borderColor: p.border, marginBottom: spacing.md,
+  },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+  kicker: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted, marginBottom: 4 },
+  temp: { fontSize: 40, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  muted: { fontSize: 12, color: p.textMuted, marginTop: 4 },
+  rainPill: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'rgba(79,195,247,0.15)', borderWidth: 1, borderColor: '#4fc3f7',
+  },
+  dryPill: { backgroundColor: 'rgba(0,255,136,0.10)', borderColor: p.neon },
+  rainText: { fontSize: 12, fontWeight: '800', color: '#4fc3f7' },
+  sprayRow: { flexDirection: 'row', gap: 8, marginTop: 6, flexWrap: 'wrap' },
+  sprayDay: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: 'rgba(0,255,136,0.10)', borderWidth: 1, borderColor: p.neon,
+    alignItems: 'center', minWidth: 60,
+  },
+  sprayDayLabel: { fontSize: 10, fontWeight: '800', color: p.neon, letterSpacing: 1 },
+  sprayDayScore: { fontSize: 18, fontWeight: '900', color: p.text, marginTop: 2 },
+  hint: { fontSize: 10, color: p.textDim, marginTop: 8, fontStyle: 'italic' },
 });
