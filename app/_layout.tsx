@@ -11,6 +11,7 @@ import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
+import { installTapHandler, registerForPush } from '../src/utils/pushNotifications';
 import GaiaSplash from '../src/components/GaiaSplash';
 
 const queryClient = new QueryClient({
@@ -132,6 +133,17 @@ function RootNavigator() {
     })();
   }, []);
 
+  // Install notification tap handler once
+  useEffect(() => {
+    const cleanup = installTapHandler();
+    return cleanup;
+  }, []);
+
+  // (Re)register push token when user changes
+  useEffect(() => {
+    if (user?.id) registerForPush(user.id).catch(() => {});
+  }, [user?.id]);
+
   if (!ready || !minSplashDone) {
     return <GaiaSplash />;
   }
@@ -150,6 +162,7 @@ function RootNavigator() {
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
       <Stack.Screen name="agent" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />
       <Stack.Screen name="video-scan" options={{ headerShown: false }} />
       <Stack.Screen name="farm-detail" />
