@@ -16,6 +16,17 @@ function getORT() {
 const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v1/manifest.json';
 const CACHE_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'gaia-models/';
 
+// Models not in the models-v1 manifest — hardcoded fallback URLs
+const EXTRA_MODELS: Record<string, ModelMeta> = {
+  plant_id: {
+    url: 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/model_int8.onnx',
+    size_bytes: 100_160_000,
+    img_size: 224,
+    num_classes: 14829,
+    label: 'Plant identification',
+  },
+};
+
 export interface ModelMeta {
   url: string;
   size_bytes: number;
@@ -61,7 +72,7 @@ export async function ensureModel(
   onProgress?: (pct: number, bytesIn: number, totalBytes: number) => void,
 ): Promise<string | null> {
   const manifest = await getManifest();
-  const meta = manifest[key];
+  const meta = manifest[key] || EXTRA_MODELS[key];
   if (!meta) {
     console.warn('[models] no meta for', key);
     return null;
@@ -209,4 +220,39 @@ export async function clearAllModels(): Promise<void> {
     await FileSystem.deleteAsync(CACHE_DIR, { idempotent: true });
     for (const k of Object.keys(_sessions)) delete _sessions[k];
   } catch {}
+}
+
+// ---------- plant id helper ----------
+export interface PlantCrop {
+  key: string;
+  common: string;
+  latin: string;
+  modelIdx: number;
+}
+
+export const NIGERIAN_CROPS: Record<string, PlantCrop> = {
+  maize:       { key: 'maize',       common: 'Maize',        latin: 'Zea mays',              modelIdx: 14778 },
+  cassava:     { key: 'cassava',     common: 'Cassava',      latin: 'Manihot esculenta',     modelIdx: 8584 },
+  yam:         { key: 'yam',         common: 'Yam',          latin: 'Dioscorea alata',       modelIdx: 4379 },
+  beans:       { key: 'beans',       common: 'Beans',        latin: 'Phaseolus vulgaris',    modelIdx: 10313 },
+  soybean:     { key: 'soybean',     common: 'Soybean',      latin: 'Glycine max',           modelIdx: 6286 },
+  tomato:      { key: 'tomato',      common: 'Tomato',       latin: 'Solanum lycopersicum',  modelIdx: 12982 },
+  pepper:      { key: 'pepper',      common: 'Pepper',       latin: 'Capsicum annuum',       modelIdx: 2335 },
+  cabbage:     { key: 'cabbage',     common: 'Cabbage',      latin: 'Brassica oleracea',     modelIdx: 1916 },
+  sorghum:     { key: 'sorghum',     common: 'Sorghum',      latin: 'Sorghum bicolor',       modelIdx: 13087 },
+  wheat:       { key: 'wheat',       common: 'Wheat',        latin: 'Triticum aestivum',     modelIdx: 14070 },
+  cotton:      { key: 'cotton',      common: 'Cotton',       latin: 'Gossypium hirsutum',    modelIdx: 6355 },
+  cocoa:       { key: 'cocoa',       common: 'Cocoa',        latin: 'Theobroma cacao',       modelIdx: 13714 },
+  potato:      { key: 'potato',      common: 'Potato',       latin: 'Solanum tuberosum',     modelIdx: 13005 },
+  sweetpotato: { key: 'sweetpotato', common: 'Sweet Potato', latin: 'Ipomoea batatas',       modelIdx: 7172 },
+  cocoyam:     { key: 'cocoyam',     common: 'Cocoyam',      latin: 'Colocasia esculenta',   modelIdx: 3355 },
+  okra:        { key: 'okra',        common: 'Okra',         latin: 'Abelmoschus esculentus', modelIdx: 0 },
+  sunflower:   { key: 'sunflower',   common: 'Sunflower',    latin: 'Helianthus annuus',     modelIdx: 6582 },
+};
+
+export function cropByModelIdx(idx: number): PlantCrop | null {
+  for (const c of Object.values(NIGERIAN_CROPS)) {
+    if (c.modelIdx === idx) return c;
+  }
+  return null;
 }

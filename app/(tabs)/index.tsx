@@ -14,6 +14,7 @@ import { supabase } from '../../src/api/supabase';
 import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
 import StreakWidget from '../../src/components/StreakWidget';
+import PlantIDCard from '../../src/components/PlantIDCard';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
@@ -347,6 +348,7 @@ export default function Home() {
         return (
           <Animated.View entering={FadeInDown.delay(40).duration(500)}>
             <WeatherWidget />
+        <PlantIDCard />
           </Animated.View>
         );
 
