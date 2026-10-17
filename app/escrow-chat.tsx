@@ -107,7 +107,6 @@ export default function EscrowChat() {
           </Pressable>
         ) : null}
       </View>
-      </View>
 
       {busy ? (
         <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>
