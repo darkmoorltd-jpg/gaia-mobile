@@ -64,6 +64,10 @@ export default function Orders() {
     router.push({ pathname: '/chat-room', params: { peerId: order.buyer_id, peerName: order.buyer_name || 'Buyer', peerEmail: '' } } as any);
   };
 
+  const openReceipt = (order: any) => {
+    router.push({ pathname: '/escrow-receipt', params: { order_id: String(order.id) } } as any);
+  };
+
   const confirmDelivery = (order: any) => {
     Alert.alert('Confirm delivery?', 'This releases ' + naira(order.total) + ' from escrow to the seller. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -184,7 +188,7 @@ export default function Orders() {
           return (
             <View key={o.id} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.ref}>#{o.order_ref}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Pressable onPress={() => router.push({ pathname: '/escrow-chat', params: { order_id: String(o.id) } } as any)}><Text style={styles.ref}>#{o.order_ref} 💬</Text></Pressable><Pressable onPress={() => router.push({ pathname: '/escrow-receipt', params: { order_id: String(o.id) } } as any)}><Text style={styles.ref}>🧾</Text></Pressable></View>
                 <View style={[styles.statusPill, { borderColor: sColor + '88' }]}>
                   <Text style={[styles.statusTxt, { color: sColor }]}>{(o.status || 'pending').toUpperCase()}</Text>
                 </View>

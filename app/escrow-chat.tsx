@@ -17,6 +17,7 @@ export default function EscrowChat() {
   const numId = Number(order_id);
 
   const [order, setOrder] = useState<any | null>(null);
+  const [otherParty, setOtherParty] = useState<{ name: string; phone: string } | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(true);
@@ -30,6 +31,23 @@ export default function EscrowChat() {
     setOrder(o);
     const { data: m } = await supabase.from('escrow_messages').select('*').eq('order_id', numId).order('created_at');
     setMsgs(m || []);
+    if (o) {
+      const otherId = o.buyer_id === user?.id ? o.seller_id : o.buyer_id;
+      if (otherId) {
+        try {
+          const { data: prof } = await supabase
+            .from('user_profiles')
+            .select('first_name, last_name, phone')
+            .eq('user_id', otherId)
+            .maybeSingle();
+          if (prof) {
+            const nm = ((prof.first_name || '') + ' ' + (prof.last_name || '')).trim() || 'Farmer';
+            setOtherParty({ name: nm, phone: prof.phone || '' });
+          }
+        } catch {}
+      }
+    }
+
     setBusy(false);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 200);
   }, [numId]);
@@ -68,11 +86,27 @@ export default function EscrowChat() {
           <Text style={styles.iconText}>{'<'}</Text>
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{other_name || 'Order chat'}</Text>
+          <Text style={styles.title} numberOfLines={1}>
+            {otherParty?.name || other_name || 'Order chat'}
+          </Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {order ? 'Order ' + (order.order_ref || String(order.id).slice(0, 8)) + ' · NGN ' + Math.round(order.total || 0).toLocaleString() : 'Loading...'}
+            {otherParty?.phone || (order ? 'Order ' + (order.order_ref || String(order.id).slice(0, 8)) + ' · NGN ' + Math.round(order.total || 0).toLocaleString() : 'Loading...')}
           </Text>
         </View>
+        {otherParty?.phone ? (
+          <Pressable
+            onPress={() => {
+              const { Linking } = require('react-native');
+              const clean = otherParty.phone.replace(/[^0-9+]/g, '');
+              const intl = clean.startsWith('0') ? '+234' + clean.slice(1) : clean.startsWith('234') ? '+' + clean : clean;
+              Linking.openURL('tel:' + intl).catch(() => {});
+            }}
+            style={styles.iconBtn}
+          >
+            <Text style={styles.iconText}>📞</Text>
+          </Pressable>
+        ) : null}
+      </View>
       </View>
 
       {busy ? (
