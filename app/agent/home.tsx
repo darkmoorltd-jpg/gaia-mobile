@@ -94,6 +94,9 @@ export default function AgentHome() {
           <Text style={styles.earningsFoot}>N500 paid per farmer you verify and get approved</Text>
         </LinearGradient>
 
+
+        <GoalTracker verified={Number(stats?.verified || 0)} />
+
         <View style={styles.kpiRow}>
           <View style={styles.kpi}>
             <Text style={styles.kpiVal}>{num(stats?.verified_approved)}</Text>
@@ -191,8 +194,57 @@ export default function AgentHome() {
           </Text>
         </View>
 
-        <View style={{ height: 60 }} />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
+          <Pressable onPress={() => router.push('/agent-leaderboard' as any)} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, fontWeight: '900', color: '#00ff88', letterSpacing: 1 }}>🏆 LEADERBOARD</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/agent-field-map' as any)} style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, fontWeight: '900', color: '#00ff88', letterSpacing: 1 }}>🗺 FIELD MAP</Text>
+          </Pressable>
+        </View>
+
+<View style={{ height: 60 }} />
       </ScrollView>
+    </View>
+  );
+}
+
+
+function GoalTracker({ verified }: { verified: number }) {
+  const tiers = [
+    { name: 'Bronze', min: 5 },
+    { name: 'Silver', min: 20 },
+    { name: 'Gold', min: 50 },
+    { name: 'Platinum', min: 100 },
+  ];
+  const next = tiers.find((t) => verified < t.min);
+  const prevMin = tiers.filter((t) => verified >= t.min).pop()?.min || 0;
+
+  if (!next) {
+    return (
+      <View style={{ padding: 16, borderRadius: 14, backgroundColor: 'rgba(255,215,0,0.1)', borderWidth: 1, borderColor: '#ffd700', marginTop: 16 }}>
+        <Text style={{ fontSize: 12, fontWeight: '900', color: '#ffd700', letterSpacing: 1 }}>💎 MAX TIER — PLATINUM</Text>
+        <Text style={{ fontSize: 11, color: '#ffd700', marginTop: 4, opacity: 0.8 }}>{verified} farmers verified. You've hit the ceiling.</Text>
+      </View>
+    );
+  }
+
+  const range = next.min - prevMin;
+  const progress = range > 0 ? Math.min(1, (verified - prevMin) / range) : 0;
+  const pct = Math.round(progress * 100);
+
+  return (
+    <View style={{ padding: 16, borderRadius: 14, backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', marginTop: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <Text style={{ fontSize: 11, fontWeight: '900', color: '#00ff88', letterSpacing: 1 }}>🎯 NEXT: {next.name.toUpperCase()}</Text>
+        <Text style={{ fontSize: 11, color: '#94a3b8', fontWeight: '700' }}>{verified}/{next.min}</Text>
+      </View>
+      <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+        <View style={{ width: pct + '%', height: '100%', backgroundColor: '#00ff88', borderRadius: 4 }} />
+      </View>
+      <Text style={{ fontSize: 10, color: '#94a3b8', marginTop: 6 }}>
+        {next.min - verified} more verified farmer{next.min - verified === 1 ? '' : 's'} to reach {next.name}
+      </Text>
     </View>
   );
 }
