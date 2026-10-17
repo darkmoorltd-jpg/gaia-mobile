@@ -94,12 +94,16 @@ export default function LandEstimator() {
   const cropMeta = CROPS.find((c) => c.key === crop)!;
 
   useEffect(() => {
-    if (area && lastAreaRef.current === 0) {
-      hapticSuccess();
-      setConfettiFire(true);
-      setTimeout(() => setConfettiFire(false), 1600);
+    try {
+      if (area && lastAreaRef.current === 0) {
+        hapticSuccess();
+        setConfettiFire(true);
+        setTimeout(() => setConfettiFire(false), 1600);
+      }
+      lastAreaRef.current = area ? area.sqm : 0;
+    } catch (e) {
+      console.log('confetti trigger failed', e);
     }
-    lastAreaRef.current = area ? area.sqm : 0;
   }, [area?.sqm]);
 
   const projectInputs = area ? {
