@@ -8,6 +8,7 @@ import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
 import { useLocale } from '../src/store/locale';
+import { initI18n, loadLanguage } from '../src/utils/i18n';
 import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
@@ -46,6 +47,7 @@ function RootNavigator() {
       try {
         try { await useSettings.getState().load(); } catch {}
         try { await useLocale.getState().load(); } catch {}
+        try { await initI18n(useLocale.getState().language); } catch {}
 
         const { data } = await supabase.auth.getSession();
         if (mounted) {
@@ -89,6 +91,11 @@ function RootNavigator() {
     const t = setTimeout(() => setMinSplashDone(true), 1600);
     return () => clearTimeout(t);
   }, []);
+
+  const currentLang = useLocale((s) => s.language);
+  useEffect(() => {
+    loadLanguage(currentLang).catch(() => {});
+  }, [currentLang]);
 
   // Poll remote config every 60s so admin toggles apply without app restart
   useEffect(() => {

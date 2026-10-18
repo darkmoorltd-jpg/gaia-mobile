@@ -6,6 +6,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useLocale, countryFlag } from '../../src/store/locale';
+import Dropdown from '../../src/components/Dropdown';
 import { supabase } from '../../src/api/supabase';
 import {
   checkBiometricSupport, enableBiometric, isBiometricEnabled,
@@ -34,6 +36,10 @@ export default function Login() {
   const [agentCode, setAgentCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const pickCountry = useLocale((s) => s.country.code);
+  const pickLanguage = useLocale((s) => s.language);
+  const countriesList = useLocale((s) => s.countries);
+  const currentCountry = useLocale((s) => s.countries.find((c) => c.code === s.country.code) || s.country);
 
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
@@ -155,7 +161,16 @@ export default function Login() {
 
         {tab === 'password' ? (
           <>
-            <Text style={styles.label}>EMAIL OR PHONE</Text>
+            
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <View style={{ flex: 1 }}>
+              <Dropdown label="COUNTRY" value={pickCountry} options={(countriesList.length > 0 ? countriesList.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry) + ' ' + currentCountry.name, value: pickCountry }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Dropdown label="LANGUAGE" value={pickLanguage} options={[{ label: 'English', value: 'en' }, { label: 'Fran\u00e7ais', value: 'fr' }, { label: 'Portugu\u00eas', value: 'pt' }, { label: 'Espa\u00f1ol', value: 'es' }, { label: 'Deutsch', value: 'de' }, { label: 'Italiano', value: 'it' }, { label: 'Nederlands', value: 'nl' }, { label: 'Kiswahili', value: 'sw' }, { label: 'Hausa', value: 'ha' }, { label: 'Yor\u00f9b\u00e1', value: 'yo' }, { label: 'Igbo', value: 'ig' }, { label: 'Naij\u00e1', value: 'pcm' }]} onChange={(v) => { useLocale.getState().setLanguage(v); }} />
+            </View>
+          </View>
+<Text style={styles.label}>EMAIL OR PHONE</Text>
             <View style={styles.inputWrap}>
               <TextInput
                 value={email} onChangeText={setEmail}
