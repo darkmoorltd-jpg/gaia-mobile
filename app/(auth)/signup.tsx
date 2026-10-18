@@ -31,7 +31,7 @@ export default function Signup() {
         { label: 'Ghana', value: 'GH' },
         { label: 'Kenya', value: 'KE' },
         { label: 'South Africa', value: 'ZA' },
-        { label: 'Côte d'Ivoire', value: 'CI' },
+        { label: "Côte d'Ivoire", value: "CI" },
         { label: 'United States', value: 'US' },
         { label: 'United Kingdom', value: 'GB' },
       ];
