@@ -255,8 +255,10 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    try { await supabase.auth.signOut(); } catch {}
-    try { await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY); } catch {}
+    // Clear state INSTANTLY so UI responds even if Supabase is unreachable
     set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null, loginContext: null, isNewUser: false });
+    // Then clean up in background
+    try { await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY); } catch {}
+    try { await supabase.auth.signOut({ scope: 'local' }); } catch {}
   },
 }));

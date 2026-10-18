@@ -147,7 +147,7 @@ function RootNavigator() {
     if (user?.id) registerForPush(user.id).catch(() => {});
   }, [user?.id]);
 
-  if (!ready || !minSplashDone || !localeLoaded) {
+  if (!ready || !minSplashDone) {
     return <GaiaSplash />;
   }
 

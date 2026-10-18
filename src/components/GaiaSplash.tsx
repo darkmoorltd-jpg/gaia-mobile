@@ -62,7 +62,7 @@ export default function GaiaSplash() {
   const dotOpacity = (a: Animated.Value) => a.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.9, 0] });
 
   return (
-    <Animated.View style={[styles.root, { opacity: fadeIn }]}>
+    <Animated.View pointerEvents="none" style={[styles.root, { opacity: fadeIn }]}>
       <Animated.View style={[styles.orbitRing, { transform: [{ rotate: orbitRotate }] }]}>
         <View style={styles.orbitDot} />
       </Animated.View>
