@@ -97,6 +97,7 @@ export default function Profile() {
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
   const flags = useSettings((s) => s.flags);
+  if (!user) return null;
   const visibleSections = SECTIONS.map((sec) => ({
     ...sec,
     items: sec.items.filter((it) => flagAllows(flags, ROUTE_TO_FLAG[it.route])),
@@ -538,7 +539,7 @@ export default function Profile() {
               {section.items.map((item, ii) => (
                 <Pressable
                   key={ii}
-                  onPress={() => router.push(item.route as any)}
+                  onPress={() => { try { router.push(item.route as any); } catch (e) { console.log('nav err', e); } }}
                   style={({ pressed }) => [styles.item, ii === section.items.length - 1 && styles.itemLast, pressed && { opacity: 0.6 }]}
                 >
                   <Text style={styles.itemLabel}>{item.label}</Text>
@@ -559,7 +560,10 @@ export default function Profile() {
         <Pressable
           onPress={() => {
             console.log('[profile] logout tapped');
-            signOut();
+    (async () => {
+      try { await signOut(); } catch (e) { console.log('signout err', e); }
+      setTimeout(() => { try { router.replace('/(auth)/login' as any); } catch (e) { console.log('nav err', e); } }, 150);
+    })();
           }}
           style={styles.logout}
         >

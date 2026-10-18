@@ -255,10 +255,22 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    // Clear state FIRST — layout effect will redirect
-    set({ user: null, session: null, scansRemaining: 0, plan: 'free', role: null, loginContext: null, isNewUser: false });
-    // Clean up in background — fire and forget
-    AsyncStorage.removeItem(LOGIN_CONTEXT_KEY).catch(() => {});
-    supabase.auth.signOut().catch(() => {});
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.log('[signOut] supabase signOut failed:', e);
+    }
+    try {
+      await AsyncStorage.removeItem(LOGIN_CONTEXT_KEY);
+    } catch (e) {}
+    set({
+      user: null,
+      session: null,
+      scansRemaining: 0,
+      plan: 'free',
+      role: null,
+      loginContext: null,
+      isNewUser: false,
+    });
   },
 }));

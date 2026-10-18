@@ -171,6 +171,8 @@ function RootNavigator() {
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />
+      <Stack.Screen name="help" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="video-scan" options={{ headerShown: false }} />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />
