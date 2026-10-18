@@ -7,6 +7,7 @@ import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
+import { useLocale } from '../src/store/locale';
 import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { useLocation } from '../src/store/location';
@@ -37,12 +38,14 @@ function RootNavigator() {
 
   const [ready, setReady] = useState(false);
   const [minSplashDone, setMinSplashDone] = useState(false);
+  const localeLoaded = useLocale((s) => s.loaded);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         try { await useSettings.getState().load(); } catch {}
+        try { await useLocale.getState().load(); } catch {}
 
         const { data } = await supabase.auth.getSession();
         if (mounted) {
@@ -144,7 +147,7 @@ function RootNavigator() {
     if (user?.id) registerForPush(user.id).catch(() => {});
   }, [user?.id]);
 
-  if (!ready || !minSplashDone) {
+  if (!ready || !minSplashDone || !localeLoaded) {
     return <GaiaSplash />;
   }
 

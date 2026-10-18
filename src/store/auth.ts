@@ -27,7 +27,7 @@ interface AuthState {
   setLoginContext: (c: 'agent' | 'user' | null) => Promise<void>;
 
   signIn: (email: string, password: string) => Promise<string | null>;
-  signUp: (email: string, password: string) => Promise<string | null>;
+  signUp: (email: string, password: string, countryCode?: string) => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
   resetPassword: (email: string) => Promise<string | null>;
   updatePassword: (newPassword: string) => Promise<string | null>;
@@ -145,7 +145,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password) => {
+  signUp: async (email, password, countryCode?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) return error.message;
@@ -156,6 +156,14 @@ export const useAuth = create<AuthState>((set, get) => ({
           });
         } catch {}
         await get().setLoginContext('user');
+        if (countryCode) {
+          try {
+            await supabase.from('user_profiles').upsert(
+              { user_id: data.user.id, email: data.user.email, country: countryCode },
+              { onConflict: 'user_id' }
+            );
+          } catch {}
+        }
         set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
       }
       return null;

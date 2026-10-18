@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
   Platform, Alert, TextInput, ActivityIndicator,
@@ -6,6 +6,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useLocale } from '../../src/store/locale';
+import Dropdown from '../../src/components/Dropdown';
 
 export default function Signup() {
   const router = useRouter();
@@ -19,16 +21,41 @@ export default function Signup() {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const detectedCode = useLocale((s) => s.detectedCode);
+  const countriesList = useLocale((s) => s.countries);
+  const [country, setCountry] = useState<string>('');
+  const countryOptions = countriesList.length > 0
+    ? countriesList.map((c) => ({ label: c.name, value: c.code }))
+    : [
+        { label: 'Nigeria', value: 'NG' },
+        { label: 'Ghana', value: 'GH' },
+        { label: 'Kenya', value: 'KE' },
+        { label: 'South Africa', value: 'ZA' },
+        { label: 'Côte d'Ivoire', value: 'CI' },
+        { label: 'United States', value: 'US' },
+        { label: 'United Kingdom', value: 'GB' },
+      ];
+  useEffect(() => {
+    if (country) return;
+    if (detectedCode && countriesList.some((c) => c.code === detectedCode)) {
+      setCountry(detectedCode);
+      return;
+    }
+    if (countriesList.length > 0) setCountry(countriesList[0].code);
+    else setCountry('NG');
+  }, [detectedCode, countriesList.length, country]);
 
 
   const handleSubmit = async () => {
+    if (!country) { setError('Please select your country.'); return; }
     if (!email || !password) { setError('Email and password are required.'); return; }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setBusy(true); setError('');
-    const err = await signUp(email.trim(), password);
+    const err = await signUp(email.trim(), password, country);
+    if (err) { setBusy(false); setError(err); return; }
+    try { await useLocale.getState().setCountry(country); } catch {}
     setBusy(false);
-    if (err) { setError(err); return; }
     router.replace('/(auth)/onboarding' as any);
   };
 
@@ -45,6 +72,15 @@ export default function Signup() {
         <Text style={styles.leaf}>GAIA</Text>
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>Start diagnosing your farm in 30 seconds.</Text>
+
+        <Dropdown
+          label="COUNTRY"
+          value={country}
+          options={countryOptions}
+          onChange={setCountry}
+          placeholder="Select your country"
+          required
+        />
 
         <Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
