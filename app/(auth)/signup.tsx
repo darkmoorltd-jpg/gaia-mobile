@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
-import { useLocale } from '../../src/store/locale';
+import { useLocale, countryFlag } from '../../src/store/locale';
 import Dropdown from '../../src/components/Dropdown';
 
 export default function Signup() {
@@ -25,16 +25,16 @@ export default function Signup() {
   const countriesList = useLocale((s) => s.countries);
   const [country, setCountry] = useState<string>('');
   const countryOptions = countriesList.length > 0
-    ? countriesList.map((c) => ({ label: c.name, value: c.code }))
-    : [
-        { label: 'Nigeria', value: 'NG' },
-        { label: 'Ghana', value: 'GH' },
-        { label: 'Kenya', value: 'KE' },
-        { label: 'South Africa', value: 'ZA' },
-        { label: "Côte d'Ivoire", value: "CI" },
-        { label: 'United States', value: 'US' },
-        { label: 'United Kingdom', value: 'GB' },
-      ];
+    ? countriesList.map((c) => ({ label: `${countryFlag(c.code)} ${c.name}`, value: c.code }))
+    : ([
+        ['NG', 'Nigeria'],
+        ['GH', 'Ghana'],
+        ['KE', 'Kenya'],
+        ['ZA', 'South Africa'],
+        ['CI', "Côte d'Ivoire"],
+        ['US', 'United States'],
+        ['GB', 'United Kingdom'],
+      ] as [string, string][]).map(([code, name]) => ({ label: `${countryFlag(code)} ${name}`, value: code }));
   useEffect(() => {
     if (country) return;
     if (detectedCode && countriesList.some((c) => c.code === detectedCode)) {

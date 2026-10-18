@@ -20,6 +20,21 @@ export interface Country {
   launch_order: number | null;
 }
 
+export function countryFlag(code?: string | null): string {
+  if (!code || code.length !== 2) return '\u{1F30D}';
+  try {
+    const A = 0x1F1E6;
+    const a = 'A'.charCodeAt(0);
+    const up = code.toUpperCase();
+    return String.fromCodePoint(
+      A + (up.charCodeAt(0) - a),
+      A + (up.charCodeAt(1) - a),
+    );
+  } catch {
+    return '\u{1F30D}';
+  }
+}
+
 const FALLBACK: Country = {
   code: 'NG',
   name: 'Nigeria',
