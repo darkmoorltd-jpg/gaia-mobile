@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useTranslation } from 'react-i18next';
 import { useLocale, countryFlag } from '../../src/store/locale';
 import Dropdown from '../../src/components/Dropdown';
 import { supabase } from '../../src/api/supabase';
@@ -36,6 +37,7 @@ export default function Login() {
   const [agentCode, setAgentCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { t } = useTranslation();
   const pickCountry = useLocale((s) => s.country.code);
   const pickLanguage = useLocale((s) => s.language);
   const countriesList = useLocale((s) => s.countries);
@@ -183,7 +185,7 @@ export default function Login() {
             <View style={styles.inputWrap}>
               <TextInput
                 value={password} onChangeText={setPassword}
-                secureTextEntry placeholder="password"
+                secureTextEntry placeholder={t('password')}
                 placeholderTextColor={palette.textDim} style={styles.input}
               />
             </View>
@@ -199,7 +201,7 @@ export default function Login() {
               disabled={busy || !email || !password}
               style={[styles.cta, (busy || !email || !password) && { opacity: 0.4 }]}
             >
-              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SIGN IN</Text>}
+              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>{t('signin_button')}</Text>}
             </Pressable>
             {bioAvailable && bioEnabled ? (
               <Pressable onPress={handleBiometricLogin} style={styles.bioBtn}>

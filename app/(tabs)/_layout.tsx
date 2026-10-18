@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
 import { useSettings } from '../../src/store/settings';
+import { useTranslation } from 'react-i18next';
 
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
@@ -15,6 +16,7 @@ function TabIcon({ emoji, focused, color }: {
 
 export default function TabsLayout() {
   const palette = useTheme((s) => s.palette);
+  const { t } = useTranslation();
   const flags = useSettings((s) => s.flags);
   const flagOn = (k: string) => (flags[k] === undefined ? true : !!flags[k]);
 
@@ -43,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'HOME',
+          title: t('home').toUpperCase(),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="H" focused={focused} color={color} />
           ),
@@ -52,7 +54,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="crops"
         options={{
-          title: 'CROPS',
+          title: t('crops').toUpperCase(),
           href: flagOn('crops') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="C" focused={focused} color={color} />
@@ -62,7 +64,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="pests"
         options={{
-          title: 'PESTS',
+          title: t('pests').toUpperCase(),
           href: flagOn('pests') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="P" focused={focused} color={color} />
@@ -72,7 +74,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="soil"
         options={{
-          title: 'SOIL',
+          title: t('soil').toUpperCase(),
           href: flagOn('soil') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="S" focused={focused} color={color} />
@@ -82,7 +84,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="livestock"
         options={{
-          title: 'LIVESTOCK',
+          title: t('livestock').toUpperCase(),
           href: flagOn('livestock') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="L" focused={focused} color={color} />
@@ -92,7 +94,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'CHAT',
+          title: t('chat').toUpperCase(),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="M" focused={focused} color={color} />
           ),

@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { supabase } from '../../src/api/supabase';
+import { useTranslation } from 'react-i18next';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
@@ -83,6 +84,7 @@ function fmtDate(s?: string | null) {
 const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
 
 export default function Profile() {
+  const { t } = useTranslation();
   const router = useRouter();
   const palette = useTheme((s) => s.palette);
   const styles = useMemo(() => createStyles(palette), [palette]);
