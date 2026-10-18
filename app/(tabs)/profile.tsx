@@ -1,16 +1,16 @@
-import {  useCallback, useState, useRef } from 'react';
-import { 
+// app/(tabs)/profile.tsx
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
   View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
-  ActivityIndicator, TextInput, Modal, Animated } from 'react-native';
+  ActivityIndicator, TextInput, Modal, RefreshControl, Platform, Linking,
+} from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import Constants from 'expo-constants';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
-import { useSettings } from '../../src/store/settings';
-import { flagAllows } from '../../src/components/FeatureGate';
 import { supabase } from '../../src/api/supabase';
-import ParallaxHeader from '../../src/components/ParallaxHeader';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
@@ -25,45 +25,25 @@ const GENDERS = ['', 'Male', 'Female'];
 const MARITAL = ['', 'Single', 'Married', 'Divorced', 'Widowed'];
 const FARM_TYPES = ['', 'Smallholder (< 1 acre)', 'Medium (1-10 acres)', 'Commercial (10-50 acres)', 'Industrial (50+ acres)'];
 const BANKS = ['','Access Bank','GTBank','Zenith Bank','UBA','First Bank','Kuda','Opay','Palmpay','Moniepoint','Sterling Bank','Union Bank','Fidelity Bank','Wema Bank','Jaiz Bank','Other'];
-const LANGUAGES = ['English','Hausa','Yoruba','Igbo','Pidgin English'];
 
-interface MenuItem { label: string; route: string; badge?: string; }
+interface MenuItem { label: string; route: string; flag?: string; }
 interface Section { title: string; icon: string; items: MenuItem[]; }
-
-const ROUTE_TO_FLAG: Record<string, string> = {
-  '/voice': 'voice',
-  '/video-scan': 'video',
-  '/satellite': 'satellite',
-  '/university': 'university',
-  '/marketplace': 'marketplace',
-  '/wallet': 'wallet',
-  '/badges': 'badges',
-  '/calendar': 'calendar',
-  '/insurance': 'insurance',
-  '/insurance-policies': 'insurance',
-  '/loans': 'loans',
-  '/savings-groups': 'wallet',
-  '/early-warning': 'crops',
-};
 
 const SECTIONS: Section[] = [
   { title: 'SCANS & AI', icon: 'AI', items: [
-    { label: 'Voice Agronomist', route: '/voice' },
-    { label: 'Video Scan', route: '/video-scan' },
+    { label: 'Voice Agronomist', route: '/voice', flag: 'voice' },
+    { label: 'Video Scan', route: '/video-scan', flag: 'video' },
     { label: 'Scan History', route: '/history' },
     { label: 'Early Warning', route: '/early-warning' },
-      { label: 'Aflatoxin Risk Check', route: '/aflatoxin' },
-      { label: 'Land Size Estimator', route: '/land-estimator' },
   ]},
   { title: 'FARM TOOLS', icon: 'FM', items: [
     { label: 'Farm Mapping', route: '/farm-mapping' },
     { label: 'Agro Tools', route: '/agro-tools' },
     { label: 'Farm Journal', route: '/journal' },
-    { label: 'Satellite Monitor', route: '/satellite' },
+    { label: 'Satellite Monitor', route: '/satellite', flag: 'satellite' },
   ]},
   { title: 'MONEY & BUSINESS', icon: '$$', items: [
-    { label: 'Loans', route: '/loans' },
-    { label: 'Wallet', route: '/wallet' },
+    { label: 'Wallet', route: '/wallet', flag: 'wallet' },
     { label: 'Payment History', route: '/payment-history' },
     { label: 'Savings Groups', route: '/savings-groups' },
     { label: 'Rewards & Referral', route: '/rewards' },
@@ -71,15 +51,15 @@ const SECTIONS: Section[] = [
     { label: 'B2B Dashboard', route: '/b2b-dashboard' },
   ]},
   { title: 'COMMUNITY', icon: 'CM', items: [
-    { label: 'Marketplace', route: '/marketplace' },
-    { label: 'University', route: '/university' },
-    { label: 'Chat', route: '/chat' },
+    { label: 'Marketplace', route: '/marketplace', flag: 'marketplace' },
+    { label: 'University', route: '/university', flag: 'university' },
+    { label: 'Chat', route: '/chat', flag: 'chat' },
     { label: 'Notifications', route: '/notifications' },
   ]},
   { title: 'ACCOUNT', icon: 'AC', items: [
     { label: 'Verification', route: '/verification' },
-    { label: 'Badges', route: '/badges' },
-    { label: 'Farming Calendar', route: '/calendar' },
+    { label: 'Badges', route: '/badges', flag: 'badges' },
+    { label: 'Farming Calendar', route: '/calendar', flag: 'calendar' },
     { label: 'Blocked Users', route: '/blocked-users' },
   ]},
   { title: 'SUPPORT', icon: 'SP', items: [
@@ -88,149 +68,251 @@ const SECTIONS: Section[] = [
   ]},
 ];
 
+function mask11(v?: string | null) {
+  if (!v) return '—';
+  const s = String(v);
+  if (s.length <= 4) return '•'.repeat(s.length);
+  return '•'.repeat(s.length - 4) + s.slice(-4);
+}
+
+function fmtDate(s?: string | null) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleDateString(); } catch { return '—'; }
+}
+
+const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
+
 export default function Profile() {
-  const scrollY = useRef(new Animated.Value(0)).current;
   const router = useRouter();
-  const { palette } = useTheme();
-  const styles = createStyles(palette);
-  const { user, scansRemaining, plan, signOut } = useAuth();
+  const palette = useTheme((s) => s.palette);
+  const styles = useMemo(() => createStyles(palette), [palette]);
+
+  const user = useAuth((s) => s.user);
+  const scansRemaining = useAuth((s) => s.scansRemaining);
+  const plan = useAuth((s) => s.plan);
+  const signOut = useAuth((s) => s.signOut);
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
-  const flags = useSettings((s) => s.flags);
-  if (!user) return null;
-  const visibleSections = SECTIONS.map((sec) => ({
-    ...sec,
-    items: sec.items.filter((it) => flagAllows(flags, ROUTE_TO_FLAG[it.route])),
-  })).filter((sec) => sec.items.length > 0);
-
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
   const [avatarBusy, setAvatarBusy] = useState(false);
-  
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
+
   const [kycStatus, setKycStatus] = useState<string>('pending');
   const [kycVerifiedAt, setKycVerifiedAt] = useState<string | null>(null);
   const [kyc, setKyc] = useState<any>(null);
 
-  // Editable form state
+  const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+
   const [f, setF] = useState<Record<string, any>>({});
-  const set = (k: string, v: any) => setF((prev) => ({ ...prev, [k]: v }));
+  const originalRef = useRef<Record<string, any>>({});
+
+  const set = (k: string, v: any) => {
+    setF((prev) => ({ ...prev, [k]: v }));
+    setDirty(true);
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    setLoadError(null);
     try {
-      const { data: prof } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const [profRes, verifRes, flagsRes] = await Promise.allSettled([
+        supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase
+          .from('farmer_verifications')
+          .select('full_name,bvn,nin,crop,farm_size,status,id_status,selfie_status,name_match_verified_at,created_at,id_photo_url,id_image_url,selfie_url,state,lga,address,phone')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from('app_settings').select('value').eq('key', 'feature_flags').maybeSingle(),
+      ]);
 
-      const { data: verif } = await supabase
-        .from('farmer_verifications')
-        .select('full_name,bvn,nin,crop,farm_size,status,id_status,selfie_status,name_match_verified_at,created_at,id_photo_url,id_image_url,selfie_url,state,lga,address,phone')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const prof = profRes.status === 'fulfilled' ? (profRes.value.data || {}) : {};
+      const verif = verifRes.status === 'fulfilled' ? verifRes.value.data : null;
 
-      const p = prof || {};
       setKyc(verif || null);
-      setKycStatus((verif?.status || p.verification_status || 'pending').toLowerCase());
+      setKycStatus((verif?.status || prof.verification_status || 'pending').toLowerCase());
       setKycVerifiedAt(verif?.name_match_verified_at || null);
-      setAvatar(p.avatar_url || null);
+      setAvatar(prof.avatar_url || null);
 
-      setF({
-        first_name: p.first_name || verif?.full_name?.split(' ')[0] || '',
-        middle_name: p.middle_name || '',
-        last_name: p.last_name || (verif?.full_name?.split(' ').slice(1).join(' ') || ''),
-        phone: p.phone || verif?.phone || '',
-        whatsapp: p.whatsapp || p.phone || '',
-        gender: p.gender || '',
-        date_of_birth: p.date_of_birth || '',
-        marital_status: p.marital_status || '',
-        country: p.country || 'Nigeria',
-        state: p.state || verif?.state || '',
-        lga: p.lga || verif?.lga || '',
-        city: p.city || '',
-        street_address: p.street_address || verif?.address || '',
-        landmark: p.landmark || '',
-        postal_code: p.postal_code || '',
-        farm_state: p.farm_state || verif?.state || '',
-        farm_lga: p.farm_lga || verif?.lga || '',
-        farm_address: p.farm_address || '',
-        farm_size_acres: p.farm_size_acres != null ? String(p.farm_size_acres) : (verif?.farm_size || ''),
-        farming_type: p.farming_type || '',
-        years_experience: p.years_experience != null ? String(p.years_experience) : '',
-        primary_crops: p.primary_crops || verif?.crop || '',
-        secondary_crops: p.secondary_crops || '',
-        account_name: p.account_name || '',
-        account_number: p.account_number || '',
-        bank_name: p.bank_name || '',
-        emergency_contact_name: p.emergency_contact_name || '',
-        emergency_contact_phone: p.emergency_contact_phone || '',
-        emergency_relationship: p.emergency_relationship || '',
-        social_twitter: p.social_twitter || '',
-        social_instagram: p.social_instagram || '',
-        social_facebook: p.social_facebook || '',
-        social_linkedin: p.social_linkedin || '',
-        social_tiktok: p.social_tiktok || '',
-        preferred_language: p.preferred_language || 'English',
-        notify_sms: p.notify_sms !== false,
-        notify_whatsapp: p.notify_whatsapp !== false,
-        notify_weather: p.notify_weather !== false,
-        notify_disease: p.notify_disease !== false,
-        notify_payment: p.notify_payment !== false,
-        bvn: p.bvn || verif?.bvn || '',
-        nin: p.nin || verif?.nin || '',
-      });
-    } catch (e) {
-      console.log('profile load error', e);
+      const next: Record<string, any> = {
+        first_name: prof.first_name || verif?.full_name?.split(' ')[0] || '',
+        middle_name: prof.middle_name || '',
+        last_name: prof.last_name || (verif?.full_name?.split(' ').slice(1).join(' ') || ''),
+        phone: prof.phone || verif?.phone || '',
+        whatsapp: prof.whatsapp || prof.phone || '',
+        gender: prof.gender || '',
+        date_of_birth: prof.date_of_birth || '',
+        marital_status: prof.marital_status || '',
+        country: prof.country || 'Nigeria',
+        state: prof.state || verif?.state || '',
+        lga: prof.lga || verif?.lga || '',
+        city: prof.city || '',
+        street_address: prof.street_address || verif?.address || '',
+        landmark: prof.landmark || '',
+        postal_code: prof.postal_code || '',
+        farm_state: prof.farm_state || verif?.state || '',
+        farm_lga: prof.farm_lga || verif?.lga || '',
+        farm_address: prof.farm_address || '',
+        farm_size_acres: prof.farm_size_acres != null ? String(prof.farm_size_acres) : (verif?.farm_size || ''),
+        farming_type: prof.farming_type || '',
+        years_experience: prof.years_experience != null ? String(prof.years_experience) : '',
+        primary_crops: prof.primary_crops || verif?.crop || '',
+        secondary_crops: prof.secondary_crops || '',
+        account_name: prof.account_name || '',
+        account_number: prof.account_number || '',
+        bank_name: prof.bank_name || '',
+        emergency_contact_name: prof.emergency_contact_name || '',
+        emergency_contact_phone: prof.emergency_contact_phone || '',
+        emergency_relationship: prof.emergency_relationship || '',
+        social_twitter: prof.social_twitter || '',
+        social_instagram: prof.social_instagram || '',
+        social_facebook: prof.social_facebook || '',
+        social_linkedin: prof.social_linkedin || '',
+        social_tiktok: prof.social_tiktok || '',
+        preferred_language: prof.preferred_language || 'English',
+        notify_sms: prof.notify_sms !== false,
+        notify_whatsapp: prof.notify_whatsapp !== false,
+        notify_weather: prof.notify_weather !== false,
+        notify_disease: prof.notify_disease !== false,
+        notify_payment: prof.notify_payment !== false,
+        bvn: prof.bvn || verif?.bvn || '',
+        nin: prof.nin || verif?.nin || '',
+      };
+      setF(next);
+      originalRef.current = { ...next };
+      setDirty(false);
+
+      if (flagsRes.status === 'fulfilled') {
+        const v = flagsRes.value.data?.value;
+        setFlags(v && typeof v === 'object' ? v : {});
+      } else {
+        setFlags({});
+      }
+    } catch (e: any) {
+      setLoadError(e?.message || 'Could not load profile');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [user]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    load();
+  }, [load]);
+
+  const cancelEdit = useCallback(() => {
+    if (!dirty) {
+      setEditMode(false);
+      return;
+    }
+    Alert.alert('Discard changes?', 'Your edits will be lost.', [
+      { text: 'Keep editing', style: 'cancel' },
+      {
+        text: 'Discard',
+        style: 'destructive',
+        onPress: () => {
+          setF({ ...originalRef.current });
+          setDirty(false);
+          setEditMode(false);
+        },
+      },
+    ]);
+  }, [dirty]);
+
+  const uploadAvatar = async (asset: { uri: string; base64?: string | null }): Promise<string> => {
+    if (!user) throw new Error('Not signed in');
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Session expired');
+
+    let uploadUri = asset.uri;
+    const needsCopy =
+      Platform.OS === 'ios' &&
+      (uploadUri.startsWith('ph://') || uploadUri.startsWith('assets-library://'));
+
+    if (needsCopy) {
+      if (!asset.base64) throw new Error('Could not read selected image');
+      uploadUri = (FileSystem.cacheDirectory || '') + 'avatar_src_' + Date.now() + '.jpg';
+      await FileSystem.writeAsStringAsync(uploadUri, asset.base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+
+    const path = `${user.id}/avatar_${Date.now()}.jpg`;
+    const uploadUrl = `${SUPABASE_URL}/storage/v1/object/avatars/${path}`;
+
+    const r = await FileSystem.uploadAsync(uploadUrl, uploadUri, {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'image/jpeg',
+        'x-upsert': 'true',
+      },
+    });
+
+    if (r.status < 200 || r.status >= 300) {
+      throw new Error(`Upload failed (${r.status})`);
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/avatars/${path}`;
+  };
 
   const changeAvatar = async () => {
+    if (!user) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Photo permission required', 'Enable Photos access in Settings.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open settings', onPress: () => Linking.openSettings() },
+      ]);
+      return;
+    }
+
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7, allowsEditing: true, aspect: [1, 1],
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
+      base64: true,
     });
-    if (res.canceled || !user) return;
+    if (res.canceled) return;
+
     setAvatarBusy(true);
     try {
-      const asset = res.assets[0];
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('no session');
-      const path = user.id + '/avatar_' + Date.now() + '.jpg';
-      const url = SUPABASE_URL + '/storage/v1/object/avatars/' + path;
-      const r = await FileSystem.uploadAsync(url, asset.uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'image/jpeg',
-          'x-upsert': 'true',
-        },
+      const url = await uploadAvatar({
+        uri: res.assets[0].uri,
+        base64: res.assets[0].base64,
       });
-      if (r.status < 200 || r.status >= 300) throw new Error('upload ' + r.status);
-      const publicUrl = SUPABASE_URL + '/storage/v1/object/public/avatars/' + path;
-      const upd = await supabase.from('user_profiles')
-        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+
+      const upd = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: url, updated_at: new Date().toISOString() })
         .eq('user_id', user.id)
         .select('avatar_url');
-      console.log('[avatar] DB write:', upd);
+
       if (upd.error) {
-        Alert.alert('DB write failed', upd.error.message);
+        Alert.alert('Saved image, but profile row did not update', upd.error.message);
       } else if (!upd.data || upd.data.length === 0) {
-        Alert.alert('DB row not updated', 'RLS is likely blocking this write.');
+        Alert.alert('Profile row not updated', 'RLS may be blocking this write.');
       }
-      setAvatar(publicUrl);
-      Alert.alert('Updated', 'Profile picture changed.');
+      setAvatar(url);
     } catch (e: any) {
       Alert.alert('Upload failed', e?.message || 'Try again');
     } finally {
@@ -238,47 +320,53 @@ export default function Profile() {
     }
   };
 
-  const removeAvatar = async () => {
+  const removeAvatar = () => {
     if (!user) return;
     Alert.alert('Remove photo?', 'Your profile picture will be deleted.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: async () => {
-        setAvatarBusy(true);
-        try {
-          if (avatar) {
-            const mk = '/avatars/';
-            const idx = avatar.indexOf(mk);
-            if (idx >= 0) {
-              const storagePath = avatar.slice(idx + mk.length).split('?')[0];
-              try {
-                const sess = await supabase.auth.getSession();
-                const tok = sess.data.session ? sess.data.session.access_token : null;
-                if (tok) {
-                  await fetch(SUPABASE_URL + '/storage/v1/object/avatars/' + storagePath, {
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setAvatarBusy(true);
+          try {
+            if (avatar) {
+              const marker = '/avatars/';
+              const idx = avatar.indexOf(marker);
+              if (idx >= 0) {
+                const storagePath = avatar.slice(idx + marker.length).split('?')[0];
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+                if (token) {
+                  await fetch(`${SUPABASE_URL}/storage/v1/object/avatars/${storagePath}`, {
                     method: 'DELETE',
-                    headers: { Authorization: 'Bearer ' + tok },
+                    headers: { Authorization: `Bearer ${token}` },
                   });
                 }
-              } catch (err) {}
+              }
             }
+            await supabase
+              .from('user_profiles')
+              .update({ avatar_url: null, updated_at: new Date().toISOString() })
+              .eq('user_id', user.id);
+            setAvatar(null);
+          } catch (e: any) {
+            Alert.alert('Failed', e?.message || 'Try again');
+          } finally {
+            setAvatarBusy(false);
           }
-          await supabase.from('user_profiles')
-            .update({ avatar_url: null, updated_at: new Date().toISOString() })
-            .eq('user_id', user.id);
-          setAvatar(null);
-        } catch (e) {
-          Alert.alert('Failed', e && e.message ? e.message : 'Try again');
-        } finally {
-          setAvatarBusy(false);
-        }
-      }},
+        },
+      },
     ]);
   };
 
   const onAvatarTap = () => {
-    if (!avatar) { changeAvatar(); return; }
+    if (!avatar) {
+      changeAvatar();
+      return;
+    }
     Alert.alert('Profile picture', 'What would you like to do?', [
-      
+      { text: 'View', onPress: () => setViewerOpen(true) },
       { text: 'Change', onPress: changeAvatar },
       { text: 'Remove', style: 'destructive', onPress: removeAvatar },
       { text: 'Cancel', style: 'cancel' },
@@ -287,6 +375,16 @@ export default function Profile() {
 
   const save = async () => {
     if (!user) return;
+
+    if (!(f.first_name || '').trim() || !(f.last_name || '').trim()) {
+      Alert.alert('Name required', 'First and last name are needed.');
+      return;
+    }
+    if (f.phone && !/^[+0-9\s\-()]{7,20}$/.test(String(f.phone))) {
+      Alert.alert('Invalid phone', 'Enter a valid phone number.');
+      return;
+    }
+
     setSaving(true);
     try {
       const numeric = (v: any) => {
@@ -297,7 +395,8 @@ export default function Profile() {
         const n = parseInt(String(v || '').replace(/[^0-9]/g, ''), 10);
         return isNaN(n) ? null : n;
       };
-      const payload: any = {
+
+      const payload: Record<string, any> = {
         user_id: user.id,
         email: user.email,
         first_name: (f.first_name || '').trim(),
@@ -342,11 +441,16 @@ export default function Profile() {
         notify_payment: !!f.notify_payment,
         updated_at: new Date().toISOString(),
       };
-      const { error } = await supabase.from('user_profiles').upsert(payload, { onConflict: 'user_id' });
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert(payload, { onConflict: 'user_id' });
       if (error) throw error;
-      Alert.alert('Saved', 'Profile updated.');
+
+      originalRef.current = { ...f };
+      setDirty(false);
       setEditMode(false);
-      load();
+      Alert.alert('Saved', 'Profile updated.');
     } catch (e: any) {
       Alert.alert('Save failed', e?.message || 'Try again');
     } finally {
@@ -354,13 +458,29 @@ export default function Profile() {
     }
   };
 
+  const handleSignOut = () => {
+    Alert.alert('Log out?', 'You will need to sign in again.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: async () => {
+          try { await signOut(); } catch {}
+          try { router.replace('/(auth)/login' as any); } catch {}
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.center]}>
         <ActivityIndicator color={palette.neon} />
       </View>
     );
   }
+
+  if (!user) return null;
 
   const verified = kycStatus === 'approved';
   const pending = kycStatus === 'pending' || kycStatus === 'pending_payment' || kycStatus === 'pending_review';
@@ -368,20 +488,41 @@ export default function Profile() {
   const verifColor = verified ? palette.neon : rejected ? palette.danger : palette.warning;
   const verifLabel = verified ? 'VERIFIED' : rejected ? 'ACTION NEEDED' : 'VERIFICATION PENDING';
 
-  const displayName = ((f.first_name || '') + ' ' + (f.last_name || '')).trim() || (user?.email?.split('@')[0] || 'Farmer');
+  const displayName =
+    ((f.first_name || '') + ' ' + (f.last_name || '')).trim() ||
+    user?.email?.split('@')[0] ||
+    'Farmer';
+
+  const visibleSections = SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((it) => {
+      if (!it.flag) return true;
+      if (!flags) return true;
+      return flags[it.flag] !== false;
+    }),
+  })).filter((s) => s.items.length > 0);
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })} scrollEventThrottle={16}>
-        <ParallaxHeader
-          imageUri="https://images.unsplash.com/photo-1500382017468-9049fed747ef?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-          title="My Profile"
-          subtitle="Your GAIA account"
-          scrollY={scrollY}
-        />
-        {/* Hero */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={palette.neon}
+          />
+        }
+      >
+        {loadError ? (
+          <Pressable onPress={load} style={styles.errorBar}>
+            <Text style={styles.errorTxt}>{loadError} · tap to retry</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.hero}>
-          <Pressable onPress={onAvatarTap} style={styles.avatarWrap}>
+          <Pressable onPress={onAvatarTap} style={styles.avatarWrap} disabled={avatarBusy}>
             {avatar ? (
               <Image source={{ uri: avatar }} style={styles.avatarImg} />
             ) : (
@@ -391,12 +532,13 @@ export default function Profile() {
             )}
             <View style={styles.avatarEdit}>
               {avatarBusy ? (
-                <ActivityIndicator color={palette.obsidian} size='small' />
+                <ActivityIndicator color={palette.obsidian} size="small" />
               ) : (
                 <Text style={styles.avatarEditText}>+</Text>
               )}
             </View>
           </Pressable>
+
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
 
@@ -406,7 +548,10 @@ export default function Profile() {
           </View>
 
           {!verified ? (
-            <Pressable onPress={() => router.push('/verification' as any)} style={[styles.verifyBtn, { borderColor: verifColor }]}>
+            <Pressable
+              onPress={() => router.push('/verification' as any)}
+              style={[styles.verifyBtn, { borderColor: verifColor }]}
+            >
               <Text style={[styles.verifyBtnTxt, { color: verifColor }]}>
                 {rejected ? 'FIX DOCUMENTS' : pending ? 'VIEW STATUS' : 'VERIFY NOW'}
               </Text>
@@ -414,14 +559,21 @@ export default function Profile() {
           ) : null}
         </View>
 
-        {/* Stats */}
         <View style={styles.statRow}>
-          <View style={styles.stat}><Text style={styles.statVal}>{scansRemaining}</Text><Text style={styles.statLbl}>SCANS</Text></View>
-          <View style={styles.stat}><Text style={styles.statVal}>{plan[0].toUpperCase()}</Text><Text style={styles.statLbl}>PLAN</Text></View>
-          <View style={styles.stat}><Text style={styles.statVal}>{verified ? '✓' : '—'}</Text><Text style={styles.statLbl}>KYC</Text></View>
+          <View style={styles.stat}>
+            <Text style={styles.statVal}>{scansRemaining}</Text>
+            <Text style={styles.statLbl}>SCANS</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statVal}>{String(plan || 'free').charAt(0).toUpperCase()}</Text>
+            <Text style={styles.statLbl}>PLAN</Text>
+          </View>
+          <View style={styles.stat}>
+            <Text style={styles.statVal}>{verified ? '✓' : '—'}</Text>
+            <Text style={styles.statLbl}>KYC</Text>
+          </View>
         </View>
 
-        {/* Edit / Save toggle */}
         <View style={styles.modeBar}>
           {!editMode ? (
             <Pressable onPress={() => setEditMode(true)} style={styles.modeBtn}>
@@ -429,17 +581,20 @@ export default function Profile() {
             </Pressable>
           ) : (
             <>
-              <Pressable onPress={() => { setEditMode(false); load(); }} style={[styles.modeBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.border }]}>
+              <Pressable onPress={cancelEdit} style={[styles.modeBtn, styles.modeBtnGhost]}>
                 <Text style={[styles.modeBtnTxt, { color: palette.text }]}>CANCEL</Text>
               </Pressable>
-              <Pressable onPress={save} disabled={saving} style={[styles.modeBtn, { backgroundColor: palette.neon, marginLeft: 10 }]}>
-                <Text style={styles.modeBtnTxt}>{saving ? 'SAVING...' : 'SAVE'}</Text>
+              <Pressable
+                onPress={save}
+                disabled={saving || !dirty}
+                style={[styles.modeBtn, { backgroundColor: palette.neon, marginLeft: 10 }, (saving || !dirty) && { opacity: 0.5 }]}
+              >
+                <Text style={styles.modeBtnTxt}>{saving ? 'SAVING…' : 'SAVE'}</Text>
               </Pressable>
             </>
           )}
         </View>
 
-        {/* VERIFICATION card */}
         {kyc ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>VERIFICATION</Text>
@@ -453,7 +608,6 @@ export default function Profile() {
           </View>
         ) : null}
 
-        {/* PERSONAL */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>PERSONAL INFORMATION</Text>
           <Field styles={styles} palette={palette} label='First name' field='first_name' f={f} set={set} edit={editMode} />
@@ -467,7 +621,6 @@ export default function Profile() {
           <Field styles={styles} palette={palette} label='Preferred language' field='preferred_language' f={f} set={set} edit={editMode} />
         </View>
 
-        {/* ADDRESS */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>ADDRESS</Text>
           <Field styles={styles} palette={palette} label='Country' field='country' f={f} set={set} edit={editMode} />
@@ -479,7 +632,6 @@ export default function Profile() {
           <Field styles={styles} palette={palette} label='Postal code' field='postal_code' f={f} set={set} edit={editMode} keyboard='number-pad' />
         </View>
 
-        {/* FARM */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>FARM</Text>
           <Picker styles={styles} palette={palette} label='Farm state' field='farm_state' options={['', ...NIGERIAN_STATES]} f={f} set={set} edit={editMode} />
@@ -492,7 +644,6 @@ export default function Profile() {
           <Field styles={styles} palette={palette} label='Secondary crops' field='secondary_crops' f={f} set={set} edit={editMode} />
         </View>
 
-        {/* BANK */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>BANK</Text>
           <Field styles={styles} palette={palette} label='Account name' field='account_name' f={f} set={set} edit={editMode} />
@@ -500,7 +651,6 @@ export default function Profile() {
           <Picker styles={styles} palette={palette} label='Bank name' field='bank_name' options={BANKS} f={f} set={set} edit={editMode} />
         </View>
 
-        {/* EMERGENCY */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>EMERGENCY CONTACT</Text>
           <Field styles={styles} palette={palette} label='Contact name' field='emergency_contact_name' f={f} set={set} edit={editMode} />
@@ -508,7 +658,6 @@ export default function Profile() {
           <Field styles={styles} palette={palette} label='Relationship' field='emergency_relationship' f={f} set={set} edit={editMode} />
         </View>
 
-        {/* SOCIAL */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>SOCIAL</Text>
           <Field styles={styles} palette={palette} label='Twitter / X' field='social_twitter' f={f} set={set} edit={editMode} />
@@ -518,7 +667,6 @@ export default function Profile() {
           <Field styles={styles} palette={palette} label='TikTok' field='social_tiktok' f={f} set={set} edit={editMode} />
         </View>
 
-        {/* NOTIFICATIONS */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>NOTIFICATIONS</Text>
           <Toggle styles={styles} label='SMS' field='notify_sms' f={f} set={set} edit={editMode} />
@@ -528,19 +676,27 @@ export default function Profile() {
           <Toggle styles={styles} label='Payment alerts' field='notify_payment' f={f} set={set} edit={editMode} />
         </View>
 
-        {/* MENU */}
         {visibleSections.map((section, si) => (
           <View key={si} style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconWrap}><Text style={styles.sectionIcon}>{section.icon}</Text></View>
+              <View style={styles.sectionIconWrap}>
+                <Text style={styles.sectionIcon}>{section.icon}</Text>
+              </View>
               <Text style={styles.sectionTitle}>{section.title}</Text>
             </View>
             <View style={styles.sectionItems}>
               {section.items.map((item, ii) => (
                 <Pressable
                   key={ii}
-                  onPress={() => { try { router.push(item.route as any); } catch (e) { console.log('nav err', e); } }}
-                  style={({ pressed }) => [styles.item, ii === section.items.length - 1 && styles.itemLast, pressed && { opacity: 0.6 }]}
+                  onPress={() => {
+                    try { router.push(item.route as any); }
+                    catch (e: any) { Alert.alert('Cannot open ' + item.label, String(e?.message || e)); }
+                  }}
+                  style={({ pressed }) => [
+                    styles.item,
+                    ii === section.items.length - 1 && styles.itemLast,
+                    pressed && { opacity: 0.6 },
+                  ]}
                 >
                   <Text style={styles.itemLabel}>{item.label}</Text>
                   <Text style={styles.itemChevron}>›</Text>
@@ -551,43 +707,40 @@ export default function Profile() {
         ))}
 
         {isAdmin ? (
-          <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminItem}>
+          <Pressable
+            onPress={() => router.push('/admin' as any)}
+            style={({ pressed }) => [styles.adminItem, pressed && { opacity: 0.85 }]}
+          >
             <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
             <Text style={styles.adminChevron}>›</Text>
           </Pressable>
         ) : null}
 
-        <Pressable
-          onPress={() => {
-            console.log('[profile] logout tapped');
-    (async () => {
-      try { await signOut(); } catch (e) { console.log('signout err', e); }
-      setTimeout(() => { try { router.replace('/(auth)/login' as any); } catch (e) { console.log('nav err', e); } }, 150);
-    })();
-          }}
-          style={styles.logout}
-        >
+        <Pressable onPress={handleSignOut} style={styles.logout}>
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
 
-        <Text style={styles.version}>GAIA Mobile v1.0.0</Text>
+        <Text style={styles.version}>GAIA Mobile v{APP_VERSION}</Text>
         <View style={{ height: 120 }} />
       </ScrollView>
 
+      <Modal
+        visible={viewerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerOpen(false)}
+      >
+        <View style={styles.viewerBg}>
+          <Pressable onPress={() => setViewerOpen(false)} style={styles.viewerClose}>
+            <Text style={styles.viewerCloseTxt}>X</Text>
+          </Pressable>
+          {avatar ? (
+            <Image source={{ uri: avatar }} style={styles.viewerImg} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
-}
-
-function mask11(v?: string) {
-  if (!v) return '—';
-  const s = String(v);
-  if (s.length <= 4) return '•'.repeat(s.length);
-  return '•'.repeat(s.length - 4) + s.slice(-4);
-}
-
-function fmtDate(s?: string | null) {
-  if (!s) return '—';
-  try { return new Date(s).toLocaleDateString(); } catch { return '—'; }
 }
 
 function Row({ styles, label, value, valueColor }: any) {
@@ -619,23 +772,28 @@ function Field({ styles, palette, label, field, f, set, edit, keyboard }: any) {
   );
 }
 
-function Picker({ styles, palette, label, field, options, f, set, edit }: any) {
+function Picker({ styles, label, field, options, f, set, edit }: any) {
   const current = String(f[field] ?? '');
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {edit ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
+        >
           {options.map((opt: string, i: number) => {
-            const val = opt;
-            const on = current === val;
+            const on = current === opt;
             return (
               <Pressable
                 key={i}
-                onPress={() => set(field, val)}
+                onPress={() => set(field, opt)}
                 style={[styles.pill, on && styles.pillOn]}
               >
-                <Text style={[styles.pillTxt, on && styles.pillTxtOn]}>{val || 'None'}</Text>
+                <Text style={[styles.pillTxt, on && styles.pillTxtOn]}>
+                  {opt || 'None'}
+                </Text>
               </Pressable>
             );
           })}
@@ -663,63 +821,158 @@ function Toggle({ styles, label, field, f, set, edit }: any) {
   );
 }
 
-const createStyles = (palette: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.obsidian },
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  center: { alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 40 },
+
+  errorBar: {
+    marginBottom: 12, padding: 10, borderRadius: 10,
+    backgroundColor: 'rgba(255,59,92,0.1)', borderWidth: 1, borderColor: 'rgba(255,59,92,0.3)',
+  },
+  errorTxt: { fontSize: 11, color: p.danger, fontWeight: '700', textAlign: 'center' },
+
   hero: { alignItems: 'center', marginBottom: spacing.xl },
   avatarWrap: { width: 110, height: 110, position: 'relative' },
   avatarImg: { width: 110, height: 110, borderRadius: 55 },
-  avatarFallback: { width: 110, height: 110, borderRadius: 55, backgroundColor: palette.neonSoft, borderWidth: 2, borderColor: palette.borderHi, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 44, fontWeight: '900', color: palette.neon },
-  avatarEdit: { position: 'absolute', bottom: 0, right: 0, width: 34, height: 34, borderRadius: 17, backgroundColor: palette.neon, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: palette.obsidian },
-  avatarEditText: { fontSize: 20, fontWeight: '900', color: palette.obsidian, lineHeight: 22 },
-  name: { fontSize: 24, fontWeight: '900', color: palette.text, marginTop: spacing.md, textTransform: 'capitalize', letterSpacing: -0.5 },
-  email: { fontSize: 14, color: palette.textMuted, marginTop: 4 },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  avatarFallback: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: p.neonSoft, borderWidth: 2, borderColor: p.borderHi,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 44, fontWeight: '900', color: p.neon },
+  avatarEdit: {
+    position: 'absolute', bottom: 0, right: 0, width: 34, height: 34, borderRadius: 17,
+    backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: p.obsidian,
+  },
+  avatarEditText: { fontSize: 20, fontWeight: '900', color: p.obsidian, lineHeight: 22 },
+  name: {
+    fontSize: 24, fontWeight: '900', color: p.text,
+    marginTop: spacing.md, textTransform: 'capitalize', letterSpacing: -0.5,
+  },
+  email: { fontSize: 14, color: p.textMuted, marginTop: 4 },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1,
+  },
   badgeDot: { width: 8, height: 8, borderRadius: 4 },
   badgeTxt: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-  verifyBtn: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
+  verifyBtn: {
+    marginTop: 12, paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1.5,
+  },
   verifyBtnTxt: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
+
   statRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  stat: { flex: 1, padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, alignItems: 'center' },
-  statVal: { fontSize: 22, fontWeight: '900', color: palette.neon },
-  statLbl: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, color: palette.textMuted, marginTop: 4 },
+  stat: {
+    flex: 1, padding: spacing.md, borderRadius: radius.md,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+    alignItems: 'center',
+  },
+  statVal: { fontSize: 22, fontWeight: '900', color: p.neon },
+  statLbl: { fontSize: 9, fontWeight: '800', letterSpacing: 1.2, color: p.textMuted, marginTop: 4 },
+
   modeBar: { flexDirection: 'row', marginBottom: spacing.lg },
-  modeBtn: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: palette.neon, alignItems: 'center' },
-  modeBtnTxt: { fontSize: 12, fontWeight: '900', color: palette.obsidian, letterSpacing: 1.2 },
-  card: { marginBottom: spacing.lg, padding: spacing.lg, borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border },
-  cardTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: palette.textMuted, marginBottom: spacing.md },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  rowLabel: { fontSize: 12, color: palette.textMuted, flex: 1, marginRight: 12 },
-  rowValue: { fontSize: 13, fontWeight: '800', color: palette.text, textAlign: 'right', flex: 1 },
+  modeBtn: {
+    flex: 1, padding: 14, borderRadius: 12,
+    backgroundColor: p.neon, alignItems: 'center',
+  },
+  modeBtnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: p.border },
+  modeBtnTxt: { fontSize: 12, fontWeight: '900', color: p.obsidian, letterSpacing: 1.2 },
+
+  card: {
+    marginBottom: spacing.lg, padding: spacing.lg, borderRadius: radius.lg,
+    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
+  },
+  cardTitle: {
+    fontSize: 10, fontWeight: '900', letterSpacing: 1.8,
+    color: p.textMuted, marginBottom: spacing.md,
+  },
+  row: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  rowLabel: { fontSize: 12, color: p.textMuted, flex: 1, marginRight: 12 },
+  rowValue: { fontSize: 13, fontWeight: '800', color: p.text, textAlign: 'right', flex: 1 },
+
   field: { marginBottom: 14 },
-  fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: palette.textMuted, marginBottom: 6 },
-  fieldValue: { fontSize: 14, fontWeight: '600', color: palette.text, paddingVertical: 4 },
-  fieldInput: { backgroundColor: palette.obsidian, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: palette.text, fontSize: 14 },
-  pill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.obsidian },
-  pillOn: { borderColor: palette.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
-  pillTxt: { fontSize: 11, fontWeight: '700', color: palette.textDim },
-  pillTxtOn: { color: palette.neon },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6 },
+  fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
+  fieldValue: { fontSize: 14, fontWeight: '600', color: p.text, paddingVertical: 4 },
+  fieldInput: {
+    backgroundColor: p.obsidian, borderWidth: 1, borderColor: p.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    color: p.text, fontSize: 14,
+  },
+  pill: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: p.border, backgroundColor: p.obsidian,
+  },
+  pillOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  pillTxt: { fontSize: 11, fontWeight: '700', color: p.textDim },
+  pillTxtOn: { color: p.neon },
+
+  toggleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6,
+  },
   toggleRowOn: { backgroundColor: 'rgba(0,255,136,0.06)' },
-  toggleBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: palette.borderHi, alignItems: 'center', justifyContent: 'center' },
-  toggleBoxOn: { backgroundColor: palette.neon, borderColor: palette.neon },
-  toggleMark: { color: palette.obsidian, fontWeight: '900', fontSize: 13 },
-  toggleLabel: { fontSize: 13, fontWeight: '700', color: palette.text },
+  toggleBox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: p.borderHi,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  toggleBoxOn: { backgroundColor: p.neon, borderColor: p.neon },
+  toggleMark: { color: p.obsidian, fontWeight: '900', fontSize: 13 },
+  toggleLabel: { fontSize: 13, fontWeight: '700', color: p.text },
+
   section: { marginBottom: spacing.xl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  sectionIconWrap: { width: 26, height: 26, borderRadius: 13, backgroundColor: palette.neonSoft, borderWidth: 1, borderColor: palette.borderHi, alignItems: 'center', justifyContent: 'center' },
-  sectionIcon: { fontSize: 9, fontWeight: '900', color: palette.neon, letterSpacing: 0.5 },
-  sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: palette.textMuted },
-  sectionItems: { borderRadius: radius.lg, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, overflow: 'hidden' },
-  item: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border },
+  sectionIconWrap: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sectionIcon: { fontSize: 9, fontWeight: '900', color: p.neon, letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted },
+  sectionItems: {
+    borderRadius: radius.lg, backgroundColor: p.surface,
+    borderWidth: 1, borderColor: p.border, overflow: 'hidden',
+  },
+  item: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: spacing.lg, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: p.border,
+  },
   itemLast: { borderBottomWidth: 0 },
-  itemLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: palette.text },
-  itemChevron: { fontSize: 20, color: palette.textDim },
-  adminItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, borderRadius: radius.md, backgroundColor: 'rgba(255,60,90,0.08)', borderWidth: 1.5, borderColor: palette.danger, marginBottom: spacing.lg },
-  adminLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: palette.danger },
-  adminChevron: { fontSize: 22, color: palette.danger },
-  logout: { padding: spacing.lg, borderRadius: radius.md, borderWidth: 1.5, borderColor: palette.danger, alignItems: 'center' },
-  logoutText: { fontSize: 15, fontWeight: '800', color: palette.danger },
-  version: { fontSize: 10, color: palette.textDim, textAlign: 'center', marginTop: spacing.xl, letterSpacing: 1 },
+  itemLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: p.text },
+  itemChevron: { fontSize: 20, color: p.textDim },
+
+  adminItem: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: spacing.lg, borderRadius: radius.md,
+    backgroundColor: 'rgba(255,60,90,0.08)',
+    borderWidth: 1.5, borderColor: p.danger, marginBottom: spacing.lg,
+  },
+  adminLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: p.danger },
+  adminChevron: { fontSize: 22, color: p.danger },
+
+  logout: {
+    padding: spacing.lg, borderRadius: radius.md,
+    borderWidth: 1.5, borderColor: p.danger, alignItems: 'center',
+  },
+  logoutText: { fontSize: 15, fontWeight: '800', color: p.danger },
+  version: {
+    fontSize: 10, color: p.textDim, textAlign: 'center',
+    marginTop: spacing.xl, letterSpacing: 1,
+  },
+
+  viewerBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
+  viewerClose: {
+    position: 'absolute', top: 60, right: 24,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  viewerCloseTxt: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  viewerImg: { width: '90%', height: '70%' },
 });
