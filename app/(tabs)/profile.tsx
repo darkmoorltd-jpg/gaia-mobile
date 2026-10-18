@@ -557,12 +557,9 @@ export default function Profile() {
         ) : null}
 
         <Pressable
-          onPress={async () => {
+          onPress={() => {
             console.log('[profile] logout tapped');
-            // Navigate FIRST — before any async work
-            try { router.replace('/(auth)/login' as any); } catch (e) { console.log('[logout] nav err', e); }
-            // Then clear auth in background
-            try { await signOut(); } catch (e) { console.log('[logout] signOut err', e); }
+            signOut();
           }}
           style={styles.logout}
         >
