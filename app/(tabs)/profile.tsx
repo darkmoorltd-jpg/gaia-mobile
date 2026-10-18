@@ -106,7 +106,7 @@ export default function Profile() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
+  
   const [avatar, setAvatar] = useState<string | null>(null);
   const [kycStatus, setKycStatus] = useState<string>('pending');
   const [kycVerifiedAt, setKycVerifiedAt] = useState<string | null>(null);
@@ -277,7 +277,7 @@ export default function Profile() {
   const onAvatarTap = () => {
     if (!avatar) { changeAvatar(); return; }
     Alert.alert('Profile picture', 'What would you like to do?', [
-      { text: 'View', onPress: () => setViewerOpen(true) },
+      
       { text: 'Change', onPress: changeAvatar },
       { text: 'Remove', style: 'destructive', onPress: removeAvatar },
       { text: 'Cancel', style: 'cancel' },
@@ -570,21 +570,6 @@ export default function Profile() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      <Modal
-        visible={viewerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setViewerOpen(false)}
-      >
-        <View style={styles.viewerBg}>
-          <Pressable onPress={() => setViewerOpen(false)} style={styles.viewerClose}>
-            <Text style={styles.viewerCloseTxt}>X</Text>
-          </Pressable>
-          {avatar ? (
-            <Image source={{ uri: avatar }} style={styles.viewerImg} resizeMode="contain" />
-          ) : null}
-        </View>
-      </Modal>
     </View>
   );
 }
