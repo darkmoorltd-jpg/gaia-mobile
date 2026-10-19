@@ -615,6 +615,8 @@ export default function Profile() {
           </View>
         ) : null}
 
+        {editMode ? (
+          <>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>PERSONAL INFORMATION</Text>
           <Field styles={styles} palette={palette} label='First name' field='first_name' f={f} set={set} edit={editMode} />
@@ -682,6 +684,8 @@ export default function Profile() {
           <Toggle styles={styles} label='Disease alerts' field='notify_disease' f={f} set={set} edit={editMode} />
           <Toggle styles={styles} label='Payment alerts' field='notify_payment' f={f} set={set} edit={editMode} />
         </View>
+          </>
+        ) : null}
 
         {visibleSections.map((section, si) => (
           <View key={si} style={styles.section}>
