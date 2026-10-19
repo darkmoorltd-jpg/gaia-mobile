@@ -84,8 +84,6 @@ export interface DiagnoseConfig {
 }
 
 export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
-  const params = useLocalSearchParams<{ followUpOf?: string }>();
-  const followUpOf = params?.followUpOf || null;
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const { user, scansRemaining, refreshScans } = useAuth();
