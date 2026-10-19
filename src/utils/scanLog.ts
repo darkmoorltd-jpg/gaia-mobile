@@ -23,14 +23,17 @@ export interface ScanPayload {
 
 async function uploadImage(uri: string, userId: string): Promise<string | null> {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+    // fetch(uri).blob() works with file:// URIs on React Native
+    // (ArrayBuffer / Uint8Array.buffer does NOT — Supabase JS v2 requires Blob)
+    const response = await fetch(uri);
+    if (!response.ok && response.status !== 0) {
+      console.warn('[scanLog] fetch uri failed', response.status);
+    }
+    const blob = await response.blob();
     const path = userId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const { error } = await supabase.storage
       .from('scan-images')
-      .upload(path, bytes.buffer, { contentType: 'image/jpeg', upsert: false });
+      .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
     if (error) {
       console.warn('[scanLog] upload failed', error.message);
       return null;
@@ -70,6 +73,7 @@ export async function logScan(payload: ScanPayload): Promise<string | null> {
         inference_ms: payload.inference_ms ?? null,
         follow_up_of: payload.follow_up_of ?? null,
         treatment_applied: payload.treatment_applied ?? null,
+        recommendation: payload.recommendation ?? null,
         outcome: payload.follow_up_of ? 'pending' : null,
       })
       .select('id')

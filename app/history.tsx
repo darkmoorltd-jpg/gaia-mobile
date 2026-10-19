@@ -10,6 +10,7 @@ import { useAuth } from '../src/store/auth';
 import { markScanOutcome, deleteScan } from '../src/utils/scanLog';
 import { shareScanReport } from '../src/utils/scanReport';
 import { TreatmentPanel } from '../src/components/ScanExtras';
+import { MarkdownOutput } from '../src/components/MarkdownOutput';
 
 const FILTERS = ['ALL', 'CROPS', 'PESTS', 'SOIL', 'LIVESTOCK', 'VIDEO'];
 
@@ -231,6 +232,15 @@ export default function History() {
 
                   {selected.image_url ? (
                     <Image source={{ uri: selected.image_url }} style={styles.modalImage} resizeMode="contain" />
+                  ) : null}
+
+                  {selected.recommendation ? (
+                    <>
+                      <Text style={styles.sectionLabel}>TREATMENT GUIDE</Text>
+                      <View style={{ padding: 12, borderRadius: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border }}>
+                        <MarkdownOutput content={selected.recommendation} />
+                      </View>
+                    </>
                   ) : null}
 
                   <Text style={styles.sectionLabel}>PREDICTIONS</Text>
