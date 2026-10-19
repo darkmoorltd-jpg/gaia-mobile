@@ -59,6 +59,8 @@ const SECTIONS: Section[] = [
     { label: 'Notifications', route: '/notifications' },
   ]},
   { title: 'ACCOUNT', icon: 'AC', items: [
+    { label: 'Alerts & Follow-ups', route: '/alerts' },
+    { label: 'Photo Timeline', route: '/photo-timeline' },
     { label: 'Verification', route: '/verification' },
     { label: 'Badges', route: '/badges', flag: 'badges' },
     { label: 'Farming Calendar', route: '/calendar', flag: 'calendar' },
@@ -561,6 +563,8 @@ export default function Profile() {
             </Pressable>
           ) : null}
         </View>
+
+        <FarmScoreCard onPress={() => router.push('/wallet' as any)} />
 
         <View style={styles.statRow}>
           <View style={styles.stat}>
