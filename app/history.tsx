@@ -8,6 +8,7 @@ import { useTheme, spacing, radius, typography } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { markScanOutcome, deleteScan } from '../src/utils/scanLog';
+import { shareScanReport } from '../src/utils/scanReport';
 
 const FILTERS = ['ALL', 'CROPS', 'PESTS', 'SOIL', 'LIVESTOCK', 'VIDEO'];
 
@@ -269,9 +270,21 @@ export default function History() {
                     </>
                   )}
 
-                  <Text style={styles.sectionLabel}>SHARE</Text>
-                  <Pressable onPress={() => shareScan(selected)} style={styles.shareBtn}>
-                    <Text style={styles.shareText}>Share this report</Text>
+                  <Text style={styles.sectionLabel}>EXPORT</Text>
+                  <Pressable onPress={async () => {
+                    Alert.alert('Export report', 'Generate a PDF farm health report?', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Generate', onPress: async () => {
+                        const r = await shareScanReport({ days: 90 });
+                        if (!r.ok) Alert.alert('Failed', r.error || 'Try again');
+                      }},
+                    ]);
+                  }} style={styles.shareBtn}>
+                    <Text style={styles.shareText}>PDF Farm Report (90 days)</Text>
+                  </Pressable>
+
+                  <Pressable onPress={() => shareScan(selected)} style={[styles.shareBtn, { marginTop: 10, backgroundColor: palette.surface, borderWidth: 1.5, borderColor: palette.neon }]}>
+                    <Text style={[styles.shareText, { color: palette.neon }]}>Share this scan</Text>
                   </Pressable>
 
                   <Pressable onPress={() => handleDelete(selected.id)} style={[styles.shareBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#ff3b5c', marginTop: 10 }]}>

@@ -11,6 +11,7 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { diagnose } from '../src/api/models';
+import { logScan } from '../src/utils/scanLog';
 import { getSession, runModel, softmax, imageUriToTensor } from '../src/utils/onDeviceModel';
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
 import Sparkline from '../src/components/Sparkline';
@@ -281,6 +282,29 @@ export default function VideoScan() {
     winner.severity = severity;
 
     setConsensus(winner);
+
+    // Persist to unified scan_history (non-blocking)
+    try {
+      const topPreds = sorted.slice(0, 5).map(([lbl, stats]) => ({
+        label: lbl,
+        confidence: (stats.conf / stats.count) * 100,
+      }));
+      await logScan({
+        type: 'video',
+        model_key: crop.key,
+        top_label: winnerLabel,
+        confidence: winner.confidence,
+        all_predictions: topPreds,
+        image_uri: (snapshot[0] as any)?.uri || null,
+        gps_lat: gps?.lat ?? null,
+        gps_lon: gps?.lon ?? null,
+        on_device: !!crop.onDeviceKey,
+        inference_ms: 0,
+      });
+    } catch (e) {
+      console.warn('[video-scan] scan_history log failed', e);
+    }
+
 
     // Change alarm — detect sudden flip
     if (previousLabel && previousLabel !== winnerLabel) {
