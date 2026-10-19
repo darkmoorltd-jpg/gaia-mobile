@@ -3,12 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
   Image, Modal, Alert, Share,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { markScanOutcome, deleteScan } from '../src/utils/scanLog';
 import { shareScanReport } from '../src/utils/scanReport';
+import { TreatmentPanel } from '../src/components/ScanExtras';
 
 const FILTERS = ['ALL', 'CROPS', 'PESTS', 'SOIL', 'LIVESTOCK', 'VIDEO'];
 
@@ -41,6 +42,7 @@ export default function History() {
   const { palette } = useTheme();
   const { user } = useAuth();
   const styles = createStyles(palette);
+  const router = useRouter();
   const [scans, setScans] = useState<any[]>([]);
   const [filter, setFilter] = useState('ALL');
   const [busy, setBusy] = useState(true);
@@ -269,6 +271,36 @@ export default function History() {
                       </View>
                     </>
                   )}
+
+                  {(() => {
+                    const tl = selected.top_label || '';
+                    if (tl.toLowerCase().includes('healthy')) return null;
+                    return (
+                      <>
+                        <TreatmentPanel
+                          diseaseLabel={tl}
+                          scanId={selected.id}
+                          hasTreatment={!!selected.treatment_applied}
+                          onTreatmentLogged={load}
+                        />
+                        <Pressable
+                          onPress={() => {
+                            const route =
+                              selected.type === 'crops' ? '/(tabs)/crops'
+                              : selected.type === 'pests' ? '/(tabs)/pests'
+                              : selected.type === 'soil' ? '/(tabs)/soil'
+                              : selected.type === 'livestock' ? '/(tabs)/livestock'
+                              : '/video-scan';
+                            setSelected(null);
+                            router.push(route as any);
+                          }}
+                          style={[styles.shareBtn, { backgroundColor: palette.surface, borderWidth: 1.5, borderColor: palette.warning, marginTop: 14 }]}
+                        >
+                          <Text style={[styles.shareText, { color: palette.warning }]}>Start follow-up scan</Text>
+                        </Pressable>
+                      </>
+                    );
+                  })()}
 
                   <Text style={styles.sectionLabel}>EXPORT</Text>
                   <Pressable onPress={async () => {

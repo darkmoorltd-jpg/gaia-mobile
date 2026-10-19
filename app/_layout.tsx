@@ -175,6 +175,8 @@ function RootNavigator() {
       <Stack.Screen name="agent-leaderboard" options={{ headerShown: false }} />
       <Stack.Screen name="agent-field-map" options={{ headerShown: false }} />
       <Stack.Screen name="agent" options={{ headerShown: false }} />
+      <Stack.Screen name="photo-timeline" options={{ headerShown: false }} />
+      <Stack.Screen name="alerts" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />

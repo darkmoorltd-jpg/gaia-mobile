@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { FarmScoreCard } from '../../src/components/ScanExtras';
 import { supabase } from '../../src/api/supabase';
 import { useTranslation } from 'react-i18next';
 
