@@ -11,6 +11,7 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
+import { logScan } from '../utils/scanLog';
 import ConfettiBurst from '../components/ConfettiBurst';
 import { playSound, primeSounds } from '../utils/sounds';
 import { success as hapticSuccess, warn as hapticWarn, error as hapticError, tap as hapticTap } from '../utils/haptics';
@@ -179,6 +180,23 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       }
 
       setResult(res);
+
+      // Persist to scan_history (non-blocking)
+      try {
+        await logScan({
+          type: (config.key as any) || 'crops',
+          model_key: selected.key,
+          top_label: res.top?.label || 'Unknown',
+          confidence: res.top?.confidence || 0,
+          all_predictions: res.predictions || [],
+          image_uri: imageUri,
+          on_device: (res.model || '').toLowerCase().includes('on-device'),
+          inference_ms: res.processingMs || 0,
+        });
+      } catch (e) {
+        console.warn('[diagnose] scan log failed', e);
+      }
+
       const healthy = (res?.top?.label || '').toLowerCase().includes('healthy');
       if (healthy) {
         hapticSuccess();

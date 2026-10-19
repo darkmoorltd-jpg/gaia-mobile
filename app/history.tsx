@@ -346,5 +346,3 @@ const createStyles = (palette: any) => StyleSheet.create({
   shareBtn: { paddingVertical: 14, borderRadius: 10, backgroundColor: palette.neon, alignItems: 'center' },
   shareText: { fontSize: 13, fontWeight: '900', color: palette.obsidian, letterSpacing: 1 },
 });
-
-export default History;
