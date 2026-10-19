@@ -11,6 +11,7 @@ import { useLocale } from '../src/store/locale';
 import { initI18n, loadLanguage } from '../src/utils/i18n';
 import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
+import { registerPushToken as registerExpoToken, subscribeToNotifications, triggerOutbreakScan } from '../src/utils/notifications';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
 import { installTapHandler, registerForPush } from '../src/utils/pushNotifications';
@@ -153,6 +154,26 @@ function RootNavigator() {
   useEffect(() => {
     if (user?.id) registerForPush(user.id).catch(() => {});
   }, [user?.id]);
+
+  // Notifications: register device token + live subscribe to alerts
+  useEffect(() => {
+    if (!user?.id) return;
+    let unsub: (() => void) | null = null;
+    (async () => {
+      try {
+        await registerExpoToken(user.id);
+        triggerOutbreakScan().catch(() => {});
+        unsub = subscribeToNotifications(user.id, (notif) => {
+          console.log('[notif]', notif.title, '-', notif.body);
+        });
+      } catch (e) {
+        console.warn('[notifications] setup failed', e);
+      }
+    })();
+    return () => { if (unsub) unsub(); };
+  }, [user?.id]);
+
+
 
   if (!ready || !minSplashDone) {
     return <GaiaSplash />;

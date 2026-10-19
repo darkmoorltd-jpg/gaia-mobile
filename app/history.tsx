@@ -301,8 +301,9 @@ export default function History() {
                               : selected.type === 'soil' ? '/(tabs)/soil'
                               : selected.type === 'livestock' ? '/(tabs)/livestock'
                               : '/video-scan';
+                            const parentId = selected.id;
                             setSelected(null);
-                            router.push(route as any);
+                            router.push((route + '?followUpOf=' + parentId) as any);
                           }}
                           style={[styles.shareBtn, { backgroundColor: palette.surface, borderWidth: 1.5, borderColor: palette.warning, marginTop: 14 }]}
                         >
