@@ -1,33 +1,123 @@
-import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../api/supabase';
 
-export async function logScan(params: {
-  userId: string;
-  scanType: 'crop' | 'pest' | 'soil' | 'livestock';
-  target?: string;
-  topLabel?: string;
-  confidence?: number;
-  imageUrl?: string;
-}) {
-  try {
-    let lat: number | null = null;
-    let lon: number | null = null;
-    try {
-      const perm = await Location.getForegroundPermissionsAsync();
-      if (perm.status === 'granted') {
-        const loc = await Location.getLastKnownPositionAsync();
-        if (loc) { lat = loc.coords.latitude; lon = loc.coords.longitude; }
-      }
-    } catch {}
+export type ScanType = 'crops' | 'pests' | 'soil' | 'livestock' | 'video';
+export type ScanOutcome = 'improved' | 'worsened' | 'resolved' | 'pending';
 
-    await supabase.from('scan_history').insert({
-      user_id: params.userId,
-      scan_type: params.scanType,
-      target: params.target || null,
-      top_label: params.topLabel || null,
-      confidence: params.confidence ?? null,
-      image_url: params.imageUrl || null,
-      lat, lon,
-    });
-  } catch {}
+export interface ScanPayload {
+  type: ScanType;
+  model_key: string;
+  top_label: string;
+  confidence: number;
+  all_predictions: Array<{ label: string; confidence: number }>;
+  image_uri?: string | null;
+  gps_lat?: number | null;
+  gps_lon?: number | null;
+  farm_id?: string | null;
+  plot_name?: string | null;
+  on_device?: boolean;
+  inference_ms?: number;
+  follow_up_of?: string | null;
+  treatment_applied?: any;
+}
+
+async function uploadImage(uri: string, userId: string): Promise<string | null> {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+    const path = userId + '/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const { error } = await supabase.storage
+      .from('scan-images')
+      .upload(path, bytes.buffer, { contentType: 'image/jpeg', upsert: false });
+    if (error) {
+      console.warn('[scanLog] upload failed', error.message);
+      return null;
+    }
+    return supabase.storage.from('scan-images').getPublicUrl(path).data.publicUrl;
+  } catch (e) {
+    console.warn('[scanLog] upload exception', e);
+    return null;
+  }
+}
+
+export async function logScan(payload: ScanPayload): Promise<string | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    let imageUrl: string | null = null;
+    if (payload.image_uri) {
+      imageUrl = await uploadImage(payload.image_uri, user.id);
+    }
+
+    const { data, error } = await supabase
+      .from('scan_history')
+      .insert({
+        user_id: user.id,
+        type: payload.type,
+        model_key: payload.model_key,
+        top_label: payload.top_label,
+        confidence: payload.confidence,
+        all_predictions: payload.all_predictions || [],
+        image_url: imageUrl,
+        gps_lat: payload.gps_lat ?? null,
+        gps_lon: payload.gps_lon ?? null,
+        farm_id: payload.farm_id ?? null,
+        plot_name: payload.plot_name ?? null,
+        on_device: payload.on_device ?? false,
+        inference_ms: payload.inference_ms ?? null,
+        follow_up_of: payload.follow_up_of ?? null,
+        treatment_applied: payload.treatment_applied ?? null,
+        outcome: payload.follow_up_of ? 'pending' : null,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.warn('[scanLog] insert failed', error.message);
+      return null;
+    }
+    return data?.id || null;
+  } catch (e) {
+    console.warn('[scanLog] exception', e);
+    return null;
+  }
+}
+
+export async function markScanOutcome(
+  scanId: string,
+  outcome: ScanOutcome,
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('scan_history')
+      .update({ outcome })
+      .eq('id', scanId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function logTreatment(scanId: string, treatment: any): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('scan_history')
+      .update({ treatment_applied: treatment })
+      .eq('id', scanId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteScan(scanId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('scan_history').delete().eq('id', scanId);
+    return !error;
+  } catch {
+    return false;
+  }
 }
