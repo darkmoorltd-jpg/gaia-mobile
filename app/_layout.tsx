@@ -155,6 +155,8 @@ function RootNavigator() {
     if (user?.id) registerForPush(user.id).catch(() => {});
   }, [user?.id]);
 
+
+
   // Notifications: register device token + live subscribe to alerts
   useEffect(() => {
     if (!user?.id) return;
@@ -172,8 +174,6 @@ function RootNavigator() {
     })();
     return () => { if (unsub) unsub(); };
   }, [user?.id]);
-
-
 
   if (!ready || !minSplashDone) {
     return <GaiaSplash />;
