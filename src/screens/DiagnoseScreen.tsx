@@ -93,6 +93,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
   const [confettiFire, setConfettiFire] = React.useState(false);
   React.useEffect(() => { primeSounds(); }, []);
 
@@ -183,7 +184,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
 
       // Persist to scan_history (non-blocking)
       try {
-        await logScan({
+        const sid = await logScan({
           type: (config.key as any) || 'crops',
           model_key: selected.key,
           top_label: res.top?.label || 'Unknown',
@@ -193,6 +194,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
           on_device: (res.model || '').toLowerCase().includes('on-device'),
           inference_ms: res.processingMs || 0,
         });
+        if (sid) setScanId(sid);
       } catch (e) {
         console.warn('[diagnose] scan log failed', e);
       }
@@ -275,7 +277,8 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
                 cropLabel={selected.label}
                 contextType={config.contextType || 'crop'}
                 confidence={typeof top?.confidence === 'number' ? top.confidence : undefined}
-              />
+                      scanId={scanId}
+      />
 
               <View style={{ height: 120 }} />
             </ScrollView>

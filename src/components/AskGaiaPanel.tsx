@@ -10,6 +10,7 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { MarkdownOutput } from './MarkdownOutput';
+import { updateScanRecommendation } from '../utils/scanLog';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const LISTEN_WINDOW_MS = 6500;
@@ -47,11 +48,12 @@ interface Props {
   cropLabel: string;
   contextType: string;
   confidence?: number;
+  scanId?: string | null;
 }
 
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-export default function AskGaiaPanel({ disease, cropLabel, contextType, confidence }: Props) {
+export default function AskGaiaPanel({ disease, cropLabel, contextType, confidence, scanId }: Props) {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const { user } = useAuth();
@@ -107,6 +109,23 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       answerText = data.answer || data.reply || '(no response)';
       setTurns((prev) => [...prev, { role: 'assistant', content: answerText }]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+
+      // Persist the full Q&A into scan_history.recommendation so it survives
+      if (scanId) {
+        try {
+          const { data: row } = await supabase
+            .from('scan_history')
+            .select('recommendation')
+            .eq('id', scanId)
+            .maybeSingle();
+          const prior = (row?.recommendation || '').trim();
+          const turn = '**Q:** ' + q + '\n\n**A:** ' + answerText;
+          const merged = prior ? prior + '\n\n---\n\n' + turn : turn;
+          await updateScanRecommendation(scanId, merged);
+        } catch (e) {
+          console.warn('[AskGaiaPanel] persist failed', e);
+        }
+      }
 
       if (opts?.speak) {
         setVoiceState('speaking');
