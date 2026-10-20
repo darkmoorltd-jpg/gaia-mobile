@@ -2,10 +2,12 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from '../src/utils/admin';
 export default function Admin() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
   const styles = createStyles(palette);
 
   if (!user || !isAdmin) {
