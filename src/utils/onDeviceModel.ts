@@ -1,17 +1,25 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Lazy-load onnxruntime — the native module may not be present in older APKs.
-// If missing, throw a clear error when actually used rather than crashing at import.
+// Lazy-load onnxruntime — the native module may be missing (Expo Go, older APK).
+// Callers get null and fall back to the server endpoint.
 let _ort: any = null;
-function getORT() {
+let _ortTried = false;
+function getORT(): any | null {
   if (_ort) return _ort;
+  if (_ortTried) return null;
+  _ortTried = true;
   try {
     _ort = require('onnxruntime-react-native');
     return _ort;
   } catch (e) {
-    throw new Error('onnxruntime-react-native not installed. Please reinstall the app.');
+    console.warn('[models] ORT not available — falling back to server');
+    return null;
   }
 }
+
+// Type aliases since we lazy-load the real module
+type InferenceSession = any;
+type Tensor = any;
 
 const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2/manifest.json';
 const CACHE_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'gaia-models/';
@@ -114,10 +122,12 @@ export async function ensureModel(
 // ============================================================
 export async function getSession(key: string): Promise<InferenceSession | null> {
   if (_sessions[key]) return _sessions[key];
+  const ort = getORT();
+  if (!ort) return null;
   const path = await ensureModel(key);
   if (!path) return null;
   try {
-    const sess = await getORT().InferenceSession.create(path);
+    const sess = await ort.InferenceSession.create(path);
     _sessions[key] = sess;
     return sess;
   } catch (e) {
@@ -137,11 +147,13 @@ export async function runModel(
   H: number,
   W: number,
 ): Promise<{ logits: Float32Array; numClasses: number } | null> {
+  const ort = getORT();
+  if (!ort) return null;
   const sess = await getSession(key);
   if (!sess) return null;
   try {
-    const feeds: Record<string, Tensor> = {
-      input: new (getORT().Tensor)('float32', imgArray, [1, 3, H, W]),
+    const feeds: Record<string, any> = {
+      input: new ort.Tensor('float32', imgArray, [1, 3, H, W]),
     };
     const out = await sess.run(feeds);
     const logits = out.logits?.data as Float32Array;
@@ -152,9 +164,6 @@ export async function runModel(
   }
 }
 
-// ============================================================
-// Softmax helper
-// ============================================================
 export function softmax(logits: Float32Array | number[]): number[] {
   const arr = Array.from(logits);
   const max = Math.max(...arr);
