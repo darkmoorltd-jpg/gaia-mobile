@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Refre
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from 'src/utils/admin';
+import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
 const NGN = (n: any) => '₦' + Number(n || 0).toLocaleString();
 

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from 'src/utils/admin';
+import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
 function toCSV(rows: any[]): string {
   if (!rows || rows.length === 0) return '';

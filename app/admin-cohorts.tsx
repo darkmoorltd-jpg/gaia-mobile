@@ -7,7 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from 'src/utils/admin';
+import { useIsAdmin } from '../src/utils/admin';
 function fmt(iso?: string) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });

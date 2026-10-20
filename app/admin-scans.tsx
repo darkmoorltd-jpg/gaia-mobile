@@ -6,7 +6,7 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from 'src/utils/admin';
+import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
 const TYPE_LABEL: Record<string, string> = {

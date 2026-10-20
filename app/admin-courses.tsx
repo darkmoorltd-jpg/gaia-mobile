@@ -7,7 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from 'src/utils/admin';
+import { useIsAdmin } from '../src/utils/admin';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 const LANG_TARGETS = [
