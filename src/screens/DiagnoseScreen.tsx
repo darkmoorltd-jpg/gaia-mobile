@@ -26,6 +26,7 @@ import AskGaiaPanel from '../components/AskGaiaPanel';
 const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels: string[] } | undefined> = {
   // pests
   pests_102class: { key: 'pests_102class_v2', H: 224, W: 224, labels: [] },
+  groundnut: { key: 'groundnut', H: 224, W: 224, labels: [] },
   // soil
   soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
   // livestock — server still uses 'cattle'/'poultry'; we ship poultry on-device
@@ -106,6 +107,21 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const labels = await getLabels('pests_102class_v2');
       if (labels.length > 0 && ON_DEVICE_MAP.pests_102class) {
         ON_DEVICE_MAP.pests_102class.labels = labels;
+      }
+    })();
+  }, []);
+
+  // Load groundnut labels
+  useEffect(() => {
+    (async () => {
+      try {
+        const labels = await getLabels('groundnut');
+        if (labels.length > 0 && ON_DEVICE_MAP.groundnut) {
+          ON_DEVICE_MAP.groundnut.labels = labels;
+          console.log('[diagnose] loaded', labels.length, 'groundnut labels');
+        }
+      } catch (e) {
+        console.warn('[diagnose] groundnut labels failed', e);
       }
     })();
   }, []);

@@ -16,6 +16,7 @@ export default function Tab() {
     contextType: 'crop',
     options: [
       { key: 'maize',    label: 'Maize' },
+      { key: 'groundnut', label: 'Groundnut' },
       { key: 'rice_6class', label: 'Rice' },
       { key: 'millet_3class', label: 'Millet' },
       { key: 'cassava', label: 'Cassava' },
