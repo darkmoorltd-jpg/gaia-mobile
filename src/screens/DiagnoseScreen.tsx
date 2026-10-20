@@ -109,6 +109,22 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [error, setError] = useState('');
   const cameraRef = useRef<CameraView>(null);
 
+  // Load pest labels (102 class names) on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const labels = await getLabels('pests_102class_v2');
+        if (labels.length > 0 && ON_DEVICE_MAP.pests_102class) {
+          ON_DEVICE_MAP.pests_102class.labels = labels;
+          console.log('[diagnose] loaded', labels.length, 'pest labels');
+        }
+      } catch (e) {
+        console.warn('[diagnose] labels load failed', e);
+      }
+    })();
+  }, []);
+
+
   const backdrop = BACKDROPS[config.key] || BACKDROPS.crops;
 
   const requestCamera = async () => {
