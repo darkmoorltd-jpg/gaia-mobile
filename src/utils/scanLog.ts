@@ -19,6 +19,7 @@ export interface ScanPayload {
   inference_ms?: number;
   follow_up_of?: string | null;
   treatment_applied?: any;
+  recommendation?: string | null;
 }
 
 async function uploadImage(uri: string, userId: string): Promise<string | null> {

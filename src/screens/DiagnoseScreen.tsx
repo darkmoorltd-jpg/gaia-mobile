@@ -193,7 +193,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
           image_uri: imageUri,
           on_device: (res.model || '').toLowerCase().includes('on-device'),
           inference_ms: res.processingMs || 0,
-          follow_up_of: followUpOf,
+          follow_up_of: null,
         });
         if (sid) setScanId(sid);
       } catch (e) {
