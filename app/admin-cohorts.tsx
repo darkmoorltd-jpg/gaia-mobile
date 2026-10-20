@@ -7,9 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
+import { useIsAdmin } from 'src/utils/admin';
 function fmt(iso?: string) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -20,7 +18,7 @@ export default function AdminCohorts() {
   const { user } = useAuth();
   const router = useRouter();
   const styles = createStyles(palette);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [cohorts, setCohorts] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);

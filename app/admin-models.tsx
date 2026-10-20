@@ -4,8 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import axios from 'axios';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 export default function AdminModels() {
@@ -31,7 +29,7 @@ export default function AdminModels() {
     })();
   }, []);
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 

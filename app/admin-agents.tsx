@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Alert,
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
 import Dropdown from '../src/components/Dropdown';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 
 const API = 'https://gaia-api-xuly.onrender.com';
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const money = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
 type Tab = 'agents' | 'applications';
@@ -19,7 +19,7 @@ export default function AdminAgents() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<Tab>('agents');
   const [agents, setAgents] = useState<any[]>([]);

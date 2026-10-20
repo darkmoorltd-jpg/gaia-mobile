@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function AdminWallets() {
   const router = useRouter();
   const { palette } = useTheme();
@@ -27,7 +24,7 @@ export default function AdminWallets() {
     setBusy(false);
   };
 
-  useEffect(() => { if (user?.email?.toLowerCase() === ADMIN_EMAIL) load(); }, [user]);
+  useEffect(() => { if (isAdmin) load(); }, [user]);
 
   const applyAdjustment = async () => {
     if (!adjust) return;
@@ -48,7 +45,7 @@ export default function AdminWallets() {
     load();
   };
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 

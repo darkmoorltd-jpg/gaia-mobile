@@ -2,16 +2,13 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function Admin() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
   const styles = createStyles(palette);
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return (
       <View style={styles.container}>
         <View style={styles.blocked}>

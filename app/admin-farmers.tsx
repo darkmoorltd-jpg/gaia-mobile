@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 const REASONS = [
   'Blurry or unclear',
   'Cut off / incomplete',
@@ -47,7 +44,7 @@ export default function AdminFarmers() {
   };
 
   useEffect(() => {
-    if (user?.email?.toLowerCase() === ADMIN_EMAIL) load();
+    if (isAdmin) load();
   }, [user]);
 
   const openUser = (r: any) => {
@@ -99,7 +96,7 @@ export default function AdminFarmers() {
     load();
   };
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 

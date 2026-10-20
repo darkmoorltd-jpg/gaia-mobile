@@ -3,10 +3,9 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Activi
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
 import { useSettings } from '../src/store/settings';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const FLAG_KEYS = ['crops','pests','soil','livestock','marketplace','insurance','chat','voice','video','satellite','university','calendar','wallet','badges','loans'];
 
 export default function AdminConfig() {
@@ -14,7 +13,7 @@ export default function AdminConfig() {
   const { palette } = useTheme();
   const s = createStyles(palette);
   const user = useAuth((x) => x.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<'flags' | 'models'>('flags');
   const [flags, setFlags] = useState<Record<string, boolean>>({});

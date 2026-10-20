@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function AdminPayments() {
   const router = useRouter();
   const { palette } = useTheme();
@@ -17,7 +14,7 @@ export default function AdminPayments() {
 
   useEffect(() => {
     (async () => {
-      if (user?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+      if (!isAdmin) return;
       const { data } = await supabase.from('payment_history').select('*').order('paid_at', { ascending: false }).limit(100);
       setRows(data || []);
       const sum = (data || []).reduce((a: number, b: any) => a + (b.amount || 0), 0);
@@ -25,7 +22,7 @@ export default function AdminPayments() {
     })();
   }, [user]);
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 

@@ -6,9 +6,8 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const money = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmtDate = (s?: string) => {
   if (!s) return '—';
@@ -23,7 +22,7 @@ export default function AdminLoans() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState('pending');
   const [stats, setStats] = useState<any>({});

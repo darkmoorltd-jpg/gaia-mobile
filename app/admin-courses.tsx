@@ -7,8 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
+import { useIsAdmin } from 'src/utils/admin';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 const LANG_TARGETS = [
@@ -23,7 +22,7 @@ export default function AdminCourses() {
   const { user } = useAuth();
   const router = useRouter();
   const styles = createStyles(palette);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<'analytics' | 'courses'>('analytics');
   const [analytics, setAnalytics] = useState<any>(null);

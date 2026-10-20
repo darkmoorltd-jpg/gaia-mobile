@@ -6,9 +6,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const ONLINE_MS = 120_000;
 
 function isOnline(lastSeen: string | null) {
@@ -28,7 +27,7 @@ export default function AdminUsers() {
   const { palette } = useTheme();
   const user = useAuth((s) => s.user);
   const styles = createStyles(palette);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -107,6 +106,44 @@ export default function AdminUsers() {
         else Alert.alert('Sent', 'Password reset email dispatched.');
       }},
     ]);
+  };
+
+  const promoteUser = (row: any) => {
+    Alert.alert(
+      'Promote to Admin?',
+      row.email + ' will gain full admin access (delete users, ban, adjust wallets, read chats).',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'PROMOTE', onPress: async () => {
+          setActionBusy(true);
+          const { error } = await supabase.rpc('admin_promote_user', { p_user_id: row.user_id });
+          setActionBusy(false);
+          if (error) { Alert.alert('Failed', error.message); return; }
+          Alert.alert('Promoted', row.email + ' is now an admin.');
+          load();
+          if (selected) openDetail(selected);
+        }},
+      ],
+    );
+  };
+
+  const demoteUser = (row: any) => {
+    Alert.alert(
+      'Remove admin access?',
+      row.email + ' will lose all admin privileges.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'REMOVE', style: 'destructive', onPress: async () => {
+          setActionBusy(true);
+          const { error } = await supabase.rpc('admin_demote_user', { p_user_id: row.user_id });
+          setActionBusy(false);
+          if (error) { Alert.alert('Failed', error.message); return; }
+          Alert.alert('Demoted', row.email + ' is no longer an admin.');
+          load();
+          if (selected) openDetail(selected);
+        }},
+      ],
+    );
   };
 
   const deleteUser = (row: any) => {
@@ -276,7 +313,14 @@ export default function AdminUsers() {
                 {online ? <View style={styles.dot} /> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {r.is_super_admin ? (
+                    <Text style={{ fontSize: 14 }}>👑</Text>
+                  ) : r.is_admin ? (
+                    <Text style={{ fontSize: 14 }}>⚡</Text>
+                  ) : null}
+                  <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                </View>
                 <Text style={styles.email} numberOfLines={1}>{r.email || '—'}</Text>
                 <View style={styles.metaRow}>
                   {r.state ? <Text style={styles.meta}>{r.state}</Text> : null}
@@ -715,7 +759,24 @@ export default function AdminUsers() {
                 <Pressable disabled={actionBusy} onPress={() => router.push(('/admin-scans?user_id=' + selected.user_id) as any)} style={[styles.actionBtn, { borderColor: palette.neon }]}>
                   <Text style={[styles.actionTxt, { color: palette.neon }]}>VIEW SCAN HISTORY</Text>
                 </Pressable>
-                <Pressable disabled={actionBusy} onPress={() => deleteUser(selected)} style={[styles.actionBtn, { borderColor: palette.danger }]}>
+                
+              <Text style={styles.sectionLabel}>ADMIN ACCESS</Text>
+              {isSuperAdmin && selected && selected.user_id !== user?.id ? (
+                <>
+                  {!selected.is_admin ? (
+                    <Pressable disabled={actionBusy} onPress={() => promoteUser(selected)} style={[styles.actionBtn, { borderColor: '#00ff88' }]}>
+                      <Text style={[styles.actionTxt, { color: '#00ff88' }]}>PROMOTE TO ADMIN</Text>
+                    </Pressable>
+                  ) : null}
+                  {selected.is_admin && !selected.is_super_admin ? (
+                    <Pressable disabled={actionBusy} onPress={() => demoteUser(selected)} style={[styles.actionBtn, { borderColor: '#ffb300' }]}>
+                      <Text style={[styles.actionTxt, { color: '#ffb300' }]}>REMOVE ADMIN ACCESS</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : null}
+
+              <Pressable disabled={actionBusy} onPress={() => deleteUser(selected)} style={[styles.actionBtn, { borderColor: palette.danger }]}>
                   <Text style={[styles.actionTxt, { color: palette.danger }]}>DELETE USER</Text>
                 </Pressable>
 

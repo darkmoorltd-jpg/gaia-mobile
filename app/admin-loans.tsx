@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function AdminLoans() {
   const router = useRouter();
   const { palette } = useTheme();
@@ -17,7 +14,7 @@ export default function AdminLoans() {
 
   useEffect(() => {
     (async () => {
-      if (user?.email?.toLowerCase() !== ADMIN_EMAIL) return;
+      if (!isAdmin) return;
       try {
         const { data } = await supabase.from('loan_applications').select('*').limit(200);
         setRows(data || []);
@@ -26,7 +23,7 @@ export default function AdminLoans() {
     })();
   }, [user]);
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return (
       <View style={styles.blocked}>
         <Text style={styles.blockedText}>Access denied</Text>

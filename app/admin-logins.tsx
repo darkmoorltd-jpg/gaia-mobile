@@ -3,16 +3,14 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndic
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function AdminLogins() {
   const router = useRouter();
   const { palette } = useTheme();
   const s = createStyles(palette);
   const user = useAuth((x) => x.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [rows, setRows] = useState<any[]>([]);
   const [q, setQ] = useState('');

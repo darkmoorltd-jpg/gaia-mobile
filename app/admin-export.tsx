@@ -4,10 +4,8 @@ import { useRouter } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 function toCSV(rows: any[]): string {
   if (!rows || rows.length === 0) return '';
   const keys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
@@ -25,7 +23,7 @@ export default function AdminExport() {
   const { palette } = useTheme();
   const s = createStyles(palette);
   const user = useAuth((x) => x.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
   const [busy, setBusy] = useState('');
 
   const doExport = async (name: string, rows: any[]) => {

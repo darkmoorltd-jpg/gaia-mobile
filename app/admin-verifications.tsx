@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 export default function AdminVerifications() {
   const router = useRouter();
   const { palette } = useTheme();
@@ -19,14 +16,14 @@ export default function AdminVerifications() {
     setRows(data || []);
   };
 
-  useEffect(() => { if (user?.email?.toLowerCase() === ADMIN_EMAIL) load(); }, [user]);
+  useEffect(() => { if (isAdmin) load(); }, [user]);
 
   const setStatus = async (id: string, status: string) => {
     await supabase.from('farmer_verifications').update({ status }).eq('id', id);
     load();
   };
 
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) {
+  if (!user || !isAdmin) {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 

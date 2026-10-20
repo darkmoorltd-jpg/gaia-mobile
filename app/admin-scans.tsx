@@ -6,11 +6,9 @@ import {
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
+import { useIsAdmin } from 'src/utils/admin';
 import { supabase } from '../src/api/supabase';
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
-
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-
 const TYPE_LABEL: Record<string, string> = {
   crops: 'Crop', pests: 'Pest', soil: 'Soil', livestock: 'Livestock', video: 'Video',
 };
@@ -66,7 +64,7 @@ export default function AdminScans() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<Tab>('overview');
   const [groupBy, setGroupBy] = useState<GroupBy>('day');
