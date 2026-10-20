@@ -12,6 +12,7 @@ import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { diagnose, DiagnosisError } from '../api/models';
 import { logScan } from '../utils/scanLog';
+import { getSession, runModel, softmax, imageUriToTensor, ensureModel, getLabels } from '../utils/onDeviceModel';
 import ConfettiBurst from '../components/ConfettiBurst';
 import { playSound, primeSounds } from '../utils/sounds';
 import { success as hapticSuccess, warn as hapticWarn, error as hapticError, tap as hapticTap } from '../utils/haptics';
