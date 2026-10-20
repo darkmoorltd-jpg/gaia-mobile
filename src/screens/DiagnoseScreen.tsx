@@ -33,35 +33,42 @@ const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels:
 };
 
 async function onDeviceDiagnose(imageUri: string, modelKey: string): Promise<any | null> {
-  const meta = ON_DEVICE_MAP[modelKey];
-  if (!meta) return null;
+  try {
+    const meta = ON_DEVICE_MAP[modelKey];
+    if (!meta) return null;
 
-  // Ensure the model file is present (silently downloads on first use)
-  const sess = await getSession(meta.key);
-  if (!sess) return null;
+    const sess = await getSession(meta.key);
+    if (!sess) {
+      console.log('[diagnose] on-device ORT not available — will use server');
+      return null;
+    }
 
-  const tensor = await imageUriToTensor(imageUri, meta.H, meta.W);
-  if (!tensor) return null;
+    const tensor = await imageUriToTensor(imageUri, meta.H, meta.W);
+    if (!tensor) return null;
 
-  const t0 = Date.now();
-  const out = await runModel(meta.key, tensor, meta.H, meta.W);
-  if (!out) return null;
+    const t0 = Date.now();
+    const out = await runModel(meta.key, tensor, meta.H, meta.W);
+    if (!out) return null;
 
-  const probs = softmax(out.logits);
-  const topIdx = probs.indexOf(Math.max(...probs));
-  const labels = meta.labels.length ? meta.labels : probs.map((_, i) => 'Class ' + i);
+    const probs = softmax(out.logits);
+    const topIdx = probs.indexOf(Math.max(...probs));
+    const labels = meta.labels.length ? meta.labels : probs.map((_, i) => 'Class ' + i);
 
-  const predictions = probs
-    .map((p, i) => ({ label: labels[i] || ('Class ' + i), confidence: p * 100 }))
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5);
+    const predictions = probs
+      .map((p, i) => ({ label: labels[i] || ('Class ' + i), confidence: p * 100 }))
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5);
 
-  return {
-    predictions,
-    top: predictions[0],
-    model: meta.key + ' (on-device)',
-    processingMs: Date.now() - t0,
-  };
+    return {
+      predictions,
+      top: predictions[0],
+      model: meta.key + ' (on-device)',
+      processingMs: Date.now() - t0,
+    };
+  } catch (e) {
+    console.warn('[diagnose] on-device failed silently:', e);
+    return null;
+  }
 }
 
 const { width } = Dimensions.get('window');
