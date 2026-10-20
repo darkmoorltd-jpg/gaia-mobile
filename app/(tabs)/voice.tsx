@@ -14,6 +14,7 @@ import { supabase } from '../../src/api/supabase';
 import { MarkdownOutput } from '../../src/components/MarkdownOutput';
 import { speak as speakSmart } from '../../src/utils/voice';
 import { LANGUAGES } from '../../src/utils/voice';
+import * as Clipboard from 'expo-clipboard';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -493,13 +494,38 @@ function Voice() {
                 delayLongPress={350}
                 style={[styles.row, m.role === 'user' ? styles.rowUser : styles.rowAi]}
               >
-                <View style={[styles.bubble, m.role === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
-                  {m.role === 'assistant' ? (
-                    <MarkdownOutput content={m.content} />
-                  ) : (
+                {m.role === 'assistant' ? (
+                  <View style={styles.aiTurn}>
+                    <View style={styles.aiHeader}>
+                      <View style={styles.aiAvatar}>
+                        <Text style={styles.aiAvatarTxt}>G</Text>
+                      </View>
+                      <Text style={styles.aiName}>GAIA</Text>
+                      {m.created_at ? (
+                        <Text style={styles.aiTime}>
+                          {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.aiContent}>
+                      <MarkdownOutput content={m.content} />
+                    </View>
+                    <View style={styles.aiActions}>
+                      <Pressable
+                        onPress={async () => {
+                          try { await Clipboard.setStringAsync(m.content); } catch {}
+                        }}
+                        style={styles.aiActionBtn}
+                      >
+                        <Text style={styles.aiActionTxt}>COPY</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={[styles.bubble, styles.bubbleUser]}>
                     <Text style={styles.bubbleTextUser}>{m.content}</Text>
-                  )}
-                </View>
+                  </View>
+                )}
                 <Pressable onPress={() => deleteMessage(i)} style={styles.actionBtn}>
                   <Text style={[styles.actionText, { color: palette.danger }]}>X</Text>
                 </Pressable>
@@ -630,6 +656,20 @@ const createStyles = (palette: any) => StyleSheet.create({
   bubbleTextUser: { fontSize: 15, lineHeight: 22, color: palette.obsidian, fontWeight: '600' },
   actionBtn: { padding: 8, marginLeft: 4 },
   actionText: { fontSize: 12, fontWeight: '900' },
+
+  aiTurn: {
+    flex: 1, marginBottom: 16, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  aiAvatar: { width: 22, height: 22, borderRadius: 11, backgroundColor: palette.neon, alignItems: 'center', justifyContent: 'center' },
+  aiAvatarTxt: { fontSize: 11, fontWeight: '900', color: palette.obsidian },
+  aiName: { fontSize: 12, fontWeight: '800', color: palette.neon, letterSpacing: 0.5 },
+  aiTime: { fontSize: 10, color: palette.textDim, marginLeft: 'auto' },
+  aiContent: { width: '100%' },
+  aiActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  aiActionBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.05)' },
+  aiActionTxt: { fontSize: 10, fontWeight: '800', color: palette.textMuted, letterSpacing: 1 },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
