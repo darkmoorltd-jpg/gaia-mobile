@@ -461,8 +461,8 @@ const createStyles = (p: any) => StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)', borderWidth: 1, borderColor: p.border,
   },
   predRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  predLabel: { fontSize: 14, color: '#fff', fontWeight: '600', flex: 1 },
-  predPct: { fontSize: 14, color: p.neon, fontWeight: '900' },
+  predLabel: { color: '#e5e7eb', fontSize: 14, color: '#fff', fontWeight: '600', flex: 1 },
+  predPct: { color: '#ffffff', fontSize: 14, color: p.neon, fontWeight: '900' },
   barBg: { height: 6, backgroundColor: 'rgba(0,255,136,0.15)', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: p.neon, borderRadius: 3 },
   actionsCard: {

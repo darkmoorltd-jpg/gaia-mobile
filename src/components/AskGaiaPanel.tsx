@@ -10,7 +10,6 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { MarkdownOutput } from './MarkdownOutput';
-import { updateScanRecommendation } from '../utils/scanLog';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const LISTEN_WINDOW_MS = 6500;
@@ -41,6 +40,7 @@ function detectLanguage(text: string): string {
 interface Turn {
   role: 'user' | 'assistant';
   content: string;
+  at?: string;
 }
 
 interface Props {
@@ -48,12 +48,11 @@ interface Props {
   cropLabel: string;
   contextType: string;
   confidence?: number;
-  scanId?: string | null;
 }
 
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
-export default function AskGaiaPanel({ disease, cropLabel, contextType, confidence, scanId }: Props) {
+export default function AskGaiaPanel({ disease, cropLabel, contextType, confidence }: Props) {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const { user } = useAuth();
@@ -84,11 +83,13 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       'Give Naira costs and exact product names. Keep answers under 300 words unless asked for details.';
   };
 
+  const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const ask = async (question: string, opts?: { speak?: boolean }) => {
     if (!question.trim() || busy) return null;
     const q = question.trim();
     setInput('');
-    setTurns((prev) => [...prev, { role: 'user', content: q }]);
+    setTurns((prev) => [...prev, { role: 'user', content: q, at: now() }]);
     setBusy(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     let answerText = '';
@@ -107,25 +108,8 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       answerText = data.answer || data.reply || '(no response)';
-      setTurns((prev) => [...prev, { role: 'assistant', content: answerText }]);
+      setTurns((prev) => [...prev, { role: 'assistant', content: answerText, at: now() }]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
-
-      // Persist the full Q&A into scan_history.recommendation so it survives
-      if (scanId) {
-        try {
-          const { data: row } = await supabase
-            .from('scan_history')
-            .select('recommendation')
-            .eq('id', scanId)
-            .maybeSingle();
-          const prior = (row?.recommendation || '').trim();
-          const turn = '**Q:** ' + q + '\n\n**A:** ' + answerText;
-          const merged = prior ? prior + '\n\n---\n\n' + turn : turn;
-          await updateScanRecommendation(scanId, merged);
-        } catch (e) {
-          console.warn('[AskGaiaPanel] persist failed', e);
-        }
-      }
 
       if (opts?.speak) {
         setVoiceState('speaking');
@@ -134,7 +118,7 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       }
     } catch (e: any) {
       Alert.alert('GAIA error', e.message || 'Try again');
-      setTurns((prev) => [...prev, { role: 'assistant', content: '_Could not reach GAIA. Please try again._' }]);
+      setTurns((prev) => [...prev, { role: 'assistant', content: '_Could not reach GAIA. Please try again._', at: now() }]);
     } finally {
       setBusy(false);
     }
@@ -144,28 +128,16 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
   const speakText = (text: string, lang: string): Promise<void> => {
     return new Promise((resolve) => {
       try {
-        // strip markdown before speaking so it doesn't say "asterisk asterisk"
-        const clean = text
-          .replace(/[#*_`>]/g, '')
-          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-          .replace(/\|/g, ' ')
-          .slice(0, 1200);
+        const clean = text.replace(/[#*_`>]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\|/g, ' ').slice(0, 1200);
         Speech.stop();
         Speech.speak(clean, {
-          language: lang,
-          pitch: 1.0,
-          rate: 0.96,
-          onDone: () => resolve(),
-          onStopped: () => resolve(),
-          onError: () => resolve(),
+          language: lang, pitch: 1.0, rate: 0.96,
+          onDone: () => resolve(), onStopped: () => resolve(), onError: () => resolve(),
         });
       } catch { resolve(); }
     });
   };
 
-  // ============================================================
-  // Conversation loop
-  // ============================================================
   const startConversation = async () => {
     if (activeRef.current) return;
     activeRef.current = true;
@@ -234,19 +206,19 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       if (!activeRef.current) break;
       if (!text) continue;
 
-      setTurns((prev) => [...prev, { role: 'user', content: '🎤 ' + text }]);
+      setTurns((prev) => [...prev, { role: 'user', content: '🎤 ' + text, at: now() }]);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
       if (isStopPhrase(text)) {
         const bye = 'Goodbye. Talk to you soon.';
-        setTurns((prev) => [...prev, { role: 'assistant', content: bye }]);
+        setTurns((prev) => [...prev, { role: 'assistant', content: bye, at: now() }]);
         setVoiceState('speaking');
         await speakText(bye, detectLanguage(text));
         break;
       }
 
       if (answer) {
-        setTurns((prev) => [...prev, { role: 'assistant', content: answer }]);
+        setTurns((prev) => [...prev, { role: 'assistant', content: answer, at: now() }]);
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
         setVoiceState('speaking');
         await speakText(answer, detectLanguage(text));
@@ -260,14 +232,8 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
     setVoiceState('idle');
   };
 
-  // ============================================================
-  // Manual voice (mic tap, one-shot)
-  // ============================================================
   const micPress = async () => {
-    if (activeConv) {
-      stopConversation();
-      return;
-    }
+    if (activeConv) { stopConversation(); return; }
     startConversation();
   };
 
@@ -284,7 +250,6 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
         Follow-up questions on <Text style={{ color: palette.neon, fontWeight: '800' }}>{disease}</Text>
       </Text>
 
-      {/* Big conversation button */}
       <Pressable
         onPress={micPress}
         style={[
@@ -304,14 +269,9 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       </Pressable>
       <Text style={styles.talkStatus}>{statusLabel}</Text>
       {activeConv ? (
-        <Text style={styles.talkHint}>
-          Speak freely. GAIA will answer and keep listening.
-          Say "thank you" or "stop" to end.
-        </Text>
+        <Text style={styles.talkHint}>Speak freely. Say "thank you" or "stop" to end.</Text>
       ) : (
-        <Text style={styles.talkHint}>
-          Tap TALK once for a full hands-free conversation — speak, GAIA answers out loud, then you speak again.
-        </Text>
+        <Text style={styles.talkHint}>Tap TALK once for a hands-free conversation.</Text>
       )}
 
       {turns.length > 0 ? (
@@ -322,20 +282,32 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
           showsVerticalScrollIndicator={false}
         >
           {turns.map((t, i) => (
-            <View key={i} style={[styles.row, t.role === 'user' ? styles.rowUser : styles.rowAi]}>
-              <View style={[styles.bubble, t.role === 'user' ? styles.bubbleUser : styles.bubbleAi]}>
-                {t.role === 'assistant' ? (
+            t.role === 'assistant' ? (
+              <View key={i} style={styles.aiTurn}>
+                <View style={styles.aiHeader}>
+                  <View style={styles.aiAvatar}>
+                    <Text style={styles.aiAvatarTxt}>G</Text>
+                  </View>
+                  <Text style={styles.aiName}>GAIA</Text>
+                  {t.at ? <Text style={styles.aiTime}>{t.at}</Text> : null}
+                </View>
+                <View style={styles.aiContent}>
                   <MarkdownOutput content={t.content} />
-                ) : (
-                  <Text style={styles.userText}>{t.content}</Text>
-                )}
+                </View>
               </View>
-            </View>
+            ) : (
+              <View key={i} style={[styles.row, styles.rowUser]}>
+                <View style={[styles.bubble, styles.bubbleUser]}>
+                  <Text style={styles.userText}>{t.content}</Text>
+                </View>
+              </View>
+            )
           ))}
           {busy ? (
             <View style={[styles.row, styles.rowAi]}>
-              <View style={[styles.bubble, styles.bubbleAi]}>
+              <View style={styles.thinkingBubble}>
                 <ActivityIndicator color={palette.neon} size="small" />
+                <Text style={styles.thinkingTxt}>GAIA is thinking…</Text>
               </View>
             </View>
           ) : null}
@@ -382,11 +354,11 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
 const createStyles = (p: any) => StyleSheet.create({
   wrap: {
     marginTop: 24, padding: 16, borderRadius: 20,
-    backgroundColor: 'rgba(0,255,136,0.04)',
-    borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
   head: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: p.neon },
-  sub: { fontSize: 12, color: '#fff', marginTop: 4, marginBottom: 14 },
+  sub: { fontSize: 12, color: '#e5e7eb', marginTop: 4, marginBottom: 14 },
   talkBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
     paddingVertical: 20, borderRadius: 20,
@@ -396,42 +368,50 @@ const createStyles = (p: any) => StyleSheet.create({
   talkBtnSpeaking: { backgroundColor: '#ffb300' },
   talkIcon: { fontSize: 28 },
   talkLabel: { fontSize: 18, fontWeight: '900', color: p.obsidian, letterSpacing: 3 },
-  talkStatus: {
-    fontSize: 13, fontWeight: '800', color: p.neon,
-    textAlign: 'center', marginTop: 10, letterSpacing: 1,
-  },
-  talkHint: {
-    fontSize: 11, color: p.textMuted,
-    textAlign: 'center', marginTop: 6, marginBottom: 12, lineHeight: 16,
-    paddingHorizontal: 8,
-  },
-  history: { maxHeight: 420 },
+  talkStatus: { fontSize: 13, fontWeight: '800', color: p.neon, textAlign: 'center', marginTop: 10, letterSpacing: 1 },
+  talkHint: { fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 6, marginBottom: 12, lineHeight: 16, paddingHorizontal: 8 },
+  history: { maxHeight: 460 },
   row: { flexDirection: 'row', marginBottom: 10 },
   rowUser: { justifyContent: 'flex-end' },
   rowAi: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '90%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
+  bubble: { maxWidth: '86%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
   bubbleUser: { backgroundColor: p.neon, borderBottomRightRadius: 4 },
-  bubbleAi: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderWidth: 1, borderColor: p.border, borderBottomLeftRadius: 4,
-  },
   userText: { fontSize: 14, color: p.obsidian, fontWeight: '600', lineHeight: 20 },
+
+  aiTurn: {
+    width: '100%', marginBottom: 16, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  aiAvatar: { width: 22, height: 22, borderRadius: 11, backgroundColor: p.neon, alignItems: 'center', justifyContent: 'center' },
+  aiAvatarTxt: { fontSize: 11, fontWeight: '900', color: p.obsidian },
+  aiName: { fontSize: 12, fontWeight: '800', color: p.neon, letterSpacing: 0.5 },
+  aiTime: { fontSize: 10, color: '#6b7280', marginLeft: 'auto' },
+  aiContent: { width: '100%' },
+
+  thinkingBubble: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  thinkingTxt: { fontSize: 12, color: '#9ca3af', fontStyle: 'italic' },
+
   hintBox: { paddingVertical: 8 },
-  hint: { fontSize: 11, color: p.textMuted, marginBottom: 8, letterSpacing: 1 },
+  hint: { fontSize: 11, color: '#9ca3af', marginBottom: 8, letterSpacing: 1 },
   chip: {
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12,
-    borderWidth: 1, borderColor: p.border,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: 'rgba(0,0,0,0.4)', marginBottom: 6,
   },
-  chipText: { fontSize: 12, color: '#fff' },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 12,
-  },
+  chipText: { fontSize: 12, color: '#e5e7eb' },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 12 },
   input: {
     flex: 1, minHeight: 48, maxHeight: 120,
     paddingHorizontal: 14, paddingVertical: 12, borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderWidth: 1, borderColor: p.border, color: '#fff', fontSize: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    color: '#fff', fontSize: 14,
   },
   sendBtn: {
     paddingHorizontal: 16, paddingVertical: 12, borderRadius: 24,
