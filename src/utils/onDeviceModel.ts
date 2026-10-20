@@ -13,7 +13,7 @@ function getORT() {
   }
 }
 
-const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v1/manifest.json';
+const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2/manifest.json';
 const CACHE_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'gaia-models/';
 
 // Models not in the models-v1 manifest — hardcoded fallback URLs
@@ -34,6 +34,8 @@ export interface ModelMeta {
   num_classes?: number;
   img_size?: number;
   label?: string;
+  labels_url?: string;
+  num_classes?: number;
 }
 
 let _manifest: Record<string, ModelMeta> | null = null;
@@ -200,6 +202,35 @@ export async function imageUriToTensor(
   } catch (e) {
     console.warn('[models] tensor build failed', e);
     return null;
+  }
+}
+
+
+// ============================================================
+// Download and cache class labels for a model
+// ============================================================
+const _labelsCache: Record<string, string[]> = {};
+
+export async function getLabels(key: string): Promise<string[]> {
+  if (_labelsCache[key]) return _labelsCache[key];
+  try {
+    const manifest = await getManifest();
+    const meta = manifest[key];
+    if (!meta || !meta.labels_url) return [];
+
+    const localPath = CACHE_DIR + key + '_labels.json';
+    const info = await FileSystem.getInfoAsync(localPath);
+    if (!info.exists) {
+      await FileSystem.downloadAsync(meta.labels_url, localPath);
+    }
+    const txt = await FileSystem.readAsStringAsync(localPath);
+    const data = JSON.parse(txt);
+    const labels: string[] = data.classes || data.labels || [];
+    _labelsCache[key] = labels;
+    return labels;
+  } catch (e) {
+    console.warn('[models] getLabels failed', key, e);
+    return [];
   }
 }
 

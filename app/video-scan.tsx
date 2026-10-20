@@ -12,7 +12,7 @@ import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { diagnose } from '../src/api/models';
 import { logScan } from '../src/utils/scanLog';
-import { getSession, runModel, softmax, imageUriToTensor } from '../src/utils/onDeviceModel';
+import { getSession, runModel, softmax, imageUriToTensor, getLabels } from '../src/utils/onDeviceModel';
 import { MarkdownOutput } from '../src/components/MarkdownOutput';
 import Sparkline from '../src/components/Sparkline';
 import { gridScan, countDistinctSubjects } from '../src/utils/scanGrid';
@@ -30,7 +30,7 @@ const HEALTHY_AUTOSTOP_FRAMES = 5;
 const CROPS = [
   { key: 'maize', label: 'Maize', onDeviceKey: null },
   { key: 'rice_6class', label: 'Rice', onDeviceKey: null },
-  { key: 'pests_102class', label: 'Pests', onDeviceKey: 'pests_102class' },
+  { key: 'pests_102class', label: 'Pests', onDeviceKey: 'pests_102class_v2' },
   { key: 'soil_11class', label: 'Soil', onDeviceKey: 'soil_11class' },
   { key: 'poultry', label: 'Poultry', onDeviceKey: 'poultry' },
 ];
@@ -59,6 +59,15 @@ export default function VideoScan() {
   const { user, refreshScans } = useAuth();
 
   const [permission, requestPermission] = useCameraPermissions();
+
+  useEffect(() => {
+    (async () => {
+      const labels = await getLabels('pests_102class_v2');
+      if (labels.length > 0) {
+        LABELS_BY_KEY.pests_102class = labels;
+      }
+    })();
+  }, []);
   const [crop, setCrop] = useState(CROPS[0]);
   const [scanning, setScanning] = useState(false);
   const [frames, setFrames] = useState<any[]>([]);

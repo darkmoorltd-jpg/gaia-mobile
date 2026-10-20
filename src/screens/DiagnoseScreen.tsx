@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, Image,
   Modal, FlatList, ActivityIndicator, ImageBackground, Dimensions,
@@ -24,7 +24,7 @@ import AskGaiaPanel from '../components/AskGaiaPanel';
 // ============================================================
 const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels: string[] } | undefined> = {
   // pests
-  pests_102class: { key: 'pests_102class', H: 224, W: 224, labels: [] },
+  pests_102class: { key: 'pests_102class_v2', H: 224, W: 224, labels: [] },
   // soil
   soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
   // livestock — server still uses 'cattle'/'poultry'; we ship poultry on-device
@@ -92,6 +92,15 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const [showPicker, setShowPicker] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const labels = await getLabels('pests_102class_v2');
+      if (labels.length > 0 && ON_DEVICE_MAP.pests_102class) {
+        ON_DEVICE_MAP.pests_102class.labels = labels;
+      }
+    })();
+  }, []);
   const [result, setResult] = useState<any | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
   const [confettiFire, setConfettiFire] = React.useState(false);
