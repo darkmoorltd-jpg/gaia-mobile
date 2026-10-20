@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Platform, Linking } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { useTheme } from '../theme';
 
 interface Props {
   content: string;
@@ -8,18 +9,22 @@ interface Props {
 }
 
 // ============================================================
-// High contrast — hardcoded light text so it's readable on
-// any dark card regardless of theme mode (light/dark).
-// Do NOT use palette.text here — it's #0a1a12 in light mode.
+// Theme-aware markdown:
+//   light mode → dark text on light bg  (palette.text = #0a1a12)
+//   dark mode  → light text on dark bg  (palette.text = #ffffff)
 // ============================================================
 export function MarkdownOutput({ content, compact }: Props) {
-  const TEXT      = '#e5e7eb';
-  const TEXT_HI   = '#ffffff';
-  const TEXT_MUTE = '#9ca3af';
-  const ACCENT    = '#00ff88';
-  const BORDER    = 'rgba(255,255,255,0.15)';
-  const BG_CODE   = 'rgba(0,0,0,0.65)';
-  const BG_QUOTE  = 'rgba(0,255,136,0.10)';
+  const { palette } = useTheme();
+
+  const TEXT      = palette.text;          // flips with theme
+  const TEXT_HI   = palette.text;          // headings same
+  const TEXT_MUTE = palette.textMuted;
+  const ACCENT    = palette.neon;
+  const BORDER    = palette.border;
+  const BG_CODE   = 'rgba(128,128,128,0.15)';  // works on both bgs
+  const BG_QUOTE  = palette.neonSoft;           // theme-aware
+  const BG_TABLE_HEADER = palette.neonSoft;
+  const ON_ACCENT = palette.obsidian;           // for text on neon bg
 
   const md = {
     body: { color: TEXT, fontSize: compact ? 13 : 14.5, lineHeight: compact ? 20 : 23 },
@@ -29,8 +34,8 @@ export function MarkdownOutput({ content, compact }: Props) {
     heading4: { color: TEXT_HI, fontSize: 13, fontWeight: '700', marginTop: 8, marginBottom: 4 },
     paragraph: { marginTop: 0, marginBottom: 10 },
     strong: { fontWeight: '800', color: TEXT_HI },
-    em:     { fontStyle: 'italic', color: TEXT_MUTE },
-    link:   { color: ACCENT, textDecorationLine: 'underline' },
+    em: { fontStyle: 'italic', color: TEXT_MUTE },
+    link: { color: ACCENT, textDecorationLine: 'underline' },
     bullet_list: { marginBottom: 10 },
     ordered_list: { marginBottom: 10 },
     list_item: { marginBottom: 6, flexDirection: 'row' },
@@ -45,7 +50,7 @@ export function MarkdownOutput({ content, compact }: Props) {
     hr: { backgroundColor: BORDER, height: 1, marginVertical: 14 },
     table: { borderWidth: 1, borderColor: BORDER, borderRadius: 8, overflow: 'hidden', marginVertical: 10 },
     tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: BORDER },
-    th: { padding: 8, backgroundColor: 'rgba(0,255,136,0.15)', flex: 1, fontWeight: '800', color: TEXT_HI, fontSize: 12 },
+    th: { padding: 8, backgroundColor: BG_TABLE_HEADER, flex: 1, fontWeight: '800', color: TEXT_HI, fontSize: 12 },
     td: { padding: 8, flex: 1, color: TEXT, fontSize: 12 },
   };
 
