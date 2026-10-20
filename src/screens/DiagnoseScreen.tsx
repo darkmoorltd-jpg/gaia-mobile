@@ -189,26 +189,15 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      if (!token) throw new Error('Session expired — please log in again');
+      if (!token) throw new Error('Session expired — please log in again');      let res: any = null;
 
-      // On-device keys must run locally — NEVER fall back to server for these
-      const ON_DEVICE_KEYS = ['pests_102class', 'soil_11class', 'poultry'];
-      const isOnDevice = ON_DEVICE_KEYS.includes(selected.key);
-
-      let res: any = null;
+      // Try on-device first — any failure is silent, we fall back to server
       try {
         const od = await onDeviceDiagnose(imageUri, selected.key);
         if (od) res = od;
       } catch (e: any) {
-        console.warn('[diagnose] on-device threw', e);
-        if (isOnDevice) throw new Error('On-device AI failed: ' + (e?.message || 'unknown'));
+        console.warn('[diagnose] on-device threw — falling back to server', e);
       }
-
-      if (!res && isOnDevice) {
-        // On-device key but od returned null — the native module probably isn't installed
-        throw new Error('On-device AI not installed. Please install the latest GAIA APK.');
-      }
-
       if (!res || !res.recommendations) {
         res = await diagnose(imageUri, selected.key, token);
       }
