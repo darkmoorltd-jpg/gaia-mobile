@@ -28,6 +28,7 @@ const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels:
   pests_102class: { key: 'pests_102class_v2', H: 224, W: 224, labels: [] },
   millet: { key: 'millet', H: 224, W: 224, labels: [] },
   cotton: { key: 'cotton', H: 224, W: 224, labels: [] },
+  okra: { key: 'okra', H: 224, W: 224, labels: [] },
   groundnut: { key: 'groundnut', H: 224, W: 224, labels: [] },
   // soil
   soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
@@ -139,6 +140,21 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
         }
       } catch (e) {
         console.warn('[diagnose] cotton labels failed', e);
+      }
+    })();
+  }, []);
+
+  // Load okra labels
+  useEffect(() => {
+    (async () => {
+      try {
+        const labels = await getLabels('okra');
+        if (labels.length > 0 && ON_DEVICE_MAP.okra) {
+          ON_DEVICE_MAP.okra.labels = labels;
+          console.log('[diagnose] loaded', labels.length, 'okra labels');
+        }
+      } catch (e) {
+        console.warn('[diagnose] okra labels failed', e);
       }
     })();
   }, []);
