@@ -26,6 +26,7 @@ import AskGaiaPanel from '../components/AskGaiaPanel';
 const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels: string[] } | undefined> = {
   // pests
   pests_102class: { key: 'pests_102class_v2', H: 224, W: 224, labels: [] },
+  millet: { key: 'millet', H: 224, W: 224, labels: [] },
   groundnut: { key: 'groundnut', H: 224, W: 224, labels: [] },
   // soil
   soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
@@ -107,6 +108,21 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
       const labels = await getLabels('pests_102class_v2');
       if (labels.length > 0 && ON_DEVICE_MAP.pests_102class) {
         ON_DEVICE_MAP.pests_102class.labels = labels;
+      }
+    })();
+  }, []);
+
+  // Load millet labels
+  useEffect(() => {
+    (async () => {
+      try {
+        const labels = await getLabels('millet');
+        if (labels.length > 0 && ON_DEVICE_MAP.millet) {
+          ON_DEVICE_MAP.millet.labels = labels;
+          console.log('[diagnose] loaded', labels.length, 'millet labels');
+        }
+      } catch (e) {
+        console.warn('[diagnose] millet labels failed', e);
       }
     })();
   }, []);

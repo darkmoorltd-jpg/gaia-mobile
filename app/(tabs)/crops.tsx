@@ -18,7 +18,7 @@ export default function Tab() {
       { key: 'maize',    label: 'Maize' },
       { key: 'groundnut', label: 'Groundnut' },
       { key: 'rice_6class', label: 'Rice' },
-      { key: 'millet_3class', label: 'Millet' },
+      { key: 'millet', label: 'Millet' },
       { key: 'cassava', label: 'Cassava' },
       { key: 'apple',   label: 'Apple' },
       { key: 'coffee',  label: 'Coffee' },
