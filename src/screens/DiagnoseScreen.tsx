@@ -18,6 +18,7 @@ import { playSound, primeSounds } from '../utils/sounds';
 import { success as hapticSuccess, warn as hapticWarn, error as hapticError, tap as hapticTap } from '../utils/haptics';
 import { MarkdownOutput } from '../components/MarkdownOutput';
 import AskGaiaPanel from '../components/AskGaiaPanel';
+import { useTranslation } from 'react-i18next';
 
 
 // ============================================================

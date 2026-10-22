@@ -573,7 +573,7 @@ export default function Profile() {
           </View>
           <View style={styles.stat}>
             <Text style={styles.statVal}>{String(plan || 'free').charAt(0).toUpperCase()}</Text>
-            <Text style={styles.statLbl}>PLAN</Text>
+            <Text style={styles.statLbl}>{t('profile.plan')}</Text>
           </View>
           <View style={styles.stat}>
             <Text style={styles.statVal}>{verified ? '✓' : '—'}</Text>
@@ -722,13 +722,13 @@ export default function Profile() {
             onPress={() => router.push('/admin' as any)}
             style={({ pressed }) => [styles.adminItem, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
+            <Text style={styles.adminLabel}>{t('profile.admin')}</Text>
             <Text style={styles.adminChevron}>›</Text>
           </Pressable>
         ) : null}
 
         <Pressable onPress={handleSignOut} style={styles.logout}>
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>{t('profile.logout')}</Text>
         </Pressable>
 
         <Text style={styles.version}>GAIA Mobile v{APP_VERSION}</Text>

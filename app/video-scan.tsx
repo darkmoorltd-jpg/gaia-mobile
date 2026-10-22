@@ -22,6 +22,7 @@ import { t as tr, cropLabel as trCrop, detectLangFromText, Lang } from '../src/u
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { resolveLanguage } from '../src/utils/language';
+import { useTranslation } from 'react-i18next';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const FRAME_INTERVAL_MS = 1500;
@@ -54,6 +55,7 @@ function detectLanguage(text: string): string {
 }
 
 export default function VideoScan() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);

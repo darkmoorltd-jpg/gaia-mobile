@@ -74,6 +74,7 @@ type Prefs = { hidden: string[]; ordering: Record<string, string[]> };
 const EMPTY_PREFS: Prefs = { hidden: [], ordering: {} };
 
 export default function Home() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const palette = useTheme((s) => s.palette);

@@ -10,6 +10,7 @@ import { supabase } from '../../src/api/supabase';
 import { useChatStore } from '../../src/store/chat';
 import { blockUser, hideConversation, listBlockedIds, listHiddenIds } from '../../src/utils/friends';
 import { SkeletonList } from '../../src/components/Skeleton';
+import { useTranslation } from 'react-i18next';
 
 interface Row {
   room_id: string;
@@ -102,6 +103,7 @@ function TypingDots({ color }: { color: string }) {
 }
 
 export default function ChatTab() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
@@ -433,7 +435,7 @@ const load = useCallback(async () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.brand}>Chats</Text>
+          <Text style={styles.brand}>{t('chat.chats')}</Text>
           <View style={styles.headerActions}>
             <Pressable onPress={() => setSearchOpen(!searchOpen)} style={styles.iconBtn}>
               <Text style={styles.iconBtnText}>{searchOpen ? 'X' : 'Q'}</Text>
@@ -460,7 +462,7 @@ const load = useCallback(async () => {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search chats"
+              placeholder={t('chat.search')}
               placeholderTextColor={palette.textDim}
               style={styles.searchInput}
               autoCapitalize="none"

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
+import { useTranslation } from 'react-i18next';
 
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
@@ -13,6 +14,7 @@ function TabIcon({ emoji, focused, color }: {
 }
 
 export default function AgentLayout() {
+  const { t } = useTranslation();
   const palette = useTheme((s) => s.palette);
 
   return (
@@ -40,7 +42,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'HOME',
+          title: t('agentTabs.home'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="H" focused={focused} color={color} />
           ),
@@ -49,7 +51,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="farmers"
         options={{
-          title: 'FARMERS',
+          title: t('agentTabs.farmers'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="F" focused={focused} color={color} />
           ),
@@ -58,7 +60,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="register"
         options={{
-          title: 'REGISTER',
+          title: t('agentTabs.register'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="+" focused={focused} color={color} />
           ),
@@ -67,7 +69,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="verify"
         options={{
-          title: 'VERIFY',
+          title: t('agentTabs.verify'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="V" focused={focused} color={color} />
           ),
@@ -76,7 +78,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="ledger"
         options={{
-          title: 'LEDGER',
+          title: t('agentTabs.ledger'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="N" focused={focused} color={color} />
           ),
@@ -85,7 +87,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'PROFILE',
+          title: t('agentTabs.profile'),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="P" focused={focused} color={color} />
           ),

@@ -16,6 +16,7 @@ import { speak as speakSmart } from '../../src/utils/voice';
 import { LANGUAGES } from '../../src/utils/voice';
 import * as Clipboard from 'expo-clipboard';
 import { resolveLanguage } from '../../src/utils/language';
+import { useTranslation } from 'react-i18next';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -451,7 +452,7 @@ function Voice() {
         {(['text', 'voice', 'history'] as Tab[]).map((t) => (
           <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'text' ? 'Text' : t === 'voice' ? 'Voice' : 'History'}
+              {t === 'text' ? t('voice.tabText') : t === 'voice' ? t('voice.tabVoice') : t('voice.tabHistory')}
             </Text>
           </Pressable>
         ))}
@@ -482,7 +483,7 @@ function Voice() {
         <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
           {messages.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>Hello, I am GAIA.</Text>
+              <Text style={styles.emptyTitle}>{t('voice.emptyTitle')}</Text>
               <Text style={styles.emptyText}>
                 Type a question, or tap Voice to have a hands-free conversation.
                 I remember everything you tell me.
@@ -575,7 +576,7 @@ function Voice() {
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Ask GAIA anything..."
+            placeholder={t('voice.askPlaceholder')}
             placeholderTextColor={palette.textDim}
             style={styles.input}
             multiline
@@ -585,7 +586,7 @@ function Voice() {
             disabled={busy || !input.trim()}
             style={[styles.sendBtn, (!input.trim() || busy) && { opacity: 0.4 }]}
           >
-            <Text style={styles.sendBtnText}>Send</Text>
+            <Text style={styles.sendBtnText}>{t('voice.send')}</Text>
           </Pressable>
         </View>
       )}
@@ -593,7 +594,7 @@ function Voice() {
       <Modal visible={showMemory} animationType="slide" transparent onRequestClose={() => setShowMemory(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Memory</Text>
+            <Text style={styles.modalTitle}>{t('voice.memoryTitle')}</Text>
             <Text style={styles.modalSub}>Facts GAIA remembers about you</Text>
             <ScrollView style={{ maxHeight: 300 }}>
               {Object.entries(memory).length === 0 ? (
