@@ -8,6 +8,7 @@ import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
 import { useLocale } from '../src/store/locale';
+import { loadStoredLanguage } from '../src/i18n';
 import { initI18n, loadLanguage } from '../src/utils/i18n';
 import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
@@ -58,6 +59,7 @@ function RootNavigator() {
       try {
         try { await useSettings.getState().load(); } catch {}
         try { await useLocale.getState().load(); } catch {}
+        try { await loadStoredLanguage(); } catch {}
         try { await initI18n(useLocale.getState().language); } catch {}
 
         const { data } = await supabase.auth.getSession();

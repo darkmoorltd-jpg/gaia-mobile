@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../api/supabase';
+import { setAppLanguage } from '../i18n';
 
 export interface CountryInfo {
   code: string;
@@ -90,10 +91,12 @@ export const useLocale = create<LocaleState>((set) => ({
     await AsyncStorage.multiSet([[KEY_C, c.code], [KEY_JSON, JSON.stringify(c)], [KEY_RATE, String(rate)]]);
     set({ country: c, rate, language: c.default_language || 'en' });
     await AsyncStorage.setItem(KEY_L, c.default_language || 'en');
+    await setAppLanguage(c.default_language || 'en');
   },
 
   setLanguage: async (code: string) => {
     await AsyncStorage.setItem(KEY_L, code);
+    await setAppLanguage(code);
     set({ language: code });
   },
 
