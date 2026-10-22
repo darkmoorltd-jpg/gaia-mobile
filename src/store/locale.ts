@@ -47,7 +47,26 @@ export const useLocale = create<LocaleState>((set) => ({
     } catch { set({ loaded: true }); }
   },
 
-  setCountry: async (c: CountryInfo) => {
+  setCountry: async (input: CountryInfo | string) => {
+    let c: CountryInfo | null = null;
+    if (typeof input === 'string') {
+      // Look up from countries list in the store, or fetch from DB
+      const fromList = (get() as any).countries?.find((x: any) => x.code === input);
+      if (fromList) {
+        c = fromList;
+      } else {
+        const { data } = await supabase
+          .from('countries')
+          .select('code,name,region,currency,currency_symbol,languages,default_language,payment_provider')
+          .eq('code', input)
+          .eq('enabled', true)
+          .maybeSingle();
+        c = (data as any) || null;
+      }
+    } else {
+      c = input;
+    }
+    if (!c) return;
     let rate = 1;
     try {
       const { data } = await supabase.from('currency_rates').select('rate').eq('code', c.currency).maybeSingle();

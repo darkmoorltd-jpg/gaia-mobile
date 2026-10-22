@@ -38,10 +38,10 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { t } = useTranslation();
-  const pickCountry = useLocale((s) => s.country.code);
+  const pickCountry = useLocale((s) => s.country?.code || '');
   const pickLanguage = useLocale((s) => s.language);
   const countriesList = useLocale((s) => s.countries);
-  const currentCountry = useLocale((s) => s.countries.find((c) => c.code === s.country.code) || s.country);
+  const currentCountry = useLocale((s) => s.country || (s as any).countries?.find((c: any) => c.code === s.country?.code) || null);
 
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
@@ -134,6 +134,19 @@ export default function Login() {
       Alert.alert('Success', (bioType || 'Biometric') + ' login enabled.');
     }
   };
+
+  // If onboarding isn't complete, don't try to render a country dropdown
+  if (!currentCountry) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0a0e1a', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <Text style={{ color: '#8899a6', fontSize: 14, textAlign: 'center' }}>
+          Setting up GAIA…{'
+'}If this persists, restart the app.
+        </Text>
+      </View>
+    );
+  }
+
 
   return (
     <KeyboardAvoidingView
