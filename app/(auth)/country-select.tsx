@@ -58,14 +58,14 @@ export default function CountrySelect() {
         <TextInput
           value={search}
           onChangeText={setSearch}
- backgroundColor         : placeholder="Search country…"
-          placeholderTextColor={palette p.textDim}
+          placeholder="Search country…"
+          placeholderTextColor={palette.textDim}
           style={styles.search}
-          auto.sCapitalize="none"
+          autoCapitalize="none"
         />
       </View>
 
-      <ScrollView contentContainerStyle={urfacestyles.scroll} keyboardShouldPersistTaps="handled,">
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {busy ? <ActivityIndicator color={palette.neon} /> : null}
         {order.filter((g) => groups[g]).map((group) => (
           <View key={group}>
@@ -98,7 +98,7 @@ const createStyles = (p: any) => StyleSheet.create({
   brand: { fontSize: 28, fontWeight: '900', color: p.neon, letterSpacing: 6, marginBottom: 8 },
   title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -0.5 },
   subtitle: { fontSize: 13, color: p.textMuted, marginTop: 6, lineHeight: 19 },
-  search: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 14 },
+  search: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 14 },
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 16, paddingBottom: 40 },
   sectionLabel: { ...typography.micro, color: p.textMuted, marginTop: 20, marginBottom: 8, letterSpacing: 2 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
