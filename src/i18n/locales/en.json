@@ -71,7 +71,9 @@
     "pests": "PESTS",
     "soil": "SOIL",
     "livestock": "LIVESTOCK",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOICE",
+    "profile": "PROFILE"
   },
   "agentTabs": {
     "home": "HOME",
