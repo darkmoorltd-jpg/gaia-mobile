@@ -39,8 +39,18 @@ function RootNavigator() {
   const loading = useAuth((s: any) => s.loading);
 
   const [ready, setReady] = useState(false);
+  const [hasCountry, setHasCountry] = useState<boolean | null>(null);
+  const [hasLanguage, setHasLanguage] = useState<boolean | null>(null);
   const [minSplashDone, setMinSplashDone] = useState(false);
   const localeLoaded = useLocale((s) => s.loaded);
+
+  useEffect(() => {
+    (async () => {
+      const [[, c], [, l]] = await AsyncStorage.multiGet(['gaia_country', 'gaia_language']);
+      setHasCountry(!!c);
+      setHasLanguage(!!l);
+    })();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -108,28 +118,36 @@ function RootNavigator() {
 
   useEffect(() => {
     if (!ready || loading) return;
+    if (hasCountry === null || hasLanguage === null) return;
+
     const seg0 = String(segments[0] || '');
+    const seg1 = String(segments[1] || '');
     const inAuth = seg0 === '(auth)';
+    const inOnboarding = inAuth && (seg1 === 'country-select' || seg1 === 'language-select');
     const PUBLIC = ['agent-apply', 'auth-callback', 'reset-password'];
     const isPublic = PUBLIC.includes(seg0);
 
-    // Rule 1: not logged in → back to login
-    if (!user && !inAuth && !isPublic) {
-      router.replace('/(auth)/login' as any);
+    if (!hasCountry && !inOnboarding) {
+      router.replace('/(auth)/country-select' as any); return;
+    }
+    if (hasCountry && !hasLanguage && !inOnboarding) {
+      router.replace('/(auth)/language-select' as any); return;
+    }
+    if (inOnboarding && hasCountry && hasLanguage) {
+      router.replace(user ? (loginContext === 'agent' ? '/agent/home' : '/(tabs)') : '/(auth)/login');
       return;
     }
+    if (inOnboarding) return;
 
-    // Rule 2: logged in AND sitting on login screen → go home (by context)
-    if (user && inAuth) {
-      const dest = (loginContext === 'agent') ? '/agent/home' : '/(tabs)';
-      const t = setTimeout(() => {
-        try { router.replace(dest as any); } catch {}
-      }, 250);
-      return () => clearTimeout(t);
+    if (!user && !inAuth && !isPublic) {
+      router.replace('/(auth)/login' as any); return;
     }
-
-    // Any other screen handles its own navigation
-  }, [user, ready, loading, segments, loginContext]);
+    if (user && inAuth) {
+      const dest = (loginContext === 'agent' || role === 'agent') ? '/agent/home' : '/(tabs)';
+      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 200);
+      return;
+    }
+  }, [user, ready, loading, segments, loginContext, role, hasCountry, hasLanguage]);
 
   useEffect(() => {
     if (__DEV__) return;
@@ -183,6 +201,8 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.obsidian } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(auth)/country-select" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="(auth)/language-select" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen name="rag" />
