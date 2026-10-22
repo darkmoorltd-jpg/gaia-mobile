@@ -140,8 +140,7 @@ export default function Login() {
     return (
       <View style={{ flex: 1, backgroundColor: '#0a0e1a', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <Text style={{ color: '#8899a6', fontSize: 14, textAlign: 'center' }}>
-          Setting up GAIA…{'
-'}If this persists, restart the app.
+          Setting up GAIA. If this persists, restart the app.
         </Text>
       </View>
     );
