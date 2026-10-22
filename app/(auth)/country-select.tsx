@@ -17,16 +17,29 @@ export default function CountrySelect() {
   const [countries, setCountries] = useState<CountryInfo[]>([]);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('countries')
-        .select('code,name,region,currency,currency_symbol,languages,default_language,payment_provider')
-        .eq('enabled', true)
-        .order('launch_order');
-      setCountries((data as any) || []);
-      setBusy(false);
+      try {
+        const { data, error } = await supabase
+          .from('countries')
+          .select('code,name,region,currency,currency_symbol,languages,default_language,payment_provider')
+          .eq('enabled', true)
+          .order('launch_order');
+        if (error) {
+          console.warn('countries query error:', error.message);
+          setErrorMsg('Could not load country list: ' + error.message);
+        }
+        if (!data || data.length === 0) {
+          setErrorMsg('No countries returned. Check Supabase config.');
+        }
+        setCountries((data as any) || []);
+      } catch (e: any) {
+        setErrorMsg(e?.message || 'Network error');
+      } finally {
+        setBusy(false);
+      }
     })();
   }, []);
 
@@ -66,7 +79,13 @@ export default function CountrySelect() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {busy ? <ActivityIndicator color={palette.neon} /> : null}
+        {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 40 }} /> : null}
+        {errorMsg ? (
+          <View style={{ margin: 16, padding: 14, borderRadius: 12, backgroundColor: 'rgba(255,59,92,0.15)', borderWidth: 1, borderColor: '#ff3b5c' }}>
+            <Text style={{ color: '#ff3b5c', fontWeight: '700', fontSize: 13 }}>⚠️ {errorMsg}</Text>
+            <Text style={{ color: '#8899a6', fontSize: 11, marginTop: 6 }}>Countries: {countries.length}</Text>
+          </View>
+        ) : null}
         {order.filter((g) => groups[g]).map((group) => (
           <View key={group}>
             <Text style={styles.sectionLabel}>{group.toUpperCase()}</Text>
