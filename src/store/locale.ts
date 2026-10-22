@@ -15,6 +15,7 @@ export interface CountryInfo {
 
 interface LocaleState {
   country: CountryInfo | null;
+  countries: CountryInfo[];
   language: string | null;
   rate: number;
   loaded: boolean;
@@ -31,12 +32,26 @@ const KEY_RATE = 'gaia_rate';
 
 export const useLocale = create<LocaleState>((set) => ({
   country: null,
+  countries: [],
   language: null,
   rate: 1,
   loaded: false,
 
   load: async () => {
     try {
+      // Always fetch countries list (needs anon RLS policy: countries_public_read)
+      try {
+        const { data, error } = await supabase
+          .from('countries')
+          .select('code,name,region,currency,currency_symbol,languages,default_language,payment_provider')
+          .eq('enabled', true)
+          .order('launch_order');
+        if (!error && data) set({ countries: data as any });
+        else console.warn('[locale] countries fetch failed:', error?.message);
+      } catch (e) {
+        console.warn('[locale] countries fetch exception:', e);
+      }
+
       const [[, c], [, l], [, j], [, r]] = await AsyncStorage.multiGet([KEY_C, KEY_L, KEY_JSON, KEY_RATE]);
       if (j) {
         const cInfo = JSON.parse(j);
@@ -154,3 +169,5 @@ const REGION_GROUP: Record<string, string> = {
 export function regionGroup(region: string): string {
   return REGION_GROUP[region] || 'Other';
 }
+
+export const countryFlag = flagEmoji;

@@ -174,7 +174,7 @@ export default function Login() {
             
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
             <View style={{ flex: 1 }}>
-              <Dropdown label="COUNTRY" value={pickCountry} options={(countriesList.length > 0 ? countriesList.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry) + ' ' + (currentCountry?.name || 'Select country'), value: pickCountry }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
+              <Dropdown label="COUNTRY" value={pickCountry} options={((countriesList?.length ?? 0) > 0 ? countriesList!.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry || 'NG') + ' ' + (currentCountry?.name || 'Select country'), value: pickCountry || 'NG' }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
             </View>
             <View style={{ flex: 1 }}>
               <Dropdown label="LANGUAGE" value={pickLanguage} options={[{ label: 'English', value: 'en' }, { label: 'Fran\u00e7ais', value: 'fr' }, { label: 'Portugu\u00eas', value: 'pt' }, { label: 'Espa\u00f1ol', value: 'es' }, { label: 'Deutsch', value: 'de' }, { label: 'Italiano', value: 'it' }, { label: 'Nederlands', value: 'nl' }, { label: 'Kiswahili', value: 'sw' }, { label: 'Hausa', value: 'ha' }, { label: 'Yor\u00f9b\u00e1', value: 'yo' }, { label: 'Igbo', value: 'ig' }, { label: 'Naij\u00e1', value: 'pcm' }]} onChange={(v) => { useLocale.getState().setLanguage(v); }} />
