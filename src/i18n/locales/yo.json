@@ -255,5 +255,98 @@
     "extractErr": "Kò lè yọ àwọn fíremù tó pọ̀ tó. Gbiyanju bidio mìíràn.",
     "demo": "⚠️ Ẹ̀rọ gidi kò wa — a ń lo àpẹẹrẹ.",
     "guideLoading": "🧠 N ṣẹda ìtọ́sọ́nà ìtọ́jú…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "ṢE ÀYẸ̀WÒ",
+      "myFarm": "ỌGBÀ MI",
+      "aiTools": "Ọ̀NÀ AI",
+      "market": "ỌJÀ"
+    },
+    "tiles": {
+      "crops": "Ọ̀GBÌN",
+      "cropsSub": "àrùn 60+",
+      "pests": "Kòkòrò",
+      "pestsSub": "ẹ̀yà 102",
+      "soil": "Ilẹ̀",
+      "soilSub": "irú 11",
+      "livestock": "Ẹranko",
+      "livestockSub": "Màlúù + Adìẹ",
+      "seller": "Olùtajà",
+      "sellerSub": "Àkójọ rẹ & tita",
+      "mapping": "Àwòrán Ọgbà",
+      "mappingSub": "Rìn ààlà ọgbà rẹ",
+      "journal": "Ìwé Ọgbà",
+      "journalSub": "Àkọọlẹ ojoojúmọ́ & ìwé",
+      "calendar": "Kalẹ́ńdà Ọgbà",
+      "calendarSub": "Ètò àkókò nípa ọ̀gbìn",
+      "agro": "Ọ̀NÀ Agro",
+      "agroSub": "Ìpamọ́, èrè, àgbo",
+      "satellite": "Satẹ́laiti",
+      "satelliteSub": "Ṣàkíyèsí láti ọ̀run",
+      "marketplace": "Ọjà",
+      "marketplaceSub": "Ra àti tà ohun èlò",
+      "buyScans": "Ra Àwárí",
+      "buyScansSub": "Ṣe àfikún owó rẹ"
+    },
+    "blocks": {
+      "header": "Àkọlé (ìkíni + àwárí)",
+      "weather": "Oju-ọjọ (lààyè)",
+      "streak": "Kọ́ọ̀kan àtẹ̀lé",
+      "plan": "Kaadi Ètò",
+      "wallet": "Kaadi Apamọwọ",
+      "season": "Akíkanjú àkókò",
+      "community": "Ìlànà àwùjọ (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Onímọ̀ ọ̀gbìn",
+      "secDiagnose": "Apá DIAGNOSE",
+      "secMyFarm": "Apá MY FARM",
+      "secAiTools": "Apá AI TOOLS",
+      "secMarket": "Apá MARKET",
+      "admin": "Kọ́ńsólì àdámọ̀"
+    },
+    "greeting": {
+      "morning": "Ẹ káàrọ̀",
+      "afternoon": "Ẹ káàsán",
+      "evening": "Ẹ káalẹ́"
+    },
+    "header": {
+      "scans": "ÀWÁRÍ",
+      "live": "LÀÀYÈ"
+    },
+    "plan": {
+      "label": "ÈTÒ",
+      "upgrade": "ṢE ÀTÚNṢE"
+    },
+    "wallet": {
+      "kicker": "ÀKỌ́Ọ̀LẸ̀ GAIA MI",
+      "balance": "Iṣiro",
+      "button": "APAMỌ́WỌ́"
+    },
+    "season": {
+      "badge": "ÀKÓKÒ",
+      "title": "Tẹ̀lé ọ̀gbìn mi",
+      "sub": "Gbìn · Tọ́pa · Gba èrè · Èrè"
+    },
+    "community": {
+      "pulse": "Ìgbésẹ̀",
+      "pulseSub": "Kí ni ń ṣẹlẹ̀",
+      "coop": "Ibi àjọ",
+      "coopSub": "Ta gẹ́gẹ́ bíi kan",
+      "sos": "SOS",
+      "sosSub": "Ìpinnu pajawiri"
+    },
+    "agronomist": {
+      "title": "GAIA Onímọ̀ ọ̀gbìn",
+      "sub": "Ohùn + ìjíròrò · béèrè ohun gbogbo"
+    },
+    "adminCard": "KỌ́ŃSÓLÌ ÀDÁMỌ̀",
+    "editMode": {
+      "done": "ṢE",
+      "edit": "ṢÀTÚNṢE ÀYẸ̀WÒ",
+      "hint": "Tẹ × láti fi pamọ́, ↑↓ láti tún àtòkọ́kànkàn ṣe.",
+      "saving": "Ń fipamọ́…",
+      "saved": "Fipamọ́",
+      "reset": "TÚN GBỌ́DỌ̀ GBOGBO"
+    }
   }
 }

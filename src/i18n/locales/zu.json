@@ -255,5 +255,98 @@
     "extractErr": "Ayikwazanga ukukhipha ama-frames adingekayo. Zama ividiyo ehlukile",
     "demo": "⚠️ Umamodeli ongatholakali — sisebenzisa i-demo",
     "guideLoading": "🧠 Ukukhiqiza umhlahlandlela wokwelapha…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "HLOLA",
+      "myFarm": "IFARM YAMI",
+      "aiTools": "AMATHULU AI",
+      "market": "IMAKETHI"
+    },
+    "tiles": {
+      "crops": "Izitshalo",
+      "cropsSub": "Izifo ezingu-60+",
+      "pests": "Izilokazane",
+      "pestsSub": "Izinhlobo ezingu-102",
+      "soil": "Umhlabathi",
+      "soilSub": "Izinhlobo ezingu-11",
+      "livestock": "Izilwane zasendlini",
+      "livestockSub": "Izinkomo + Izinkukhu",
+      "seller": "Umthengisi",
+      "sellerSub": "Uhlu lwakho & ukuthengisa",
+      "mapping": "Ukumaka Ifamu",
+      "mappingSub": "Hamba umngcele wefamu yakho",
+      "journal": "Ijenali Yefamu",
+      "journalSub": "Amanothi nsuku zonke & amarekhodi",
+      "calendar": "Ikhalenda Yokulima",
+      "calendarSub": "Uhlelo lwesizini ngokutshala",
+      "agro": "Amathuluzi e-Agro",
+      "agroSub": "Ukukhiqiza, inzuzo, umanyolo",
+      "satellite": "Isathelayithi",
+      "satelliteSub": "Bheka kusuka ezulwini",
+      "marketplace": "Imakethe",
+      "marketplaceSub": "Thenga futhi uthengise imikhiqizo",
+      "buyScans": "Thenga Izithombe",
+      "buyScansSub": "Gcwalisa ibhalansi yakho"
+    },
+    "blocks": {
+      "header": "Isihloko (ukubingelela + izithombe)",
+      "weather": "Isimo sezulu (bukhoma)",
+      "streak": "Isibali seStreak",
+      "plan": "Ikhadi loHlelo",
+      "wallet": "Ikhadi le-Wallet",
+      "season": "Umlingisi Wesizini",
+      "community": "Umgqa womphakathi (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Umeluleki Wezolimo",
+      "secDiagnose": "Ingxenye yeHLOLA",
+      "secMyFarm": "Ingxenye yeIFARM YAMI",
+      "secAiTools": "Ingxenye yeAMATHULU AI",
+      "secMarket": "Ingxenye yeIMAKETHI",
+      "admin": "Ikhonsoli ye-Admin"
+    },
+    "greeting": {
+      "morning": "Sawubona ekuseni",
+      "afternoon": "Sawubona ntambama",
+      "evening": "Sawubona kusihlwa"
+    },
+    "header": {
+      "scans": "IZITHOMBE",
+      "live": "Bukhoma"
+    },
+    "plan": {
+      "label": "UHLELO",
+      "upgrade": "THUTHUZA"
+    },
+    "wallet": {
+      "kicker": "I-ACCOUNT YAMI GAIA",
+      "balance": "Ibhalansi",
+      "button": "ISIKHWELE"
+    },
+    "season": {
+      "badge": "ISIZINI",
+      "title": "Landela isitshalo sami",
+      "sub": "Tshala · Landela · Vuna · Inzuzo"
+    },
+    "community": {
+      "pulse": "Umlayezo",
+      "pulseSub": "Kuyenzani",
+      "coop": "Iphuli yeCoop",
+      "coopSub": "Thengisa njengokunye",
+      "sos": "SOS",
+      "sosSub": "Isimo esiphuthumayo"
+    },
+    "agronomist": {
+      "title": "GAIA Umeluleki Wezolimo",
+      "sub": "Izwi + ingxoxo · buza noma yini"
+    },
+    "adminCard": "IKHONSOLE YOKUPHATHA",
+    "editMode": {
+      "done": "KUPHELE",
+      "edit": "HLELA ISIKHETHO",
+      "hint": "Cindezela × ukuze ufihle, ↑↓ ukuze uhlele kabusha noma iyiphi ibhulokhi.",
+      "saving": "Igcina…",
+      "saved": "Kugcinwe",
+      "reset": "PHINDA KONKE"
+    }
   }
 }

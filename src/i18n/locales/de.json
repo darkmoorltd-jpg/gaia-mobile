@@ -255,5 +255,98 @@
     "extractErr": "Es konnten nicht genügend Frames extrahiert werden. Versuchen Sie ein anderes Video.",
     "demo": "⚠️ Echtzeitmodell nicht verfügbar — Demo wird verwendet.",
     "guideLoading": "🧠 Behandlungsleitfaden wird generiert…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "DIAGNOSE",
+      "myFarm": "MEIN FARM",
+      "aiTools": "KI-TOOLS",
+      "market": "MARKT"
+    },
+    "tiles": {
+      "crops": "Kulturen",
+      "cropsSub": "60+ Krankheiten",
+      "pests": "Schädlinge",
+      "pestsSub": "102 Arten",
+      "soil": "Boden",
+      "soilSub": "11 Typen",
+      "livestock": "Vieh",
+      "livestockSub": "Rinder + Geflügel",
+      "seller": "Verkäufer",
+      "sellerSub": "Ihre Angebote & Verkäufe",
+      "mapping": "Betriebsvermessung",
+      "mappingSub": "Grenze Ihres Betriebs abgehen",
+      "journal": "Betriebsjournal",
+      "journalSub": "Tägliche Notizen & Aufzeichnungen",
+      "calendar": "Landwirtschaftskalender",
+      "calendarSub": "Saisonplan nach Kultur",
+      "agro": "Agro-Tools",
+      "agroSub": "Ertrag, Gewinn, Dünger",
+      "satellite": "Satellit",
+      "satelliteSub": "Aus dem All überwachen",
+      "marketplace": "Marktplatz",
+      "marketplaceSub": "Erzeugnisse kaufen und verkaufen",
+      "buyScans": "Scans kaufen",
+      "buyScansSub": "Guthaben aufladen"
+    },
+    "blocks": {
+      "header": "Kopfzeile (Begrüßung + Scans)",
+      "weather": "Wetter (live)",
+      "streak": "Streak-Zähler",
+      "plan": "Plan-Karte",
+      "wallet": "Wallet-Karte",
+      "season": "Saison-Held",
+      "community": "Community-Zeile (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Agronomist",
+      "secDiagnose": "DIAGNOSE Abschnitt",
+      "secMyFarm": "MEIN FARM Abschnitt",
+      "secAiTools": "KI-TOOLS Abschnitt",
+      "secMarket": "MARKT Abschnitt",
+      "admin": "Admin-Konsole"
+    },
+    "greeting": {
+      "morning": "Guten Morgen",
+      "afternoon": "Guten Tag",
+      "evening": "Guten Abend"
+    },
+    "header": {
+      "scans": "SCANS",
+      "live": "LIVE"
+    },
+    "plan": {
+      "label": "PLAN",
+      "upgrade": "UPGRADE"
+    },
+    "wallet": {
+      "kicker": "MEIN GAIA KONTO",
+      "balance": "Guthaben",
+      "button": "WALLET"
+    },
+    "season": {
+      "badge": "SAISON",
+      "title": "Meine Kultur verfolgen",
+      "sub": "Pflanzen · Verfolgen · Ernten · Profit"
+    },
+    "community": {
+      "pulse": "Pulse",
+      "pulseSub": "Was passiert",
+      "coop": "Coop-Pool",
+      "coopSub": "Gemeinsam verkaufen",
+      "sos": "SOS",
+      "sosSub": "Notfall"
+    },
+    "agronomist": {
+      "title": "GAIA Agronomist",
+      "sub": "Stimme + Chat · frag mich alles"
+    },
+    "adminCard": "ADMIN KONSOLE",
+    "editMode": {
+      "done": "FERTIG",
+      "edit": "LAYOUT BEARBEITEN",
+      "hint": "Tippe × zum Ausblenden, ↑↓ zum Neuordnen eines Blocks.",
+      "saving": "Speichern…",
+      "saved": "Gespeichert",
+      "reset": "ALLE ZURÜCKSETZEN"
+    }
   }
 }

@@ -255,5 +255,98 @@
     "extractErr": "无法提取足够帧。请尝试不同的视频。",
     "demo": "⚠️ 实际模型不可用 — 使用演示。",
     "guideLoading": "🧠 正在生成处理指南…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "诊断",
+      "myFarm": "我的农场",
+      "aiTools": "AI 工具",
+      "market": "市场"
+    },
+    "tiles": {
+      "crops": "作物",
+      "cropsSub": "60+ 病害",
+      "pests": "害虫",
+      "pestsSub": "102 种",
+      "soil": "土壤",
+      "soilSub": "11 类",
+      "livestock": "畜牧",
+      "livestockSub": "牛 + 家禽",
+      "seller": "卖家",
+      "sellerSub": "您的商品与销售",
+      "mapping": "农场测绘",
+      "mappingSub": "绘制农场边界",
+      "journal": "农场日志",
+      "journalSub": "每日记录与笔记",
+      "calendar": "种植日历",
+      "calendarSub": "按作物的季节计划",
+      "agro": "农业工具",
+      "agroSub": "产量、利润、肥料",
+      "satellite": "卫星",
+      "satelliteSub": "从太空监测",
+      "marketplace": "市场",
+      "marketplaceSub": "买卖农产品",
+      "buyScans": "购买扫描",
+      "buyScansSub": "充值余额"
+    },
+    "blocks": {
+      "header": "标题（问候 + 扫描）",
+      "weather": "天气（实时）",
+      "streak": "连胜计数器",
+      "plan": "计划卡",
+      "wallet": "钱包卡",
+      "season": "季节英雄",
+      "community": "社区行（Pulse/Coop/SOS）",
+      "agronomist": "GAIA 农艺师",
+      "secDiagnose": "诊断区块",
+      "secMyFarm": "我的农场区块",
+      "secAiTools": "AI 工具区块",
+      "secMarket": "市场区块",
+      "admin": "管理员控制台"
+    },
+    "greeting": {
+      "morning": "早上好",
+      "afternoon": "下午好",
+      "evening": "晚上好"
+    },
+    "header": {
+      "scans": "扫描",
+      "live": "实时"
+    },
+    "plan": {
+      "label": "计划",
+      "upgrade": "升级"
+    },
+    "wallet": {
+      "kicker": "我的 GAIA 账户",
+      "balance": "余额",
+      "button": "钱包"
+    },
+    "season": {
+      "badge": "季节",
+      "title": "关注我的作物",
+      "sub": "种植 · 跟踪 · 收获 · 利润"
+    },
+    "community": {
+      "pulse": "脉搏",
+      "pulseSub": "发生了什么",
+      "coop": "合作池",
+      "coopSub": "统一销售",
+      "sos": "SOS",
+      "sosSub": "紧急情况"
+    },
+    "agronomist": {
+      "title": "GAIA 农艺师",
+      "sub": "语音 + 聊天 · 随时提问"
+    },
+    "adminCard": "管理员控制台",
+    "editMode": {
+      "done": "完成",
+      "edit": "编辑布局",
+      "hint": "点击 × 隐藏，↑↓ 重新排序任意区块。",
+      "saving": "保存中…",
+      "saved": "已保存",
+      "reset": "全部重置"
+    }
   }
 }

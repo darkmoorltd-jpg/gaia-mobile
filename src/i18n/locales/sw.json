@@ -255,5 +255,98 @@
     "extractErr": "Haikuweza kutoa frames nyingi. Jaribu video tofauti.",
     "demo": "⚠️ Model halina uwezo — inatumia demo.",
     "guideLoading": "🧠 Inajenga mwongozo wa matibabu…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "TAFUTA",
+      "myFarm": "SHAMBA LANGU",
+      "aiTools": "ZANA ZA AI",
+      "market": "SOKO"
+    },
+    "tiles": {
+      "crops": "Mazao",
+      "cropsSub": "Magonjwa 60+",
+      "pests": "Vipukutu",
+      "pestsSub": "Aina 102",
+      "soil": "Udongo",
+      "soilSub": "Aina 11",
+      "livestock": "Mifugo",
+      "livestockSub": "Ng'ombe + Kuku",
+      "seller": "Muuzaji",
+      "sellerSub": "Orodha zako & mauzo",
+      "mapping": "Uchambuzi wa Shamba",
+      "mappingSub": "Tembea mpaka wa shamba lako",
+      "journal": "Jarida la Shamba",
+      "journalSub": "Vidokezo na rekodi za kila siku",
+      "calendar": "Kalenda ya Kilimo",
+      "calendarSub": "Mpango wa msimu kwa kila zao",
+      "agro": "Zana za Agro",
+      "agroSub": "Mavuno, faida, mbolea",
+      "satellite": "Satelaiti",
+      "satelliteSub": "Fuatilia kutoka angani",
+      "marketplace": "Soko",
+      "marketplaceSub": "Nunua na uuzaji mazao",
+      "buyScans": "Nunua Skani",
+      "buyScansSub": "Jaza salio lako"
+    },
+    "blocks": {
+      "header": "Kichwa (salamu + skani)",
+      "weather": "Hali ya hewa (moja kwa moja)",
+      "streak": "Kihesabu cha mlolongo",
+      "plan": "Kadi ya Mpango",
+      "wallet": "Kadi ya Mkoba",
+      "season": "Shujaa wa msimu",
+      "community": "Safu ya Jamii (Pulse/Coop/SOS)",
+      "agronomist": "Mtaalamu wa Kilimo GAIA",
+      "secDiagnose": "Sehemu ya TAFUTA",
+      "secMyFarm": "Sehemu ya SHAMBA LANGU",
+      "secAiTools": "Sehemu ya ZANA ZA AI",
+      "secMarket": "Sehemu ya SOKO",
+      "admin": "Konsoli ya Msimamizi"
+    },
+    "greeting": {
+      "morning": "Habari za asubuhi",
+      "afternoon": "Habari za mchana",
+      "evening": "Habari za jioni"
+    },
+    "header": {
+      "scans": "SKANI",
+      "live": "MOJA KWA MOJA"
+    },
+    "plan": {
+      "label": "MPANGO",
+      "upgrade": "BONGEZA"
+    },
+    "wallet": {
+      "kicker": "AKAUNTI YANGU GAIA",
+      "balance": "Salio",
+      "button": "MKOBI"
+    },
+    "season": {
+      "badge": "MSIMU",
+      "title": "Fuata zao langu",
+      "sub": "Panda · Fuata · Vuna · Faida"
+    },
+    "community": {
+      "pulse": "Mdundo",
+      "pulseSub": "Nini kinatokea",
+      "coop": "Mikopo ya Ushirika",
+      "coopSub": "Uza kama moja",
+      "sos": "SOS",
+      "sosSub": "Dhiki"
+    },
+    "agronomist": {
+      "title": "Mtaalamu wa Kilimo GAIA",
+      "sub": "Sauti + gumzo · uliza chochote"
+    },
+    "adminCard": "KONSOLI YA MSAIMU",
+    "editMode": {
+      "done": "IMEKAMILIKA",
+      "edit": "BADILISHA MUUNDO",
+      "hint": "Gonga × kuficha, ↑↓ kupanga upya kila bloku.",
+      "saving": "Inahifadhi…",
+      "saved": "Imehifadhiwa",
+      "reset": "WASHAJI KILA KITU"
+    }
   }
 }

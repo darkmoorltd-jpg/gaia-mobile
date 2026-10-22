@@ -255,5 +255,98 @@
     "extractErr": "Could not extract enough frames. Try a different video.",
     "demo": "⚠️ Real model unavailable — using demo.",
     "guideLoading": "🧠 Generating treatment guide…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "DIAGNOSE",
+      "myFarm": "MY FARM",
+      "aiTools": "AI TOOLS",
+      "market": "MARKET"
+    },
+    "tiles": {
+      "crops": "Crops",
+      "cropsSub": "60+ diseases",
+      "pests": "Pests",
+      "pestsSub": "102 species",
+      "soil": "Soil",
+      "soilSub": "11 types",
+      "livestock": "Livestock",
+      "livestockSub": "Cattle + Poultry",
+      "seller": "Seller",
+      "sellerSub": "Your listings & sales",
+      "mapping": "Farm Mapping",
+      "mappingSub": "Walk your farm boundary",
+      "journal": "Farm Journal",
+      "journalSub": "Daily notes & records",
+      "calendar": "Farming Calendar",
+      "calendarSub": "Season plan by crop",
+      "agro": "Agro Tools",
+      "agroSub": "Yield, profit, fertilizer",
+      "satellite": "Satellite",
+      "satelliteSub": "Monitor from space",
+      "marketplace": "Marketplace",
+      "marketplaceSub": "Buy and sell produce",
+      "buyScans": "Buy Scans",
+      "buyScansSub": "Top up your balance"
+    },
+    "blocks": {
+      "header": "Header (greeting + scans)",
+      "weather": "Weather (live)",
+      "streak": "Streak counter",
+      "plan": "Plan card",
+      "wallet": "Wallet card",
+      "season": "Season hero",
+      "community": "Community row (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Agronomist",
+      "secDiagnose": "DIAGNOSE section",
+      "secMyFarm": "MY FARM section",
+      "secAiTools": "AI TOOLS section",
+      "secMarket": "MARKET section",
+      "admin": "Admin console"
+    },
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "header": {
+      "scans": "SCANS",
+      "live": "LIVE"
+    },
+    "plan": {
+      "label": "PLAN",
+      "upgrade": "UPGRADE"
+    },
+    "wallet": {
+      "kicker": "MY GAIA ACCOUNT",
+      "balance": "Balance",
+      "button": "WALLET"
+    },
+    "season": {
+      "badge": "SEASON",
+      "title": "Follow my crop",
+      "sub": "Plant · Track · Harvest · Profit"
+    },
+    "community": {
+      "pulse": "Pulse",
+      "pulseSub": "What's happening",
+      "coop": "Coop Pool",
+      "coopSub": "Sell as one",
+      "sos": "SOS",
+      "sosSub": "Emergency"
+    },
+    "agronomist": {
+      "title": "GAIA Agronomist",
+      "sub": "Voice + chat · ask me anything"
+    },
+    "adminCard": "ADMIN CONSOLE",
+    "editMode": {
+      "done": "DONE",
+      "edit": "EDIT LAYOUT",
+      "hint": "Tap × to hide, ↑↓ to reorder any block.",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "reset": "RESET ALL"
+    }
   }
 }

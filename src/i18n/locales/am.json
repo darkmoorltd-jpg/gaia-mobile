@@ -255,5 +255,98 @@
     "extractErr": "በተለያዩ ክፍሎች አንድ ማስተካከያ አልተቀበለም። ተለያዩ ቪዲዮ ይሞክሩ።",
     "demo": "⚠️ እውነተኛ ሞዴል አልተገኘም — የድምር ተጠቃሚ በመጠቀም ነው።",
     "guideLoading": "🧠 የሚያደርጉትን መምሪያ በማስተካከያ ላይ ነው…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "ምርመራ",
+      "myFarm": "የኔ ገበሬ",
+      "aiTools": "AI መሣሪያዎች",
+      "market": "ገበያ"
+    },
+    "tiles": {
+      "crops": "ተክሎች",
+      "cropsSub": "60+ በሽታዎች",
+      "pests": "ተቃውሞዎች",
+      "pestsSub": "102 ዓይነቶች",
+      "soil": "ሬብ",
+      "soilSub": "11 አይነቶች",
+      "livestock": "እርሻ",
+      "livestockSub": "ላም+ዶሮ",
+      "seller": "ሻጭ",
+      "sellerSub": "የእርስዎ ዝርዝሮች እና ሽያጭ",
+      "mapping": "የገበሬ ካርታ",
+      "mappingSub": "የገበሬዎትን ወለል ይሂዱ",
+      "journal": "የገበሬ ጽሁፍ",
+      "journalSub": "ዕለታዊ ማስታወሻዎች እና መዝገቦች",
+      "calendar": "የገበሬ ቀን መቁጠር",
+      "calendarSub": "በተክል የወቅት እቅድ",
+      "agro": "አግሮ መሣሪያዎች",
+      "agroSub": "ምርት,ትርፍ,ፈርማ",
+      "satellite": "ሰተላይት",
+      "satelliteSub": "ከተለዋዋጭ ቦታ ተከታተል",
+      "marketplace": "የገበያ ቦታ",
+      "marketplaceSub": "ምርቶችን ግዙ እና ይሸጡ",
+      "buyScans": "ስካኖችን ግዙ",
+      "buyScansSub": "ቀሪ ገንዘብዎን ይጨምሩ"
+    },
+    "blocks": {
+      "header": "ራስጌ (ሰላምታ+ስካኖች)",
+      "weather": "አየር ሁኔታ (ቀጥታ)",
+      "streak": "ስትሪክ ቆጣሪ",
+      "plan": "የእቅድ ካርድ",
+      "wallet": "የቦርሳ ካርድ",
+      "season": "የወቅት ባለሞያ",
+      "community": "የማህበረሰብ ረድፍ (Pulse/Coop/SOS)",
+      "agronomist": "GAIA አግሮኖሚስት",
+      "secDiagnose": "የምርመራ ክፍል",
+      "secMyFarm": "የኔ ገበሬነት ክፍል",
+      "secAiTools": "የAI መሣሪያዎች ክፍል",
+      "secMarket": "የገበያ ክፍል",
+      "admin": "የአስተዳደር ተቋም"
+    },
+    "greeting": {
+      "morning": "እንደምን አደርህ",
+      "afternoon": "እንደምን አደርህ",
+      "evening": "እንደምን አደርህ"
+    },
+    "header": {
+      "scans": "ስካኖች",
+      "live": "ቀጥታ"
+    },
+    "plan": {
+      "label": "እቅድ",
+      "upgrade": "ማሻሻያ"
+    },
+    "wallet": {
+      "kicker": "የኔ GAIA መለያ",
+      "balance": "ቀሪ ገንዘብ",
+      "button": "ቦርሳ"
+    },
+    "season": {
+      "badge": "ወቅት",
+      "title": "የኔን ተክል ተከተል",
+      "sub": "ተክል·ተከተል·ሰብስ ውሰድ·ትርፍ"
+    },
+    "community": {
+      "pulse": "ልብ",
+      "pulseSub": "ምን ነው የሚሆን",
+      "coop": "ኮፕ ሙሉ",
+      "coopSub": "እንደ አንድ ይሸጡ",
+      "sos": "SOS",
+      "sosSub": "አስቸኳይ"
+    },
+    "agronomist": {
+      "title": "GAIA አግሮኖሚስት",
+      "sub": "ድምፅ+ቻት·ምንም ጠይቁ"
+    },
+    "adminCard": "የአስተዳደር ተቋም",
+    "editMode": {
+      "done": "ተጠናቋል",
+      "edit": "አቀማመጥ አርትዕ",
+      "hint": "× ይጫኑ ለማሰውር, ↑↓ ለማደስ የማንኛውም ብሎክ",
+      "saving": "በማስቀመጥ…",
+      "saved": "ተቀምጧል",
+      "reset": "ሁሉንም ዳግም አስጀምር"
+    }
   }
 }

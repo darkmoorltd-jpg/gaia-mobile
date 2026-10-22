@@ -28,53 +28,54 @@ interface TileItem {
   flag?: string;
 }
 
-const SECTIONS = [
-  { id: 'diagnose', label: 'DIAGNOSE', tiles: [
-    { key: 'crops',     title: 'Crops',     sub: '60+ diseases',     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/(tabs)/crops',     flag: 'crops' },
-    { key: 'pests',     title: 'Pests',     sub: '102 species',      img: 'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800', route: '/(tabs)/pests',     flag: 'pests' },
-    { key: 'soil',      title: 'Soil',      sub: '11 types',         img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/(tabs)/soil',      flag: 'soil' },
-    { key: 'livestock', title: 'Livestock', sub: 'Cattle + Poultry', img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock', flag: 'livestock' },
-  ]},
-  { id: 'my_farm', label: 'MY FARM', tiles: [
-    { key: 'seller',   title: 'Seller',           sub: 'Your listings & sales',   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store', flag: 'marketplace' },
-    { key: 'mapping',  title: 'Farm Mapping',     sub: 'Walk your farm boundary', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
-    { key: 'journal',  title: 'Farm Journal',     sub: 'Daily notes & records',   img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
-    { key: 'calendar', title: 'Farming Calendar', sub: 'Season plan by crop',     img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
-  ]},
-  { id: 'ai_tools', label: 'AI TOOLS', tiles: [
-    { key: 'agro',      title: 'Agro Tools', sub: 'Yield, profit, fertilizer', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
-    { key: 'satellite', title: 'Satellite',  sub: 'Monitor from space',       img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
-  ]},
-  { id: 'market', label: 'MARKET', tiles: [
-    { key: 'marketplace', title: 'Marketplace', sub: 'Buy and sell produce', img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
-    { key: 'buy-scans',   title: 'Buy Scans',   sub: 'Top up your balance',  img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
-  ]},
-];
-
-// Top-level blocks the user can hide/reorder
-const BLOCKS = [
-  { id: 'header',       label: 'Header (greeting + scans)' },
-  { id: 'weather',      label: 'Weather (live)' },
-  { id: 'streak',       label: 'Streak counter' },
-  { id: 'plan',         label: 'Plan card' },
-  { id: 'wallet',       label: 'Wallet card' },
-  { id: 'season',       label: 'Season hero' },
-  { id: 'community',    label: 'Community row (Pulse/Coop/SOS)' },
-  { id: 'agronomist',   label: 'GAIA Agronomist' },
-  { id: 'section:diagnose', label: 'DIAGNOSE section' },
-  { id: 'section:my_farm',  label: 'MY FARM section' },
-  { id: 'section:ai_tools', label: 'AI TOOLS section' },
-  { id: 'section:market',   label: 'MARKET section' },
-  { id: 'admin',        label: 'Admin console' },
-];
-
-const DEFAULT_BLOCK_ORDER = BLOCKS.map((b) => b.id);
 
 type Prefs = { hidden: string[]; ordering: Record<string, string[]> };
 const EMPTY_PREFS: Prefs = { hidden: [], ordering: {} };
 
 export default function Home() {
   const { t } = useTranslation();
+
+  const SECTIONS = [
+    { id: 'diagnose', label: t('dashboard.sections.diagnose'), tiles: [
+      { key: 'crops',     title: t('dashboard.tiles.crops'),     sub: t('dashboard.tiles.cropsSub'),     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/(tabs)/crops',     flag: 'crops' },
+      { key: 'pests',     title: t('dashboard.tiles.pests'),     sub: t('dashboard.tiles.pestsSub'),     img: 'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800', route: '/(tabs)/pests',     flag: 'pests' },
+      { key: 'soil',      title: t('dashboard.tiles.soil'),      sub: t('dashboard.tiles.soilSub'),      img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/(tabs)/soil',      flag: 'soil' },
+      { key: 'livestock', title: t('dashboard.tiles.livestock'), sub: t('dashboard.tiles.livestockSub'), img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock', flag: 'livestock' },
+    ]},
+    { id: 'my_farm', label: t('dashboard.sections.myFarm'), tiles: [
+      { key: 'seller',   title: t('dashboard.tiles.seller'),   sub: t('dashboard.tiles.sellerSub'),   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store', flag: 'marketplace' },
+      { key: 'mapping',  title: t('dashboard.tiles.mapping'),  sub: t('dashboard.tiles.mappingSub'),  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
+      { key: 'journal',  title: t('dashboard.tiles.journal'),  sub: t('dashboard.tiles.journalSub'),  img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
+      { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
+    ]},
+    { id: 'ai_tools', label: t('dashboard.sections.aiTools'), tiles: [
+      { key: 'agro',      title: t('dashboard.tiles.agro'),      sub: t('dashboard.tiles.agroSub'),      img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
+      { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
+    ]},
+    { id: 'market', label: t('dashboard.sections.market'), tiles: [
+      { key: 'marketplace', title: t('dashboard.tiles.marketplace'), sub: t('dashboard.tiles.marketplaceSub'), img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
+      { key: 'buy-scans',   title: t('dashboard.tiles.buyScans'),    sub: t('dashboard.tiles.buyScansSub'),    img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
+    ]},
+  ];
+
+  const BLOCKS = [
+    { id: 'header',            label: t('dashboard.blocks.header') },
+    { id: 'weather',           label: t('dashboard.blocks.weather') },
+    { id: 'streak',            label: t('dashboard.blocks.streak') },
+    { id: 'plan',              label: t('dashboard.blocks.plan') },
+    { id: 'wallet',            label: t('dashboard.blocks.wallet') },
+    { id: 'season',            label: t('dashboard.blocks.season') },
+    { id: 'community',         label: t('dashboard.blocks.community') },
+    { id: 'agronomist',        label: t('dashboard.blocks.agronomist') },
+    { id: 'section:diagnose',  label: t('dashboard.blocks.secDiagnose') },
+    { id: 'section:my_farm',   label: t('dashboard.blocks.secMyFarm') },
+    { id: 'section:ai_tools',  label: t('dashboard.blocks.secAiTools') },
+    { id: 'section:market',    label: t('dashboard.blocks.secMarket') },
+    { id: 'admin',             label: t('dashboard.blocks.admin') },
+  ];
+
+  const DEFAULT_BLOCK_ORDER = BLOCKS.map((b) => b.id);
+
   const router = useRouter();
   const { width } = useWindowDimensions();
   const palette = useTheme((s) => s.palette);
@@ -181,7 +182,7 @@ export default function Home() {
   }, [savePrefs]);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t('dashboard.greeting.morning') : hour < 18 ? t('dashboard.greeting.afternoon') : t('dashboard.greeting.evening');
   const firstName = user?.email?.split('@')[0] || 'farmer';
 
   const passFlag = useCallback((tile: TileItem) => {
@@ -341,7 +342,7 @@ export default function Home() {
             </View>
             <LinearGradient colors={[palette.neon, palette.neonDim]} style={styles.scanBadge}>
               <Text style={styles.scanNum}>{scansRemaining}</Text>
-              <Text style={styles.scanLbl}>SCANS</Text>
+              <Text style={styles.scanLbl}>{t('dashboard.header.scans')}</Text>
             </LinearGradient>
           </Animated.View>
         );
@@ -366,11 +367,11 @@ export default function Home() {
           <Animated.View entering={FadeInDown.delay(80).duration(500)}>
             <LinearGradient colors={[palette.neonSoft, palette.surface]} style={styles.planCard}>
               <View style={styles.flex1}>
-                <Text style={styles.planLabel}>PLAN</Text>
+                <Text style={styles.planLabel}>{t('dashboard.plan.label')}</Text>
                 <Text style={styles.planValue}>{String(plan || 'free').toUpperCase()}</Text>
               </View>
               <Pressable onPress={() => router.push('/buy-scans' as any)} style={styles.planBtn}>
-                <Text style={styles.planBtnText}>UPGRADE</Text>
+                <Text style={styles.planBtnText}>{t('dashboard.plan.upgrade')}</Text>
               </Pressable>
             </LinearGradient>
           </Animated.View>
@@ -382,12 +383,12 @@ export default function Home() {
           <Animated.View entering={FadeInDown.delay(100).duration(500)}>
             <LinearGradient colors={['#0d1410', '#0a1a10', '#0d1410']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.walletCard}>
               <View style={styles.flex1}>
-                <Text style={styles.walletKicker}>MY GAIA ACCOUNT</Text>
+                <Text style={styles.walletKicker}>{t('dashboard.wallet.kicker')}</Text>
                 <Text style={styles.walletAcct}>{gaiaAcct}</Text>
-                <Text style={styles.walletBal}>Balance ₦{Number(gaiaBal).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <Text style={styles.walletBal}>{t('dashboard.wallet.balance')} ₦{Number(gaiaBal).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
               </View>
               <Pressable onPress={() => router.push('/wallet' as any)} style={styles.walletBtn}>
-                <Text style={styles.walletBtnTxt}>WALLET</Text>
+                <Text style={styles.walletBtnTxt}>{t('dashboard.wallet.button')}</Text>
               </Pressable>
             </LinearGradient>
           </Animated.View>
@@ -400,9 +401,9 @@ export default function Home() {
               <LinearGradient colors={['#ffb300', '#ff8f00', '#e65100']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.seasonBg}>
                 <View style={styles.seasonLeft}><Text style={styles.seasonEmoji}>🌾</Text></View>
                 <View style={styles.seasonRight}>
-                  <Text style={styles.seasonBadgeText}>SEASON</Text>
-                  <Text style={styles.seasonTitle}>Follow my crop</Text>
-                  <Text style={styles.seasonSub}>Plant · Track · Harvest · Profit</Text>
+                  <Text style={styles.seasonBadgeText}>{t('dashboard.season.badge')}</Text>
+                  <Text style={styles.seasonTitle}>{t('dashboard.season.title')}</Text>
+                  <Text style={styles.seasonSub}>{t('dashboard.season.sub')}</Text>
                 </View>
                 <Text style={styles.seasonArrow}>›</Text>
               </LinearGradient>
@@ -415,18 +416,18 @@ export default function Home() {
           <View style={styles.communityRow}>
             <Pressable onPress={() => router.push('/pulse' as any)} style={[styles.communityBtn, styles.communityPulse]}>
               <Text style={styles.communityEmoji}>📡</Text>
-              <Text style={[styles.communityTitle, { color: '#b388ff' }]}>Pulse</Text>
-              <Text style={styles.communitySub}>What's happening</Text>
+              <Text style={[styles.communityTitle, { color: '#b388ff' }]}>{t('dashboard.community.pulse')}</Text>
+              <Text style={styles.communitySub}>{t('dashboard.community.pulseSub')}</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/coop' as any)} style={[styles.communityBtn, styles.communityCoop]}>
               <Text style={styles.communityEmoji}>🤝</Text>
-              <Text style={[styles.communityTitle, { color: '#00c853' }]}>Coop Pool</Text>
-              <Text style={styles.communitySub}>Sell as one</Text>
+              <Text style={[styles.communityTitle, { color: '#00c853' }]}>{t('dashboard.community.coop')}</Text>
+              <Text style={styles.communitySub}>{t('dashboard.community.coopSub')}</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/sos' as any)} style={[styles.communityBtn, styles.communitySos]}>
               <Text style={styles.communityEmoji}>🆘</Text>
-              <Text style={[styles.communityTitle, { color: '#ff3b5c' }]}>SOS</Text>
-              <Text style={styles.communitySub}>Emergency</Text>
+              <Text style={[styles.communityTitle, { color: '#ff3b5c' }]}>{t('dashboard.community.sos')}</Text>
+              <Text style={styles.communitySub}>{t('dashboard.community.sosSub')}</Text>
             </Pressable>
           </View>
         );
@@ -440,10 +441,10 @@ export default function Home() {
                 <View style={styles.heroRight}>
                   <View style={styles.heroBadgeRow}>
                     <View style={styles.heroDot} />
-                    <Text style={styles.heroBadgeText}>LIVE</Text>
+                    <Text style={styles.heroBadgeText}>{t('dashboard.header.live')}</Text>
                   </View>
-                  <Text style={styles.heroTitle}>GAIA Agronomist</Text>
-                  <Text style={styles.heroSub}>Voice + chat · ask me anything</Text>
+                  <Text style={styles.heroTitle}>{t('dashboard.agronomist.title')}</Text>
+                  <Text style={styles.heroSub}>{t('dashboard.agronomist.sub')}</Text>
                 </View>
                 <View style={styles.heroArrowWrap}><Text style={styles.heroArrow}>›</Text></View>
               </LinearGradient>
@@ -460,7 +461,7 @@ export default function Home() {
         if (!isAdmin) return null;
         return (
           <Pressable onPress={() => router.push('/admin' as any)} style={styles.adminCard}>
-            <Text style={styles.adminLabel}>ADMIN CONSOLE</Text>
+            <Text style={styles.adminLabel}>{t('dashboard.adminCard')}</Text>
             <Text style={styles.adminArrow}>›</Text>
           </Pressable>
         );
@@ -484,17 +485,17 @@ export default function Home() {
             onPress={() => setEditMode((v) => !v)}
             style={[styles.editToggle, editMode && { backgroundColor: '#00c853', borderColor: '#00c853' }]}
           >
-            <Text style={[styles.editToggleTxt, editMode && { color: '#000' }]}>{editMode ? 'DONE' : 'EDIT LAYOUT'}</Text>
+            <Text style={[styles.editToggleTxt, editMode && { color: '#000' }]}>{editMode ? t('dashboard.editMode.done') : t('dashboard.editMode.edit')}</Text>
           </Pressable>
         </View>
 
         {editMode ? (
           <View style={styles.editBanner}>
             <Text style={styles.editBannerTxt}>
-              Tap × to hide, ↑↓ to reorder any block. {saving ? 'Saving…' : 'Saved'}
+              {t('dashboard.editMode.hint')} {saving ? t('dashboard.editMode.saving') : t('dashboard.editMode.saved')}
             </Text>
             <Pressable onPress={resetPrefs} style={styles.resetBtn}>
-              <Text style={styles.resetTxt}>RESET ALL</Text>
+              <Text style={styles.resetTxt}>{t('dashboard.editMode.reset')}</Text>
             </Pressable>
           </View>
         ) : null}

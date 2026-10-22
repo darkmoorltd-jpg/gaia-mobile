@@ -255,5 +255,98 @@
     "extractErr": "Kon nie genoeg rame onttrek nie. Probeer 'n ander video.",
     "demo": "⚠️ Werklike model nie beskikbaar — demo word gebruik.",
     "guideLoading": "🧠 Genereer behandelingsgids…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "DIAGNOSEER",
+      "myFarm": "MY PLAAS",
+      "aiTools": "KI HULPMIDDELE",
+      "market": "MARK"
+    },
+    "tiles": {
+      "crops": "Gewasse",
+      "cropsSub": "60+ siektes",
+      "pests": "Plag",
+      "pestsSub": "102 spesies",
+      "soil": "Grond",
+      "soilSub": "11 tipes",
+      "livestock": "Vee",
+      "livestockSub": "Beeste + Plaasvogels",
+      "seller": "Verkoper",
+      "sellerSub": "Jou lyste & verkope",
+      "mapping": "Plaas Kaartlegging",
+      "mappingSub": "Loop jou plaasgrens",
+      "journal": "Plaas Joernaal",
+      "journalSub": "Daaglikse notas & rekords",
+      "calendar": "Plaas Kalender",
+      "calendarSub": "Seisoenplan per gewas",
+      "agro": "Agro Hulpmiddels",
+      "agroSub": "Opbrengs, wins, kunsmis",
+      "satellite": "Satelliet",
+      "satelliteSub": "Monitor vanaf die ruimte",
+      "marketplace": "Markplek",
+      "marketplaceSub": "Koop en verkoop produkte",
+      "buyScans": "Koop Skanderings",
+      "buyScansSub": "Laai jou balans op"
+    },
+    "blocks": {
+      "header": "Kop (groet + skanderings)",
+      "weather": "Weer (lewendig)",
+      "streak": "Reeks teller",
+      "plan": "Plan kaart",
+      "wallet": "Beursie kaart",
+      "season": "Seisoen held",
+      "community": "Gemeenskap ry (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Agronoom",
+      "secDiagnose": "DIAGNOSEER afdeling",
+      "secMyFarm": "MY PLAAS afdeling",
+      "secAiTools": "KI HULPMIDDELE afdeling",
+      "secMarket": "MARK afdeling",
+      "admin": "Admin konsole"
+    },
+    "greeting": {
+      "morning": "Goeie môre",
+      "afternoon": "Goeie middag",
+      "evening": "Goeie aand"
+    },
+    "header": {
+      "scans": "SKANDERINGS",
+      "live": "LEWEND"
+    },
+    "plan": {
+      "label": "PLAN",
+      "upgrade": "OPGRADEER"
+    },
+    "wallet": {
+      "kicker": "MY GAIA REKENING",
+      "balance": "Balans",
+      "button": "BEURSIE"
+    },
+    "season": {
+      "badge": "SEISOEN",
+      "title": "Volg my gewas",
+      "sub": "Plant · Volg · Oes · Wins"
+    },
+    "community": {
+      "pulse": "Pols",
+      "pulseSub": "Wat gebeur",
+      "coop": "Koöperatiewe poel",
+      "coopSub": "Verkoop as een",
+      "sos": "SOS",
+      "sosSub": "Noodgeval"
+    },
+    "agronomist": {
+      "title": "GAIA Agronoom",
+      "sub": "Stem + klets · vra my enige iets"
+    },
+    "adminCard": "ADMIN KONSOLE",
+    "editMode": {
+      "done": "KLAAR",
+      "edit": "WYSIG UITLEG",
+      "hint": "Tik × om te verberg, ↑↓ om enige blok te herrangskik.",
+      "saving": "Stoor…",
+      "saved": "Gestoor",
+      "reset": "HERSTEL ALLES"
+    }
   }
 }

@@ -255,5 +255,98 @@
     "extractErr": "Ma laga soo saari karin muuqaalada ku filan. Isku day muuqaal kale.",
     "demo": "⚠️ Moodelka dhabta ah lama heli karo — waxaa la isticmaalayaa demo.",
     "guideLoading": "🧠 Waxaa la sameynayaa hagaha daaweynta…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "DIAGNOOS",
+      "myFarm": "BEERKA AYGA",
+      "aiTools": "QALABKA AI",
+      "market": "Suuqa"
+    },
+    "tiles": {
+      "crops": "Dalagyada",
+      "cropsSub": "60+ cudur",
+      "pests": "Kansarrada",
+      "pestsSub": "102 nooc",
+      "soil": "Dhul",
+      "soilSub": "11 nooc",
+      "livestock": "Xoolaha",
+      "livestockSub": "Lo' + Digaag",
+      "seller": "Iibiyaha",
+      "sellerSub": "Liiskaaga & iibkaaga",
+      "mapping": "Khariidadda Beerka",
+      "mappingSub": "Socodka xadka beertaada",
+      "journal": "Joornaalka Beerka",
+      "journalSub": "Qoraallo maalinle & diiwaanno",
+      "calendar": "Jadwalka Beeraha",
+      "calendarSub": "Qorshaha xilliga ee dalagyada",
+      "agro": "Qalabka Agro",
+      "agroSub": "Wax-soo-saar, faa'iido, bacriminta",
+      "satellite": "Satelayt",
+      "satelliteSub": "Kormeerka hawada",
+      "marketplace": "Suq",
+      "marketplaceSub": "Iibso oo iibso wax-soo-saarka",
+      "buyScans": "Iibso Baadhitaanno",
+      "buyScansSub": "Kordhi dheelitirkaaga"
+    },
+    "blocks": {
+      "header": "Madaxa (salaam + baadhitaanno)",
+      "weather": "Cimilada (toos)",
+      "streak": "Tiriyaha taxanaha",
+      "plan": "Kaarka Qorshaha",
+      "wallet": "Kaarka Boorsada",
+      "season": "Astaanta Xilliga",
+      "community": "Safka Bulshada (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Agronomist",
+      "secDiagnose": "Qaybta DIAGNOOS",
+      "secMyFarm": "Qaybta BEERKA AYGA",
+      "secAiTools": "Qaybta QALABKA AI",
+      "secMarket": "Qaybta SUUQA",
+      "admin": "Konsolka Maamulaha"
+    },
+    "greeting": {
+      "morning": "Subax wanaagsan",
+      "afternoon": "Galab wanaagsan",
+      "evening": "Fiid wanaagsan"
+    },
+    "header": {
+      "scans": "BAADHITAANNO",
+      "live": "TOOS"
+    },
+    "plan": {
+      "label": "QORSHE",
+      "upgrade": "KORDHI"
+    },
+    "wallet": {
+      "kicker": "AKOONKA GAIA AYGA",
+      "balance": "Dheelitir",
+      "button": "BOORSADA"
+    },
+    "season": {
+      "badge": "XILLIGA",
+      "title": "Raac dalagyadayda",
+      "sub": "Beero · Raadi · Goosad · Faa'iido"
+    },
+    "community": {
+      "pulse": "Daalac",
+      "pulseSub": "Waa maxay dhacaya",
+      "coop": "Barkadda Coop",
+      "coopSub": "Iibso wadajir",
+      "sos": "SOS",
+      "sosSub": "Degdeg"
+    },
+    "agronomist": {
+      "title": "GAIA Agronomist",
+      "sub": "Cod + wada sheekeysi · i weydii wax kasta"
+    },
+    "adminCard": "KONSOLKA MAAMULKA",
+    "editMode": {
+      "done": "DHAMMAAD",
+      "edit": "TARJUMI QAAB",
+      "hint": "Taabo × si aad u qarisid, ↑↓ si aad dib ugu habeysid qayb kasta.",
+      "saving": "Kaydin…",
+      "saved": "La keydiyay",
+      "reset": "DIB U DEJI DHAMAAN"
+    }
   }
 }

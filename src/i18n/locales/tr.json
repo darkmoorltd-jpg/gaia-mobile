@@ -255,5 +255,98 @@
     "extractErr": "Yeterli çerçeve çıkarılamadı. Farklı bir video deneyin.",
     "demo": "⚠️ Gerçek model mevcut değil — demo kullanılıyor.",
     "guideLoading": "🧠 Tedavi rehberi oluşturuluyor…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "TEŞHİS",
+      "myFarm": "ÇİFTLIĞIM",
+      "aiTools": "YAPAY ZEKA ARAÇLARI",
+      "market": "PAZAR"
+    },
+    "tiles": {
+      "crops": "Ürünler",
+      "cropsSub": "60+ hastalık",
+      "pests": "Zararlılar",
+      "pestsSub": "102 tür",
+      "soil": "Toprak",
+      "soilSub": "11 tip",
+      "livestock": "Hayvanlar",
+      "livestockSub": "Sığır + Kümes hayvanları",
+      "seller": "Satıcı",
+      "sellerSub": "İlanlarınız ve satışlarınız",
+      "mapping": "Çiftlik Haritalama",
+      "mappingSub": "Çiftlik sınırınızı yürüyün",
+      "journal": "Çiftlik Günlüğü",
+      "journalSub": "Günlük notlar ve kayıtlar",
+      "calendar": "Tarım Takvimi",
+      "calendarSub": "Ürün bazlı sezon planı",
+      "agro": "Agro Araçları",
+      "agroSub": "Verim, kar, gübre",
+      "satellite": "Uydu",
+      "satelliteSub": "Uzaydan izleyin",
+      "marketplace": "Pazar Yeri",
+      "marketplaceSub": "Ürün alıp sat",
+      "buyScans": "Tarama Satın Al",
+      "buyScansSub": "Bakiyenizi doldurun"
+    },
+    "blocks": {
+      "header": "Üst Bilgi (selamlama + taramalar)",
+      "weather": "Hava Durumu (canlı)",
+      "streak": "Seri sayacı",
+      "plan": "Plan kartı",
+      "wallet": "Cüzdan kartı",
+      "season": "Sezon kahramanı",
+      "community": "Topluluk satırı (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Tarım Uzmanı",
+      "secDiagnose": "TEŞHİS bölümü",
+      "secMyFarm": "ÇİFTLIĞIM bölümü",
+      "secAiTools": "YAPAY ZEKA ARAÇLARI bölümü",
+      "secMarket": "PAZAR bölümü",
+      "admin": "Yönetici konsolu"
+    },
+    "greeting": {
+      "morning": "Günaydın",
+      "afternoon": "İyi öğleden sonra",
+      "evening": "İyi akşamlar"
+    },
+    "header": {
+      "scans": "TARAMALAR",
+      "live": "CANLI"
+    },
+    "plan": {
+      "label": "PLAN",
+      "upgrade": "YÜKSELT"
+    },
+    "wallet": {
+      "kicker": "GAIA HESABIM",
+      "balance": "Bakiye",
+      "button": "CÜZDAN"
+    },
+    "season": {
+      "badge": "SEZON",
+      "title": "Ürünümü takip et",
+      "sub": "Ekim · Takip · Hasat · Kar"
+    },
+    "community": {
+      "pulse": "Nabız",
+      "pulseSub": "Neler oluyor",
+      "coop": "Kooperatif Havuzu",
+      "coopSub": "Tek birim olarak sat",
+      "sos": "SOS",
+      "sosSub": "Acil durum"
+    },
+    "agronomist": {
+      "title": "GAIA Tarım Uzmanı",
+      "sub": "Ses + sohbet · her şeyi sor"
+    },
+    "adminCard": "YÖNETİCİ KONSOLU",
+    "editMode": {
+      "done": "TAMAMLANDI",
+      "edit": "DÜZENİ DÜZENLE",
+      "hint": "Gizlemek için × dokunun, ↑↓ ile blokları yeniden sırala.",
+      "saving": "Kaydediliyor…",
+      "saved": "Kaydedildi",
+      "reset": "HEPSİNİ SIFIRLA"
+    }
   }
 }

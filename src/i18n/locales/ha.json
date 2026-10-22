@@ -255,5 +255,98 @@
     "extractErr": "Ba a iya fitar da isassun frames ba. Gwada bidiyo daban.",
     "demo": "⚠️ Samfurin ainihi ba a samu ba — ana amfani da demo.",
     "guideLoading": "🧠 Ana samar da jagorar magani…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "GWADA",
+      "myFarm": "GONAR NA",
+      "aiTools": "KAYAN AI",
+      "market": "KASUWA"
+    },
+    "tiles": {
+      "crops": "NOMA",
+      "cropsSub": "cututtuka 60+",
+      "pests": "KWARI",
+      "pestsSub": "nau'i 102",
+      "soil": "KASA",
+      "soilSub": "nau'i 11",
+      "livestock": "DABBOBI",
+      "livestockSub": "Shanu + Tsuntsaye",
+      "seller": "MAI SAYARWA",
+      "sellerSub": "Jerin kayanka & sayarwa",
+      "mapping": "Zanen Gona",
+      "mappingSub": "Bi iyakar gonarka",
+      "journal": "Littafin Gona",
+      "journalSub": "Bayanan yau da kullum",
+      "calendar": "Kalanda Noma",
+      "calendarSub": "Shirin kaka da shuka",
+      "agro": "Kayan Agro",
+      "agroSub": "Amfanin, riba, takin",
+      "satellite": "Satelaiti",
+      "satelliteSub": "Kula daga sarari",
+      "marketplace": "Kasuwar",
+      "marketplaceSub": "Saya da sayar da amfanin gona",
+      "buyScans": "Saya Dubawa",
+      "buyScansSub": "Cika ma'aunin ka"
+    },
+    "blocks": {
+      "header": "Kan (gaisuwa + dubawa)",
+      "weather": "Yanayi (kai tsaye)",
+      "streak": "Mai ƙirga jere",
+      "plan": "Katin shiri",
+      "wallet": "Katin walat",
+      "season": "Jarumin kaka",
+      "community": "Layukan al'umma (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Agronomist",
+      "secDiagnose": "Sashen GWADA",
+      "secMyFarm": "Sashen GONAR NA",
+      "secAiTools": "Sashen KAYAN AI",
+      "secMarket": "Sashen KASUWA",
+      "admin": "Konsolin admin"
+    },
+    "greeting": {
+      "morning": "Barka da safiya",
+      "afternoon": "Barka da rana",
+      "evening": "Barka da yamma"
+    },
+    "header": {
+      "scans": "DUBAWA",
+      "live": "KAI TSAYE"
+    },
+    "plan": {
+      "label": "SHIRI",
+      "upgrade": "HAƁAKA"
+    },
+    "wallet": {
+      "kicker": "ASUSUN GAIA NA",
+      "balance": "Ma'auni",
+      "button": "WALAT"
+    },
+    "season": {
+      "badge": "KAKA",
+      "title": "Bi shukata",
+      "sub": "Shuka · Bibiya · Girbi · Riba"
+    },
+    "community": {
+      "pulse": "Pulse",
+      "pulseSub": "Me ke faruwa",
+      "coop": "Rukunin Hadin Gwiwa",
+      "coopSub": "Sayar da haɗe",
+      "sos": "SOS",
+      "sosSub": "Gaggawa"
+    },
+    "agronomist": {
+      "title": "GAIA Agronomist",
+      "sub": "Murya + hira · tambaye ni duk abin"
+    },
+    "adminCard": "KONSOLIN ADMIN",
+    "editMode": {
+      "done": "GAMA",
+      "edit": "GYARA TSARI",
+      "hint": "Taɓa × don ɓoye, ↑↓ don sake tsara kowanne block.",
+      "saving": "Ajiye…",
+      "saved": "An ajiye",
+      "reset": "SABON SAITA DUK"
+    }
   }
 }

@@ -255,5 +255,98 @@
     "extractErr": "Enweghị ike iwepụta frames zuru ezu. Gbalịa vidio ọzọ.",
     "demo": "⚠️ Model eziokwu adịghị — eji demo.",
     "guideLoading": "🧠 Na-emepụta nduzi ọgwụ…"
+  },
+  "dashboard": {
+    "sections": {
+      "diagnose": "NYOCHAA",
+      "myFarm": "ỤLỌ AKWỤKWỌ M",
+      "aiTools": "NGWA AI",
+      "market": "ỤLỌ AHỊA"
+    },
+    "tiles": {
+      "crops": "Ọrụ ugbo",
+      "cropsSub": "Ọrịa 60+",
+      "pests": "Ndị na-emerụ",
+      "pestsSub": "Ụdị 102",
+      "soil": "Mkpụrụ ala",
+      "soilSub": "Ụdị 11",
+      "livestock": "Ụmụ anụmanụ",
+      "livestockSub": "Ewu + Nnụnụ",
+      "seller": "Onye na-ere",
+      "sellerSub": "Ndepụta gị & ahịa",
+      "mapping": "Mmemme Ụlọ ugbo",
+      "mappingSub": "Gaa n'ókè ala gị",
+      "journal": "Akwụkwọ ndekọ Ụlọ ugbo",
+      "journalSub": "Nkọwa kwa ụbọchị",
+      "calendar": "Kalenda Ụlọ ugbo",
+      "calendarSub": "Atụmatụ oge site n'ọrụ",
+      "agro": "Ngwa Agro",
+      "agroSub": "Mkpụrụ, uru, nri",
+      "satellite": "Satịlaịtị",
+      "satelliteSub": "Lelee site n'ikuku",
+      "marketplace": "Ahịa",
+      "marketplaceSub": "Zụta ma ree ihe",
+      "buyScans": "Zụta Nyocha",
+      "buyScansSub": "Tinye ego n'akwụkwọ"
+    },
+    "blocks": {
+      "header": "Isi (eziokwu + nyochaa)",
+      "weather": "Ọdị ihu igwe (na-eme)",
+      "streak": "Ngwa mgbakwunye",
+      "plan": "Kaadị atụmatụ",
+      "wallet": "Kaadị akpa ego",
+      "season": "Onye isi oge",
+      "community": "Ọhịa obodo (Pulse/Coop/SOS)",
+      "agronomist": "GAIA Onye ọkachamara n'ugbo",
+      "secDiagnose": "Ngalaba NYOCHAA",
+      "secMyFarm": "Ngalaba ỤLỌ AKWỤKWỌ M",
+      "secAiTools": "Ngalaba NGWA AI",
+      "secMarket": "Ngalaba ỤLỌ AHỊA",
+      "admin": "Konsọl onye nchịkwa"
+    },
+    "greeting": {
+      "morning": "Ụtụtụ ọma",
+      "afternoon": "Ehihie ọma",
+      "evening": "Mgbede ọma"
+    },
+    "header": {
+      "scans": "NYOCHAA",
+      "live": "NDỊ"
+    },
+    "plan": {
+      "label": "ATỤ",
+      "upgrade": "MELITE"
+    },
+    "wallet": {
+      "kicker": "AKWỤKWỌ GAIA M",
+      "balance": "Ọnọdụ",
+      "button": "AKPA"
+    },
+    "season": {
+      "badge": "OGE",
+      "title": "Soro ọrụ ugbo m",
+      "sub": "Kwụọ · Soro · Nweta · Uru"
+    },
+    "community": {
+      "pulse": "Pulse",
+      "pulseSub": "Kedu ihe na-eme",
+      "coop": "Ọgba Coop",
+      "coopSub": "Ree dịka otu",
+      "sos": "SOS",
+      "sosSub": "Ọnwụ"
+    },
+    "agronomist": {
+      "title": "GAIA Onye ọkachamara n'ugbo",
+      "sub": "Ọrọ + mkparịta ụka · jụọ m ihe niile"
+    },
+    "adminCard": "KONSỌL ONYE NCHỊKWỌ",
+    "editMode": {
+      "done": "MECHARA",
+      "edit": "DEGHE NKWU",
+      "hint": "Pịa × ka zoo, ↑↓ ka hazie ihe ọ bụla.",
+      "saving": "Na-echekwa…",
+      "saved": "Echekwara",
+      "reset": "TỌGHARI AHỤ"
+    }
   }
 }
