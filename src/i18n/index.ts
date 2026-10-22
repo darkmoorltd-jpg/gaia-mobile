@@ -49,21 +49,17 @@ const resources = {
 };
 
 i18n.use(initReactI18next).init({
-  resources,
-  lng: 'en',
-  fallbackLng: 'en',
+  resources, lng: 'en', fallbackLng: 'en',
   compatibilityJSON: 'v4',
   interpolation: { escapeValue: false },
   react: { useSuspense: false },
-  returnNull: false,
-  returnEmptyString: false,
+  returnNull: false, returnEmptyString: false,
 });
 
 export async function setAppLanguage(code: string) {
   const safe = code || 'en';
   try {
     if (!i18n.hasResourceBundle(safe, 'translation')) {
-      console.warn('[i18n] no bundle for', safe, 'falling back to en');
       await i18n.changeLanguage('en');
       await AsyncStorage.setItem('gaia_language', 'en');
       return;
