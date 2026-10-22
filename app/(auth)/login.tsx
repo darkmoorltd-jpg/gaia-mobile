@@ -43,6 +43,13 @@ export default function Login() {
   const countriesList = useLocale((s) => s.countries);
   const currentCountry = useLocale((s) => s.country || (s as any).countries?.find((c: any) => c.code === s.country?.code) || null);
 
+  // If country is null (state not yet hydrated), load it
+  useEffect(() => {
+    if (!currentCountry) {
+      useLocale.getState().load();
+    }
+  }, [currentCountry]);
+
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
   const [bioType, setBioType] = useState<string | null>(null);
@@ -135,17 +142,6 @@ export default function Login() {
     }
   };
 
-  // If onboarding isn't complete, don't try to render a country dropdown
-  if (!currentCountry) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0a0e1a', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <Text style={{ color: '#8899a6', fontSize: 14, textAlign: 'center' }}>
-          Setting up GAIA. If this persists, restart the app.
-        </Text>
-      </View>
-    );
-  }
-
 
   return (
     <KeyboardAvoidingView
@@ -178,7 +174,7 @@ export default function Login() {
             
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
             <View style={{ flex: 1 }}>
-              <Dropdown label="COUNTRY" value={pickCountry} options={(countriesList.length > 0 ? countriesList.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry) + ' ' + currentCountry.name, value: pickCountry }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
+              <Dropdown label="COUNTRY" value={pickCountry} options={(countriesList.length > 0 ? countriesList.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry) + ' ' + (currentCountry?.name || 'Select country'), value: pickCountry }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
             </View>
             <View style={{ flex: 1 }}>
               <Dropdown label="LANGUAGE" value={pickLanguage} options={[{ label: 'English', value: 'en' }, { label: 'Fran\u00e7ais', value: 'fr' }, { label: 'Portugu\u00eas', value: 'pt' }, { label: 'Espa\u00f1ol', value: 'es' }, { label: 'Deutsch', value: 'de' }, { label: 'Italiano', value: 'it' }, { label: 'Nederlands', value: 'nl' }, { label: 'Kiswahili', value: 'sw' }, { label: 'Hausa', value: 'ha' }, { label: 'Yor\u00f9b\u00e1', value: 'yo' }, { label: 'Igbo', value: 'ig' }, { label: 'Naij\u00e1', value: 'pcm' }]} onChange={(v) => { useLocale.getState().setLanguage(v); }} />
