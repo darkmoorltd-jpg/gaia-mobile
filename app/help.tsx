@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Linking, ActivityIndicator, Alert, RefreshControl,
@@ -33,6 +34,7 @@ const FAQS = [
 ];
 
 export default function Help() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
@@ -54,14 +56,14 @@ export default function Help() {
     try {
       const { data: rows } = await supabase
         .from('support_tickets')
-        .select('id,subject,message,status,attachment_url,created_at')
+        .selec'id,subject,message,status,attachment_url,created_at'
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       const list = rows || [];
       for (const t of list) {
         const { data: replies } = await supabase
           .from('support_replies')
-          .select('id,message,is_admin,created_at')
+          .selec'id,message,is_admin,created_at'
           .eq('ticket_id', t.id)
           .order('created_at');
         t.replies = replies || [];
@@ -113,7 +115,7 @@ export default function Help() {
   };
 
   const submit = async () => {
-    if (!user) { Alert.alert('Sign in required'); return; }
+    if (!user) { Alert.aler'Sign in required'; return; }
     if (!subject.trim() || !message.trim()) {
       Alert.alert('Required', 'Subject and message are required.');
       return;
@@ -159,7 +161,7 @@ export default function Help() {
           <Text style={styles.backTxt}>{'<'} BACK</Text>
         </Pressable>
 
-        <Text style={styles.title}>Help & Support</Text>
+        <Text style={styles.title}>{t('help.title')}</Text>
         <Text style={styles.subtitle}>We reply in under 2 hours.</Text>
 
         {/* ---------- CONTACT CHIPS ---------- */}
@@ -228,7 +230,7 @@ export default function Help() {
           loadingTickets ? <ActivityIndicator color={palette.neon} style={{ marginTop: 30 }} /> :
           tickets.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No tickets yet</Text>
+              <Text style={styles.emptyTitle}>{t('help.noTickets')}</Text>
               <Text style={styles.emptySub}>Create one and the GAIA team will reply.</Text>
             </View>
           ) : tickets.map((t) => (

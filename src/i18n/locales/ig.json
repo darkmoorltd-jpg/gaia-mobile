@@ -374,5 +374,20 @@
     "subtitle": "Chebe anụ ụlọ gị",
     "cattle": "Ewu",
     "poultry": "Ọkụkọ"
+  },
+  "journal": {
+    "title": "Akwụkwọ Ụlọ Ọrụ Ugbo",
+    "newEntry": "Ntinye Ọhụrụ",
+    "editEntry": "Dezie Ntinye",
+    "save": "Chekwaa",
+    "cancel": "Kagbuo"
+  },
+  "history": {
+    "title": "Akụkọ Nyocha",
+    "noScans": "Enweghị nyocha ọ bụla ugbu a"
+  },
+  "help": {
+    "title": "Enyemaka & Nkwado",
+    "noTickets": "Enweghị tiketi ọ bụla ugbu a"
   }
 }

@@ -374,5 +374,20 @@
     "subtitle": "Ilaali xoolahaaga",
     "cattle": "Lo'",
     "poultry": "Digaag"
+  },
+  "journal": {
+    "title": "Joornaalka Beeraha",
+    "newEntry": "Qoraal Cusub",
+    "editEntry": "Tafatir Qoraal",
+    "save": "Kaydi",
+    "cancel": "Jooji"
+  },
+  "history": {
+    "title": "Taariikhda Baadhista",
+    "noScans": "Weli ma jiro baadhis"
+  },
+  "help": {
+    "title": "Caawinaad & Taageero",
+    "noTickets": "Weli tigidh ma jiro"
   }
 }

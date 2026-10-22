@@ -374,5 +374,20 @@
     "subtitle": "Ṣe ààbò fún ẹran rẹ",
     "cattle": "Màlúù",
     "poultry": "Adìẹ"
+  },
+  "journal": {
+    "title": "Iwe Iroyin Ogbà",
+    "newEntry": "Iwọle Tuntun",
+    "editEntry": "Ṣatunkọ Iwọle",
+    "save": "Fipamọ",
+    "cancel": "Fagilee"
+  },
+  "history": {
+    "title": "Itan Ayẹwo",
+    "noScans": "Ko si ayẹwo sibẹsibẹ"
+  },
+  "help": {
+    "title": "Iranlọwọ & Atilẹyin",
+    "noTickets": "Ko si tiketi sibẹsibẹ"
   }
 }

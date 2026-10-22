@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
   Image, Modal, Alert, Share,
@@ -40,6 +41,7 @@ function dayLabel(iso: string): string {
 }
 
 export default function History() {
+  const { t } = useTranslation();
   const { palette } = useTheme();
   const { user } = useAuth();
   const styles = createStyles(palette);
@@ -56,7 +58,7 @@ export default function History() {
     try {
       const { data } = await supabase
         .from('scan_history')
-        .select('*')
+        .selec'*'
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(500);
@@ -133,7 +135,7 @@ export default function History() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>Scan History</Text>
+        <Text style={styles.title}>{t('history.title')}</Text>
         <Text style={styles.subtitle}>
           {totalScans} scan{totalScans === 1 ? '' : 's'} · {treatedCount} treated
         </Text>
@@ -157,7 +159,7 @@ export default function History() {
         {!busy && filtered.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyIcon}>C</Text>
-            <Text style={styles.emptyTitle}>No scans yet</Text>
+            <Text style={styles.emptyTitle}>{t('history.noScans')}</Text>
             <Text style={styles.emptyText}>
               Diagnose a crop, pest, soil sample, or animal to start building your farm history.
             </Text>

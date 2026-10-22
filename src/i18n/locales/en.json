@@ -392,5 +392,20 @@
     "subtitle": "Protect your herd",
     "cattle": "Cattle",
     "poultry": "Poultry"
+  },
+  "journal": {
+    "title": "Farm Journal",
+    "newEntry": "New Entry",
+    "editEntry": "Edit Entry",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "history": {
+    "title": "Scan History",
+    "noScans": "No scans yet"
+  },
+  "help": {
+    "title": "Help & Support",
+    "noTickets": "No tickets yet"
   }
 }

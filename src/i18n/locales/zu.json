@@ -374,5 +374,20 @@
     "subtitle": "Vikela iqembu lakho",
     "cattle": "Izinkomo",
     "poultry": "Izinkukhu"
+  },
+  "journal": {
+    "title": "Ijenali leFamu",
+    "newEntry": "Ukungena Okusha",
+    "editEntry": "Hlela Ukungena",
+    "save": "Londoloza",
+    "cancel": "Khansela"
+  },
+  "history": {
+    "title": "Umlando Wokuhlola",
+    "noScans": "Azikho izithombe eziskeniwe okwamanje"
+  },
+  "help": {
+    "title": "Usizo & Ukusekela",
+    "noTickets": "Azikho amathikithi okwamanje"
   }
 }

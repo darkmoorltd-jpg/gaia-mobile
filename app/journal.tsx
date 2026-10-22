@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Image, Alert, ActivityIndicator, RefreshControl, Modal,
@@ -50,6 +51,7 @@ function fmtTime(iso?: string) {
 }
 
 export default function Journal() {
+  const { t } = useTranslation();
   const { palette } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
@@ -76,7 +78,7 @@ export default function Journal() {
     try {
       const [t, f, s] = await Promise.all([
         supabase.rpc('journal_timeline', { p_limit: 200 }),
-        supabase.from('farms').select('id,name,crop').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('farms').selec'id,name,crop'.eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.rpc('journal_season_summary', { p_days: 120 }),
       ]);
       setEntries(t.data || []);
@@ -145,7 +147,7 @@ export default function Journal() {
   const capturePhoto = async () => {
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (perm.status !== 'granted') { Alert.alert('Camera permission required'); return; }
+      if (perm.status !== 'granted') { Alert.aler'Camera permission required'; return; }
       const res = await ImagePicker.launchCameraAsync({ quality: 0.5, allowsEditing: false });
       if (res.canceled || !user) return;
 
@@ -200,7 +202,7 @@ export default function Journal() {
   const startVoice = async () => {
     try {
       const perm = await AudioModule.requestRecordingPermissionsAsync();
-      if (!perm.granted) { Alert.alert('Microphone permission required'); return; }
+      if (!perm.granted) { Alert.aler'Microphone permission required'; return; }
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
@@ -235,13 +237,13 @@ export default function Journal() {
         },
       );
       if (up.status < 200 || up.status >= 300) {
-        Alert.alert('Transcription failed');
+        Alert.aler'Transcription failed';
         setSaving(false);
         return;
       }
       const data = JSON.parse(up.body || '{}');
       const text = (data.text || '').trim();
-      if (!text) { Alert.alert('No speech detected'); setSaving(false); return; }
+      if (!text) { Alert.aler'No speech detected'; setSaving(false); return; }
 
       const tags = autoTag(text);
       let loc: Location.LocationObject | null = null;
@@ -349,7 +351,7 @@ export default function Journal() {
       >
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Pill label="Field Log" />
-        <Text style={styles.title}>Farm Journal</Text>
+        <Text style={styles.title}>{t('journal.title')}</Text>
         <Text style={styles.sub}>
           {summary ? summary.entries + ' entries · ' + summary.photos + ' photos · last ' + summary.notes + ' notes' : 'Tap an action to add an entry'}
         </Text>
@@ -460,7 +462,7 @@ export default function Journal() {
       <Modal visible={showNew} animationType="slide" transparent onRequestClose={() => setShowNew(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>New Entry</Text>
+            <Text style={styles.modalTitle}>{t('journal.newEntry')}</Text>
 
             {farms.length > 0 ? (
               <>
@@ -490,10 +492,10 @@ export default function Journal() {
 
             <View style={styles.modalActions}>
               <Pressable onPress={() => setShowNew(false)} style={[styles.modalBtn, styles.modalBtnGhost]}>
-                <Text style={styles.modalBtnTextGhost}>Cancel</Text>
+                <Text style={styles.modalBtnTextGhost}>{t('journal.cancel')}</Text>
               </Pressable>
               <Pressable onPress={saveNote} disabled={saving || !noteText.trim()} style={[styles.modalBtn, (saving || !noteText.trim()) && { opacity: 0.5 }]}>
-                {saving ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.modalBtnText}>Save</Text>}
+                {saving ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.modalBtnText}>{t('journal.save')}</Text>}
               </Pressable>
             </View>
 
@@ -507,7 +509,7 @@ export default function Journal() {
       <Modal visible={!!editing} animationType="slide" transparent onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Edit Entry</Text>
+            <Text style={styles.modalTitle}>{t('journal.editEntry')}</Text>
             <TextInput
               value={editing?.text || ''}
               onChangeText={(v) => editing && setEditing({ ...editing, text: v })}
@@ -516,10 +518,10 @@ export default function Journal() {
             />
             <View style={styles.modalActions}>
               <Pressable onPress={() => setEditing(null)} style={[styles.modalBtn, styles.modalBtnGhost]}>
-                <Text style={styles.modalBtnTextGhost}>Cancel</Text>
+                <Text style={styles.modalBtnTextGhost}>{t('journal.cancel')}</Text>
               </Pressable>
               <Pressable onPress={saveEdit} disabled={saving} style={styles.modalBtn}>
-                {saving ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.modalBtnText}>Save</Text>}
+                {saving ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.modalBtnText}>{t('journal.save')}</Text>}
               </Pressable>
             </View>
           </View>

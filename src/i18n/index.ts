@@ -56,7 +56,7 @@ i18n.use(initReactI18next).init({
   returnNull: false, returnEmptyString: false,
 });
 
-export async function setAppLanguage(code: string) {
+export async function setAppLanguage(code) {
   const safe = code || 'en';
   try {
     if (!i18n.hasResourceBundle(safe, 'translation')) {
@@ -69,7 +69,7 @@ export async function setAppLanguage(code: string) {
   } catch (e) { console.warn('[i18n]', e); }
 }
 
-export async function loadStoredLanguage(): Promise<string> {
+export async function loadStoredLanguage() {
   try {
     const stored = await AsyncStorage.getItem('gaia_language');
     if (stored && i18n.hasResourceBundle(stored, 'translation')) {

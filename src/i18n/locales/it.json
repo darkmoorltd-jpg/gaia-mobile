@@ -374,5 +374,20 @@
     "subtitle": "Proteggi il tuo allevamento",
     "cattle": "Bovini",
     "poultry": "Pollame"
+  },
+  "journal": {
+    "title": "Giornale Agricolo",
+    "newEntry": "Nuova Voce",
+    "editEntry": "Modifica Voce",
+    "save": "Salva",
+    "cancel": "Annulla"
+  },
+  "history": {
+    "title": "Cronologia Scansioni",
+    "noScans": "Nessuna scansione ancora"
+  },
+  "help": {
+    "title": "Aiuto & Supporto",
+    "noTickets": "Nessun ticket ancora"
   }
 }

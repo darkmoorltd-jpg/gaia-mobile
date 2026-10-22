@@ -374,5 +374,20 @@
     "subtitle": "Sürünüzü koruyun",
     "cattle": "Sığır",
     "poultry": "Kanatlı hayvanlar"
+  },
+  "journal": {
+    "title": "Çiftlik Günlüğü",
+    "newEntry": "Yeni Giriş",
+    "editEntry": "Girişi Düzenle",
+    "save": "Kaydet",
+    "cancel": "İptal"
+  },
+  "history": {
+    "title": "Tarama Geçmişi",
+    "noScans": "Henüz tarama yok"
+  },
+  "help": {
+    "title": "Yardım ve Destek",
+    "noTickets": "Henüz bilet yok"
   }
 }

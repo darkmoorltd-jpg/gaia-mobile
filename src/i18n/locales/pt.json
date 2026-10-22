@@ -374,5 +374,20 @@
     "subtitle": "Proteja seu rebanho",
     "cattle": "Gado",
     "poultry": "Aves"
+  },
+  "journal": {
+    "title": "Diário da Fazenda",
+    "newEntry": "Nova Entrada",
+    "editEntry": "Editar Entrada",
+    "save": "Salvar",
+    "cancel": "Cancelar"
+  },
+  "history": {
+    "title": "Histórico de Escaneamento",
+    "noScans": "Nenhum escaneamento ainda"
+  },
+  "help": {
+    "title": "Ajuda & Suporte",
+    "noTickets": "Nenhum ticket ainda"
   }
 }

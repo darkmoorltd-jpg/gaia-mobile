@@ -374,5 +374,20 @@
     "subtitle": "Kare rundunarka",
     "cattle": "Shanu",
     "poultry": "Tsuntsaye"
+  },
+  "journal": {
+    "title": "Jaridar Gona",
+    "newEntry": "Sabuwar Shiga",
+    "editEntry": "Gyara Shiga",
+    "save": "Ajiye",
+    "cancel": "Soke"
+  },
+  "history": {
+    "title": "Tarihin Skan",
+    "noScans": "Babu skan har yanzu"
+  },
+  "help": {
+    "title": "Taimako & Tallafi",
+    "noTickets": "Babu tikiti har yanzu"
   }
 }

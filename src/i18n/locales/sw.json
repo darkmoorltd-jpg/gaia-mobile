@@ -374,5 +374,20 @@
     "subtitle": "Linda kundi lako",
     "cattle": "Ng'ombe",
     "poultry": "Kuku"
+  },
+  "journal": {
+    "title": "Jarida la Shamba",
+    "newEntry": "Ingizo Jipya",
+    "editEntry": "Hariri Ingizo",
+    "save": "Hifadhi",
+    "cancel": "Ghairi"
+  },
+  "history": {
+    "title": "Historia ya Skani",
+    "noScans": "Hakuna skani bado"
+  },
+  "help": {
+    "title": "Msaada & Usaidizi",
+    "noTickets": "Hakuna tiketi bado"
   }
 }

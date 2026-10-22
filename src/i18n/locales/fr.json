@@ -374,5 +374,20 @@
     "subtitle": "Protégez votre troupeau",
     "cattle": "Bétail",
     "poultry": "Volaille"
+  },
+  "journal": {
+    "title": "Journal de la ferme",
+    "newEntry": "Nouvelle entrée",
+    "editEntry": "Modifier l'entrée",
+    "save": "Enregistrer",
+    "cancel": "Annuler"
+  },
+  "history": {
+    "title": "Historique des scans",
+    "noScans": "Pas encore de scans"
+  },
+  "help": {
+    "title": "Aide & Support",
+    "noTickets": "Pas encore de tickets"
   }
 }

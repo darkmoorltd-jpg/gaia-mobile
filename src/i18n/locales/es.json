@@ -374,5 +374,20 @@
     "subtitle": "Protege tu rebaño",
     "cattle": "Ganado bovino",
     "poultry": "Aves de corral"
+  },
+  "journal": {
+    "title": "Diario de la Granja",
+    "newEntry": "Nueva Entrada",
+    "editEntry": "Editar Entrada",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "history": {
+    "title": "Historial de Escaneos",
+    "noScans": "Aún no hay escaneos"
+  },
+  "help": {
+    "title": "Ayuda y Soporte",
+    "noTickets": "Aún no hay tickets"
   }
 }

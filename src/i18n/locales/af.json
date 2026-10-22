@@ -374,5 +374,20 @@
     "subtitle": "Beskerm jou kudde",
     "cattle": "Beeste",
     "poultry": "Vogels"
+  },
+  "journal": {
+    "title": "Plaas Joernaal",
+    "newEntry": "Nuwe Inskrywing",
+    "editEntry": "Wysig Inskrywing",
+    "save": "Stoor",
+    "cancel": "Kanselleer"
+  },
+  "history": {
+    "title": "Skandeer Geskiedenis",
+    "noScans": "Nog geen skanderings nie"
+  },
+  "help": {
+    "title": "Help & Ondersteuning",
+    "noTickets": "Nog geen kaartjies nie"
   }
 }

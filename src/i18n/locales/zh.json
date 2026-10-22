@@ -374,5 +374,20 @@
     "subtitle": "保护您的畜群",
     "cattle": "牛",
     "poultry": "家禽"
+  },
+  "journal": {
+    "title": "农场日志",
+    "newEntry": "新建条目",
+    "editEntry": "编辑条目",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "history": {
+    "title": "扫描历史",
+    "noScans": "暂无扫描"
+  },
+  "help": {
+    "title": "帮助与支持",
+    "noTickets": "暂无工单"
   }
 }

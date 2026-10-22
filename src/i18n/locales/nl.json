@@ -374,5 +374,20 @@
     "subtitle": "Bescherm je kudde",
     "cattle": "Vee",
     "poultry": "Gevogelte"
+  },
+  "journal": {
+    "title": "Boerderij Tijdschrift",
+    "newEntry": "Nieuwe invoer",
+    "editEntry": "Bewerk invoer",
+    "save": "Opslaan",
+    "cancel": "Annuleren"
+  },
+  "history": {
+    "title": "Scan geschiedenis",
+    "noScans": "Nog geen scans"
+  },
+  "help": {
+    "title": "Help & Ondersteuning",
+    "noTickets": "Nog geen tickets"
   }
 }

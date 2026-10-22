@@ -374,5 +374,20 @@
     "subtitle": "የቡድንዎን ጥበቃ",
     "cattle": "ላም",
     "poultry": "ዶሮ"
+  },
+  "journal": {
+    "title": "የእርሻ ጆርናል",
+    "newEntry": "አዲስ መግቢያ",
+    "editEntry": "መግቢያ አርትዕ",
+    "save": "አስቀምጥ",
+    "cancel": "ሰርዝ"
+  },
+  "history": {
+    "title": "የስካን ታሪክ",
+    "noScans": "እስካሁን ምንም ስካን የለም"
+  },
+  "help": {
+    "title": "እርዳታ እና ድጋፍ",
+    "noTickets": "እስካሁን ትኬቶች የለም"
   }
 }

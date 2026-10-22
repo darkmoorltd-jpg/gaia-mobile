@@ -374,5 +374,20 @@
     "subtitle": "Schützen Sie Ihre Herde",
     "cattle": "Rinder",
     "poultry": "Geflügel"
+  },
+  "journal": {
+    "title": "Bauernhof Journal",
+    "newEntry": "Neuer Eintrag",
+    "editEntry": "Eintrag bearbeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen"
+  },
+  "history": {
+    "title": "Scan-Verlauf",
+    "noScans": "Noch keine Scans"
+  },
+  "help": {
+    "title": "Hilfe & Support",
+    "noTickets": "Noch keine Tickets"
   }
 }
