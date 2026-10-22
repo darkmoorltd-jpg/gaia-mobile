@@ -8,15 +8,15 @@ export default function Tab() {
     <FeatureGate flag="livestock">
       <DiagnoseScreen config={{
     key: 'livestock',
-    title: 'LIVESTOCK HEALTH',
-    subtitle: 'Protect your herd',
+    title: t('livestock.title'),
+    subtitle: t('livestock.subtitle'),
     emoji: '🐄',
     color: '#b47aff',
     modelKey: 'cattle',
     contextType: 'livestock',
     options: [
-      { key: 'cattle',  label: 'Cattle' },
-      { key: 'poultry', label: 'Poultry' },
+      { key: 'cattle',  label: t('livestock.cattle') },
+      { key: 'poultry', label: t('livestock.poultry') },
     ],
   }} />
     </FeatureGate>

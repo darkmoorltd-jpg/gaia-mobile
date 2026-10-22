@@ -9,14 +9,14 @@ export default function SoilTab() {
       <DiagnoseScreen
       config={{
         key: 'soil',
-        title: 'SOIL ANALYSIS',
-        subtitle: 'Know your soil',
+        title: t('soil.title'),
+        subtitle: t('soil.subtitle'),
         emoji: '🏞',
         color: '#c68a5c',
         modelKey: 'soil_11class',
         contextType: 'soil',
         options: [
-          { key: 'soil_11class', label: 'Field Sample' },
+          { key: 'soil_11class', label: t('soil.fieldSample') },
         ],
       }}
     />

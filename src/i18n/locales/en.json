@@ -102,25 +102,41 @@
     "selectCrop": "Select crop",
     "takePhoto": "Take photo",
     "uploadPhoto": "Upload photo",
+    "uploadLeafImages": "Upload leaf images",
     "analyzing": "Analyzing…",
     "result": "Result",
+    "topResult": "Top Result",
     "confidence": "Confidence",
     "healthy": "Healthy",
     "diseased": "Disease detected",
     "treatment": "Treatment guide",
-    "save": "Save result",
+    "treatmentGuide": "Complete Treatment Guide",
+    "listenTreatment": "Listen to Treatment Guide",
     "scanAgain": "Scan again",
+    "backToCrops": "← Back to Crops",
+    "selectedCrop": "Selected Crop",
     "noScans": "No scans left. Please buy more.",
+    "noScansBuyMore": "No scans left. Buy more to continue.",
     "sessionExpired": "Session expired — please log in again",
+    "diagnosisFailed": "Diagnosis failed",
+    "cameraPermission": "Camera permission required",
+    "captureFailed": "Capture failed",
+    "unknown": "Unknown",
+    "noModel": "No trained model – using demo predictions.",
+    "helpful": "Helpful",
+    "notHelpful": "Not",
+    "thanksFeedback": "Thanks!",
+    "willImprove": "We'll improve.",
     "tipsTitle": "📸 How to take a good leaf photo",
     "tip1": "Pick a single leaf showing symptoms – place on white paper.",
     "tip2": "Hold phone 20–30 cm above.",
     "tip3": "Avoid shadows.",
     "tip4": "Upload 2–3 photos for best results.",
-    "noModel": "No trained model – using demo predictions.",
-    "topResult": "Top result",
-    "error": "Diagnosis error",
-    "back": "← Back to crops"
+    "danger": "Danger",
+    "warning": "Warning",
+    "guideLoading": "🧠 GAIA is preparing your complete treatment guide…",
+    "voiceUnavailable": "Voice unavailable",
+    "generatingVoice": "🔊 Generating voice…"
   },
   "voice": {
     "title": "Voice Agronomist",
@@ -348,5 +364,31 @@
       "saved": "Saved",
       "reset": "RESET ALL"
     }
+  },
+  "crops": {
+    "title": "CROP DISEASE",
+    "subtitle": "Protect your harvest",
+    "maize": "Maize",
+    "rice": "Rice",
+    "millet": "Millet",
+    "cassava": "Cassava",
+    "apple": "Apple",
+    "coffee": "Coffee"
+  },
+  "pests": {
+    "title": "PEST DETECTION",
+    "subtitle": "Identify any pest",
+    "allPests": "All Pests"
+  },
+  "soil": {
+    "title": "SOIL ANALYSIS",
+    "subtitle": "Know your soil",
+    "fieldSample": "Field Sample"
+  },
+  "livestock": {
+    "title": "LIVESTOCK HEALTH",
+    "subtitle": "Protect your herd",
+    "cattle": "Cattle",
+    "poultry": "Poultry"
   }
 }

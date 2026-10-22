@@ -102,16 +102,16 @@
     "selectCrop": "Kies gewas",
     "takePhoto": "Neem foto",
     "uploadPhoto": "Laai foto op",
-    "analyzing": "Analiseer…",
+    "analyzing": "Ontleed…",
     "result": "Resultaat",
-    "confidence": "Vertroue",
+    "confidence": "Betroubaarheid",
     "healthy": "Gesond",
-    "diseased": "Beskadigde gewas",
-    "treatment": "Behandelingsriglys",
+    "diseased": "Siekte opgespoor",
+    "treatment": "Behandelingsgids",
     "save": "Stoor resultaat",
     "scanAgain": "Skandeer weer",
-    "noScans": "Geen skande oor nie. Koop meer asseblief.",
-    "sessionExpired": "Sessie verby — meld asseblief weer aan",
+    "noScans": "Geen skanderings oor nie. Koop asseblief meer.",
+    "sessionExpired": "Sessie het verval — meld asseblief weer aan",
     "tipsTitle": "📸 Hoe om 'n goeie blarefoto te neem",
     "tip1": "Kies 'n enkele blaartjie wat simptome toon – plaas op wit papier.",
     "tip2": "Hou die telefoon 20–30 cm bo.",
@@ -348,5 +348,31 @@
       "saved": "Gestoor",
       "reset": "HERSTEL ALLES"
     }
+  },
+  "crops": {
+    "title": "GEWAS SIEKTE",
+    "subtitle": "Beskerm jou oes",
+    "maize": "Mielies",
+    "rice": "Rys",
+    "millet": "Gierst",
+    "cassava": "Kasava",
+    "apple": "Appel",
+    "coffee": "Koffie"
+  },
+  "pests": {
+    "title": "PLAG DETEKSIE",
+    "subtitle": "Identifiseer enige plaag",
+    "allPests": "Alle plae"
+  },
+  "soil": {
+    "title": "GROND ANALISE",
+    "subtitle": "Ken jou grond",
+    "fieldSample": "Veldmonster"
+  },
+  "livestock": {
+    "title": "VEETELHEID GESONDHEID",
+    "subtitle": "Beskerm jou kudde",
+    "cattle": "Beeste",
+    "poultry": "Vogels"
   }
 }

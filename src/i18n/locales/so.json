@@ -99,19 +99,19 @@
     "noTip": "Ma jiro talo weli"
   },
   "diagnose": {
-    "selectCrop": "Xulo dhirta",
-    "takePhoto": "Sawir qaado",
-    "uploadPhoto": "Ku soo daji sawirka",
-    "analyzing": "Waxaa la falanqeynayaa…",
+    "selectCrop": "Xulo dalagga",
+    "takePhoto": "Qaado sawir",
+    "uploadPhoto": "Soo rar sawir",
+    "analyzing": "Falanqeyn…",
     "result": "Natiijo",
-    "confidence": "Kalsoonida",
+    "confidence": "Kalsooni",
     "healthy": "Caafimaad",
-    "diseased": "Xanuun la ogaaday",
-    "treatment": "Tilmaamaha daaweynta",
+    "diseased": "Cudurka waa la ogaaday",
+    "treatment": "Hagaha daaweynta",
     "save": "Kaydi natiijada",
-    "scanAgain": "Soo baar mar kale",
-    "noScans": "Ma jiraan baaritaanno kale. Fadlan iibsato kuwo dheeraad ah.",
-    "sessionExpired": "Sessiinka dhamaaday — fadlan gasho mar kale",
+    "scanAgain": "Mar kale sawir",
+    "noScans": "Ma jiraan sawirro dheeraad ah. Fadlan iibsato.",
+    "sessionExpired": "Khadka fadhiga wuu dhamaaday — fadlan mar kale soo gal",
     "tipsTitle": "📸 Sida loo qaato sawir wanaagsan oo caleen ah",
     "tip1": "Xulo caleen keli ah oo muujinaysa calaamadaha – ku rid warqad cad.",
     "tip2": "Ka hay telefoonka 20–30 cm kor.",
@@ -348,5 +348,31 @@
       "saved": "La keydiyay",
       "reset": "DIB U DEJI DHAMAAN"
     }
+  },
+  "crops": {
+    "title": "CUDURKA DALAGGA",
+    "subtitle": "Ilaali goosashadaada",
+    "maize": "Masago",
+    "rice": "Bariis",
+    "millet": "Masago",
+    "cassava": "Kassava",
+    "apple": "Tufaax",
+    "coffee": "Qaxwo"
+  },
+  "pests": {
+    "title": "OGAADSIISKA QOOBKA",
+    "subtitle": "Aqoonso qool kasta",
+    "allPests": "Dhamaan qoolaha"
+  },
+  "soil": {
+    "title": "FALANQAYNDA DHULKA",
+    "subtitle": "Ogow dhulkaaga",
+    "fieldSample": "Tusaalaha Beerta"
+  },
+  "livestock": {
+    "title": "CAAFIMAADKA XAYAWAANKA",
+    "subtitle": "Ilaali xoolahaaga",
+    "cattle": "Lo'",
+    "poultry": "Digaag"
   }
 }

@@ -8,14 +8,14 @@ export default function Tab() {
     <FeatureGate flag="pests">
       <DiagnoseScreen config={{
     key: 'pests',
-    title: 'PEST DETECTION',
-    subtitle: 'Identify any pest',
+    title: t('pests.title'),
+    subtitle: t('pests.subtitle'),
     emoji: '🐛',
     color: '#ff8a3d',
     modelKey: 'pests_102class',
     contextType: 'pest',
     options: [
-      { key: 'pests_102class', label: 'All Pests' },
+      { key: 'pests_102class', label: t('pests.allPests') },
     ],
   }} />
     </FeatureGate>

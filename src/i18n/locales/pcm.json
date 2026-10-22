@@ -99,19 +99,19 @@
     "noTip": "No tip yet"
   },
   "diagnose": {
-    "selectCrop": "Select crop",
-    "takePhoto": "Take photo",
-    "uploadPhoto": "Upload photo",
-    "analyzing": "Analyzing…",
+    "selectCrop": "Pick crop",
+    "takePhoto": "Take picture",
+    "uploadPhoto": "Upload picture",
+    "analyzing": "We dey analyze…",
     "result": "Result",
     "confidence": "Confidence",
     "healthy": "Healthy",
-    "diseased": "Disease detected",
+    "diseased": "Disease we see",
     "treatment": "Treatment guide",
     "save": "Save result",
     "scanAgain": "Scan again",
-    "noScans": "No scans left. Please buy more.",
-    "sessionExpired": "Session expired — please log in again",
+    "noScans": "No scans left. Abeg buy more.",
+    "sessionExpired": "Session don expire — abeg log in again",
     "tipsTitle": "📸 How to take a good leaf photo",
     "tip1": "Pick a single leaf showing symptoms – place on white paper.",
     "tip2": "Hold phone 20–30 cm above.",
@@ -348,5 +348,31 @@
       "saved": "Saved",
       "reset": "RESET ALL"
     }
+  },
+  "crops": {
+    "title": "CROP DISEASE",
+    "subtitle": "Make sure your harvest safe",
+    "maize": "Masara",
+    "rice": "Rice",
+    "millet": "Millet",
+    "cassava": "Cassava",
+    "apple": "Apple",
+    "coffee": "Coffee"
+  },
+  "pests": {
+    "title": "PEST DETECTION",
+    "subtitle": "Find any pest",
+    "allPests": "All Pests"
+  },
+  "soil": {
+    "title": "SOIL ANALYSIS",
+    "subtitle": "Know your soil",
+    "fieldSample": "Field Sample"
+  },
+  "livestock": {
+    "title": "LIVESTOCK HEALTH",
+    "subtitle": "Make sure your herd safe",
+    "cattle": "Cattle",
+    "poultry": "Poultry"
   }
 }

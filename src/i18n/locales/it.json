@@ -102,7 +102,7 @@
     "selectCrop": "Seleziona coltura",
     "takePhoto": "Scatta foto",
     "uploadPhoto": "Carica foto",
-    "analyzing": "Analizzando…",
+    "analyzing": "Analisi…",
     "result": "Risultato",
     "confidence": "Affidabilità",
     "healthy": "Sano",
@@ -110,8 +110,8 @@
     "treatment": "Guida al trattamento",
     "save": "Salva risultato",
     "scanAgain": "Scansiona di nuovo",
-    "noScans": "Nessuna scansione rimanente. Per favore acquista di più.",
-    "sessionExpired": "Sessione scaduta — per favore accedi di nuovo",
+    "noScans": "Nessuna scansione disponibile. Acquista altre.",
+    "sessionExpired": "Sessione scaduta — effettua di nuovo il login",
     "tipsTitle": "📸 Come scattare una buona foto di una foglia",
     "tip1": "Scegli una singola foglia con sintomi – posizionala su carta bianca.",
     "tip2": "Tieni il telefono a 20–30 cm di distanza.",
@@ -348,5 +348,31 @@
       "saved": "Salvato",
       "reset": "REIMPOSTA TUTTO"
     }
+  },
+  "crops": {
+    "title": "MALATTIA DELLA COLTURA",
+    "subtitle": "Proteggi il tuo raccolto",
+    "maize": "Mais",
+    "rice": "Riso",
+    "millet": "Miglio",
+    "cassava": "Manioca",
+    "apple": "Mela",
+    "coffee": "Caffè"
+  },
+  "pests": {
+    "title": "RILEVAZIONE DI PARASSITI",
+    "subtitle": "Identifica qualsiasi parassita",
+    "allPests": "Tutti i parassiti"
+  },
+  "soil": {
+    "title": "ANALISI DEL SUOLO",
+    "subtitle": "Conosci il tuo suolo",
+    "fieldSample": "Campione di campo"
+  },
+  "livestock": {
+    "title": "SALUTE DEL BESTIAME",
+    "subtitle": "Proteggi il tuo allevamento",
+    "cattle": "Bovini",
+    "poultry": "Pollame"
   }
 }

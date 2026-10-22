@@ -110,8 +110,8 @@
     "treatment": "Guía de tratamiento",
     "save": "Guardar resultado",
     "scanAgain": "Escanear de nuevo",
-    "noScans": "No quedan escaneos. Por favor, compra más.",
-    "sessionExpired": "Sesión expirada — por favor, inicia sesión de nuevo",
+    "noScans": "No quedan escaneos. Por favor compra más.",
+    "sessionExpired": "Sesión expirada — por favor inicia sesión de nuevo",
     "tipsTitle": "📸 Cómo tomar una buena foto de una hoja",
     "tip1": "Elige una sola hoja que muestre síntomas – colócala sobre papel blanco.",
     "tip2": "Sostén el teléfono a 20–30 cm de distancia.",
@@ -348,5 +348,31 @@
       "saved": "Guardado",
       "reset": "REINICIAR TODO"
     }
+  },
+  "crops": {
+    "title": "ENFERMEDAD DE CULTIVOS",
+    "subtitle": "Protege tu cosecha",
+    "maize": "Maíz",
+    "rice": "Arroz",
+    "millet": "Mijo",
+    "cassava": "Yuca",
+    "apple": "Manzana",
+    "coffee": "Café"
+  },
+  "pests": {
+    "title": "DETECCIÓN DE PLAGAS",
+    "subtitle": "Identifica cualquier plaga",
+    "allPests": "Todas las plagas"
+  },
+  "soil": {
+    "title": "ANÁLISIS DE SUELO",
+    "subtitle": "Conoce tu suelo",
+    "fieldSample": "Muestra de campo"
+  },
+  "livestock": {
+    "title": "SALUD DEL GANADO",
+    "subtitle": "Protege tu rebaño",
+    "cattle": "Ganado bovino",
+    "poultry": "Aves de corral"
   }
 }

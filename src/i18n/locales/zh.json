@@ -110,7 +110,7 @@
     "treatment": "治疗指南",
     "save": "保存结果",
     "scanAgain": "重新扫描",
-    "noScans": "扫描次数已用完，请购买更多。",
+    "noScans": "扫描次数已用完。请购买更多。",
     "sessionExpired": "会话已过期 — 请重新登录",
     "tipsTitle": "📸 如何拍摄优质叶片照片",
     "tip1": "挑选一片出现症状的单叶——放在白纸上。",
@@ -348,5 +348,31 @@
       "saved": "已保存",
       "reset": "全部重置"
     }
+  },
+  "crops": {
+    "title": "作物病害",
+    "subtitle": "保护您的收成",
+    "maize": "玉米",
+    "rice": "水稻",
+    "millet": "小米",
+    "cassava": "木薯",
+    "apple": "苹果",
+    "coffee": "咖啡"
+  },
+  "pests": {
+    "title": "害虫检测",
+    "subtitle": "识别任何害虫",
+    "allPests": "所有害虫"
+  },
+  "soil": {
+    "title": "土壤分析",
+    "subtitle": "了解您的土壤",
+    "fieldSample": "现场样本"
+  },
+  "livestock": {
+    "title": "牲畜健康",
+    "subtitle": "保护您的畜群",
+    "cattle": "牛",
+    "poultry": "家禽"
   }
 }

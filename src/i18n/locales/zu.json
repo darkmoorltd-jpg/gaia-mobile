@@ -102,16 +102,16 @@
     "selectCrop": "Khetha isitshalo",
     "takePhoto": "Thatha isithombe",
     "uploadPhoto": "Layisha isithombe",
-    "analyzing": "Kuhlaziywa…",
+    "analyzing": "Ihlaziya…",
     "result": "Umphumela",
     "confidence": "Ukuzethemba",
-    "healthy": "Sempilo",
-    "diseased": "Kubonakale isifo",
-    "treatment": "Umhlahlandlela wokwelapha",
+    "healthy": "Impilo enhle",
+    "diseased": "Isifo sitholakale",
+    "treatment": "Umhlahlandlela wokwelashwa",
     "save": "Londoloza umphumela",
-    "scanAgain": "Bheka futhi",
-    "noScans": "Azikho izinsuku ezisele. Sicela uthenge eziningi",
-    "sessionExpired": "Iseshini iphele — sicela ungene futhi",
+    "scanAgain": "Skena futhi",
+    "noScans": "Azikho izithombe ezisele. Sicela uthenge okwengeziwe.",
+    "sessionExpired": "Iseshini iphelelwe yisikhathi — sicela uphinde ungene",
     "tipsTitle": "📸 Indlela yokuthatha isithombe esihle",
     "tip1": "Khetha isithombe esisodwa esibonisa izimpawu – shiya phezu kwencwadi emhlophe",
     "tip2": "Gcina ucingo 20–30 cm phezulu",
@@ -348,5 +348,31 @@
       "saved": "Kugcinwe",
       "reset": "PHINDA KONKE"
     }
+  },
+  "crops": {
+    "title": "ISIFO SOKUGULA KWESITSHALO",
+    "subtitle": "Vikela isivuno sakho",
+    "maize": "Ummbila",
+    "rice": "Irayi",
+    "millet": "Umoba",
+    "cassava": "Umcavini",
+    "apple": "I-apula",
+    "coffee": "Ikhofi"
+  },
+  "pests": {
+    "title": "UKUHLONZA IZINAMBUTANE",
+    "subtitle": "Thola noma iyiphi inambuzane",
+    "allPests": "Zonke Izimbungulu"
+  },
+  "soil": {
+    "title": "UKUHLAZIYA UMTHALA",
+    "subtitle": "Yazi umhlaba wakho",
+    "fieldSample": "Isampula Yensimu"
+  },
+  "livestock": {
+    "title": "IMPILO YENKOMO",
+    "subtitle": "Vikela iqembu lakho",
+    "cattle": "Izinkomo",
+    "poultry": "Izinkukhu"
   }
 }

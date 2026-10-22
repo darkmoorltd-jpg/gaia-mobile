@@ -101,7 +101,7 @@
   "diagnose": {
     "selectCrop": "Selecionar cultura",
     "takePhoto": "Tirar foto",
-    "uploadPhoto": "Enviar foto",
+    "uploadPhoto": "Carregar foto",
     "analyzing": "Analisando…",
     "result": "Resultado",
     "confidence": "Confiança",
@@ -110,8 +110,8 @@
     "treatment": "Guia de tratamento",
     "save": "Salvar resultado",
     "scanAgain": "Escanear novamente",
-    "noScans": "Sem varreduras restantes. Por favor, compre mais.",
-    "sessionExpired": "Sessão expirada — faça login novamente",
+    "noScans": "Não há mais escaneamentos. Por favor, compre mais.",
+    "sessionExpired": "Sessão expirada — por favor, faça login novamente",
     "tipsTitle": "📸 Como tirar uma boa foto de folha",
     "tip1": "Escolha uma única folha com sintomas – coloque sobre papel branco.",
     "tip2": "Segure o telefone a 20–30 cm acima.",
@@ -348,5 +348,31 @@
       "saved": "Salvo",
       "reset": "REINICIAR TUDO"
     }
+  },
+  "crops": {
+    "title": "DOENÇA DE CULTURA",
+    "subtitle": "Proteja sua colheita",
+    "maize": "Milho",
+    "rice": "Arroz",
+    "millet": "Milheto",
+    "cassava": "Mandioca",
+    "apple": "Maçã",
+    "coffee": "Café"
+  },
+  "pests": {
+    "title": "DETECÇÃO DE PRAGAS",
+    "subtitle": "Identifique qualquer praga",
+    "allPests": "Todas as Pragas"
+  },
+  "soil": {
+    "title": "ANÁLISE DE SOLO",
+    "subtitle": "Conheça seu solo",
+    "fieldSample": "Amostra de Campo"
+  },
+  "livestock": {
+    "title": "SAÚDE DO REBANHO",
+    "subtitle": "Proteja seu rebanho",
+    "cattle": "Gado",
+    "poultry": "Aves"
   }
 }

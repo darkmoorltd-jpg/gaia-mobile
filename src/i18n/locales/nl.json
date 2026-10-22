@@ -99,18 +99,18 @@
     "noTip": "Nog geen tip"
   },
   "diagnose": {
-    "selectCrop": "Kies gewas",
-    "takePhoto": "Maak foto",
-    "uploadPhoto": "Upload foto",
-    "analyzing": "Bezig met analyseren…",
+    "selectCrop": "Selecteer gewas",
+    "takePhoto": "Foto maken",
+    "uploadPhoto": "Foto uploaden",
+    "analyzing": "Analyseren…",
     "result": "Resultaat",
-    "confidence": "Vertrouwen",
+    "confidence": "Betrouwbaarheid",
     "healthy": "Gezond",
     "diseased": "Ziekte gedetecteerd",
     "treatment": "Behandelingsgids",
     "save": "Resultaat opslaan",
     "scanAgain": "Opnieuw scannen",
-    "noScans": "Geen scans meer. Gelieve meer te kopen.",
+    "noScans": "Geen scans meer. Koop er meer.",
     "sessionExpired": "Sessie verlopen — log opnieuw in",
     "tipsTitle": "📸 Hoe een goede bladfoto te maken",
     "tip1": "Kies een enkel blad met symptomen – leg op wit papier.",
@@ -348,5 +348,31 @@
       "saved": "Opgeslagen",
       "reset": "RESET ALLES"
     }
+  },
+  "crops": {
+    "title": "GEWASZIEKTEN",
+    "subtitle": "Bescherm je oogst",
+    "maize": "Maïs",
+    "rice": "Rijst",
+    "millet": "Gierst",
+    "cassava": "Cassave",
+    "apple": "Appel",
+    "coffee": "Koffie"
+  },
+  "pests": {
+    "title": "PESTDETECTIE",
+    "subtitle": "Identificeer elke plaag",
+    "allPests": "Alle plagen"
+  },
+  "soil": {
+    "title": "GRONDANALYSE",
+    "subtitle": "Ken je bodem",
+    "fieldSample": "Veldmonster"
+  },
+  "livestock": {
+    "title": "VEESTERGEZONDHEID",
+    "subtitle": "Bescherm je kudde",
+    "cattle": "Vee",
+    "poultry": "Gevogelte"
   }
 }

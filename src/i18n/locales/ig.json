@@ -104,14 +104,14 @@
     "uploadPhoto": "Bulite foto",
     "analyzing": "Na-enyocha…",
     "result": "Nsonaazụ",
-    "confidence": "Nkwenye",
-    "healthy": "Ọma",
-    "diseased": "Ọrịa achọpụtara",
-    "treatment": "Nduzi ọgwụ",
+    "confidence": "Ọnọdụ ntụkwasị obi",
+    "healthy": "Ike ọma",
+    "diseased": "A chọpụtara ọrịa",
+    "treatment": "Nduzi ọgwụgwọ",
     "save": "Chekwa nsonaazụ",
-    "scanAgain": "Nnyocha ọzọ",
-    "noScans": "Enweghị nnyocha fọdụrụ. Biko zụta ọzọ.",
-    "sessionExpired": "Oge ngwụchara — biko banye ọzọ",
+    "scanAgain": "Skan ọzọ",
+    "noScans": "Enweghị scans fọdụrụ. Biko zụta ọzọ.",
+    "sessionExpired": "Oge nkwurịta okwu agwụla — biko banye ọzọ",
     "tipsTitle": "📸 Otu esi ewe foto akwụkwọ ọma",
     "tip1": "Họrọ akwụkwọ otu nwere mgbaàmà – tinye na akwụkwọ ọcha.",
     "tip2": "Jide ekwentị 20–30 cm n'elu.",
@@ -348,5 +348,31 @@
       "saved": "Echekwara",
       "reset": "TỌGHARI AHỤ"
     }
+  },
+  "crops": {
+    "title": "ỌRỤ AKWỤKWỌ",
+    "subtitle": "Chebe ihe ị na-akụ",
+    "maize": "Ọka",
+    "rice": "Osikapa",
+    "millet": "Ọka ọka",
+    "cassava": "Akpụ",
+    "apple": "Apụl",
+    "coffee": "Kọfị"
+  },
+  "pests": {
+    "title": "NCHỌTA PEST",
+    "subtitle": "Chọpụta pest ọ bụla",
+    "allPests": "Pests niile"
+  },
+  "soil": {
+    "title": "NCHỌTA AKWỤ",
+    "subtitle": "Mara ala gị",
+    "fieldSample": "Nlele ubi"
+  },
+  "livestock": {
+    "title": "AHỤRỤ NDỊ ANỤ",
+    "subtitle": "Chebe anụ ụlọ gị",
+    "cattle": "Ewu",
+    "poultry": "Ọkụkọ"
   }
 }

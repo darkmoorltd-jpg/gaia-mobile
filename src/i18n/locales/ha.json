@@ -105,13 +105,13 @@
     "analyzing": "Ana nazari…",
     "result": "Sakamako",
     "confidence": "Tabbaci",
-    "healthy": "Mai lafiya",
+    "healthy": "Lafiya",
     "diseased": "An gano cuta",
-    "treatment": "Jagoran magani",
+    "treatment": "Jagorar magani",
     "save": "Ajiye sakamakon",
-    "scanAgain": "Bincika sake",
-    "noScans": "Babu bincike marasa. Da fatan za ku sayi ƙari.",
-    "sessionExpired": "An kare zaman — da fatan za ku shiga sake",
+    "scanAgain": "Sake duba",
+    "noScans": "Babu ƙarin dubawa. Da fatan za a sayi ƙari.",
+    "sessionExpired": "Zaman ya ƙare — da fatan za a sake shiga",
     "tipsTitle": "📸 Yadda ake ɗaukar hoto mai kyau",
     "tip1": "Zaɓi ganye ɗaya da ke nuna alamomi – a sanya shi a kan takarda mai fari.",
     "tip2": "Riƙe wayar 20–30 cm sama.",
@@ -348,5 +348,31 @@
       "saved": "An ajiye",
       "reset": "SABON SAITA DUK"
     }
+  },
+  "crops": {
+    "title": "CUTAR AMFANIN GONA",
+    "subtitle": "Kare amfanin ka",
+    "maize": "Masara",
+    "rice": "Shinkafa",
+    "millet": "Dawa",
+    "cassava": "Dankali",
+    "apple": "Tuffa",
+    "coffee": "Kofi"
+  },
+  "pests": {
+    "title": "GANO KUTAR KWARI",
+    "subtitle": "Gano kowanne kwari",
+    "allPests": "Duk Kwari"
+  },
+  "soil": {
+    "title": "BINCEN KASA",
+    "subtitle": "Sanin ƙasar ka",
+    "fieldSample": "Samfurin fili"
+  },
+  "livestock": {
+    "title": "LAFIYAR DABBOBI",
+    "subtitle": "Kare rundunarka",
+    "cattle": "Shanu",
+    "poultry": "Tsuntsaye"
   }
 }

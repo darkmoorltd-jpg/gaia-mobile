@@ -97,6 +97,7 @@ export interface DiagnoseConfig {
 }
 
 export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
+  const { t } = useTranslation();
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const { user, scansRemaining, refreshScans } = useAuth();
@@ -204,7 +205,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     if (!permission?.granted) {
       const r = await requestPermission();
       if (!r.granted) {
-        setError('Camera permission required');
+        setError(t('diagnose.cameraPermission'));
         return false;
       }
     }
@@ -223,7 +224,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
         setError('');
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Capture failed');
+      setError(e?.message ?? t('diagnose.captureFailed'));
     }
   };
 
@@ -244,7 +245,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
   const analyze = async () => {
     if (!imageUri || !user) return;
     if (scansRemaining <= 0) {
-      setError('No scans left. Buy more to continue.');
+      setError(t('diagnose.noScansBuyMore'));
       return;
     }
     setLoading(true);
@@ -254,7 +255,7 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      if (!token) throw new Error('Session expired — please log in again');      let res: any = null;
+      if (!token) throw new Error(t('diagnose.sessionExpired'));      let res: any = null;
 
       // Try on-device first — any failure is silent, we fall back to server
       try {
@@ -301,10 +302,10 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
     } catch (e: any) {
       hapticError();
       if (e instanceof DiagnosisError) {
-        if (e.status === 402) setError('No scans left. Please buy more.');
+        if (e.status === 402) setError(t('diagnose.noScans'));
         else setError(e.message);
       } else {
-        setError(e?.message ?? 'Diagnosis failed');
+        setError(e?.message ?? t('diagnose.diagnosisFailed'));
       }
     } finally {
       setLoading(false);

@@ -99,7 +99,7 @@
     "noTip": "Pas encore de conseil"
   },
   "diagnose": {
-    "selectCrop": "Sélectionner une culture",
+    "selectCrop": "Sélectionner la culture",
     "takePhoto": "Prendre une photo",
     "uploadPhoto": "Téléverser une photo",
     "analyzing": "Analyse…",
@@ -348,5 +348,31 @@
       "saved": "Enregistré",
       "reset": "RÉINITIALISER TOUT"
     }
+  },
+  "crops": {
+    "title": "MALADIE DES CULTURES",
+    "subtitle": "Protégez votre récolte",
+    "maize": "Maïs",
+    "rice": "Riz",
+    "millet": "Millet",
+    "cassava": "Manioc",
+    "apple": "Pomme",
+    "coffee": "Café"
+  },
+  "pests": {
+    "title": "DETECTION DES NUISIBLES",
+    "subtitle": "Identifiez tout nuisible",
+    "allPests": "Tous les nuisibles"
+  },
+  "soil": {
+    "title": "ANALYSE DU SOL",
+    "subtitle": "Connaissez votre sol",
+    "fieldSample": "Échantillon de terrain"
+  },
+  "livestock": {
+    "title": "SANTÉ DU BÉTAIL",
+    "subtitle": "Protégez votre troupeau",
+    "cattle": "Bétail",
+    "poultry": "Volaille"
   }
 }

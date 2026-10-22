@@ -99,19 +99,19 @@
     "noTip": "Kò sí ìmọran síbẹ̀"
   },
   "diagnose": {
-    "selectCrop": "Yan ọrọ",
-    "takePhoto": "Gba fọto",
-    "uploadPhoto": "Gbe fọto soke",
-    "analyzing": "N ṣe ìwádìí…",
-    "result": "Àbájáde",
-    "confidence": "Ìgbẹkẹlé",
-    "healthy": "Ó ní ilera",
-    "diseased": "A rí àrùn",
-    "treatment": "Ìtọsọ́nà ìtọ́jú",
+    "selectCrop": "Yan irugbin",
+    "takePhoto": "Ya fọto",
+    "uploadPhoto": "Po fọto",
+    "analyzing": "N ṣe ayẹwo…",
+    "result": "Abajade",
+    "confidence": "Igbagbọ",
+    "healthy": "Alara",
+    "diseased": "Aisan ti a ri",
+    "treatment": "Itọsọna itọju",
     "save": "Fi àbájáde pamọ",
-    "scanAgain": "Ṣe ìwádìí lẹẹkansi",
-    "noScans": "Kò sí ìwádìí kankan. Jọ̀wọ́ ra ẹ̀yà mìíràn.",
-    "sessionExpired": "Ìgbà ti parí — jọ̀wọ́ wọ in lẹẹkansi",
+    "scanAgain": "Ṣe àyẹ̀wò lẹ́ẹ̀kan síi",
+    "noScans": "Ko sí àyẹ̀wò tó kù. Jọ̀wọ́ ra míì.",
+    "sessionExpired": "Àkókò ìpade ti parí — jọ̀wọ́ tún wọlé",
     "tipsTitle": "📸 Bí a ṣe lè gba fọto ẹ̀yà ọrọ dáadáa",
     "tip1": "Yan ẹ̀yà ọrọ kan tí ó fi àmì hàn – ṣe é lórí kẹ́kẹ́ funfun.",
     "tip2": "Dá foonu rẹ sí 20–30 cm lórí.",
@@ -348,5 +348,31 @@
       "saved": "Fipamọ́",
       "reset": "TÚN GBỌ́DỌ̀ GBOGBO"
     }
+  },
+  "crops": {
+    "title": "ARUN IRUGBIN",
+    "subtitle": "Ṣe ààbò fún ikore rẹ",
+    "maize": "Agbado",
+    "rice": "Iresi",
+    "millet": "Ẹ̀wẹ̀",
+    "cassava": "Ẹ̀fọ́",
+    "apple": "Apùlù",
+    "coffee": "Kọ́fí"
+  },
+  "pests": {
+    "title": "ÌMỌ̀ Ẹ̀RỌ̀",
+    "subtitle": "Ṣe idanimọ́ ẹ̀rò kankan",
+    "allPests": "Gbogbo Ẹ̀rò"
+  },
+  "soil": {
+    "title": "ÌTÚNṢẸ̀ ILẸ̀",
+    "subtitle": "Mọ ilẹ̀ rẹ",
+    "fieldSample": "Àpẹẹrẹ oko"
+  },
+  "livestock": {
+    "title": "ÌṢẸ̀LẸ̀ Ẹ̀DÁ",
+    "subtitle": "Ṣe ààbò fún ẹran rẹ",
+    "cattle": "Màlúù",
+    "poultry": "Adìẹ"
   }
 }

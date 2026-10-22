@@ -99,19 +99,19 @@
     "noTip": "አሁን ያልተሰጠ ምክር"
   },
   "diagnose": {
-    "selectCrop": "የተለያዩ ዕፀት ይምረጡ",
+    "selectCrop": "የሚሰራውን ተክል ይምረጡ",
     "takePhoto": "ፎቶ ይውሰዱ",
-    "uploadPhoto": "ፎቶ ይጭኑ",
-    "analyzing": "በተተካከለ ሂደት…",
+    "uploadPhoto": "ፎቶ ይስቀሉ",
+    "analyzing": "በመተንተን…",
     "result": "ውጤት",
-    "confidence": "ተስማሚነት",
+    "confidence": "እምነት",
     "healthy": "ጤናማ",
-    "diseased": "በተጠበቀ በተለያዩ የተለያዩ ችግኝ ይገኛል",
-    "treatment": "የሚያስተላለፍ መመሪያ",
+    "diseased": "በሽታ ተገኝቷል",
+    "treatment": "የሕክምና መመሪያ",
     "save": "ውጤት ይቀበሉ",
-    "scanAgain": "ደግሞ ይሰናዳ",
-    "noScans": "ምንም ማስተካከያ አልተገኘም። እባክዎ ይጨምሩ",
-    "sessionExpired": "ክፍል የተዘጋጅቷል — እባክዎ ደግሞ ይግቡ",
+    "scanAgain": "እንደገና ይቃኙ",
+    "noScans": "ምርመራዎች አልተቀረውም። ተጨማሪ ይግዙ።",
+    "sessionExpired": "ክፍለ ጊዜው አልቆሰለም — እባክዎን ደግሞ ይግቡ",
     "tipsTitle": "📸 እንዴት ደስታ ያለው የደርስ ፎቶ እንደሚውል",
     "tip1": "አንድ የሚያስተዋወቅ ዕፀት ይምረጡ – በነጭ ወርቅ ላይ ይቆሙ",
     "tip2": "ስልኩን 20–30 ሴንቲሜትር ላይ ይውሰዱ",
@@ -348,5 +348,31 @@
       "saved": "ተቀምጧል",
       "reset": "ሁሉንም ዳግም አስጀምር"
     }
+  },
+  "crops": {
+    "title": "የተክል በሽታ",
+    "subtitle": "ለምርትዎ ጥበቃ",
+    "maize": "ተርቢ",
+    "rice": "ሩዝ",
+    "millet": "ሰርግ",
+    "cassava": "ካሳቫ",
+    "apple": "አፕል",
+    "coffee": "ቡና"
+  },
+  "pests": {
+    "title": "የተክል ተንሰርግ",
+    "subtitle": "ማንኛውንም ተንሰርግ ይለይ",
+    "allPests": "ሁሉም ተንሰርግ"
+  },
+  "soil": {
+    "title": "የመሬት ትንተና",
+    "subtitle": "መሬትዎን ይታወቁ",
+    "fieldSample": "የመሬት ናሙና"
+  },
+  "livestock": {
+    "title": "የእንስሳት ጤና",
+    "subtitle": "የቡድንዎን ጥበቃ",
+    "cattle": "ላም",
+    "poultry": "ዶሮ"
   }
 }

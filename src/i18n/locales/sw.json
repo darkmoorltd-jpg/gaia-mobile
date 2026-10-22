@@ -104,14 +104,14 @@
     "uploadPhoto": "Pakia picha",
     "analyzing": "Inachambua…",
     "result": "Matokeo",
-    "confidence": "Uaminifu",
+    "confidence": "Uhakika",
     "healthy": "Afya",
-    "diseased": "Mdalaka imegunduliwa",
+    "diseased": "Ugonjwa umegunduliwa",
     "treatment": "Mwongozo wa matibabu",
     "save": "Hifadhi matokeo",
-    "scanAgain": "Tathmini tena",
-    "noScans": "Hakuna scans zilizobaki. Tafadhali kununua zaidi.",
-    "sessionExpired": "Seansi imeisha — tafadhali ingia tena",
+    "scanAgain": "Changanua tena",
+    "noScans": "Hakuna uchunguzi uliobaki. Tafadhali nunua zaidi.",
+    "sessionExpired": "Kikao kimeisha — tafadhali ingia tena",
     "tipsTitle": "📸 Jinsi ya kuchukua picha nzuri ya hoja",
     "tip1": "Chagua hoja moja inaonyesha dalili – iweke kwenye karatasi nyeupe.",
     "tip2": "Weka simu 20–30 cm juu.",
@@ -348,5 +348,31 @@
       "saved": "Imehifadhiwa",
       "reset": "WASHAJI KILA KITU"
     }
+  },
+  "crops": {
+    "title": "UGUO WA MAZAO",
+    "subtitle": "Linda mavuno yako",
+    "maize": "Mahindi",
+    "rice": "Mchele",
+    "millet": "Mtama",
+    "cassava": "Kikombe",
+    "apple": "Tofaa",
+    "coffee": "Kahawa"
+  },
+  "pests": {
+    "title": "UTAMBULISHO WA VUNYU",
+    "subtitle": "Tambua mtego wowote",
+    "allPests": "Vunyua vyote"
+  },
+  "soil": {
+    "title": "UCHAMBUZI WA UDUTI",
+    "subtitle": "Jua uduti wako",
+    "fieldSample": "Kifungu cha shamba"
+  },
+  "livestock": {
+    "title": "AFYA YA MIFUGO",
+    "subtitle": "Linda kundi lako",
+    "cattle": "Ng'ombe",
+    "poultry": "Kuku"
   }
 }

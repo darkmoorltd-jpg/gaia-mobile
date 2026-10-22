@@ -99,10 +99,10 @@
     "noTip": "Henüz ipucu yok"
   },
   "diagnose": {
-    "selectCrop": "Bitki seç",
+    "selectCrop": "Ürün seç",
     "takePhoto": "Fotoğraf çek",
     "uploadPhoto": "Fotoğraf yükle",
-    "analyzing": "Analiz ediliyor…",
+    "analyzing": "Analiz yapılıyor…",
     "result": "Sonuç",
     "confidence": "Güven",
     "healthy": "Sağlıklı",
@@ -110,7 +110,7 @@
     "treatment": "Tedavi rehberi",
     "save": "Sonucu kaydet",
     "scanAgain": "Tekrar tara",
-    "noScans": "Kalan tarama yok. Lütfen daha fazla satın alın.",
+    "noScans": "Tarama hakkı kalmadı. Lütfen daha fazla satın alın.",
     "sessionExpired": "Oturum süresi doldu — lütfen tekrar giriş yapın",
     "tipsTitle": "📸 İyi bir yaprak fotoğrafı nasıl çekilir",
     "tip1": "Belirtileri gösteren tek bir yaprak seçin – beyaz kağıda yerleştirin.",
@@ -348,5 +348,31 @@
       "saved": "Kaydedildi",
       "reset": "HEPSİNİ SIFIRLA"
     }
+  },
+  "crops": {
+    "title": "ÜRÜN HASTALIĞI",
+    "subtitle": "Hasadınızı koruyun",
+    "maize": "Mısır",
+    "rice": "Pirinç",
+    "millet": "Dar buğday",
+    "cassava": "Manyok",
+    "apple": "Elma",
+    "coffee": "Kahve"
+  },
+  "pests": {
+    "title": "HAŞERE TESPİTİ",
+    "subtitle": "Herhangi bir haşere belirleyin",
+    "allPests": "Tüm Haşereler"
+  },
+  "soil": {
+    "title": "TOPRAK ANALİZİ",
+    "subtitle": "Toprağınızı tanıyın",
+    "fieldSample": "Saha Örneği"
+  },
+  "livestock": {
+    "title": "Hayvan Sağlığı",
+    "subtitle": "Sürünüzü koruyun",
+    "cattle": "Sığır",
+    "poultry": "Kanatlı hayvanlar"
   }
 }

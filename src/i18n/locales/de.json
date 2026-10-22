@@ -111,7 +111,7 @@
     "save": "Ergebnis speichern",
     "scanAgain": "Erneut scannen",
     "noScans": "Keine Scans mehr. Bitte kaufen Sie mehr.",
-    "sessionExpired": "Sitzung abgelaufen — bitte erneut anmelden",
+    "sessionExpired": "Sitzung abgelaufen — bitte erneut einloggen",
     "tipsTitle": "📸 Wie man ein gutes Blattfoto macht",
     "tip1": "Wählen Sie ein einzelnes Blatt mit Symptomen – legen Sie es auf weißen Papier.",
     "tip2": "Halten Sie das Telefon 20–30 cm darüber.",
@@ -348,5 +348,31 @@
       "saved": "Gespeichert",
       "reset": "ALLE ZURÜCKSETZEN"
     }
+  },
+  "crops": {
+    "title": "PFLANZENKRANKHEIT",
+    "subtitle": "Schützen Sie Ihre Ernte",
+    "maize": "Mais",
+    "rice": "Reis",
+    "millet": "Hirse",
+    "cassava": "Maniok",
+    "apple": "Apfel",
+    "coffee": "Kaffee"
+  },
+  "pests": {
+    "title": "SCHÄDLINGSERKENNUNG",
+    "subtitle": "Identifizieren Sie jeden Schädling",
+    "allPests": "Alle Schädlinge"
+  },
+  "soil": {
+    "title": "BODENANALYSE",
+    "subtitle": "Kennen Sie Ihren Boden",
+    "fieldSample": "Feldprobe"
+  },
+  "livestock": {
+    "title": "VIEHZUCHT GESUNDHEIT",
+    "subtitle": "Schützen Sie Ihre Herde",
+    "cattle": "Rinder",
+    "poultry": "Geflügel"
   }
 }
