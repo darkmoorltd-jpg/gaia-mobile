@@ -15,6 +15,7 @@ import { MarkdownOutput } from '../../src/components/MarkdownOutput';
 import { speak as speakSmart } from '../../src/utils/voice';
 import { LANGUAGES } from '../../src/utils/voice';
 import * as Clipboard from 'expo-clipboard';
+import { resolveLanguage } from '../../src/utils/language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -273,7 +274,8 @@ function Voice() {
       const r = await fetch(API_BASE + '/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-        body: JSON.stringify({ message: question, language: voiceLang, history }),
+        body: JSON.stringify({
+        language: resolveLanguage(question || ''), message: question, language: voiceLang, history }),
       });
       if (!r.ok) return '';
       const d = await r.json();

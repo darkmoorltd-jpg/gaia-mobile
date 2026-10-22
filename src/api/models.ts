@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { modelFor } from '../store/settings';
 import { saveScan } from '../utils/saveScan';
+import { resolveLanguage } from '../utils/language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
@@ -50,7 +51,7 @@ export async function diagnose(
       fieldName: 'image',
       mimeType: 'image/jpeg',
       headers: { Authorization: 'Bearer ' + token },
-      parameters: { model: modelFor(modelKey) },
+      parameters: { language: resolveLanguage(),  model: modelFor(modelKey) },
     });
     if (res.status < 200 || res.status >= 300) {
       let msg = 'Diagnosis failed';

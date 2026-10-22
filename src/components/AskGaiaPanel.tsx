@@ -10,6 +10,7 @@ import { useTheme, typography, spacing, radius } from '../theme';
 import { useAuth } from '../store/auth';
 import { supabase } from '../api/supabase';
 import { MarkdownOutput } from './MarkdownOutput';
+import { resolveLanguage } from '../utils/language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const LISTEN_WINDOW_MS = 6500;
@@ -103,7 +104,8 @@ export default function AskGaiaPanel({ disease, cropLabel, contextType, confiden
       const r = await fetch(`${API_BASE}/agronomist/text`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, history }),
+        body: JSON.stringify({
+        language: resolveLanguage(question || ''), question: q, history }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();

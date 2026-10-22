@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../api/supabase';
+import { resolveLanguage } from './language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 

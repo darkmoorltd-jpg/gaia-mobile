@@ -3,6 +3,7 @@ import { AudioModule, setAudioModeAsync, RecordingPresets } from 'expo-audio';
 import * as Speech from 'expo-speech';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../api/supabase';
+import { resolveLanguage, languageName } from './language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
@@ -188,7 +189,8 @@ export async function askGaia(message: string, language: string, history: ChatTu
   const res = await fetch(API_BASE + '/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-    body: JSON.stringify({ message, language, history: history.slice(-8) }),
+    body: JSON.stringify({
+      language: resolveLanguage(message), message, language, history: history.slice(-8) }),
   });
   if (!res.ok) throw new Error('Chat failed: ' + res.status);
   const d = await res.json();

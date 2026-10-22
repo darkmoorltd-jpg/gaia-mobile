@@ -21,6 +21,7 @@ import { shareToWhatsApp, sendSmsReport } from '../src/utils/shareHelpers';
 import { t as tr, cropLabel as trCrop, detectLangFromText, Lang } from '../src/utils/cropTranslations';
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
+import { resolveLanguage } from '../src/utils/language';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const FRAME_INTERVAL_MS = 1500;
@@ -462,7 +463,8 @@ export default function VideoScan() {
         const r = await fetch(`${API_BASE}/agronomist/text`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: q, history: [] }),
+          body: JSON.stringify({
+        language: resolveLanguage(question || ''), question: q, history: [] }),
         });
         if (r.ok) {
           const d = await r.json();
