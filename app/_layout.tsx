@@ -3,13 +3,13 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
 import { useLocale } from '../src/store/locale';
 import { loadStoredLanguage } from '../src/i18n';
-import { initI18n, loadLanguage } from '../src/utils/i18n';
 import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { registerPushToken as registerExpoToken, subscribeToNotifications, triggerOutbreakScan } from '../src/utils/notifications';
@@ -60,7 +60,6 @@ function RootNavigator() {
         try { await useSettings.getState().load(); } catch {}
         try { await useLocale.getState().load(); } catch {}
         try { await loadStoredLanguage(); } catch {}
-        try { await initI18n(useLocale.getState().language); } catch {}
 
         const { data } = await supabase.auth.getSession();
         if (mounted) {
@@ -105,10 +104,7 @@ function RootNavigator() {
     return () => clearTimeout(t);
   }, []);
 
-  const currentLang = useLocale((s) => s.language);
-  useEffect(() => {
-    loadLanguage(currentLang).catch(() => {});
-  }, [currentLang]);
+  // language switch handled inside setAppLanguage
 
   // Poll remote config every 60s so admin toggles apply without app restart
   useEffect(() => {

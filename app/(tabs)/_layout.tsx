@@ -45,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t('home').toUpperCase(),
+          title: t('tabs.home').toUpperCase(),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="H" focused={focused} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="crops"
         options={{
-          title: t('crops').toUpperCase(),
+          title: t('tabs.crops').toUpperCase(),
           href: flagOn('crops') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="C" focused={focused} color={color} />
@@ -64,7 +64,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="pests"
         options={{
-          title: t('pests').toUpperCase(),
+          title: t('tabs.pests').toUpperCase(),
           href: flagOn('pests') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="P" focused={focused} color={color} />
@@ -74,7 +74,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="soil"
         options={{
-          title: t('soil').toUpperCase(),
+          title: t('tabs.soil').toUpperCase(),
           href: flagOn('soil') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="S" focused={focused} color={color} />
@@ -84,7 +84,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="livestock"
         options={{
-          title: t('livestock').toUpperCase(),
+          title: t('tabs.livestock').toUpperCase(),
           href: flagOn('livestock') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="L" focused={focused} color={color} />
@@ -94,9 +94,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: t('chat').toUpperCase(),
+          title: t('tabs.chat').toUpperCase(),
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="M" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="voice"
+        options={{
+          title: (t('tabs.voice') || 'VOICE').toUpperCase(),
+          href: flagOn('voice') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="V" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: (t('tabs.profile') || 'PROFILE').toUpperCase(),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="U" focused={focused} color={color} />
           ),
         }}
       />
