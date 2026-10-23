@@ -467,10 +467,10 @@ function Voice() {
           ))}
         </View>
       <View style={styles.tabBar}>
-        {(['text', 'voice', 'history'] as Tab[]).map((t) => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnActive]}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'text' ? 'Text' : t === 'voice' ? 'Voice' : 'History'}
+        {(['text', 'voice', 'history'] as Tab[]).map((tabKey) => (
+          <Pressable key={t} onPress={() => setTab(tabKey)} style={[styles.tabBtn, tab === tabKey && styles.tabBtnActive]}>
+            <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
+              {tabKey === 'text' ? 'Text' : tabKey === 'voice' ? 'Voice' : 'History'}
             </Text>
           </Pressable>
         ))}
