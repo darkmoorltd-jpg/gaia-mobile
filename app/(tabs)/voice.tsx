@@ -1,4 +1,3 @@
-import { gateScreen } from '../../src/components/FeatureGate';
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
@@ -17,6 +16,26 @@ import { LANGUAGES } from '../../src/utils/voice';
 import * as Clipboard from 'expo-clipboard';
 import { resolveLanguage } from '../../src/utils/language';
 import { useTranslation } from 'react-i18next';
+
+import React from 'react';
+class VoiceErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: any) { console.error('[voice] crash:', error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, padding: 20, backgroundColor: '#0a0e1a', justifyContent: 'center' }}>
+          <Text style={{ color: '#ff3b5c', fontSize: 18, fontWeight: '900', marginBottom: 10 }}>Voice crashed</Text>
+          <Text style={{ color: '#fff', fontSize: 12, marginBottom: 10, fontFamily: 'monospace' }}>{String(this.state.error)}</Text>
+          <Text style={{ color: '#aaa', fontSize: 9, fontFamily: 'monospace' }}>{(this.state.error?.stack || '').slice(0, 800)}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const MAX_HISTORY_SENT = 40;
@@ -741,4 +760,7 @@ const createStyles = (palette: any) => StyleSheet.create({
   memoryVal: { ...typography.body, color: palette.text, marginTop: 4 },
 });
 
-export default gateScreen('voice', Voice);
+function VoiceWrapped(props: any) {
+  return <VoiceErrorBoundary><Voice {...props} /></VoiceErrorBoundary>;
+}
+export default VoiceWrapped;
