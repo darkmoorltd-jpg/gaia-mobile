@@ -56,3 +56,4 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '900', marginBottom: 10 },
   sub: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
 });
+export default FeatureGate;
