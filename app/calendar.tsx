@@ -56,7 +56,7 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
   postharvest:{ icon: 'S', color: '#79function Calendar(', color: '#689f38' },
 };
 
-export default function Calendar() {
+function Calendar() {
   const { palette } = useTheme();
   const { user } = useAuth();
   const router = useRouter();

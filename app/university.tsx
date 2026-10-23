@@ -31,7 +31,7 @@ const LANGUAGES = [
   { code: 'yfunction University(g', label: 'Igbo' },
 ];
 
-export default function University() {
+function University() {
   const { palette } = useTheme();
   const { user } = useAuth();
   const router = useRouter();

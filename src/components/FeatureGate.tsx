@@ -8,7 +8,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-export default function FeatureGate({ flag, children }: Props) {
+function FeatureGate({ flag, children }: Props) {
   const flags = useSettings((s) => s.flags);
   const loaded = useSettings((s) => s.loaded);
   const { palette } = useTheme();
