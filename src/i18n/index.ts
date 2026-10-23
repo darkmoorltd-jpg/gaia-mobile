@@ -81,3 +81,17 @@ export async function loadStoredLanguage() {
 }
 
 export default i18n;
+
+// Suppress i18next's console.error messages in dev (they aren't fatal)
+// (React Native dev mode shows console.error as a blocking red LogBox)
+if (__DEV__) {
+  const _origErr = console.error;
+  console.error = (...args: any[]) => {
+    const first = String(args[0] ?? '');
+    if (first.includes('i18next')) {
+      console.warn('[i18n]', ...args.slice(1));
+      return;
+    }
+    _origErr.apply(console, args as any);
+  };
+}
