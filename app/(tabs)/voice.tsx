@@ -468,13 +468,15 @@ function Voice() {
           ))}
         </View>
       <View style={styles.tabBar}>
-        {(['text', 'voice', 'history'] as Tab[]).map((tabKey) => (
-          <Pressable key={t} onPress={() => setTab(tabKey)} style={[styles.tabBtn, tab === tabKey && styles.tabBtnActive]}>
-            <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
-              {tabKey === 'text' ? t('voice.tabText') : tabKey === 'voice' ? t('voice.tabVoice') : t('voice.tabHistory')}
-            </Text>
-          </Pressable>
-        ))}
+        <Pressable onPress={() => setTab('text')} style={[styles.tabBtn, tab === 'text' && styles.tabBtnActive]}>
+          <Text style={[styles.tabText, tab === 'text' && styles.tabTextActive]}>{t('voice.tabText')}</Text>
+        </Pressable>
+        <Pressable onPress={() => setTab('voice')} style={[styles.tabBtn, tab === 'voice' && styles.tabBtnActive]}>
+          <Text style={[styles.tabText, tab === 'voice' && styles.tabTextActive]}>{t('voice.tabVoice')}</Text>
+        </Pressable>
+        <Pressable onPress={() => setTab('history')} style={[styles.tabBtn, tab === 'history' && styles.tabBtnActive]}>
+          <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>{t('voice.tabHistory')}</Text>
+        </Pressable>
       </View>
 
       {tab === 'history' ? (
