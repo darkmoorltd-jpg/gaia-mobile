@@ -5,6 +5,8 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const NGN = (n: any) => '₦' + Number(n || 0).toLocaleString();
 
 function fmtDate(s?: string) {
@@ -19,6 +21,7 @@ export default function AdminDashboard() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [kpi, setKpi] = useState<any | null>(null);

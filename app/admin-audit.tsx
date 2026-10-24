@@ -5,11 +5,14 @@ import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 export default function AdminAudit() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s) => s.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<'audit' | 'logins'>('audit');

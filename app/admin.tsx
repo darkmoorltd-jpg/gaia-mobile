@@ -3,7 +3,12 @@ import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 export default function Admin() {
+
+  const user = useAuth((s: any) => s.user);
+  const isAdmin = ((user?.email || '').toLowerCase()) === ADMIN_EMAIL;
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();

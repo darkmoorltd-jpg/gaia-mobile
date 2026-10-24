@@ -8,6 +8,8 @@ import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 const LANG_TARGETS = [
@@ -20,6 +22,7 @@ const LANG_TARGETS = [
 export default function AdminCourses() {
   const { palette } = useTheme();
   const { user } = useAuth();
+
   const router = useRouter();
   const styles = createStyles(palette);
   const { isAdmin, isSuperAdmin } = useIsAdmin();

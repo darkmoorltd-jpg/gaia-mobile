@@ -4,12 +4,15 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import axios from 'axios';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 export default function AdminModels() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
+  const isAdmin = ((user?.email || '').toLowerCase()) === ADMIN_EMAIL;
   const styles = createStyles(palette);
   const [models, setModels] = useState<string[]>([]);
   const [healthy, setHealthy] = useState(false);

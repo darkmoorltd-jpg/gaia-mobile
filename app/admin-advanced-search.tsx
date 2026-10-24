@@ -5,6 +5,8 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 function fmt(s?: string) {
   if (!s) return '—';
   try { return new Date(s).toLocaleString(); } catch { return String(s); }
@@ -15,6 +17,7 @@ export default function AdminAdvancedSearch() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [query, setQuery] = useState('');

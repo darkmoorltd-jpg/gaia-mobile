@@ -9,6 +9,8 @@ import Dropdown from '../src/components/Dropdown';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
+
 const API = 'https://gaia-api-xuly.onrender.com';
 const money = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
@@ -19,6 +21,7 @@ export default function AdminAgents() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<Tab>('agents');
@@ -42,7 +45,6 @@ export default function AdminAgents() {
     setBusy(false);
     setRef(false);
   }, [isAdmin]);
-
 
   const approveApp = (ap: any) => {
     Alert.alert('Approve agent?', ap.full_name + ' (' + ap.email + ')', [

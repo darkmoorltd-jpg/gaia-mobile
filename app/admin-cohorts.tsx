@@ -8,6 +8,8 @@ import { useTheme, typography, spacing, radius } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 function fmt(iso?: string) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -16,6 +18,7 @@ function fmt(iso?: string) {
 export default function AdminCohorts() {
   const { palette } = useTheme();
   const { user } = useAuth();
+
   const router = useRouter();
   const styles = createStyles(palette);
   const { isAdmin, isSuperAdmin } = useIsAdmin();

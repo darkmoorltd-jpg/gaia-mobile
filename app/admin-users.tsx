@@ -8,6 +8,8 @@ import { useTheme, spacing, radius, typography } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const ONLINE_MS = 120_000;
 
 function isOnline(lastSeen: string | null) {
@@ -26,6 +28,7 @@ export default function AdminUsers() {
   const router = useRouter();
   const { palette } = useTheme();
   const user = useAuth((s) => s.user);
+
   const styles = createStyles(palette);
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 

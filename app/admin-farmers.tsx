@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const REASONS = [
   'Blurry or unclear',
   'Cut off / incomplete',
@@ -19,6 +21,7 @@ export default function AdminFarmers() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
+  const isAdmin = ((user?.email || '').toLowerCase()) === ADMIN_EMAIL;
   const styles = createStyles(palette);
   const [rows, setRows] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);

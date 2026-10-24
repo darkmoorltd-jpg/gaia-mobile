@@ -5,6 +5,8 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const API = 'https://gaia-api-xuly.onrender.com';
 
 interface Row {
@@ -20,6 +22,7 @@ export default function AdminProvisionWallets() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [rows, setRows] = useState<Row[]>([]);

@@ -6,6 +6,8 @@ import { useAuth } from '../src/store/auth';
 import { useIsAdmin } from '../src/utils/admin';
 import { supabase } from '../src/api/supabase';
 import { useSettings } from '../src/store/settings';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const FLAG_KEYS = ['crops','pests','soil','livestock','marketplace','insurance','chat','voice','video','satellite','university','calendar','wallet','badges','loans'];
 
 export default function AdminConfig() {
@@ -13,6 +15,7 @@ export default function AdminConfig() {
   const { palette } = useTheme();
   const s = createStyles(palette);
   const user = useAuth((x) => x.user);
+
   const { isAdmin, isSuperAdmin } = useIsAdmin();
 
   const [tab, setTab] = useState<'flags' | 'models'>('flags');
