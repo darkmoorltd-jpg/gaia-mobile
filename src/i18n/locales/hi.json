@@ -71,7 +71,9 @@
     "pests": "कीट",
     "soil": "मिट्टी",
     "livestock": "पशुधन",
-    "chat": "चैट"
+    "chat": "चैट",
+    "voice": "आवाज़",
+    "profile": "प्रोफ़ाइल"
   },
   "agentTabs": {
     "home": "होम",
@@ -120,7 +122,26 @@
     "noModel": "कोई प्रशिक्षित मॉडल नहीं – डेमो पूर्वानुमान का उपयोग कर रहा है।",
     "topResult": "शीर्ष परिणाम",
     "error": "निदान त्रुटि",
-    "back": "← फसलों पर वापस जाएँ"
+    "back": "← फसलों पर वापस जाएँ",
+    "uploadLeafImages": "पत्तों की तस्वीरें अपलोड करें",
+    "treatmentGuide": "पूर्ण उपचार गाइड",
+    "listenTreatment": "उपचार गाइड सुनें",
+    "backToCrops": "← फसलों पर वापस जाएँ",
+    "selectedCrop": "चयनित फसल",
+    "noScansBuyMore": "कोई स्कैन शेष नहीं। जारी रखने के लिए और खरीदें।",
+    "diagnosisFailed": "निदान विफल रहा",
+    "cameraPermission": "कैमरा अनुमति आवश्यक है",
+    "captureFailed": "कैप्चर विफल रहा",
+    "unknown": "अज्ञात",
+    "helpful": "उपयोगी",
+    "notHelpful": "अनुपयोगी",
+    "thanksFeedback": "धन्यवाद!",
+    "willImprove": "हम बेहतर करेंगे।",
+    "danger": "खतरा",
+    "warning": "चेतावनी",
+    "guideLoading": "🧠 GAIA आपकी पूर्ण उपचार गाइड तैयार कर रहा है…",
+    "voiceUnavailable": "आवाज़ उपलब्ध नहीं है",
+    "generatingVoice": "🔊 आवाज़ जनरेट हो रही है…"
   },
   "voice": {
     "title": "वॉयस एग्रोनॉमिस्ट",
@@ -199,7 +220,8 @@
     "admin": "एडमिन कंसोल",
     "version": "गैया मोबाइल v1.0.0",
     "adminTitle": "नियंत्रण पैनल",
-    "adminOverview": "समीक्षा"
+    "adminOverview": "समीक्षा",
+    "chat": "चैट"
   },
   "payments": {
     "buyScans": "स्कैन खरीदें",

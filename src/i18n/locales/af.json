@@ -71,7 +71,9 @@
     "pests": "PLAGEN",
     "soil": "BODE",
     "livestock": "DIEREN",
-    "chat": "KONVERSASIE"
+    "chat": "KONVERSASIE",
+    "voice": "STEM",
+    "profile": "PROFIEL"
   },
   "agentTabs": {
     "home": "HOË",
@@ -120,7 +122,26 @@
     "noModel": "Geen opgelei model – gebruik demo-voorspiele.",
     "topResult": "Topresultaat",
     "error": "Diagnosefout",
-    "back": "← Terug na gewasse"
+    "back": "← Terug na gewasse",
+    "uploadLeafImages": "Laai blarebeelde op",
+    "treatmentGuide": "Volledige Behandelinggids",
+    "listenTreatment": "Luister na Behandelinggids",
+    "backToCrops": "← Terug na Oes",
+    "selectedCrop": "Gekose Oes",
+    "noScansBuyMore": "Geen skannings oor. Koop meer om voort te gaan.",
+    "diagnosisFailed": "Diagnose het misluk",
+    "cameraPermission": "Kamerpermissie vereis",
+    "captureFailed": "Vaslegging het misluk",
+    "unknown": "Onbekend",
+    "helpful": "Nuttig",
+    "notHelpful": "Nietig",
+    "thanksFeedback": "Dankie!",
+    "willImprove": "Ons sal verbeter.",
+    "danger": "Gevaar",
+    "warning": "Waarskuwing",
+    "guideLoading": "🧠 GAIA berei jou volledige behandelinggids voor…",
+    "voiceUnavailable": "Stem onbeskikbaar",
+    "generatingVoice": "🔊 Stem word gegenereer…"
   },
   "voice": {
     "title": "Stem Agronomist",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrole Paneel",
-    "adminOverview": "Oorsig"
+    "adminOverview": "Oorsig",
+    "chat": "Klets"
   },
   "payments": {
     "buyScans": "Koop skande",

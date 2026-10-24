@@ -71,7 +71,9 @@
     "pests": "PARASSITI",
     "soil": "SOIL",
     "livestock": "BESTIA",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOCE",
+    "profile": "PROFILO"
   },
   "agentTabs": {
     "home": "HOME",
@@ -120,7 +122,26 @@
     "noModel": "Nessun modello addestrato – utilizzo previsioni demo.",
     "topResult": "Risultato principale",
     "error": "Errore di diagnosi",
-    "back": "← Torna alle colture"
+    "back": "← Torna alle colture",
+    "uploadLeafImages": "Carica immagini delle foglie",
+    "treatmentGuide": "Guida completa di trattamento",
+    "listenTreatment": "Ascolta la Guida di Trattamento",
+    "backToCrops": "← Torna ai raccolti",
+    "selectedCrop": "Cultivo Selezionato",
+    "noScansBuyMore": "Nessuna scansione rimanente. Acquista di più per continuare.",
+    "diagnosisFailed": "Diagnosi fallita",
+    "cameraPermission": "Permesso della fotocamera richiesto",
+    "captureFailed": "Acquisizione fallita",
+    "unknown": "Sconosciuto",
+    "helpful": "Utile",
+    "notHelpful": "Non",
+    "thanksFeedback": "Grazie!",
+    "willImprove": "Miglioreremo.",
+    "danger": "Pericolo",
+    "warning": "Avvertimento",
+    "guideLoading": "🧠 GAIA sta preparando la tua guida completa di trattamento…",
+    "voiceUnavailable": "Voce non disponibile",
+    "generatingVoice": "🔊 Generazione della voce…"
   },
   "voice": {
     "title": "Agronomo Vocal",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Pannello di controllo",
-    "adminOverview": "Panoramica"
+    "adminOverview": "Panoramica",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Acquista scansioni",

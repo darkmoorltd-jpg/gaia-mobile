@@ -71,7 +71,9 @@
     "pests": "PLAGAS",
     "soil": "SOLO",
     "livestock": "GANADO",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOZ",
+    "profile": "PERFIL"
   },
   "agentTabs": {
     "home": "INICIO",
@@ -120,7 +122,26 @@
     "noModel": "No hay modelo entrenado – usando predicciones de demostración.",
     "topResult": "Resultado principal",
     "error": "Error de diagnóstico",
-    "back": "← Volver a los cultivos"
+    "back": "← Volver a los cultivos",
+    "uploadLeafImages": "Subir imágenes de hojas",
+    "treatmentGuide": "Guía de tratamiento completa",
+    "listenTreatment": "Escuchar la guía de tratamiento",
+    "backToCrops": "← Volver a cultivos",
+    "selectedCrop": "Cultivo seleccionado",
+    "noScansBuyMore": "No quedan escaneos. Compra más para continuar.",
+    "diagnosisFailed": "El diagnóstico falló",
+    "cameraPermission": "Se requiere permiso de cámara",
+    "captureFailed": "Error al capturar",
+    "unknown": "Desconocido",
+    "helpful": "Útil",
+    "notHelpful": "No útil",
+    "thanksFeedback": "¡Gracias!",
+    "willImprove": "Mejoraremos.",
+    "danger": "Peligro",
+    "warning": "Advertencia",
+    "guideLoading": "🧠 GAIA está preparando tu guía de tratamiento completa…",
+    "voiceUnavailable": "Voz no disponible",
+    "generatingVoice": "🔊 Generando voz…"
   },
   "voice": {
     "title": "Agrónomo de Voz",
@@ -199,7 +220,8 @@
     "admin": "CONSOLAS DE ADMINISTRACIÓN",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Panel de Control",
-    "adminOverview": "Resumen"
+    "adminOverview": "Resumen",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Comprar escaneos",

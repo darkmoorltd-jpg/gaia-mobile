@@ -71,7 +71,9 @@
     "pests": "IZINHLE",
     "soil": "UMTHATHO",
     "livestock": "IZINHLA",
-    "chat": "UHLANGANO"
+    "chat": "UHLANGANO",
+    "voice": "IZWI",
+    "profile": "IPROFAYELA"
   },
   "agentTabs": {
     "home": "UMSEBENZI",
@@ -120,7 +122,26 @@
     "noModel": "Akukho umodeli oqeqeshiwe – sisebenzisa izibikezelo ze-demo",
     "topResult": "Umphumela ophambili",
     "error": "Iphutha lokuhlola",
-    "back": "← Emuva kuzo zonke"
+    "back": "← Emuva kuzo zonke",
+    "uploadLeafImages": "Layisha izithombe zamahlamvu",
+    "treatmentGuide": "Umhlahlandlela Ophelele Wokwelashwa",
+    "listenTreatment": "Lalela Umhlahlandlela Wokwelashwa",
+    "backToCrops": "← Emuva Kwemifino",
+    "selectedCrop": "Isivuno Esikhethiwe",
+    "noScansBuyMore": "Azikho izithombe ezisele. Thenga eziningi ukuze uqhubeke.",
+    "diagnosisFailed": "Ukuxilongwa kuhlulekile",
+    "cameraPermission": "Imvume yekhamera iyadingeka",
+    "captureFailed": "Ukuthwebula kuhlulekile",
+    "unknown": "Okungaziwa",
+    "helpful": "Usizo",
+    "notHelpful": "Cha",
+    "thanksFeedback": "Ngiyabonga!",
+    "willImprove": "Sizokwenza ngcono.",
+    "danger": "Ingozi",
+    "warning": "Isixwayiso",
+    "guideLoading": "🧠 GAIA ilungiselela umhlahlandlela wakho ophelele wokwelashwa…",
+    "voiceUnavailable": "Izwi alitholakali",
+    "generatingVoice": "🔊 Kwenza imizwa…"
   },
   "voice": {
     "title": "Umhloli Wokukhuluma",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "I-Panel Yokulawula",
-    "adminOverview": "Umbukiso"
+    "adminOverview": "Umbukiso",
+    "chat": "Xoxisana"
   },
   "payments": {
     "buyScans": "Thenga izinsuku",

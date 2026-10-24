@@ -71,7 +71,9 @@
     "pests": "ỌRỤ NKE NKWU",
     "soil": "ỌRỤ",
     "livestock": "ANỤMANỤ",
-    "chat": "NKE NKWU"
+    "chat": "NKE NKWU",
+    "voice": "ODU",
+    "profile": "PROFAAYILU"
   },
   "agentTabs": {
     "home": "ỤLỌ",
@@ -120,7 +122,26 @@
     "noModel": "Enweghị model e zụrụ – eji atụmanya demo.",
     "topResult": "Nsonaazụ kacha elu",
     "error": "Nnyocha njehie",
-    "back": "← Laghachi na mkpụrụ"
+    "back": "← Laghachi na mkpụrụ",
+    "uploadLeafImages": "Bugote foto nke akwụkwọ osisi",
+    "treatmentGuide": "Ntụziaka Mmekọrịta zuru ezu",
+    "listenTreatment": "Gee ntụziaka mmekọrịta",
+    "backToCrops": "← Laghachi na Ngwaahịa",
+    "selectedCrop": "Ngwaahịa a họọrọ",
+    "noScansBuyMore": "Enweghị ọdụ ọzọ. Zụta ọzọ iji gaa n'ihu.",
+    "diagnosisFailed": "Nchọpụta agbajiri",
+    "cameraPermission": "Achọrọ ikike kamera",
+    "captureFailed": "Nchịkọta agbajiri",
+    "unknown": "A maaghị",
+    "helpful": "Enyere aka",
+    "notHelpful": "Enweghị enyemaka",
+    "thanksFeedback": "Na-atụ ọrụ!",
+    "willImprove": "Anyị ga-eme ka ọ dị mma.",
+    "danger": "Ihe ize ndụ",
+    "warning": "Ntụgharị",
+    "guideLoading": "🧠 GAIA na-eme ka ntụziaka mmekọrịta gị zuru ezu…",
+    "voiceUnavailable": "Odu adịghị",
+    "generatingVoice": "🔊 Na-emepụta odu…"
   },
   "voice": {
     "title": "Onye Ncheta Ọrụ Ugbo",
@@ -199,7 +220,8 @@
     "admin": "CONSOLE ADMIN",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Panel Nchịkwa",
-    "adminOverview": "Nchịkọta"
+    "adminOverview": "Nchịkọta",
+    "chat": "Kwuo okwu"
   },
   "payments": {
     "buyScans": "Zụta nnyocha",

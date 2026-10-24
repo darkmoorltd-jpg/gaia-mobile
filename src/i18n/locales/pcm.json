@@ -71,7 +71,9 @@
     "pests": "PESTS",
     "soil": "SOIL",
     "livestock": "LIVESTOCK",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOICE",
+    "profile": "PROFILE"
   },
   "agentTabs": {
     "home": "HOME",
@@ -120,7 +122,26 @@
     "noModel": "No trained model – using demo predictions.",
     "topResult": "Top result",
     "error": "Diagnosis error",
-    "back": "← Back to crops"
+    "back": "← Back to crops",
+    "uploadLeafImages": "Upload leaf pictures",
+    "treatmentGuide": "Full Treatment Guide",
+    "listenTreatment": "Listen to Treatment Guide",
+    "backToCrops": "← Back to Crops",
+    "selectedCrop": "Selected Crop",
+    "noScansBuyMore": "No scans left. Buy more to continue.",
+    "diagnosisFailed": "Diagnosis fail",
+    "cameraPermission": "Camera permission required",
+    "captureFailed": "Capture fail",
+    "unknown": "Unknown",
+    "helpful": "Helpful",
+    "notHelpful": "No",
+    "thanksFeedback": "Thanks!",
+    "willImprove": "We go improve.",
+    "danger": "Danger",
+    "warning": "Warning",
+    "guideLoading": "🧠 GAIA dey prepare your full treatment guide…",
+    "voiceUnavailable": "Voice no dey",
+    "generatingVoice": "🔊 Generating voice…"
   },
   "voice": {
     "title": "Voice Agronomist",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Control Panel",
-    "adminOverview": "Overview"
+    "adminOverview": "Overview",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Buy scans",
@@ -374,5 +396,20 @@
     "subtitle": "Make sure your herd safe",
     "cattle": "Cattle",
     "poultry": "Poultry"
+  },
+  "journal": {
+    "title": "Farm Journal",
+    "newEntry": "New Entry",
+    "editEntry": "Edit Entry",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "history": {
+    "title": "Scan History",
+    "noScans": "No scans yet"
+  },
+  "help": {
+    "title": "Help & Support",
+    "noTickets": "No tickets yet"
   }
 }

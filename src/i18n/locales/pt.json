@@ -71,7 +71,9 @@
     "pests": "PRAGAS",
     "soil": "SOLO",
     "livestock": "GADO",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOZ",
+    "profile": "PERFIL"
   },
   "agentTabs": {
     "home": "INÍCIO",
@@ -120,7 +122,26 @@
     "noModel": "Nenhum modelo treinado – usando previsões de demonstração.",
     "topResult": "Resultado principal",
     "error": "Erro de diagnóstico",
-    "back": "← Voltar às culturas"
+    "back": "← Voltar às culturas",
+    "uploadLeafImages": "Carregar imagens de folhas",
+    "treatmentGuide": "Guia Completo de Tratamento",
+    "listenTreatment": "Ouvir o Guia de Tratamento",
+    "backToCrops": "← Voltar às Culturas",
+    "selectedCrop": "Cultivo Selecionado",
+    "noScansBuyMore": "Não há mais varreduras. Compre mais para continuar.",
+    "diagnosisFailed": "Diagnóstico falhou",
+    "cameraPermission": "Permissão de câmera necessária",
+    "captureFailed": "Captura falhou",
+    "unknown": "Desconhecido",
+    "helpful": "Útil",
+    "notHelpful": "Não",
+    "thanksFeedback": "Obrigado!",
+    "willImprove": "Vamos melhorar.",
+    "danger": "Perigo",
+    "warning": "Aviso",
+    "guideLoading": "🧠 GAIA está preparando seu guia completo de tratamento…",
+    "voiceUnavailable": "Voz indisponível",
+    "generatingVoice": "🔊 Gerando voz…"
   },
   "voice": {
     "title": "Agrônomo por voz",
@@ -199,7 +220,8 @@
     "admin": "CONSOLE ADMIN",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Painel de Controle",
-    "adminOverview": "Visão geral"
+    "adminOverview": "Visão geral",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Comprar varreduras",

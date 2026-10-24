@@ -71,7 +71,9 @@
     "pests": "KARFAR",
     "soil": "DAKWA",
     "livestock": "DABBON",
-    "chat": "TARO"
+    "chat": "TARO",
+    "voice": "SAUTI",
+    "profile": "PROFAYIL"
   },
   "agentTabs": {
     "home": "GIDAN",
@@ -120,7 +122,26 @@
     "noModel": "Babu samfurin horo – ana amfani da gwaji na demo.",
     "topResult": "Sakamakon farko",
     "error": "Kuskuren gano cuta",
-    "back": "← Komawa zuwa amfanin gona"
+    "back": "← Komawa zuwa amfanin gona",
+    "uploadLeafImages": "Loda hotunan ganyayyaki",
+    "treatmentGuide": "Jagoran Magani Duka",
+    "listenTreatment": "Saurari Jagoran Magani",
+    "backToCrops": "← Komawa zuwa Ganyayyaki",
+    "selectedCrop": "Ganyen da aka zaɓa",
+    "noScansBuyMore": "Babu sauran scans. Sayi ƙarin don ci gaba.",
+    "diagnosisFailed": "Gano bai yi nasara ba",
+    "cameraPermission": "Ana buƙatar izinin kyamara",
+    "captureFailed": "Dakatar da ɗaukar hoto bai yi nasara ba",
+    "unknown": "Bai sani ba",
+    "helpful": "Mai amfani",
+    "notHelpful": "Ba",
+    "thanksFeedback": "Na gode!",
+    "willImprove": "Za mu inganta.",
+    "danger": "Hadari",
+    "warning": "Gargaɗi",
+    "guideLoading": "🧠 GAIA na shirya cikakken jagorancin magani…",
+    "voiceUnavailable": "Sauti ba a samuwa ba",
+    "generatingVoice": "🔊 Ana samar da sauti…"
   },
   "voice": {
     "title": "Malam na Sauti",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Control Panel",
-    "adminOverview": "Overview"
+    "adminOverview": "Overview",
+    "chat": "Tattaunawa"
   },
   "payments": {
     "buyScans": "Sayi bincike",

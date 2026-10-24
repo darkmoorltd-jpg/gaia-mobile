@@ -71,7 +71,9 @@
     "pests": "ШПИТОВЫ",
     "soil": "ГРОЗД",
     "livestock": "ЖИВОТНЫЙ",
-    "chat": "ЧАТ"
+    "chat": "ЧАТ",
+    "voice": "ГОЛОС",
+    "profile": "ПРОФИЛЬ"
   },
   "agentTabs": {
     "home": "Главная",
@@ -120,7 +122,26 @@
     "noModel": "Нет обученной модели – используется демонстрационный прогноз.",
     "topResult": "Лучший результат",
     "error": "Ошибка диагностики",
-    "back": "← Вернуться к растениям"
+    "back": "← Вернуться к растениям",
+    "uploadLeafImages": "Загрузите изображения листьев",
+    "treatmentGuide": "Полный план лечения",
+    "listenTreatment": "Прослушать план лечения",
+    "backToCrops": "← Вернуться к урожаю",
+    "selectedCrop": "Выбранный урожай",
+    "noScansBuyMore": "Сканов больше нет. Купите больше, чтобы продолжить.",
+    "diagnosisFailed": "Диагностика не удалась",
+    "cameraPermission": "Требуется разрешение на камеру",
+    "captureFailed": "Снятие не удалось",
+    "unknown": "Неизвестно",
+    "helpful": "Полезно",
+    "notHelpful": "Не",
+    "thanksFeedback": "Спасибо!",
+    "willImprove": "Мы улучшим.",
+    "danger": "Опасность",
+    "warning": "Предупреждение",
+    "guideLoading": "🧠 GAIA готовит ваш полный план лечения…",
+    "voiceUnavailable": "Голос недоступен",
+    "generatingVoice": "🔊 Генерируем голос…"
   },
   "voice": {
     "title": "Агроном голос",
@@ -199,7 +220,8 @@
     "admin": "АДМИНСКАЯ КОНСОЛЬ",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Панель управления",
-    "adminOverview": "Обзор"
+    "adminOverview": "Обзор",
+    "chat": "Чат"
   },
   "payments": {
     "buyScans": "Купить сканы",

@@ -217,7 +217,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Control Panel",
-    "adminOverview": "Overview"
+    "adminOverview": "Overview",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Buy scans",

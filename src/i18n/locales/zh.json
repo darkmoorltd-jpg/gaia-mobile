@@ -71,7 +71,9 @@
     "pests": "害虫",
     "soil": "土壤",
     "livestock": "畜牧",
-    "chat": "聊天"
+    "chat": "聊天",
+    "voice": "语音",
+    "profile": "个人资料"
   },
   "agentTabs": {
     "home": "首页",
@@ -120,7 +122,26 @@
     "noModel": "没有训练模型——使用演示预测。",
     "topResult": "最高结果",
     "error": "诊断错误",
-    "back": "← 返回作物"
+    "back": "← 返回作物",
+    "uploadLeafImages": "上传叶子图片",
+    "treatmentGuide": "完整治疗指南",
+    "listenTreatment": "收听治疗指南",
+    "backToCrops": "← 返回作物",
+    "selectedCrop": "已选作物",
+    "noScansBuyMore": "扫描次数已用完。购买更多以继续。",
+    "diagnosisFailed": "诊断失败",
+    "cameraPermission": "需要相机权限",
+    "captureFailed": "捕获失败",
+    "unknown": "未知",
+    "helpful": "有帮助",
+    "notHelpful": "不",
+    "thanksFeedback": "谢谢！",
+    "willImprove": "我们会改进。",
+    "danger": "危险",
+    "warning": "警告",
+    "guideLoading": "🧠 GAIA 正在准备您的完整治疗指南…",
+    "voiceUnavailable": "语音不可用",
+    "generatingVoice": "🔊 正在生成语音…"
   },
   "voice": {
     "title": "声音农艺师",
@@ -199,7 +220,8 @@
     "admin": "管理员控制台",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "控制面板",
-    "adminOverview": "概览"
+    "adminOverview": "概览",
+    "chat": "聊天"
   },
   "payments": {
     "buyScans": "购买扫描",

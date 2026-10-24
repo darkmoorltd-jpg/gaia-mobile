@@ -71,7 +71,9 @@
     "pests": "PESTS",
     "soil": "SOIL",
     "livestock": "LIVESTOCK",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOICE",
+    "profile": "PROFILE"
   },
   "agentTabs": {
     "home": "HOME",
@@ -120,7 +122,26 @@
     "noModel": "Geen getraind model – demo voorspellingen gebruiken.",
     "topResult": "Topresultaat",
     "error": "Diagnosefout",
-    "back": "← Terug naar gewassen"
+    "back": "← Terug naar gewassen",
+    "uploadLeafImages": "Upload bladfoto's",
+    "treatmentGuide": "Volledige Behandelingsgids",
+    "listenTreatment": "Luister naar Behandelingsgids",
+    "backToCrops": "← Terug naar gewassen",
+    "selectedCrop": "Geselecteerde gewas",
+    "noScansBuyMore": "Geen scans meer. Koop meer om door te gaan.",
+    "diagnosisFailed": "Diagnose mislukt",
+    "cameraPermission": "Camera toestemming vereist",
+    "captureFailed": "Opname mislukt",
+    "unknown": "Onbekend",
+    "helpful": "Helpvol",
+    "notHelpful": "Niet",
+    "thanksFeedback": "Dank je!",
+    "willImprove": "We zullen verbeteren.",
+    "danger": "Gevaren",
+    "warning": "Waarschuwing",
+    "guideLoading": "🧠 GAIA bereidt uw volledige behandelplan voor…",
+    "voiceUnavailable": "Stem niet beschikbaar",
+    "generatingVoice": "🔊 Stem genereren…"
   },
   "voice": {
     "title": "Stem Agronomist",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Controlepaneel",
-    "adminOverview": "Overzicht"
+    "adminOverview": "Overzicht",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Scans kopen",

@@ -71,7 +71,9 @@
     "pests": "PARASITES",
     "soil": "SOL",
     "livestock": "ÉLEVAGE",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "VOIX",
+    "profile": "PROFIL"
   },
   "agentTabs": {
     "home": "ACCUEIL",
@@ -120,7 +122,26 @@
     "noModel": "Pas de modèle entraîné – utilisation des prédictions de démonstration.",
     "topResult": "Meilleur résultat",
     "error": "Erreur de diagnostic",
-    "back": "← Retour aux cultures"
+    "back": "← Retour aux cultures",
+    "uploadLeafImages": "Téléverser des images de feuilles",
+    "treatmentGuide": "Guide de traitement complet",
+    "listenTreatment": "Écouter le guide de traitement",
+    "backToCrops": "← Retour aux cultures",
+    "selectedCrop": "Culture sélectionnée",
+    "noScansBuyMore": "Plus de scans restants. Achetez-en d'autres pour continuer.",
+    "diagnosisFailed": "Échec du diagnostic",
+    "cameraPermission": "Autorisation de la caméra requise",
+    "captureFailed": "Échec de la capture",
+    "unknown": "Inconnu",
+    "helpful": "Utile",
+    "notHelpful": "Pas utile",
+    "thanksFeedback": "Merci !",
+    "willImprove": "Nous allons nous améliorer.",
+    "danger": "Danger",
+    "warning": "Avertissement",
+    "guideLoading": "🧠 GAIA prépare votre guide de traitement complet…",
+    "voiceUnavailable": "Voix indisponible",
+    "generatingVoice": "🔊 Génération de la voix…"
   },
   "voice": {
     "title": "Agronome vocal",
@@ -199,7 +220,8 @@
     "admin": "CONSOLE ADMIN",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Panneau de contrôle",
-    "adminOverview": "Vue d'ensemble"
+    "adminOverview": "Vue d'ensemble",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Acheter des scans",

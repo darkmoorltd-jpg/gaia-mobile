@@ -71,7 +71,9 @@
     "pests": "XANBAAR",
     "soil": "DABI",
     "livestock": "DHULKAHA",
-    "chat": "XARNA"
+    "chat": "XARNA",
+    "voice": "Cod",
+    "profile": "PROFAYL"
   },
   "agentTabs": {
     "home": "GURIGA",
@@ -120,7 +122,26 @@
     "noModel": "Maya moodel tababaran – isticmaal saadaasha demo",
     "topResult": "Natiijada ugu sareysa",
     "error": "Khalad ku yimid ogaanshaha",
-    "back": "← Ku soo laabo dhirta"
+    "back": "← Ku soo laabo dhirta",
+    "uploadLeafImages": "Ku soo dir sawirro caleemaha",
+    "treatmentGuide": "Tilmaamaha daaweynta oo dhameystiran",
+    "listenTreatment": "Dhageyso Tilmaamaha daaweynta",
+    "backToCrops": "← Ku noqo Beero",
+    "selectedCrop": "Guriga la doortay",
+    "noScansBuyMore": "Ma jiraan sawirro kale. Iibso kuwo badan si aad u sii waddo.",
+    "diagnosisFailed": "Kormeerka fashilmay",
+    "cameraPermission": "Ogolaansho kamarad loo baahan yahay",
+    "captureFailed": "Qabashada fashilmay",
+    "unknown": "Gaar ahayn",
+    "helpful": "Caawimo",
+    "notHelpful": "Maya",
+    "thanksFeedback": "Mahadsanid!",
+    "willImprove": "Waxaan hagaajin doonaa.",
+    "danger": "Halad",
+    "warning": "Digniin",
+    "guideLoading": "🧠 GAIA waxay diyaarinaysaa tilmaamaha daaweynta oo dhameystiran…",
+    "voiceUnavailable": "Codka lama heli karo",
+    "generatingVoice": "🔊 Soo saarista codka…"
   },
   "voice": {
     "title": "Baasheerka Agronomist",
@@ -199,7 +220,8 @@
     "admin": "KONSOOLKA MAAMULAHA",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Gudiga Xakamaynta",
-    "adminOverview": "Guudmar"
+    "adminOverview": "Guudmar",
+    "chat": "Sheekaysi"
   },
   "payments": {
     "buyScans": "Iibso baadhis",

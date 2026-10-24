@@ -71,7 +71,9 @@
     "pests": "الآفات",
     "soil": "التربة",
     "livestock": "المواشي",
-    "chat": "الدردشة"
+    "chat": "الدردشة",
+    "voice": "الصوت",
+    "profile": "الملف الشخصي"
   },
   "agentTabs": {
     "home": "الرئيسية",
@@ -120,7 +122,26 @@
     "noModel": "لا يوجد نموذج مدرّب – يتم استخدام تنبؤات تجريبية.",
     "topResult": "أفضل نتيجة",
     "error": "خطأ في التشخيص",
-    "back": "← العودة إلى المحاصيل"
+    "back": "← العودة إلى المحاصيل",
+    "uploadLeafImages": "رفع صور الأوراق",
+    "treatmentGuide": "دليل العلاج الكامل",
+    "listenTreatment": "استمع إلى دليل العلاج",
+    "backToCrops": "← العودة إلى المحاصيل",
+    "selectedCrop": "المحصول المحدد",
+    "noScansBuyMore": "لا توجد عمليات مسح متبقية. اشترِ المزيد للمتابعة.",
+    "diagnosisFailed": "فشل التشخيص",
+    "cameraPermission": "مطلوب إذن الكاميرا",
+    "captureFailed": "فشل الالتقاط",
+    "unknown": "غير معروف",
+    "helpful": "مفيد",
+    "notHelpful": "غير مفيد",
+    "thanksFeedback": "شكراً!",
+    "willImprove": "سنحسّن.",
+    "danger": "خطر",
+    "warning": "تحذير",
+    "guideLoading": "🧠 GAIA تستعد لتقديم دليل العلاج الكامل…",
+    "voiceUnavailable": "الصوت غير متاح",
+    "generatingVoice": "🔊 جارٍ توليد الصوت…"
   },
   "voice": {
     "title": "المهندس الزراعي الصوتي",
@@ -199,7 +220,8 @@
     "admin": "لوحة تحكم المسؤول",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "لوحة التحكم",
-    "adminOverview": "نظرة عامة"
+    "adminOverview": "نظرة عامة",
+    "chat": "دردشة"
   },
   "payments": {
     "buyScans": "شراء المسح",
@@ -253,7 +275,8 @@
     "scanType": "نوع المسح",
     "topProbs": "أعلى 5 احتمالات",
     "extractErr": "تعذر استخراج عدد كافٍ من الإطارات. جرّب فيديو مختلفاً.",
-    "demo": "⚠️ النموذج الحقيقي غير متوفر – يتم استخدام نسخة تجريبية."
+    "demo": "⚠️ النموذج الحقيقي غير متوفر – يتم استخدام نسخة تجريبية.",
+    "guideLoading": "🧠 جارٍ توليد دليل العلاج…"
   },
   "dashboard": {
     "sections": {

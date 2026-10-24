@@ -71,7 +71,9 @@
     "pests": "VAMBO",
     "soil": "MALI",
     "livestock": "MALUPA YA WATOTO",
-    "chat": "MAJISIANO"
+    "chat": "MAJISIANO",
+    "voice": "Sauti",
+    "profile": "PROFILA"
   },
   "agentTabs": {
     "home": "NYUMA",
@@ -120,7 +122,26 @@
     "noModel": "Hakuna modeli iliyoelimishwa – inatumia utabiri wa demo.",
     "topResult": "Matokeo bora",
     "error": "Hitilafu ya tathmini",
-    "back": "← Rudi kwa mazao"
+    "back": "← Rudi kwa mazao",
+    "uploadLeafImages": "Pakia picha za mapanda",
+    "treatmentGuide": "Mwongozo kamili wa matibabu",
+    "listenTreatment": "Sikiliza Mwongozo wa matibabu",
+    "backToCrops": "← Rudi kwa Maumbile",
+    "selectedCrop": "Maumbile alichaguliwa",
+    "noScansBuyMore": "Hakuna uchambuzi wowote. Nunua zaidi ili kuendelea.",
+    "diagnosisFailed": "Uchambuzi umeshindwa",
+    "cameraPermission": "Idhini ya kamera inahitajika",
+    "captureFailed": "Usajili umeshindwa",
+    "unknown": "Haijulikani",
+    "helpful": "Msaada",
+    "notHelpful": "Sio",
+    "thanksFeedback": "Asante!",
+    "willImprove": "Tutaongeza ubora.",
+    "danger": "Hatari",
+    "warning": "Onyo",
+    "guideLoading": "🧠 GAIA inakuandaa mwongozo kamili wa matibabu…",
+    "voiceUnavailable": "Sauti haipatikani",
+    "generatingVoice": "🔊 Inaunda sauti…"
   },
   "voice": {
     "title": "Mtaalamu wa Sauti",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Control Panel",
-    "adminOverview": "Overview"
+    "adminOverview": "Overview",
+    "chat": "Majadiliano"
   },
   "payments": {
     "buyScans": "Nunua scans",

@@ -71,7 +71,9 @@
     "pests": "ÀWỌN ẸMÍ-AYÉ",
     "soil": "ILÈ",
     "livestock": "ÀWỌN ỌLỌ",
-    "chat": "ÌFỌRỌWỌRỌ"
+    "chat": "ÌFỌRỌWỌRỌ",
+    "voice": "OHUN",
+    "profile": "PROFIILI"
   },
   "agentTabs": {
     "home": "ILE",
@@ -120,7 +122,26 @@
     "noModel": "Kò sí ẹ̀rọ tí a kọ́ — a ń lo àbájáde àpẹẹrẹ.",
     "topResult": "Àbájáde tí ó ga jù",
     "error": "Aṣìṣe ìwádìí",
-    "back": "← Padanu sí àwọn ọrọ"
+    "back": "← Padanu sí àwọn ọrọ",
+    "uploadLeafImages": "Po awọn aworan ewe",
+    "treatmentGuide": "Itọsọna Itọju Pipe",
+    "listenTreatment": "Gbọ Itọsọna Itọju",
+    "backToCrops": "← Pada si Awọn Irugbin",
+    "selectedCrop": "Irugbin Ti a Yan",
+    "noScansBuyMore": "Ko si awọn ayẹwo to ku. Ra diẹ sii lati tẹsiwaju.",
+    "diagnosisFailed": "Ayẹwo kuna",
+    "cameraPermission": "A nilo igbanilaaye kamẹra",
+    "captureFailed": "Gbigba fọto kuna",
+    "unknown": "Aìmọ",
+    "helpful": "Wulo",
+    "notHelpful": "Kò",
+    "thanksFeedback": "O ṣe!",
+    "willImprove": "A o ṣe ilọsiwaju.",
+    "danger": "Irokeke",
+    "warning": "Ikilọ",
+    "guideLoading": "🧠 GAIA n pese itọsọna itọju pipe rẹ…",
+    "voiceUnavailable": "Ohun ko si",
+    "generatingVoice": "🔊 N ṣe ohun…"
   },
   "voice": {
     "title": "Olugbele Agboṣe Ọrọ",
@@ -199,7 +220,8 @@
     "admin": "ÌPÍN ÌṢÀKÒSÒ",
     "version": "GAIA Foonu v1.0.0",
     "adminTitle": "Ìpín Ìṣàkóso",
-    "adminOverview": "Àkópọ̀"
+    "adminOverview": "Àkópọ̀",
+    "chat": "Ibaraẹnisọrọ"
   },
   "payments": {
     "buyScans": "Ra ìwádìí",

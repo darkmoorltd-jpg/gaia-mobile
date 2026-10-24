@@ -71,7 +71,9 @@
     "pests": "SCHÄDELN",
     "soil": "BODEN",
     "livestock": "TIERHAUS",
-    "chat": "CHAT"
+    "chat": "CHAT",
+    "voice": "STIMME",
+    "profile": "PROFIL"
   },
   "agentTabs": {
     "home": "START",
@@ -120,7 +122,26 @@
     "noModel": "Kein trainiertes Modell – Demo-Vorhersagen werden verwendet.",
     "topResult": "Top-Ergebnis",
     "error": "Diagnosefehler",
-    "back": "← Zurück zu den Ernten"
+    "back": "← Zurück zu den Ernten",
+    "uploadLeafImages": "Blattbilder hochladen",
+    "treatmentGuide": "Kompletter Behandlungsleitfaden",
+    "listenTreatment": "Behandlungsleitfaden anhören",
+    "backToCrops": "← Zurück zu den Kulturen",
+    "selectedCrop": "Ausgewählter Anbau",
+    "noScansBuyMore": "Keine Scans mehr. Kaufen Sie mehr, um fortzufahren.",
+    "diagnosisFailed": "Diagnose fehlgeschlagen",
+    "cameraPermission": "Kamerazugriff erforderlich",
+    "captureFailed": "Aufnahme fehlgeschlagen",
+    "unknown": "Unbekannt",
+    "helpful": "Hilfreich",
+    "notHelpful": "Nicht",
+    "thanksFeedback": "Danke!",
+    "willImprove": "Wir werden uns verbessern.",
+    "danger": "Gefahr",
+    "warning": "Warnung",
+    "guideLoading": "🧠 GAIA bereitet Ihren kompletten Behandlungsleitfaden vor…",
+    "voiceUnavailable": "Stimme nicht verfügbar",
+    "generatingVoice": "🔊 Stimme wird generiert…"
   },
   "voice": {
     "title": "Stimm-Agronom",
@@ -199,7 +220,8 @@
     "admin": "ADMIN CONSOLE",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrollzentrum",
-    "adminOverview": "Übersicht"
+    "adminOverview": "Übersicht",
+    "chat": "Chat"
   },
   "payments": {
     "buyScans": "Scans kaufen",

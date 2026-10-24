@@ -71,7 +71,9 @@
     "pests": "ደርሶች",
     "soil": "ምድር",
     "livestock": "የአንበሳ እና የአበባ",
-    "chat": "ውይይት"
+    "chat": "ውይይት",
+    "voice": "ድምፅ",
+    "profile": "መገለጫ"
   },
   "agentTabs": {
     "home": "ቤት",
@@ -120,7 +122,26 @@
     "noModel": "ምንም ተማሪ ሞዴል የለም – የድምር ተጠቃሚ ተጠቃሚ ተጠቃሚ",
     "topResult": "ከፍተኛ ውጤት",
     "error": "የተደረገ ውስጥ ስህተት",
-    "back": "← ወደ ዕፀት ይመለሱ"
+    "back": "← ወደ ዕፀት ይመለሱ",
+    "uploadLeafImages": "የቅጠል ምስሎችን ያስገቡ",
+    "treatmentGuide": "ሙሉ የምርመራ መመሪያ",
+    "listenTreatment": "የምርመራ መመሪያን ያዳምጡ",
+    "backToCrops": "← ወደ እርሾች ተመለስ",
+    "selectedCrop": "የተመረጠ እርሻ",
+    "noScansBuyMore": "ምንም ማስታወሻ አልቀረም። ለመቀጠል ተጨማሪ ይግዙ።",
+    "diagnosisFailed": "ምርመራው አልተሳካም",
+    "cameraPermission": "የካሜራ ፈቃድ ያስፈልጋል",
+    "captureFailed": "ማስታወሻው አልተሳካም",
+    "unknown": "ያልታወቀ",
+    "helpful": "ጠቃሚ",
+    "notHelpful": "አይደለም",
+    "thanksFeedback": "እናመሰግናለን!",
+    "willImprove": "እንደገና እንሻሻላለን።",
+    "danger": "አደጋ",
+    "warning": "ማስጠንቀቂያ",
+    "guideLoading": "🧠 GAIA የሙሉ ምርመራ መመሪያዎን በማዘጋጀት ላይ ነው…",
+    "voiceUnavailable": "ድምፅ አይገኝም",
+    "generatingVoice": "🔊 ድምፅ በመፍጠር ላይ…"
   },
   "voice": {
     "title": "የድምጽ አግሮኖሚስት",
@@ -199,7 +220,8 @@
     "admin": "የአስተዳደር ኮንሶል",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "መቆጣጠሪያ ፓነል",
-    "adminOverview": "አጠቃላይ እይታ"
+    "adminOverview": "አጠቃላይ እይታ",
+    "chat": "ቃለ መጠይቅ"
   },
   "payments": {
     "buyScans": "ስካኖችን ግዙ",

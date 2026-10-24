@@ -71,7 +71,9 @@
     "pests": "ZARAR",
     "soil": "TOPRAK",
     "livestock": "HAYVAN",
-    "chat": "SOHBET"
+    "chat": "SOHBET",
+    "voice": "SES",
+    "profile": "PROFİL"
   },
   "agentTabs": {
     "home": "ANA SAYFA",
@@ -120,7 +122,26 @@
     "noModel": "Eğitilmiş model yok – demo tahminleri kullanılıyor.",
     "topResult": "En iyi sonuç",
     "error": "Tanı hatası",
-    "back": "← Bitkilere geri dön"
+    "back": "← Bitkilere geri dön",
+    "uploadLeafImages": "Yaprak görsellerini yükle",
+    "treatmentGuide": "Kapsamlı Tedavi Rehberi",
+    "listenTreatment": "Tedavi Rehberini Dinle",
+    "backToCrops": "← Bitkilere Dön",
+    "selectedCrop": "Seçilen Bitki",
+    "noScansBuyMore": "Tarama hakkınız kalmadı. Devam etmek için daha fazla satın alın.",
+    "diagnosisFailed": "Teşhis başarısız",
+    "cameraPermission": "Kamera izni gerekli",
+    "captureFailed": "Çekim başarısız",
+    "unknown": "Bilinmiyor",
+    "helpful": "Yararlı",
+    "notHelpful": "Yararsız",
+    "thanksFeedback": "Teşekkürler!",
+    "willImprove": "Geliştireceğiz.",
+    "danger": "Tehlike",
+    "warning": "Uyarı",
+    "guideLoading": "🧠 GAIA kapsamlı tedavi rehberinizi hazırlıyor…",
+    "voiceUnavailable": "Ses kullanılamıyor",
+    "generatingVoice": "🔊 Ses oluşturuluyor…"
   },
   "voice": {
     "title": "Sesli Agronomist",
@@ -199,7 +220,8 @@
     "admin": "YÖNETİCİ KONSOLESİ",
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrol Paneli",
-    "adminOverview": "Genel Bakış"
+    "adminOverview": "Genel Bakış",
+    "chat": "Sohbet"
   },
   "payments": {
     "buyScans": "Tarama satın al",
