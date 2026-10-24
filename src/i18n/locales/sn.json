@@ -226,7 +226,9 @@
     "payNow": "Bhadhara izvozvi",
     "scanUnit": "scan",
     "paymentSuccess": "Muripo wakabudirira",
-    "paymentFailed": "Muripo wakundikana"
+    "paymentFailed": "Muripo wakundikana",
+    "enterReference": "Enter reference",
+    "verify": "Verify"
   },
   "errors": {
     "network": "Kukanganisa kwenetiweki — ndapota edza zvakare",

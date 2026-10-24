@@ -1,131 +1,164 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Modal, FlatList } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme, typography, spacing, radius } from '../src/theme';
-import { LANGUAGES, findLanguage } from '../src/utils/languages';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../src/theme';
+import { useLocale, langName } from '../src/store/locale';
+import { useAuth } from '../src/store/auth';
 
-const LANG_KEY = 'gaia.language';
+const ALL_LANGUAGES: { code: string; region: string }[] = [
+  { code: 'en', region: 'Global' },
+  { code: 'fr', region: 'Africa / Europe' },
+  { code: 'pt', region: 'Africa / Europe' },
+  { code: 'ar', region: 'Africa / Middle East' },
+  { code: 'sw', region: 'Africa' },
+  { code: 'ha', region: 'Nigeria' },
+  { code: 'yo', region: 'Nigeria' },
+  { code: 'ig', region: 'Nigeria' },
+  { code: 'pcm', region: 'Nigeria' },
+  { code: 'tw', region: 'Ghana' },
+  { code: 'am', region: 'Ethiopia' },
+  { code: 'so', region: 'Somalia' },
+  { code: 'zu', region: 'South Africa' },
+  { code: 'af', region: 'South Africa' },
+  { code: 'rw', region: 'Rwanda' },
+  { code: 'mg', region: 'Madagascar' },
+  { code: 'sn', region: 'Zimbabwe' },
+  { code: 'es', region: 'Americas / Europe' },
+  { code: 'de', region: 'Europe' },
+  { code: 'it', region: 'Europe' },
+  { code: 'nl', region: 'Europe' },
+  { code: 'el', region: 'Europe' },
+  { code: 'pl', region: 'Europe' },
+  { code: 'sv', region: 'Europe' },
+  { code: 'no', region: 'Europe' },
+  { code: 'da', region: 'Europe' },
+  { code: 'uk', region: 'Europe' },
+  { code: 'ru', region: 'Europe / Asia' },
+  { code: 'tr', region: 'Asia / Europe' },
+  { code: 'fa', region: 'Middle East' },
+  { code: 'he', region: 'Middle East' },
+  { code: 'ur', region: 'South Asia' },
+  { code: 'hi', region: 'South Asia' },
+  { code: 'bn', region: 'South Asia' },
+  { code: 'zh', region: 'Asia' },
+  { code: 'ja', region: 'Asia' },
+  { code: 'ko', region: 'Asia' },
+  { code: 'th', region: 'Southeast Asia' },
+  { code: 'vi', region: 'Southeast Asia' },
+  { code: 'id', region: 'Southeast Asia' },
+  { code: 'ms', region: 'Southeast Asia' },
+  { code: 'fil', region: 'Southeast Asia' },
+];
 
 export default function Settings() {
-  const { palette, mode, setMode } = useTheme();
   const router = useRouter();
+  const { palette } = useTheme();
+  const { t } = useTranslation();
   const styles = createStyles(palette);
+  const currentLang = useLocale((s) => s.language);
+  const setLanguage = useLocale((s) => s.setLanguage);
+  const signOut = useAuth((s) => s.signOut);
 
-  const [push, setPush] = useState(true);
-  const [sms, setSms] = useState(true);
-  const [bio, setBio] = useState(true);
-  const [location, setLocation] = useState(true);
-  const [langCode, setLangCode] = useState('en');
-  const [langOpen, setLangOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    AsyncStorage.getItem(LANG_KEY).then((v) => { if (v) setLangCode(v); });
-  }, []);
+  const filtered = search.trim()
+    ? ALL_LANGUAGES.filter((l) => langName(l.code).toLowerCase().includes(search.toLowerCase()))
+    : ALL_LANGUAGES;
 
-  const changeLanguage = async (code: string) => {
-    setLangCode(code);
-    await AsyncStorage.setItem(LANG_KEY, code);
-    setLangOpen(false);
+  const grouped = filtered.reduce((acc, l) => {
+    (acc[l.region] = acc[l.region] || []).push(l);
+    return acc;
+  }, {} as Record<string, typeof ALL_LANGUAGES>);
+
+  const pick = async (code: string) => {
+    await setLanguage(code);
+    setPickerOpen(false);
   };
 
-  const currentLang = findLanguage(langCode);
+  const doSignOut = () => {
+    Alert.alert(t('common.signOut') || 'Sign out', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Pressable
-          onPress={() => {
-            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)/profile' as any);
-            }
-          }}
-          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
-          hitSlop={10}
-        >
-          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.back}>← {t('common.back') || 'Back'}</Text>
         </Pressable>
-        <Text style={styles.title}>Settings</Text>
+        <Text style={styles.title}>{t('profile.settings') || 'Settings'}</Text>
 
-        <Text style={styles.sectionLabel}>APPEARANCE</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <View>
-              <Text style={styles.rowLabel}>Dark mode</Text>
-              <Text style={styles.rowHint}>Currently {mode === "dark" ? "ON" : "OFF"}</Text>
-            </View>
-            <Switch value={mode === "dark"} onValueChange={(v) => setMode(v ? "dark" : "light")} trackColor={{ true: palette.neon, false: palette.textDim }} thumbColor="#fff" />
-          </View>
-        </View>
+        <Text style={styles.section}>LANGUAGE</Text>
+        <Pressable onPress={() => setPickerOpen(true)} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('profile.language') || 'Language'}</Text>
+          <Text style={styles.rowValue}>{langName(currentLang || 'en')} ›</Text>
+        </Pressable>
 
-        <Text style={styles.sectionLabel}>LANGUAGE</Text>
-        <View style={styles.card}>
-          <Pressable onPress={() => setLangOpen(true)} style={styles.row}>
-            <View>
-              <Text style={styles.rowLabel}>App Language</Text>
-              <Text style={styles.rowHint}>{currentLang.name} — {currentLang.nativeName}</Text>
-            </View>
-            <Text style={styles.chevron}>{">"}</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.section}>ACCOUNT</Text>
+        <Pressable onPress={() => router.push('/profile')} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('profile.myProfile') || 'My Profile'}</Text>
+          <Text style={styles.rowValue}>›</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/verification')} style={styles.row}>
+          <Text style={styles.rowLabel}>Verification</Text>
+          <Text style={styles.rowValue}>›</Text>
+        </Pressable>
 
-        <Text style={styles.sectionLabel}>NOTIFICATIONS</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Push Notifications</Text>
-            <Switch value={push} onValueChange={setPush} trackColor={{ true: palette.neon, false: palette.textDim }} thumbColor="#fff" />
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>SMS Alerts</Text>
-            <Switch value={sms} onValueChange={setSms} trackColor={{ true: palette.neon, false: palette.textDim }} thumbColor="#fff" />
-          </View>
-        </View>
+        <Text style={styles.section}>SUPPORT</Text>
+        <Pressable onPress={() => router.push('/help')} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('profile.help') || 'Help & Support'}</Text>
+          <Text style={styles.rowValue}>›</Text>
+        </Pressable>
 
-        <Text style={styles.sectionLabel}>PRIVACY AND SECURITY</Text>
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Biometric Lock</Text>
-            <Switch value={bio} onValueChange={setBio} trackColor={{ true: palette.neon, false: palette.textDim }} thumbColor="#fff" />
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Location Access</Text>
-            <Switch value={location} onValueChange={setLocation} trackColor={{ true: palette.neon, false: palette.textDim }} thumbColor="#fff" />
-          </View>
-        </View>
+        <Pressable onPress={doSignOut} style={[styles.row, { borderColor: palette.danger }]}>
+          <Text style={[styles.rowLabel, { color: palette.danger, fontWeight: '800' }]}>
+            {t('common.signOut') || 'Sign Out'}
+          </Text>
+        </Pressable>
 
-        <Text style={styles.sectionLabel}>ABOUT</Text>
-        <View style={styles.card}>
-          <Text style={styles.aboutLine}>GAIA Mobile</Text>
-          <Text style={styles.aboutSub}>Version 1.0.0</Text>
-          <Text style={styles.aboutSub}>Powered by Darkmoor Ltd</Text>
-        </View>
-
-        <View style={{ height: 120 }} />
+        <Text style={styles.version}>GAIA v1.0.0 · build</Text>
       </ScrollView>
 
-      <Modal visible={langOpen} transparent animationType="slide" onRequestClose={() => setLangOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={{ flex: 1 }} onPress={() => setLangOpen(false)} />
+      <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
+        <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>App Language</Text>
-            <FlatList
-              data={LANGUAGES}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => changeLanguage(item.code)} style={[styles.langRow, item.code === langCode && styles.langRowActive]}>
-                  <View>
-                    <Text style={styles.langName}>{item.name}</Text>
-                    <Text style={styles.langNative}>{item.nativeName}</Text>
-                  </View>
-                  {item.code === langCode ? <Text style={styles.langCheck}>V</Text> : null}
-                </Pressable>
-              )}
-            />
-            <Pressable onPress={() => setLangOpen(false)} style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>Cancel</Text>
+            <Pressable onPress={() => setPickerOpen(false)}>
+              <Text style={styles.back}>CLOSE</Text>
             </Pressable>
+            <Text style={styles.title}>{t('profile.language') || 'Language'}</Text>
+            <Text style={styles.sub}>{ALL_LANGUAGES.length} languages available</Text>
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search language…"
+              placeholderTextColor={palette.textDim}
+              style={styles.search}
+              autoCapitalize="none"
+            />
+            <ScrollView>
+              {Object.entries(grouped).map(([region, langs]) => (
+                <View key={region}>
+                  <Text style={styles.regionHeader}>{region.toUpperCase()}</Text>
+                  {langs.map((l) => (
+                    <Pressable
+                      key={l.code}
+                      onPress={() => pick(l.code)}
+                      style={[styles.langRow, l.code === currentLang && styles.langRowActive]}
+                    >
+                      <Text style={[styles.langName, l.code === currentLang && styles.langNameActive]}>
+                        {langName(l.code)}
+                      </Text>
+                      {l.code === currentLang ? <Text style={styles.check}>✓</Text> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+              <View style={{ height: 40 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -133,27 +166,24 @@ export default function Settings() {
   );
 }
 
-const createStyles = (palette: any) =>
-  StyleSheet.create({
-    container: { flex: 1, backgroundColor: palette.obsidian },
-    scroll: { paddingHorizontal: spacing.xl, paddingTop: 60, paddingBottom: 40 },
-    title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1, marginBottom: spacing.xl },
-    sectionLabel: { ...typography.micro, color: palette.textMuted, marginTop: spacing.lg, marginBottom: spacing.sm },
-    card: { borderRadius: radius.lg, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface, paddingHorizontal: spacing.lg },
-    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
-    rowLabel: { ...typography.body, color: palette.text, fontWeight: '600' },
-    rowHint: { ...typography.micro, color: palette.textMuted, marginTop: 2 },
-    chevron: { color: palette.neon, fontSize: 22, fontWeight: '900' },
-    aboutLine: { ...typography.body, color: palette.text, fontWeight: '700', paddingTop: spacing.md },
-    aboutSub: { ...typography.caption, color: palette.textMuted, marginTop: 6, paddingBottom: spacing.sm },
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-    modalSheet: { backgroundColor: palette.abyss, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, borderTopWidth: 1, borderColor: palette.borderHi, maxHeight: '75%' },
-    modalTitle: { fontSize: 22, fontWeight: '900', color: palette.text, marginBottom: 16 },
-    langRow: { padding: 16, borderRadius: 14, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    langRowActive: { backgroundColor: palette.neonSoft, borderColor: palette.borderHi },
-    langName: { color: palette.text, fontWeight: '700', fontSize: 15 },
-    langNative: { color: palette.textMuted, fontSize: 12, marginTop: 2 },
-    langCheck: { color: palette.neon, fontSize: 20, fontWeight: '900' },
-    modalClose: { padding: 16, borderRadius: 14, backgroundColor: palette.surface, alignItems: 'center', marginTop: 10 },
-    modalCloseText: { color: palette.text, fontWeight: '800' },
-  });
+const createStyles = (p: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: p.obsidian },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  back: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -0.5 },
+  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 12 },
+  section: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: p.textMuted, marginTop: 24, marginBottom: 8 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 14, backgroundColor: p.surface, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: p.border },
+  rowLabel: { fontSize: 15, color: p.text, fontWeight: '600' },
+  rowValue: { fontSize: 14, color: p.neon, fontWeight: '700' },
+  version: { fontSize: 10, color: p.textDim, textAlign: 'center', marginTop: 40, letterSpacing: 1 },
+  search: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 14, marginBottom: 12 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '94%' },
+  regionHeader: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: p.textMuted, marginTop: 20, marginBottom: 8 },
+  langRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  langRowActive: { backgroundColor: 'rgba(0,255,136,0.08)' },
+  langName: { fontSize: 15, color: p.text },
+  langNameActive: { color: p.neon, fontWeight: '800' },
+  check: { fontSize: 16, color: p.neon, fontWeight: '900' },
+});

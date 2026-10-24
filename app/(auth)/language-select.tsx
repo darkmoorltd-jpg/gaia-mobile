@@ -14,7 +14,11 @@ export default function LanguageSelect() {
 
   if (!country) { router.replace('/(auth)/country-select' as any); return null; }
 
-  const codes = country.languages || ['en'];
+  const ALL_LANGS = ['en','fr','pt','ar','sw','ha','yo','ig','pcm','tw','am','so','zu','af','rw','mg','sn','es','de','it','nl','el','pl','sv','no','da','uk','ru','tr','fa','he','ur','hi','bn','zh','ja','ko','th','vi','id','ms','fil'];
+  // Show country's native languages first, then all
+  const local = (country.languages || []).filter((c: string) => ALL_LANGS.includes(c));
+  const others = ALL_LANGS.filter((c: string) => !local.includes(c));
+  const codes = [...local, ...others];
   const filtered = search.trim()
     ? codes.filter((c) => langName(c).toLowerCase().includes(search.toLowerCase()))
     : codes;
