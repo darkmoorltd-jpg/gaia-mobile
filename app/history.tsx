@@ -3,10 +3,13 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
   Image, RefreshControl, Modal, Alert, Share, TextInput, Linking,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme, spacing, radius, typography } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
@@ -14,23 +17,23 @@ import { useAuth } from '../src/store/auth';
 const FAV_KEY = 'gaia_history_favorites';
 
 const FILTER_KEYS = [
-  { key: 'ALL',       type: null,        label: 'ALL' },
-  { key: 'CROPS',     type: 'crop',      label: 'CROPS' },
-  { key: 'PESTS',     type: 'pest',      label: 'PESTS' },
-  { key: 'SOIL',      type: 'soil',      label: 'SOIL' },
+  { key: 'ALL', label: 'ALL' },
+  { key: 'CROPS', type: 'crop', label: 'CROPS' },
+  { key: 'PESTS', type: 'pest', label: 'PESTS' },
+  { key: 'SOIL', type: 'soil', label: 'SOIL' },
   { key: 'LIVESTOCK', type: 'livestock', label: 'LIVESTOCK' },
 ];
 
 const DATE_RANGES = [
-  { key: 'all',   label: 'ALL',   days: 99999 },
+  { key: 'all', label: 'ALL', days: 99999 },
   { key: 'today', label: 'TODAY', days: 1 },
-  { key: 'week',  label: '7D',    days: 7 },
-  { key: 'month', label: '30D',   days: 30 },
+  { key: 'week', label: '7D', days: 7 },
+  { key: 'month', label: '30D', days: 30 },
 ];
 
 const SORT_OPTIONS = [
-  { key: 'newest',     label: 'NEWEST FIRST' },
-  { key: 'oldest',     label: 'OLDEST FIRST' },
+  { key: 'newest', label: 'NEWEST FIRST' },
+  { key: 'oldest', label: 'OLDEST FIRST' },
   { key: 'confidence', label: 'HIGHEST CONFIDENCE' },
 ];
 
@@ -39,6 +42,27 @@ const CONF_CYCLE = [0, 60, 80, 95];
 const TYPE_EMOJI = {
   crop: '🌿', pest: '🐛', soil: '🏞️', livestock: '🐄',
 };
+
+// Match model_key → type when `type` column is unreliable
+function getScanType(s: any): string {
+  const t = String(s.type || '').toLowerCase();
+  if (t === 'crop' || t === 'crops' || t === 'crop_disease') return 'crop';
+  if (t === 'pest' || t === 'pests') return 'pest';
+  if (t === 'soil' || t === 'soil_type') return 'soil';
+  if (t === 'livestock' || t === 'animal') return 'livestock';
+
+  const mk = String(s.model_key || '').toLowerCase();
+  if (!mk) return 'unknown';
+  if (mk.includes('pest')) return 'pest';
+  if (mk.includes('soil')) return 'soil';
+  if (mk.includes('cattle') || mk.includes('poultry')) return 'livestock';
+  if (mk.includes('maize') || mk.includes('rice') || mk.includes('millet') ||
+      mk.includes('cassava') || mk.includes('apple') || mk.includes('coffee') ||
+      mk.includes('soybean') || mk.includes('pepper') || mk.includes('cabbage') ||
+      mk.includes('grape') || mk.includes('tea') || mk.includes('sugarcane')) return 'crop';
+
+  return 'unknown';
+}
 
 function fmtDate(iso: string): { label: string; time: string } {
   try {
@@ -60,6 +84,7 @@ function fmtDate(iso: string): { label: string; time: string } {
 }
 
 export default function History() {
+  const router = useRouter();
   const { palette } = useTheme();
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -78,8 +103,8 @@ export default function History() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
-  // Load favorites once
   useEffect(() => {
     (async () => {
       try {
@@ -128,7 +153,7 @@ export default function History() {
     if (filter !== 'ALL') {
       const target = FILTER_KEYS.find((f) => f.key === filter);
       if (target && target.type) {
-        out = out.filter((s) => String(s.type || '').toLowerCase() === target.type);
+        out = out.filter((s) => getScanType(s) === target.type);
       }
     }
     const dr = DATE_RANGES.find((d) => d.key === dateRange);
@@ -142,7 +167,7 @@ export default function History() {
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       out = out.filter((s) => {
-        const hay = String(s.top_label || '') + ' ' + String(s.crop || '') + ' ' + String(s.type || '');
+        const hay = String(s.top_label || '') + ' ' + String(s.crop || '') + ' ' + String(s.type || '') + ' ' + String(s.model_key || '');
         return hay.toLowerCase().indexOf(q) !== -1;
       });
     }
@@ -203,6 +228,7 @@ export default function History() {
   };
 
   const buildShareText = (scan: any): string => {
+    const nl = String.fromCharCode(10);
     const parts = [
       '🌿 GAIA Diagnosis',
       'Result: ' + (scan.top_label || 'Unknown'),
@@ -217,7 +243,7 @@ export default function History() {
     }
     parts.push('');
     parts.push('Shared from GAIA by Darkmoor Ltd');
-    return parts.join(String.fromCharCode(10));
+    return parts.join(nl);
   };
 
   const onShare = async (scan: any) => {
@@ -231,10 +257,24 @@ export default function History() {
     Linking.openURL(url).catch(() => Alert.alert('WhatsApp not installed'));
   };
 
+  const onShareImage = async (scan: any) => {
+    if (!scan.image_url) { Alert.alert('No image to share'); return; }
+    try {
+      const local = (FileSystem.cacheDirectory || '') + 'gaia-scan-' + scan.id + '.jpg';
+      const dl = FileSystem.createDownloadResumable(scan.image_url, local);
+      const res = await dl.downloadAsync();
+      if (res && res.uri) {
+        await Sharing.shareAsync(res.uri, { mimeType: 'image/jpeg', dialogTitle: 'Share scan image' });
+      }
+    } catch (e: any) {
+      Alert.alert('Image share failed', e?.message || 'Try again');
+    }
+  };
+
   const onExportCSV = async () => {
     if (filtered.length === 0) { Alert.alert('No scans to export'); return; }
     const nl = String.fromCharCode(10);
-    const header = 'Date,Time,Type,Crop,Result,Confidence,Model,OnDevice' + nl;
+    const header = 'Date,Time,Type,Crop,Result,Confidence,Model' + nl;
     const rows = filtered.map((s) => {
       const fd = fmtDate(s.created_at);
       return [
@@ -243,7 +283,6 @@ export default function History() {
         '"' + String(s.top_label || '').replace(/"/g, '""') + '"',
         Math.round(s.confidence || 0),
         s.model_key || '',
-        s.on_device ? 'yes' : 'no',
       ].join(',');
     }).join(nl);
     try {
@@ -252,6 +291,65 @@ export default function History() {
         title: 'GAIA_History_' + new Date().toISOString().slice(0, 10) + '.csv',
       });
     } catch {}
+  };
+
+  const onExportPDF = async () => {
+    if (filtered.length === 0) { Alert.alert('No scans to export'); return; }
+    setPdfBusy(true);
+    try {
+      const esc = (str: string) => String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const items = filtered.map((s, i) => {
+        const fd = fmtDate(s.created_at);
+        return (
+          '<div class="scan">' +
+            '<div class="row">' +
+              '<div class="num">' + (i + 1) + '</div>' +
+              '<div class="title">' + esc(s.top_label || 'Unknown') + '</div>' +
+              '<div class="pct">' + Math.round(s.confidence || 0) + '%</div>' +
+            '</div>' +
+            '<div class="meta">' + esc(String(s.type || '').toUpperCase()) + ' · ' + esc(fd.label) + ' ' + esc(fd.time) + '</div>' +
+            (s.image_url ? '<img class="img" src="' + esc(s.image_url) + '" />' : '') +
+            (s.recommendation ? '<div class="rec"><strong>Recommendation:</strong> ' + esc(s.recommendation) + '</div>' : '') +
+          '</div>'
+        );
+      }).join('');
+
+      const html =
+        '<html><head><style>' +
+        '@page { margin: 20px; }' +
+        'body { font-family: -apple-system, Helvetica, Arial, sans-serif; color: #111; }' +
+        'h1 { color: #1b5e20; margin-bottom: 4px; }' +
+        '.sub { color: #666; font-size: 12px; margin-bottom: 20px; }' +
+        '.scan { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; page-break-inside: avoid; }' +
+        '.row { display: flex; align-items: center; margin-bottom: 4px; }' +
+        '.num { background: #2e7d32; color: white; width: 24px; height: 24px; border-radius: 12px; text-align: center; font-weight: bold; line-height: 24px; margin-right: 8px; font-size: 12px; }' +
+        '.title { flex: 1; font-weight: 700; font-size: 14px; }' +
+        '.pct { color: #2e7d32; font-weight: 900; font-size: 16px; }' +
+        '.meta { color: #666; font-size: 11px; margin-bottom: 8px; }' +
+        '.img { max-width: 180px; max-height: 180px; border-radius: 6px; display: block; margin: 8px 0; }' +
+        '.rec { font-size: 11px; color: #333; line-height: 1.5; margin-top: 6px; padding-top: 6px; border-top: 1px solid #eee; }' +
+        '.footer { text-align: center; color: #999; font-size: 10px; margin-top: 20px; }' +
+        '</style></head><body>' +
+        '<h1>GAIA Scan History</h1>' +
+        '<div class="sub">' + new Date().toLocaleString() + ' · ' + filtered.length + ' scans</div>' +
+        items +
+        '<div class="footer">Generated by GAIA · Darkmoor Ltd</div>' +
+        '</body></html>';
+
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Share GAIA History PDF' });
+      } else {
+        Alert.alert('PDF saved', uri);
+      }
+    } catch (e: any) {
+      Alert.alert('PDF export failed', e?.message || 'Try again');
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   const cycleConf = () => {
@@ -267,6 +365,12 @@ export default function History() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={palette.neon} />
         }
       >
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+            <Text style={styles.backText}>‹</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.title}>{t('history.title')}</Text>
         <Text style={styles.subtitle}>{t('history.subtitle')}</Text>
 
@@ -339,7 +443,7 @@ export default function History() {
 
         <View style={styles.toolbar}>
           <Pressable onPress={() => setSortOpen(true)} style={styles.toolBtn}>
-            <Text style={styles.toolBtnText}>⇅ SORT</Text>
+            <Text style={styles.toolBtnText}>⇅</Text>
           </Pressable>
           <Pressable onPress={cycleConf} style={styles.toolBtn}>
             <Text style={[styles.toolBtnText, minConf > 0 && { color: palette.neon }]}>
@@ -347,10 +451,13 @@ export default function History() {
             </Text>
           </Pressable>
           <Pressable onPress={() => setFavoritesOnly(!favoritesOnly)} style={styles.toolBtn}>
-            <Text style={[styles.toolBtnText, favoritesOnly && { color: '#ffcc00' }]}>★ FAVS</Text>
+            <Text style={[styles.toolBtnText, favoritesOnly && { color: '#ffcc00' }]}>★</Text>
+          </Pressable>
+          <Pressable onPress={onExportPDF} style={styles.toolBtn} disabled={pdfBusy}>
+            {pdfBusy ? <ActivityIndicator color={palette.neon} size="small" /> : <Text style={styles.toolBtnText}>PDF</Text>}
           </Pressable>
           <Pressable onPress={onExportCSV} style={styles.toolBtn}>
-            <Text style={styles.toolBtnText}>EXPORT</Text>
+            <Text style={styles.toolBtnText}>CSV</Text>
           </Pressable>
         </View>
 
@@ -376,7 +483,8 @@ export default function History() {
             <Text style={styles.dayHeader}>{dayLabel.toUpperCase()}</Text>
             {grouped[dayLabel].map((s) => {
               const time = fmtDate(s.created_at).time;
-              const emoji = s.emoji || TYPE_EMOJI[String(s.type || '').toLowerCase()] || '📷';
+              const st = getScanType(s);
+              const emoji = s.emoji || TYPE_EMOJI[st] || '📷';
               const thumb = s.thumbnail_url || s.image_url;
               const isFav = favorites.has(String(s.id));
               return (
@@ -391,7 +499,7 @@ export default function History() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{s.top_label || 'Unknown'}</Text>
                     <Text style={styles.itemSub} numberOfLines={1}>
-                      {String(s.type || '').toUpperCase()} · {time}
+                      {st.toUpperCase()} · {time}
                     </Text>
                   </View>
                   <Pressable onPress={() => toggleFavorite(String(s.id))} hitSlop={10} style={{ paddingHorizontal: 6 }}>
@@ -457,7 +565,7 @@ export default function History() {
 
                   <View style={styles.detailRow}>
                     <Text style={styles.detailKey}>{t('history.type')}</Text>
-                    <Text style={styles.detailVal}>{String(selected.type || '-').toUpperCase()}</Text>
+                    <Text style={styles.detailVal}>{getScanType(selected).toUpperCase()}</Text>
                   </View>
                   {selected.crop ? (
                     <View style={styles.detailRow}>
@@ -492,10 +600,13 @@ export default function History() {
 
                   <View style={styles.actionRow}>
                     <Pressable onPress={() => onShare(selected)} style={styles.actionBtn}>
-                      <Text style={styles.actionBtnText}>📤 SHARE</Text>
+                      <Text style={styles.actionBtnText}>📤 TEXT</Text>
+                    </Pressable>
+                    <Pressable onPress={() => onShareImage(selected)} style={[styles.actionBtn, { borderColor: '#ff9800' }]}>
+                      <Text style={[styles.actionBtnText, { color: '#ff9800' }]}>📷 IMAGE</Text>
                     </Pressable>
                     <Pressable onPress={() => onWhatsApp(selected)} style={[styles.actionBtn, { borderColor: '#25d366' }]}>
-                      <Text style={[styles.actionBtnText, { color: '#25d366' }]}>WhatsApp</Text>
+                      <Text style={[styles.actionBtnText, { color: '#25d366' }]}>WA</Text>
                     </Pressable>
                   </View>
 
@@ -515,6 +626,12 @@ export default function History() {
 const createStyles = (palette: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: palette.obsidian },
   scroll: { paddingHorizontal: spacing.xl, paddingTop: 56 },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  backText: { fontSize: 24, color: palette.neon, fontWeight: '300', lineHeight: 26 },
   title: { fontSize: 34, fontWeight: '900', color: palette.text, letterSpacing: -1 },
   subtitle: { ...typography.body, color: palette.textMuted, marginTop: spacing.sm },
   countText: { ...typography.micro, color: palette.textDim, marginTop: 8, marginBottom: 4 },
@@ -578,7 +695,7 @@ const createStyles = (palette: any) => StyleSheet.create({
   },
   searchIcon: { fontSize: 14 },
   searchInput: { flex: 1, color: palette.text, fontSize: 14, paddingVertical: 0 },
-  toolbar: { flexDirection: 'row', gap: 6, marginBottom: 8 },
+  toolbar: { flexDirection: 'row', gap: 4, marginBottom: 8 },
   toolBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 10,
     borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface,
@@ -591,7 +708,7 @@ const createStyles = (palette: any) => StyleSheet.create({
   sortRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   sortRowActive: { backgroundColor: 'rgba(0,255,136,0.08)' },
   sortRowText: { fontSize: 13, fontWeight: '700', color: palette.text },
-  actionRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  actionBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: palette.borderHi, alignItems: 'center' },
-  actionBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 1, color: palette.neon },
+  actionRow: { flexDirection: 'row', gap: 6, marginTop: 16 },
+  actionBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: palette.borderHi, alignItems: 'center' },
+  actionBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, color: palette.neon },
 });
