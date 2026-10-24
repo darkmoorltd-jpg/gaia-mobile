@@ -2,64 +2,44 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from '../src/utils/admin';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-export default function Admin() {
 
-  const user = useAuth((s: any) => s.user);
-  const isAdmin = ((user?.email || '').toLowerCase()) === ADMIN_EMAIL;
+export default function Admin() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
-  const { isAdmin, isSuperAdmin } = useIsAdmin();
   const styles = createStyles(palette);
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
-      <View style={styles.container}>
-        <View style={styles.blocked}>
-          <Text style={styles.blockedText}>Access denied</Text>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>GO BACK</Text>
-          </Pressable>
-        </View>
+      <View style={styles.blocked}>
+        <Text style={styles.blockedText}>Access denied</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>GO BACK</Text>
+        </Pressable>
       </View>
     );
   }
 
   const SECTIONS = [
-    { title: 'Overview', items: [
-      { label: 'KPI Dashboard', route: '/admin-dashboard' },
-      { label: 'Analytics', route: '/admin-analytics' },
-    ]},
     { title: 'Users', items: [
-      { label: 'Advanced Search', route: '/admin-advanced-search' },
-      { label: 'Manage Agents', route: '/admin-agents' },
       { label: 'All Users', route: '/admin-users' },
       { label: 'Verifications', route: '/admin-verifications' },
       { label: 'Farmer Database', route: '/admin-farmers' },
-      { label: 'Scan History', route: '/admin-scans' },
-      { label: 'Login History', route: '/admin-logins' },
+      { label: 'Advanced Search', route: '/admin-advanced-search' },
+      { label: 'Manage Agents', route: '/admin-agents' },
     ]},
     { title: 'Finance', items: [
       { label: 'Payments', route: '/admin-payments' },
       { label: 'Wallets', route: '/admin-wallets' },
       { label: 'Loans', route: '/admin-loans' },
-      { label: 'Loan Approvals', route: '/admin-loans-mobile' },
-      { label: 'Withdrawals & Disputes', route: '/admin-ops' },
-    ]},
-    { title: 'Content', items: [
-      { label: 'Marketplace', route: '/admin-marketplace' },
-      { label: 'Support Tickets', route: '/admin-support' },
-      { label: 'Broadcast', route: '/admin-broadcast' },
     ]},
     { title: 'System', items: [
-      { label: 'Remote Config', route: '/admin-config' },
+      { label: 'Analytics', route: '/admin-analytics' },
       { label: 'Model Health', route: '/admin-models' },
       { label: 'Audit Log', route: '/admin-audit' },
-      { label: 'Bulk Tools', route: '/admin-tools' },
-      { label: 'Export CSV', route: '/admin-export' },
     ]},
   ];
 
@@ -67,21 +47,13 @@ export default function Admin() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.role}>ADMIN</Text>
-        <Pressable
-          onPress={() => {
-            if (typeof router.canGoBack === 'function' && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(tabs)/profile' as any);
-            }
-          }}
-          style={{ paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start', marginBottom: 8 }}
-          hitSlop={10}
-        >
-          <Text style={{ fontSize: 12, fontWeight: '800', letterSpacing: 1.5, color: palette.neon }}>{'<'} BACK</Text>
+        <Pressable onPress={() => router.back()}>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: palette.neon, marginBottom: 8 }}>
+            {'<'} BACK
+          </Text>
         </Pressable>
         <Text style={styles.title}>Control Panel</Text>
-        <Text style={styles.email}>{user.email}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
 
         {SECTIONS.map((section, si) => (
           <View key={si}>
@@ -95,127 +67,6 @@ export default function Admin() {
           </View>
         ))}
         <View style={{ height: 100 }} />
-      
-        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#00ff88', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
-          BANK OF AGRICULTURE
-        </Text>
-        <Pressable onPress={() => router.push('/boa-dashboard' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00ff88' }}>BOA PORTFOLIO</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/boa-risk' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>RISK RADAR</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-borrowers' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffb300', backgroundColor: 'rgba(255,179,0,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffb300' }}>BORROWERS</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-forecast' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>COLLECTIONS FORECAST</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-map' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#b388ff' }}>PORTFOLIO MAP</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/boa-pricing' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00c853' }}>RISK-BASED PRICING</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-restructure' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff6b35', backgroundColor: 'rgba(255,107,53,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff6b35' }}>RESTRUCTURE QUEUE</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-fraud' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>FRAUD RINGS</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/boa-food-security' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#69f0ae', backgroundColor: 'rgba(105,240,174,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#69f0ae' }}>FOOD SECURITY</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-benchmark' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#fdd835', backgroundColor: 'rgba(253,216,53,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#fdd835' }}>PEER BENCHMARK</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-csv-import' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26c6da' }}>CSV LOAN IMPORT</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-board-pack' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ab47bc', backgroundColor: 'rgba(171,71,188,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>BOARD PACK</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/boa-coops' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7e57c2', backgroundColor: 'rgba(126,87,194,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7e57c2' }}>COOPERATIVES</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-receipts' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ef6c00', backgroundColor: 'rgba(239,108,0,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ef6c00' }}>WAREHOUSE RECEIPTS</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/boa-field-officers' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#5c6bc0', backgroundColor: 'rgba(92,107,192,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#5c6bc0' }}>FIELD OFFICERS</Text>
-        </Pressable>
-
-        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#ffb300', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
-          MINISTRY OF AGRICULTURE
-        </Text>
-        <Pressable onPress={() => router.push('/ministry-dashboard' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00c853' }}>NATIONAL DASHBOARD</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-disease-map' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ff3b5c', backgroundColor: 'rgba(255,59,92,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ff3b5c' }}>DISEASE SURVEILLANCE</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/ministry-harvest-forecast' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>HARVEST FORECAST</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-program-delivery' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#fdd835', backgroundColor: 'rgba(253,216,53,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#fdd835' }}>PROGRAM DELIVERY</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/ministry-farmer-registry' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26a69a', backgroundColor: 'rgba(38,166,154,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26a69a' }}>FARMER REGISTRY</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-yield-gap' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ef5350', backgroundColor: 'rgba(239,83,80,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ef5350' }}>YIELD GAP ANALYSIS</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/ministry-food-security' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#66bb6a', backgroundColor: 'rgba(102,187,106,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#66bb6a' }}>FOOD SECURITY INDEX</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-policy-simulator' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffa726', backgroundColor: 'rgba(255,167,38,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffa726' }}>POLICY SIMULATOR</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/ministry-cooperatives' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7e57c2', backgroundColor: 'rgba(126,87,194,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7e57c2' }}>COOPERATIVE NETWORK</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-price-monitor' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26c6da' }}>PRICE MONITOR</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-extension' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#5c6bc0', backgroundColor: 'rgba(92,107,192,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#5c6bc0' }}>EXTENSION IMPACT</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/ministry-briefing' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ab47bc', backgroundColor: 'rgba(171,71,188,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ab47bc' }}>EXECUTIVE BRIEFING</Text>
-        </Pressable>
-        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#69f0ae', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
-          GAIA MEET
-        </Text>
-        <Pressable onPress={() => router.push('/meet' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#00c853' }}>CONSULTATIONS</Text>
-        </Pressable>
-        <Text style={{ fontSize: 11, fontWeight: '900', letterSpacing: 1.8, color: '#4fc3f7', marginTop: 20, marginBottom: 8, paddingHorizontal: 20 }}>
-          GAIA UNIVERSITY (ADMIN)
-        </Text>
-        <Pressable onPress={() => router.push('/admin-courses' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#4fc3f7', backgroundColor: 'rgba(79,195,247,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#4fc3f7' }}>COURSE MANAGER</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push('/admin-cohorts' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#7c4dff', backgroundColor: 'rgba(124,77,255,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#7c4dff' }}>LIVE CLASS COHORTS</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/ministry-rosca' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#26a69a', backgroundColor: 'rgba(38,166,154,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#26a69a' }}>SAVINGS OVERSIGHT (ROSCA)</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/admin-provision-wallets' as any)} style={{ padding: 16, marginHorizontal: 20, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ffb300', backgroundColor: 'rgba(255,179,0,0.06)' }}>
-          <Text style={{ fontSize: 12, fontWeight: '900', letterSpacing: 1.5, color: '#ffb300' }}>PROVISION WALLETS</Text>
-        </Pressable>
-
       </ScrollView>
     </View>
   );
@@ -225,7 +76,7 @@ const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
   role: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: p.danger },
-  title: { fontSize: 34, fontWeight: '900', letterSpacing: -1, color: p.text, marginTop: 4 },
+  title: { fontSize: 34, fontWeight: '900', color: p.text, marginTop: 4 },
   email: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 24 },
   sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.2, color: p.textMuted, marginTop: 20, marginBottom: 8 },
   item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
