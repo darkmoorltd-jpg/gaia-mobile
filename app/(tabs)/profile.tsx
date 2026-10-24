@@ -47,6 +47,7 @@ const SECTIONS: Section[] = [
   { title: 'MONEY & BUSINESS', icon: '$$', items: [
     { label: 'Wallet', route: '/wallet', flag: 'wallet' },
     { label: 'Payment History', route: '/payment-history' },
+    { label: 'Loans', route: '/loans', flag: 'loans' },
     { label: 'Savings Groups', route: '/savings-groups' },
     { label: 'Rewards & Referral', route: '/rewards' },
     { label: 'Affiliate Program', route: '/affiliate' },
