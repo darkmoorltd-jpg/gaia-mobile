@@ -36,6 +36,41 @@ export default function BuyScans() {
   const [cryptoPlan, setCryptoPlan] = useState<string>('starter');
   const [cryptoCurrency, setCryptoCurrency] = useState<string>('usdttrc20');
   const [cryptoBusy, setCryptoBusy] = useState(false);
+  const [cryptoPaidNotice, setCryptoPaidNotice] = useState<string | null>(null);
+
+  // Poll for crypto credits every 5s while screen is open
+  useEffect(() => {
+    let cancelled = false;
+    const seen: Record<string, boolean> = {};
+    const checkCryptoPolling = async () => {
+      try {
+        const { data: { user: me } } = await supabase.auth.getUser();
+        if (!me || cancelled) return;
+        const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data } = await supabase
+          .from('crypto_payments')
+          .select('invoice_id,status,scans_to_add')
+          .eq('user_id', me.id)
+          .eq('status', 'credited')
+          .gte('updated_at', since)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0 && !cancelled) {
+          const row = data[0];
+          if (!seen[row.invoice_id]) {
+            seen[row.invoice_id] = true;
+            await refreshScans();
+            setCryptoPaidNotice(`✅ Payment confirmed! ${row.scans_to_add} scans added.`);
+            setTimeout(() => setCryptoPaidNotice(null), 8000);
+          }
+        }
+      } catch {}
+    };
+    const iv = setInterval(checkCryptoPolling, 5000);
+    checkCryptoPolling();
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [refreshScans]);
+
   const [payRef, setPayRef] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState<any>(null);
@@ -191,6 +226,12 @@ export default function BuyScans() {
         ) : null}
 
         <Text style={styles.sectionLabel}>CHOOSE YOUR PLAN</Text>
+
+        {cryptoPaidNotice ? (
+          <View style={{ padding: 14, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,200,83,0.15)', borderWidth: 1, borderColor: '#00c853' }}>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#00c853' }}>{cryptoPaidNotice}</Text>
+          </View>
+        ) : null}
 
         {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
 
