@@ -33,6 +33,9 @@ export default function BuyScans() {
   const [busy, setBusy] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
   const [selected, setSelected] = useState<Plan | null>(null);
+  const [cryptoPlan, setCryptoPlan] = useState<string>('starter');
+  const [cryptoCurrency, setCryptoCurrency] = useState<string>('usdttrc20');
+  const [cryptoBusy, setCryptoBusy] = useState(false);
   const [payRef, setPayRef] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState<any>(null);
@@ -227,6 +230,63 @@ export default function BuyScans() {
           );
         })}
 
+        
+        {/* Crypto payment option */}
+        <View style={{ marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: '#0d1410', borderWidth: 1, borderColor: '#00c853' }}>
+          <Text style={{ fontSize: 16, fontWeight: '900', color: '#00c853', marginBottom: 4 }}>💎 Pay with Crypto</Text>
+          <Text style={{ fontSize: 11, color: '#8899a6', marginBottom: 14 }}>
+            USDT · USDC · Bitcoin · Ethereum — scans added automatically after confirmation
+          </Text>
+
+          <Text style={{ fontSize: 10, color: '#8899a6', fontWeight: '800', marginBottom: 8, letterSpacing: 1 }}>SCAN PACK</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+            {Object.entries(CRYPTO_PLANS).map(([key, p]: any) => (
+              <Pressable
+                key={key}
+                onPress={() => setCryptoPlan(key)}
+                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5,
+                  borderColor: cryptoPlan === key ? '#00c853' : '#2a3441',
+                  backgroundColor: cryptoPlan === key ? 'rgba(0,200,83,0.15)' : 'transparent' }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '800', color: cryptoPlan === key ? '#00c853' : '#e2e8f0' }}>
+                  {p.scans} · ${p.usd.toFixed(2)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={{ fontSize: 10, color: '#8899a6', fontWeight: '800', marginBottom: 8, letterSpacing: 1 }}>CRYPTOCURRENCY</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {CRYPTO_OPTIONS.map((o: any) => (
+              <Pressable
+                key={o.key}
+                onPress={() => setCryptoCurrency(o.key)}
+                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5,
+                  borderColor: cryptoCurrency === o.key ? '#00c853' : '#2a3441',
+                  backgroundColor: cryptoCurrency === o.key ? 'rgba(0,200,83,0.15)' : 'transparent' }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '800', color: cryptoCurrency === o.key ? '#00c853' : '#e2e8f0' }}>
+                  {o.emoji} {o.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            disabled={cryptoBusy}
+            onPress={async () => {
+              setCryptoBusy(true);
+              try { await payWithCrypto(cryptoPlan, cryptoCurrency); }
+              finally { setCryptoBusy(false); }
+            }}
+            style={{ paddingVertical: 16, borderRadius: 12, backgroundColor: '#00c853', alignItems: 'center', opacity: cryptoBusy ? 0.5 : 1 }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
+              {cryptoBusy ? 'OPENING…' : 'PAY $' + (CRYPTO_PLANS as any)[cryptoPlan].usd.toFixed(2) + ' IN ' + cryptoCurrency.toUpperCase()}
+            </Text>
+          </Pressable>
+        </View>
+
         <Pressable onPress={() => setShowManual(true)} style={styles.manualLink}>
           <Text style={styles.manualLinkText}>Already paid? Enter reference</Text>
         </Pressable>
@@ -266,7 +326,8 @@ export default function BuyScans() {
       <Modal visible={showManual} animationType="slide" transparent onRequestClose={() => setShowManual(false)}>
         <View style={styles.manualBg}>
           <View style={styles.manualSheet}>
-            <Text style={styles.manualTitle}>Enter Payment Reference</Text>
+            
+          <Text style={styles.manualTitle}>Enter Payment Reference</Text>
             <Text style={styles.manualSub}>Paste the reference from your Paystack email or SMS.</Text>
 
             <Text style={styles.manualLabel}>PLAN</Text>
@@ -405,5 +466,3 @@ const createStyles = (p: any) => StyleSheet.create({
   successBtn: { marginTop: 24, paddingVertical: 16, paddingHorizontal: 60, borderRadius: 12, backgroundColor: '#00ff88' },
   successBtnText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
 });
-
-# TODO: add crypto section
