@@ -36,6 +36,12 @@ export default function BuyScans() {
   const [cryptoPlan, setCryptoPlan] = useState<string>('starter');
   const [cryptoCurrency, setCryptoCurrency] = useState<string>('usdttrc20');
   const [cryptoBusy, setCryptoBusy] = useState(false);
+  const [isUnlimited, setIsUnlimited] = useState(false);
+  const _unlimitedEligible = isUnlimitedEligible();
+
+  useEffect(() => {
+    hasActiveUnlimited().then(setIsUnlimited);
+  }, []);
   const [cryptoPaidNotice, setCryptoPaidNotice] = useState<string | null>(null);
 
   // Poll for crypto credits every 5s while screen is open
@@ -223,6 +229,44 @@ export default function BuyScans() {
               </View>
             ))}
           </>
+        ) : null}
+
+        {_unlimitedEligible && !isUnlimited ? (
+          <>
+            <Text style={styles.sectionLabel}>BEST VALUE — ANNUAL</Text>
+            <View style={{
+              padding: 20, marginBottom: 16, borderRadius: 20,
+              borderWidth: 2, borderColor: '#ffd700',
+              backgroundColor: 'rgba(255,215,0,0.08)',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontSize: 28, marginRight: 8 }}>👑</Text>
+                <Text style={{ fontSize: 18, fontWeight: '900', color: '#ffd700' }}>UNLIMITED SCANS</Text>
+              </View>
+              <Text style={{ fontSize: 12, color: '#8899a6', marginBottom: 16 }}>
+                Pay once for a full year. No per-scan charges. Works for every crop, pest, soil type, and livestock scan.
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 }}>
+                <Text style={{ fontSize: 36, fontWeight: '900', color: '#ffd700' }}>{formatAnnualPrice()}</Text>
+                <Text style={{ fontSize: 14, color: '#8899a6', marginLeft: 8 }}>/ year</Text>
+              </View>
+              <Pressable
+                onPress={payAnnualUnlimited}
+                style={{ paddingVertical: 16, borderRadius: 12, backgroundColor: '#ffd700', alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
+                  UNLOCK UNLIMITED FOR 1 YEAR
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {isUnlimited ? (
+          <View style={{ padding: 16, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,200,83,0.15)', borderWidth: 1, borderColor: '#00c853' }}>
+            <Text style={{ fontSize: 14, fontWeight: '900', color: '#00c853' }}>👑 Unlimited plan active</Text>
+            <Text style={{ fontSize: 11, color: '#8899a6', marginTop: 4 }}>All scans are free until your annual plan expires.</Text>
+          </View>
         ) : null}
 
         <Text style={styles.sectionLabel}>CHOOSE YOUR PLAN</Text>

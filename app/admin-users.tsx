@@ -34,6 +34,7 @@ export default function AdminUsers() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [groupByCountry, setGroupByCountry] = useState(false);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
@@ -272,6 +273,22 @@ export default function AdminUsers() {
       })
     : rows;
 
+  // Country grouping
+  const FLAGS: Record<string, string> = {
+    NG:'🇳🇬', GH:'🇬🇭', KE:'🇰🇪', ZA:'🇿🇦', CI:'🇨🇮', SN:'🇸🇳', CM:'🇨🇲',
+    GB:'🇬🇧', IE:'🇮🇪', FR:'🇫🇷', DE:'🇩🇪', NL:'🇳🇱', BE:'🇧🇪', CH:'🇨🇭',
+    AT:'🇦🇹', IT:'🇮🇹', ES:'🇪🇸', PT:'🇵🇹', PL:'🇵🇱', SE:'🇸🇪', NO:'🇳🇴',
+    DK:'🇩🇰', FI:'🇫🇮', US:'🇺🇸', CA:'🇨🇦', MX:'🇲🇽', AU:'🇦🇺', NZ:'🇳🇿',
+    IN:'🇮🇳', CN:'🇨🇳', JP:'🇯🇵', BR:'🇧🇷', EG:'🇪🇬', MA:'🇲🇦',
+  };
+  const grouped = filtered.reduce((acc: Record<string, any[]>, r: any) => {
+    const code = (r.country_code || 'NG').toUpperCase();
+    if (!acc[code]) acc[code] = [];
+    acc[code].push(r);
+    return acc;
+  }, {} as Record<string, any[]>);
+  const countryOrder = Object.keys(grouped).sort((a, b) => grouped[b].length - grouped[a].length);
+
   const onlineCount = rows.filter((r) => isOnline(r.last_seen)).length;
 
   const TABS: { key: Tab; label: string }[] = [
@@ -296,6 +313,25 @@ export default function AdminUsers() {
         <Text style={styles.sub}>
           {rows.length} total · <Text style={{ color: palette.neon }}>{onlineCount} online</Text> · <Text style={{ color: palette.textDim, fontSize: 10 }}>updated {lastUpdate.toLocaleTimeString()}</Text>
         </Text>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          <Pressable
+            onPress={() => setGroupByCountry(false)}
+            style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+              backgroundColor: !groupByCountry ? 'rgba(0,255,136,0.15)' : 'transparent',
+              borderWidth: 1, borderColor: !groupByCountry ? '#00ff88' : '#2a3441' }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '800', color: !groupByCountry ? '#00ff88' : '#8899a6' }}>FLAT LIST</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setGroupByCountry(true)}
+            style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+              backgroundColor: groupByCountry ? 'rgba(0,255,136,0.15)' : 'transparent',
+              borderWidth: 1, borderColor: groupByCountry ? '#00ff88' : '#2a3441' }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '800', color: groupByCountry ? '#00ff88' : '#8899a6' }}>BY COUNTRY</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.searchWrap}>
           <TextInput value={search} onChangeText={setSearch}
