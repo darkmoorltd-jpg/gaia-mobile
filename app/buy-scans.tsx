@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { payWithCrypto, CRYPTO_OPTIONS, CRYPTO_PLANS } from '../src/utils/crypto_payments';
 import { fetchPlans, verifyPurchase, newRef, type Plan } from '../src/utils/purchases';
 import PaymentCelebration from '../src/components/PaymentCelebration';
 import { playSound, primeSounds } from '../src/utils/sounds';
@@ -404,3 +405,5 @@ const createStyles = (p: any) => StyleSheet.create({
   successBtn: { marginTop: 24, paddingVertical: 16, paddingHorizontal: 60, borderRadius: 12, backgroundColor: '#00ff88' },
   successBtnText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
 });
+
+# TODO: add crypto section
