@@ -14,7 +14,7 @@ import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { registerPushToken as registerExpoToken, subscribeToNotifications, triggerOutbreakScan } from '../src/utils/notifications';
 import { useLocation } from '../src/store/location';
-import { palette, useSyncTheme } from '../src/theme';
+import { palette, useSyncTheme, useTheme } from '../src/theme';
 import { useThemeMode } from '../src/store/themeMode';
 import { installTapHandler, registerForPush } from '../src/utils/pushNotifications';
 import GaiaSplash from '../src/components/GaiaSplash';
