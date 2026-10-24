@@ -31,47 +31,49 @@ const BANKS = ['','Access Bank','GTBank','Zenith Bank','UBA','First Bank','Kuda'
 interface MenuItem { label: string; route: string; flag?: string; }
 interface Section { title: string; icon: string; items: MenuItem[]; }
 
-const SECTIONS: Section[] = [
-  { title: 'SCANS & AI', icon: 'AI', items: [
-    { label: 'Voice Agronomist', route: '/voice', flag: 'voice' },
-    { label: 'Video Scan', route: '/video-scan', flag: 'video' },
-    { label: 'Scan History', route: '/history' },
-    { label: 'Early Warning', route: '/early-warning' },
+function getSections(t: any): Section[] {
+  return [] = [
+  { title: t('profile.sections.scansAi'), icon: 'AI', items: [
+    { label: t('profile.items.voiceAgronomist'), route: '/voice', flag: 'voice' },
+    { label: t('profile.items.videoScan'), route: '/video-scan', flag: 'video' },
+    { label: t('profile.items.scanHistory'), route: '/history' },
+    { label: t('profile.items.earlyWarning'), route: '/early-warning' },
   ]},
-  { title: 'FARM TOOLS', icon: 'FM', items: [
-    { label: 'Farm Mapping', route: '/farm-mapping' },
+  { title: t('profile.sections.farmTools'), icon: 'FM', items: [
+    { label: t('profile.items.farmMapping'), route: '/farm-mapping' },
     { label: 'Agro Tools', route: '/agro-tools' },
-    { label: 'Farm Journal', route: '/journal' },
-    { label: 'Satellite Monitor', route: '/satellite', flag: 'satellite' },
+    { label: t('profile.items.farmJournal'), route: '/journal' },
+    { label: t('profile.items.satelliteMonitor'), route: '/satellite', flag: 'satellite' },
   ]},
-  { title: 'MONEY & BUSINESS', icon: '$$', items: [
-    { label: 'Wallet', route: '/wallet', flag: 'wallet' },
-    { label: 'Payment History', route: '/payment-history' },
-    { label: 'Loans', route: '/loans', flag: 'loans' },
-    { label: 'Savings Groups', route: '/savings-groups' },
-    { label: 'Rewards & Referral', route: '/rewards' },
-    { label: 'Affiliate Program', route: '/affiliate' },
-    { label: 'B2B Dashboard', route: '/b2b-dashboard' },
+  { title: t('profile.sections.moneyBusiness'), icon: '$$', items: [
+    { label: t('profile.items.wallet'), route: '/wallet', flag: 'wallet' },
+    { label: t('profile.items.paymentHistory'), route: '/payment-history' },
+    { label: t('profile.items.loans'), route: '/loans', flag: 'loans' },
+    { label: t('profile.items.savingsGroups'), route: '/savings-groups' },
+    { label: t('profile.items.rewards'), route: '/rewards' },
+    { label: t('profile.items.affiliate'), route: '/affiliate' },
+    { label: t('profile.items.b2b'), route: '/b2b-dashboard' },
   ]},
-  { title: 'COMMUNITY', icon: 'CM', items: [
-    { label: 'Marketplace', route: '/marketplace', flag: 'marketplace' },
-    { label: 'University', route: '/university', flag: 'university' },
-    { label: 'Chat', route: '/chat', flag: 'chat' },
-    { label: 'Notifications', route: '/notifications' },
+  { title: t('profile.sections.community'), icon: 'CM', items: [
+    { label: t('profile.items.marketplace'), route: '/marketplace', flag: 'marketplace' },
+    { label: t('profile.items.university'), route: '/university', flag: 'university' },
+    { label: t('profile.items.chat'), route: '/chat', flag: 'chat' },
+    { label: t('profile.items.notifications'), route: '/notifications' },
   ]},
-  { title: 'ACCOUNT', icon: 'AC', items: [
+  { title: t('profile.sections.account'), icon: 'AC', items: [
     { label: 'Alerts & Follow-ups', route: '/alerts' },
     { label: 'Photo Timeline', route: '/photo-timeline' },
-    { label: 'Verification', route: '/verification' },
-    { label: 'Badges', route: '/badges', flag: 'badges' },
-    { label: 'Farming Calendar', route: '/calendar', flag: 'calendar' },
-    { label: 'Blocked Users', route: '/blocked-users' },
+    { label: t('profile.items.verification'), route: '/verification' },
+    { label: t('profile.items.badges'), route: '/badges', flag: 'badges' },
+    { label: t('profile.items.farmingCalendar'), route: '/calendar', flag: 'calendar' },
+    { label: t('profile.items.blockedUsers'), route: '/blocked-users' },
   ]},
-  { title: 'SUPPORT', icon: 'SP', items: [
-    { label: 'Help and Support', route: '/help' },
-    { label: 'Settings', route: '/settings' },
+  { title: t('profile.sections.support'), icon: 'SP', items: [
+    { label: t('profile.items.helpSupport'), route: '/help' },
+    { label: t('profile.items.settings'), route: '/settings' },
   ]},
 ];
+}
 
 function mask11(v?: string | null) {
   if (!v) return '—';
@@ -89,6 +91,7 @@ const APP_VERSION = Constants.expoConfig?.version || '1.0.0';
 
 export default function Profile() {
   const { t } = useTranslation();
+  const SECTIONS = getSections(t);
   const router = useRouter();
   const palette = useTheme((s) => s.palette);
   const styles = useMemo(() => createStyles(palette), [palette]);
