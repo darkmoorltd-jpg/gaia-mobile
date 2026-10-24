@@ -439,10 +439,10 @@ export function DiagnoseScreen({ config }: { config: DiagnoseConfig }) {
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <View style={styles.tips}>
-              <Text style={styles.tipsTitle}>TIPS</Text>
-              <Text style={styles.tip}>Use natural daylight</Text>
-              <Text style={styles.tip}>Fill the frame with one leaf or subject</Text>
-              <Text style={styles.tip}>Avoid shadows and blur</Text>
+              <Text style={styles.tipsTitle}>{t('diagnose.tipsHeading')}</Text>
+              <Text style={styles.tip}>{t('diagnose.tipsUseDaylight')}</Text>
+              <Text style={styles.tip}>{t('diagnose.tipsFillFrame')}</Text>
+              <Text style={styles.tip}>{t('diagnose.tipsAvoidShadows')}</Text>
             </View>
 
             <View style={{ height: 140 }} />

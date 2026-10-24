@@ -141,7 +141,11 @@
     "warning": "ማስጠንቀቂያ",
     "guideLoading": "🧠 GAIA የሙሉ ምርመራ መመሪያዎን በማዘጋጀት ላይ ነው…",
     "voiceUnavailable": "ድምፅ አይገኝም",
-    "generatingVoice": "🔊 ድምፅ በመፍጠር ላይ…"
+    "generatingVoice": "🔊 ድምፅ በመፍጠር ላይ…",
+    "tipsHeading": "ምክሮች",
+    "tipsUseDaylight": "ተፈጥሯዊ የቀን ብርሃን ይጠቀሙ",
+    "tipsFillFrame": "አንድ ቅጠል ወይም ርዕስ በመሙላት ማዕከሉን ይሙሉ",
+    "tipsAvoidShadows": "ጨለማዎችን እና ውጥረትን ያስወግዱ"
   },
   "voice": {
     "title": "የድምጽ አግሮኖሚስት",

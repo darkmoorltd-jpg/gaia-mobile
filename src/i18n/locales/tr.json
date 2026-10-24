@@ -141,7 +141,11 @@
     "warning": "Uyarı",
     "guideLoading": "🧠 GAIA kapsamlı tedavi rehberinizi hazırlıyor…",
     "voiceUnavailable": "Ses kullanılamıyor",
-    "generatingVoice": "🔊 Ses oluşturuluyor…"
+    "generatingVoice": "🔊 Ses oluşturuluyor…",
+    "tipsHeading": "İPUÇLARI",
+    "tipsUseDaylight": "Doğal gün ışığını kullanın",
+    "tipsFillFrame": "Kareyi tek bir yaprak veya nesneyle doldurun",
+    "tipsAvoidShadows": "Gölgelerden ve bulanıklıktan kaçının"
   },
   "voice": {
     "title": "Sesli Agronomist",

@@ -141,7 +141,11 @@
     "warning": "Предупреждение",
     "guideLoading": "🧠 GAIA готовит ваш полный план лечения…",
     "voiceUnavailable": "Голос недоступен",
-    "generatingVoice": "🔊 Генерируем голос…"
+    "generatingVoice": "🔊 Генерируем голос…",
+    "tipsHeading": "СОВЕТЫ",
+    "tipsUseDaylight": "Используйте естественный дневной свет",
+    "tipsFillFrame": "Заполните кадр одним листом или объектом",
+    "tipsAvoidShadows": "Избегайте теней и размытия"
   },
   "voice": {
     "title": "Агроном голос",
