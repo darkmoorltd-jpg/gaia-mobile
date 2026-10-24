@@ -138,7 +138,12 @@
     "warning": "Warning",
     "guideLoading": "🧠 GAIA is preparing your complete treatment guide…",
     "voiceUnavailable": "Voice unavailable",
-    "generatingVoice": "🔊 Generating voice…"
+    "generatingVoice": "🔊 Generating voice…",
+    "tipsTitleSoil": "📸 Tips for best results",
+    "tipSoil1": "🏞️ Take 2–3 photos from slightly different angles",
+    "tipSoil2": "☀️ Use natural daylight",
+    "tipSoil3": "📤 Upload all photos together",
+    "tipSoil4": "🔄 More photos = better accuracy"
   },
   "voice": {
     "title": "Voice Agronomist",
