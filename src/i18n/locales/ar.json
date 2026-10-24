@@ -221,7 +221,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "لوحة التحكم",
     "adminOverview": "نظرة عامة",
-    "chat": "دردشة"
+    "chat": "دردشة",
+    "sections": {
+      "scans": "المسح والذكاء الاصطناعي",
+      "farm": "أدوات المزرعة",
+      "money": "المال والأعمال",
+      "community": "المجتمع",
+      "account": "الحساب",
+      "support": "الدعم"
+    },
+    "items": {
+      "voiceAgronomist": "مستشار زراعي صوتي",
+      "videoScan": "مسح الفيديو",
+      "scanHistory": "سجل المسح",
+      "earlyWarning": "تحذير مبكر",
+      "farmMapping": "رسم خريطة المزرعة",
+      "yieldEstimator": "مقدر الإنتاج",
+      "fertilizerCalc": "حاسبة الأسمدة",
+      "profitCalc": "حاسبة الأرباح",
+      "plantingCalendar": "تقويم الزراعة",
+      "seedRecommender": "مقترح البذور",
+      "farmJournal": "دفتر ملاحظات المزرعة",
+      "satelliteMonitor": "مراقبة الأقمار الصناعية",
+      "wallet": "محفظة",
+      "paymentHistory": "سجل المدفوعات",
+      "savingsGroups": "مجموعات الادخار",
+      "rewards": "المكافآت والإحالة",
+      "affiliate": "برنامج الشركاء",
+      "b2b": "لوحة تحكم B2B",
+      "ads": "إعلانات مدعومة",
+      "marketplace": "السوق",
+      "university": "جامعة",
+      "chat": "دردشة",
+      "gaiaMeet": "GAIA اجتماع",
+      "notifications": "الإشعارات",
+      "verification": "التحقق",
+      "badges": "الشارات",
+      "farmingCalendar": "تقويم الزراعة",
+      "blockedUsers": "المستخدمون المحظورون",
+      "helpSupport": "المساعدة والدعم",
+      "settings": "الإعدادات",
+      "adminConsole": "لوحة الإدارة"
+    }
   },
   "payments": {
     "buyScans": "شراء المسح",
@@ -411,5 +452,14 @@
   "help": {
     "title": "المساعدة والدعم",
     "noTickets": "لا توجد تذاكر بعد"
+  },
+  "theme": {
+    "label": "المظهر",
+    "dark": "داكن",
+    "light": "فاتح",
+    "auto": "تلقائي",
+    "darkDesc": "استخدام الألوان الداكنة دائمًا",
+    "lightDesc": "استخدام الألوان الفاتحة دائمًا",
+    "autoDesc": "اتباع إعداد جهازك"
   }
 }

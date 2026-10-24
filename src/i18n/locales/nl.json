@@ -221,7 +221,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Controlepaneel",
     "adminOverview": "Overzicht",
-    "chat": "Chat"
+    "chat": "Chat",
+    "sections": {
+      "scans": "SCANS & AI",
+      "farm": "FARM TOOLS",
+      "money": "MONEY & BUSINESS",
+      "community": "COMMUNITY",
+      "account": "ACCOUNT",
+      "support": "SUPPORT"
+    },
+    "items": {
+      "voiceAgronomist": "Spraak Agronoom",
+      "videoScan": "Videoscan",
+      "scanHistory": "Scanhistorie",
+      "earlyWarning": "Vroege Waarschuwing",
+      "farmMapping": "Boerderijmapping",
+      "yieldEstimator": "Oogstschatting",
+      "fertilizerCalc": "Meststofrekenmachine",
+      "profitCalc": "Winstrekenmachine",
+      "plantingCalendar": "Plantkalender",
+      "seedRecommender": "Zaadadviseur",
+      "farmJournal": "Boerderijdagboek",
+      "satelliteMonitor": "Satellietmonitor",
+      "wallet": "Portemonnee",
+      "paymentHistory": "Betaalhistorie",
+      "savingsGroups": "Sparingsgroepen",
+      "rewards": "Beloningen & Verwijzing",
+      "affiliate": "Affiliateprogramma",
+      "b2b": "B2B-dashboard",
+      "ads": "Gesponsorde advertenties",
+      "marketplace": "Marktplaats",
+      "university": "University",
+      "chat": "Chat",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Notifications",
+      "verification": "Verification",
+      "badges": "Badges",
+      "farmingCalendar": "Farming Calendar",
+      "blockedUsers": "Blocked Users",
+      "helpSupport": "Help and Support",
+      "settings": "Settings",
+      "adminConsole": "ADMIN CONSOLE"
+    }
   },
   "payments": {
     "buyScans": "Scans kopen",
@@ -411,5 +452,14 @@
   "help": {
     "title": "Help & Ondersteuning",
     "noTickets": "Nog geen tickets"
+  },
+  "theme": {
+    "label": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Automatic",
+    "darkDesc": "Always use dark colors",
+    "lightDesc": "Always use light colors",
+    "autoDesc": "Follow your device setting"
   }
 }

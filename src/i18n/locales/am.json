@@ -221,7 +221,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "መቆጣጠሪያ ፓነል",
     "adminOverview": "አጠቃላይ እይታ",
-    "chat": "ቃለ መጠይቅ"
+    "chat": "ቃለ መጠይቅ",
+    "sections": {
+      "scans": "ስካኖች & AI",
+      "farm": "እርሻ መሣሪያዎች",
+      "money": "ገንዘብ & ንግድ",
+      "community": "ማህበረሰብ",
+      "account": "መለያ",
+      "support": "ድጋፍ"
+    },
+    "items": {
+      "voiceAgronomist": "የድምፅ አገርተኛ",
+      "videoScan": "የቪዲዮ ምርመራ",
+      "scanHistory": "የምርመራ ታሪክ",
+      "earlyWarning": "የቅድመ ማስጠንቀቂያ",
+      "farmMapping": "የፋርም ካርታ ማዘጋጀት",
+      "yieldEstimator": "የምርት ግምት አደሪ",
+      "fertilizerCalc": "የአመጋገብ ማስሊያ አስሊያ",
+      "profitCalc": "የትርፍ አስሊያ",
+      "plantingCalendar": "የመቀባ ሳምንታዊ ስርዓት",
+      "seedRecommender": "የቅርጫት ምክር አደሪ",
+      "farmJournal": "የፋርም መዝገብ",
+      "satelliteMonitor": "የሳተላይት ክትትል",
+      "wallet": "ገንዳ",
+      "paymentHistory": "የክፍያ ታሪክ",
+      "savingsGroups": "የቁጠባ ጉጅለዎች",
+      "rewards": "ሽልማቶች እና ማስተዋወቂያ",
+      "affiliate": "የአጋር ፕሮግራም",
+      "b2b": "B2B ዳሽቦርድ",
+      "ads": "የተገዙ ማስታወቂያዎች",
+      "marketplace": "የገበያ ቦታ",
+      "university": "ዩኒቨርሲቲ",
+      "chat": "ውይይት",
+      "gaiaMeet": "GAIA ስብሰባ",
+      "notifications": "ማሳወቂያዎች",
+      "verification": "ማረጋገጫ",
+      "badges": "ምልክቶች",
+      "farmingCalendar": "የግብርና ቀን ማውጫ",
+      "blockedUsers": "የተከለከሉ ተጠቃሚዎች",
+      "helpSupport": "እርዳታ እና ድጋፍ",
+      "settings": "ቅንብሮች",
+      "adminConsole": "አስተዳደር ኮንሶል"
+    }
   },
   "payments": {
     "buyScans": "ስካኖችን ግዙ",
@@ -411,5 +452,14 @@
   "help": {
     "title": "እርዳታ እና ድጋፍ",
     "noTickets": "እስካሁን ትኬቶች የለም"
+  },
+  "theme": {
+    "label": "መልክ",
+    "dark": "ጥቁር",
+    "light": "ብርሃን",
+    "auto": "ራስሰርግ",
+    "darkDesc": "ሁልጊዜ ጥቁር ቀለሞችን ይጠቀሙ",
+    "lightDesc": "ሁልጊዜ ብርሃን ቀለሞችን ይጠቀሙ",
+    "autoDesc": "የመሣሪያዎ ቅንብርን ይከተሉ"
   }
 }

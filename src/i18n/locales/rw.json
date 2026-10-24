@@ -218,7 +218,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Paneli y'Igenzura",
     "adminOverview": "Ibisobanuro",
-    "chat": "Ikiganiro"
+    "chat": "Ikiganiro",
+    "sections": {
+      "scans": "SCANS & AI",
+      "farm": "FARM TOOLS",
+      "money": "MONEY & BUSINESS",
+      "community": "COMMUNITY",
+      "account": "ACCOUNT",
+      "support": "SUPPORT"
+    },
+    "items": {
+      "voiceAgronomist": "Voice Agronomist",
+      "videoScan": "Video Scan",
+      "scanHistory": "Scan History",
+      "earlyWarning": "Early Warning",
+      "farmMapping": "Farm Mapping",
+      "yieldEstimator": "Yield Estimator",
+      "fertilizerCalc": "Fertilizer Calculator",
+      "profitCalc": "Profit Calculator",
+      "plantingCalendar": "Planting Calendar",
+      "seedRecommender": "Seed Recommender",
+      "farmJournal": "Farm Journal",
+      "satelliteMonitor": "Satellite Monitor",
+      "wallet": "Wallet",
+      "paymentHistory": "Payment History",
+      "savingsGroups": "Savings Groups",
+      "rewards": "Rewards & Referral",
+      "affiliate": "Affiliate Program",
+      "b2b": "B2B Dashboard",
+      "ads": "Sponsored Ads",
+      "marketplace": "Marketplace",
+      "university": "University",
+      "chat": "Chat",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Notifications",
+      "verification": "Verification",
+      "badges": "Badges",
+      "farmingCalendar": "Farming Calendar",
+      "blockedUsers": "Blocked Users",
+      "helpSupport": "Help and Support",
+      "settings": "Settings",
+      "adminConsole": "ADMIN CONSOLE"
+    }
   },
   "payments": {
     "buyScans": "Gura scans",
@@ -408,5 +449,14 @@
   "help": {
     "title": "Ubufasha n'Ubwitabire",
     "noTickets": "Nta bibazo byavuzwe"
+  },
+  "theme": {
+    "label": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Automatic",
+    "darkDesc": "Always use dark colors",
+    "lightDesc": "Always use light colors",
+    "autoDesc": "Follow your device setting"
   }
 }

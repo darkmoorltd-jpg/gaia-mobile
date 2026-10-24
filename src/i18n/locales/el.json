@@ -218,7 +218,48 @@
     "version": "GAIA Κινητό v1.0.0",
     "adminTitle": "Πάνελ Ελέγχου",
     "adminOverview": "Επισκόπηση",
-    "chat": "Συνομιλία"
+    "chat": "Συνομιλία",
+    "sections": {
+      "scans": "SCANS & AI",
+      "farm": "FARM TOOLS",
+      "money": "MONEY & BUSINESS",
+      "community": "COMMUNITY",
+      "account": "ACCOUNT",
+      "support": "SUPPORT"
+    },
+    "items": {
+      "voiceAgronomist": "Φωνητικός Γεωπόνος",
+      "videoScan": "Σάρωση Βίντεο",
+      "scanHistory": "Ιστορικό Σάρωσης",
+      "earlyWarning": "Προειδοποίηση Νωρίς",
+      "farmMapping": "Χαρτογράφηση Φάρμας",
+      "yieldEstimator": "Εκτιμητής Απόδοσης",
+      "fertilizerCalc": "Υπολογιστής Λιπάσματος",
+      "profitCalc": "Υπολογιστής Κέρδους",
+      "plantingCalendar": "Ημερολόγιο Φύτευσης",
+      "seedRecommender": "Συστάσεις Σπόρων",
+      "farmJournal": "Ημερολόγιο Φάρμας",
+      "satelliteMonitor": "Παρακολούθηση Σατελίτη",
+      "wallet": "Πορτοφόλι",
+      "paymentHistory": "Ιστορικό Πληρωμών",
+      "savingsGroups": "Ομάδα Αποταμίευσης",
+      "rewards": "Βραβεία & Παραπομπές",
+      "affiliate": "Πρόγραμμα Συνεργατών",
+      "b2b": "Πίνακας Ελέγχου B2B",
+      "ads": "Χρηματοδοτούμενες Διαφημίσεις",
+      "marketplace": "Αγορά",
+      "university": "University",
+      "chat": "Chat",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Notifications",
+      "verification": "Verification",
+      "badges": "Badges",
+      "farmingCalendar": "Farming Calendar",
+      "blockedUsers": "Blocked Users",
+      "helpSupport": "Help and Support",
+      "settings": "Settings",
+      "adminConsole": "ADMIN CONSOLE"
+    }
   },
   "payments": {
     "buyScans": "Αγορά σάρωσης",
@@ -408,5 +449,14 @@
   "help": {
     "title": "Βοήθεια & Υποστήριξη",
     "noTickets": "Δεν υπάρχουν εισιτήρια ακόμα"
+  },
+  "theme": {
+    "label": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Automatic",
+    "darkDesc": "Always use dark colors",
+    "lightDesc": "Always use light colors",
+    "autoDesc": "Follow your device setting"
   }
 }

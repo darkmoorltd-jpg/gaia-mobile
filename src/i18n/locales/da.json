@@ -218,7 +218,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrolpanel",
     "adminOverview": "Oversigt",
-    "chat": "Chat"
+    "chat": "Chat",
+    "sections": {
+      "scans": "SCANS & AI",
+      "farm": "Gårdsredskaber",
+      "money": "PENGE & FORRETNING",
+      "community": "FÆLLESSKAB",
+      "account": "KONTO",
+      "support": "STØTTE"
+    },
+    "items": {
+      "voiceAgronomist": "Stemmesagronom",
+      "videoScan": "Videoscanning",
+      "scanHistory": "Scanhistorik",
+      "earlyWarning": "Tidlig advarsel",
+      "farmMapping": "Landbrugskortlægning",
+      "yieldEstimator": "Afgrødeestimat",
+      "fertilizerCalc": "Gødskningsberegner",
+      "profitCalc": "Overskudsregner",
+      "plantingCalendar": "Såningskalender",
+      "seedRecommender": "Frøanbefaler",
+      "farmJournal": "Landbrugsjournal",
+      "satelliteMonitor": "Satellitovervågning",
+      "wallet": "Tjek",
+      "paymentHistory": "Betalingshistorik",
+      "savingsGroups": "Sparegrupper",
+      "rewards": "Belønninger og henvisninger",
+      "affiliate": "Partnerprogram",
+      "b2b": "B2B-dashboard",
+      "ads": "Sponsorerede annoncer",
+      "marketplace": "Markedsplads",
+      "university": "Universitet",
+      "chat": "Chat",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Notifikationer",
+      "verification": "Verifikation",
+      "badges": "Badges",
+      "farmingCalendar": "Landbrugs-kalender",
+      "blockedUsers": "Blokerede brugere",
+      "helpSupport": "Hjælp og support",
+      "settings": "Indstillinger",
+      "adminConsole": "ADMIN-KONSOLE"
+    }
   },
   "payments": {
     "buyScans": "Køb scanninger",
@@ -408,5 +449,14 @@
   "help": {
     "title": "Hjælp og support",
     "noTickets": "Ingen tickets endnu"
+  },
+  "theme": {
+    "label": "Udseende",
+    "dark": "Mørk",
+    "light": "Lys",
+    "auto": "Automatisk",
+    "darkDesc": "Brug altid mørke farver",
+    "lightDesc": "Brug altid lyse farver",
+    "autoDesc": "Følg din enhedsindstilling"
   }
 }

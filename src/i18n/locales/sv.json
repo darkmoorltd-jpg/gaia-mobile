@@ -218,7 +218,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrollpanel",
     "adminOverview": "Översikt",
-    "chat": "Chatt"
+    "chat": "Chatt",
+    "sections": {
+      "scans": "SKANNING & AI",
+      "farm": "JORDBRUKSVERKTYG",
+      "money": "PENNINGAR & AFFÄRER",
+      "community": "GEMENSKAP",
+      "account": "KONTO",
+      "support": "STÖD"
+    },
+    "items": {
+      "university": "Universitet",
+      "chat": "Chatt",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Aviseringar",
+      "verification": "Verifiering",
+      "badges": "Badges",
+      "farmingCalendar": "Lantbrukskalender",
+      "blockedUsers": "Blockerade användare",
+      "helpSupport": "Hjälp och support",
+      "settings": "Inställningar",
+      "adminConsole": "ADMINKONSOL",
+      "voiceAgronomist": "Voice Agronomist",
+      "videoScan": "Video Scan",
+      "scanHistory": "Scan History",
+      "earlyWarning": "Early Warning",
+      "farmMapping": "Farm Mapping",
+      "yieldEstimator": "Yield Estimator",
+      "fertilizerCalc": "Fertilizer Calculator",
+      "profitCalc": "Profit Calculator",
+      "plantingCalendar": "Planting Calendar",
+      "seedRecommender": "Seed Recommender",
+      "farmJournal": "Farm Journal",
+      "satelliteMonitor": "Satellite Monitor",
+      "wallet": "Wallet",
+      "paymentHistory": "Payment History",
+      "savingsGroups": "Savings Groups",
+      "rewards": "Rewards & Referral",
+      "affiliate": "Affiliate Program",
+      "b2b": "B2B Dashboard",
+      "ads": "Sponsored Ads",
+      "marketplace": "Marketplace"
+    }
   },
   "payments": {
     "buyScans": "Köp skanningar",
@@ -408,5 +449,14 @@
   "help": {
     "title": "Hjälp och support",
     "noTickets": "Inga ärenden ännu"
+  },
+  "theme": {
+    "label": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Automatic",
+    "darkDesc": "Always use dark colors",
+    "lightDesc": "Always use light colors",
+    "autoDesc": "Follow your device setting"
   }
 }

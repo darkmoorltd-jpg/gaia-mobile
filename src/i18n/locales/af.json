@@ -221,7 +221,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "Kontrole Paneel",
     "adminOverview": "Oorsig",
-    "chat": "Klets"
+    "chat": "Klets",
+    "sections": {
+      "scans": "SKANNINGS & KI",
+      "farm": "BOERTOERUST",
+      "money": "GELD & BESIGHEID",
+      "community": "GEMEENSKAP",
+      "account": "REKENING",
+      "support": "ONDERSTEUNING"
+    },
+    "items": {
+      "voiceAgronomist": "Stem Agronoom",
+      "videoScan": "Video Skandering",
+      "scanHistory": "Skandeer Geskiedenis",
+      "earlyWarning": "Vroeë Waarskuwing",
+      "farmMapping": "Plaas Kaartlegging",
+      "yieldEstimator": "Opbrengs Skatter",
+      "fertilizerCalc": "Kunsstof Kalkuleerder",
+      "profitCalc": "Wins Kalkuleerder",
+      "plantingCalendar": "Plantingskalender",
+      "seedRecommender": "Saad Aanbeveler",
+      "farmJournal": "Plaas Joernaal",
+      "satelliteMonitor": "Satelliet Monitor",
+      "wallet": "Beursie",
+      "paymentHistory": "Betalingsgeskiedenis",
+      "savingsGroups": "Spaar Groepe",
+      "rewards": "Belonings & Verwysings",
+      "affiliate": "Affiliasie Program",
+      "b2b": "B2B Paneel",
+      "ads": "Gesponsorde Advertensies",
+      "marketplace": "Markplek",
+      "university": "Universiteit",
+      "chat": "Klets",
+      "gaiaMeet": "GAIA Ontmoeting",
+      "notifications": "Kennisgewings",
+      "verification": "Verifikasie",
+      "badges": "Embleme",
+      "farmingCalendar": "Landbou Kalender",
+      "blockedUsers": "Geblokkeerde Gebruikers",
+      "helpSupport": "Hulp en Ondersteuning",
+      "settings": "Instellings",
+      "adminConsole": "ADMIN KONSOLE"
+    }
   },
   "payments": {
     "buyScans": "Koop skande",
@@ -411,5 +452,14 @@
   "help": {
     "title": "Help & Ondersteuning",
     "noTickets": "Nog geen kaartjies nie"
+  },
+  "theme": {
+    "label": "Voorkoms",
+    "dark": "Donker",
+    "light": "Ligte",
+    "auto": "Outomaties",
+    "darkDesc": "Gebruik altyd donker kleure",
+    "lightDesc": "Gebruik altyd ligte kleure",
+    "autoDesc": "Volg jou toestelinstelling"
   }
 }

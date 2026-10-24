@@ -1,10 +1,14 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Switch, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput,
+  Alert, useColorScheme,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../src/theme';
 import { useLocale, langName } from '../src/store/locale';
 import { useAuth } from '../src/store/auth';
+import { useThemeMode, ThemeMode } from '../src/store/themeMode';
 
 const ALL_LANGUAGES: { code: string; region: string }[] = [
   { code: 'en', region: 'Global' },
@@ -56,11 +60,17 @@ export default function Settings() {
   const { palette } = useTheme();
   const { t } = useTranslation();
   const styles = createStyles(palette);
+  const system = useColorScheme();
+
   const currentLang = useLocale((s) => s.language);
   const setLanguage = useLocale((s) => s.setLanguage);
   const signOut = useAuth((s) => s.signOut);
 
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const themeMode = useThemeMode((s) => s.mode);
+  const setThemeMode = useThemeMode((s) => s.setMode);
+
+  const [langOpen, setLangOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
@@ -72,15 +82,23 @@ export default function Settings() {
     return acc;
   }, {} as Record<string, typeof ALL_LANGUAGES>);
 
-  const pick = async (code: string) => {
+  const pickLang = async (code: string) => {
     await setLanguage(code);
-    setPickerOpen(false);
+    setLangOpen(false);
   };
 
+  const pickTheme = async (m: ThemeMode) => {
+    await setThemeMode(m);
+    setThemeOpen(false);
+  };
+
+  const themeLabel = (m: ThemeMode) =>
+    m === 'dark' ? t('theme.dark') : m === 'light' ? t('theme.light') : t('theme.auto');
+
   const doSignOut = () => {
-    Alert.alert(t('common.signOut') || 'Sign out', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
+    Alert.alert(t('common.signOut'), t('common.signOut') + '?', [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.signOut'), style: 'destructive', onPress: async () => { await signOut(); router.replace('/(auth)/login'); } },
     ]);
   };
 
@@ -88,48 +106,54 @@ export default function Settings() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>← {t('common.back') || 'Back'}</Text>
+          <Text style={styles.back}>← {t('common.back')}</Text>
         </Pressable>
-        <Text style={styles.title}>{t('profile.settings') || 'Settings'}</Text>
+        <Text style={styles.title}>{t('profile.items.settings')}</Text>
 
-        <Text style={styles.section}>LANGUAGE</Text>
-        <Pressable onPress={() => setPickerOpen(true)} style={styles.row}>
-          <Text style={styles.rowLabel}>{t('profile.language') || 'Language'}</Text>
+        <Text style={styles.section}>{t('profile.items.settings').toUpperCase()}</Text>
+
+        <Pressable onPress={() => setLangOpen(true)} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('profile.items.settings') && 'Language'}</Text>
           <Text style={styles.rowValue}>{langName(currentLang || 'en')} ›</Text>
+        </Pressable>
+
+        <Text style={styles.section}>{t('theme.label').toUpperCase()}</Text>
+        <Pressable onPress={() => setThemeOpen(true)} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('theme.label')}</Text>
+          <Text style={styles.rowValue}>{themeLabel(themeMode)} ›</Text>
         </Pressable>
 
         <Text style={styles.section}>ACCOUNT</Text>
         <Pressable onPress={() => router.push('/profile')} style={styles.row}>
-          <Text style={styles.rowLabel}>{t('profile.myProfile') || 'My Profile'}</Text>
+          <Text style={styles.rowLabel}>{t('profile.items.settings') && 'My Profile'}</Text>
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
         <Pressable onPress={() => router.push('/verification')} style={styles.row}>
-          <Text style={styles.rowLabel}>Verification</Text>
+          <Text style={styles.rowLabel}>{t('profile.items.verification')}</Text>
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
 
         <Text style={styles.section}>SUPPORT</Text>
         <Pressable onPress={() => router.push('/help')} style={styles.row}>
-          <Text style={styles.rowLabel}>{t('profile.help') || 'Help & Support'}</Text>
+          <Text style={styles.rowLabel}>{t('profile.items.helpSupport')}</Text>
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
 
         <Pressable onPress={doSignOut} style={[styles.row, { borderColor: palette.danger }]}>
           <Text style={[styles.rowLabel, { color: palette.danger, fontWeight: '800' }]}>
-            {t('common.signOut') || 'Sign Out'}
+            {t('common.signOut')}
           </Text>
         </Pressable>
 
         <Text style={styles.version}>GAIA v1.0.0 · build</Text>
       </ScrollView>
 
-      <Modal visible={pickerOpen} animationType="slide" transparent onRequestClose={() => setPickerOpen(false)}>
+      {/* LANGUAGE PICKER MODAL */}
+      <Modal visible={langOpen} animationType="slide" transparent onRequestClose={() => setLangOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Pressable onPress={() => setPickerOpen(false)}>
-              <Text style={styles.back}>CLOSE</Text>
-            </Pressable>
-            <Text style={styles.title}>{t('profile.language') || 'Language'}</Text>
+            <Pressable onPress={() => setLangOpen(false)}><Text style={styles.back}>CLOSE</Text></Pressable>
+            <Text style={styles.title}>Language</Text>
             <Text style={styles.sub}>{ALL_LANGUAGES.length} languages available</Text>
             <TextInput
               value={search}
@@ -146,7 +170,7 @@ export default function Settings() {
                   {langs.map((l) => (
                     <Pressable
                       key={l.code}
-                      onPress={() => pick(l.code)}
+                      onPress={() => pickLang(l.code)}
                       style={[styles.langRow, l.code === currentLang && styles.langRowActive]}
                     >
                       <Text style={[styles.langName, l.code === currentLang && styles.langNameActive]}>
@@ -159,6 +183,38 @@ export default function Settings() {
               ))}
               <View style={{ height: 40 }} />
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* THEME PICKER MODAL */}
+      <Modal visible={themeOpen} animationType="slide" transparent onRequestClose={() => setThemeOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalSheet}>
+            <Pressable onPress={() => setThemeOpen(false)}><Text style={styles.back}>CLOSE</Text></Pressable>
+            <Text style={styles.title}>{t('theme.label')}</Text>
+            <Text style={styles.sub}>Choose how GAIA looks</Text>
+
+            {(['dark', 'light', 'auto'] as ThemeMode[]).map((m) => {
+              const active = themeMode === m;
+              const desc = m === 'dark' ? t('theme.darkDesc') : m === 'light' ? t('theme.lightDesc') : t('theme.autoDesc') + (system ? ' (' + system + ')' : '');
+              return (
+                <Pressable
+                  key={m}
+                  onPress={() => pickTheme(m)}
+                  style={[styles.themeRow, active && styles.themeRowActive]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.langName, active && styles.langNameActive]}>
+                      {themeLabel(m)}
+                    </Text>
+                    <Text style={styles.themeDesc}>{desc}</Text>
+                  </View>
+                  {active ? <Text style={styles.check}>✓</Text> : null}
+                </Pressable>
+              );
+            })}
+            <View style={{ height: 40 }} />
           </View>
         </View>
       </Modal>
@@ -186,4 +242,7 @@ const createStyles = (p: any) => StyleSheet.create({
   langName: { fontSize: 15, color: p.text },
   langNameActive: { color: p.neon, fontWeight: '800' },
   check: { fontSize: 16, color: p.neon, fontWeight: '900' },
+  themeRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  themeRowActive: { backgroundColor: 'rgba(0,255,136,0.08)' },
+  themeDesc: { fontSize: 12, color: p.textMuted, marginTop: 2 },
 });

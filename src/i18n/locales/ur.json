@@ -218,7 +218,48 @@
     "version": "GAIA موبائل v1.0.0",
     "adminTitle": "کنٹرول پینل",
     "adminOverview": "جائزہ",
-    "chat": "چیٹ"
+    "chat": "چیٹ",
+    "sections": {
+      "scans": "SCANS & AI",
+      "farm": "FARM TOOLS",
+      "money": "MONEY & BUSINESS",
+      "community": "COMMUNITY",
+      "account": "ACCOUNT",
+      "support": "SUPPORT"
+    },
+    "items": {
+      "voiceAgronomist": "وائس اگرونومسٹ",
+      "videoScan": "ویڈیو اسکین",
+      "scanHistory": "اسکین کی تاریخ",
+      "earlyWarning": "ابتدائی وارننگ",
+      "farmMapping": "فارم میپنگ",
+      "yieldEstimator": "پیداوار کا تخمینہ",
+      "fertilizerCalc": "گوبر کی کھاد کا کیلکولیٹر",
+      "profitCalc": "منافع کا کیلکولیٹر",
+      "plantingCalendar": "پودوں کی کاشت کی تقویم",
+      "seedRecommender": "بیج کی سفارش",
+      "farmJournal": "فارم جرنل",
+      "satelliteMonitor": "سیٹلائٹ مانیٹر",
+      "wallet": "والٹ",
+      "paymentHistory": "ادائیگی کی تاریخ",
+      "savingsGroups": "بچت کے گروپس",
+      "rewards": "انعامات اور حوالگی",
+      "affiliate": "ایفیلیٹ پروگرام",
+      "b2b": "بی ٹو بی ڈیش بورڈ",
+      "ads": "سپانسرڈ اشتہارات",
+      "marketplace": "مارکیٹ پلیس",
+      "university": "University",
+      "chat": "Chat",
+      "gaiaMeet": "GAIA Meet",
+      "notifications": "Notifications",
+      "verification": "Verification",
+      "badges": "Badges",
+      "farmingCalendar": "Farming Calendar",
+      "blockedUsers": "Blocked Users",
+      "helpSupport": "Help and Support",
+      "settings": "Settings",
+      "adminConsole": "ADMIN CONSOLE"
+    }
   },
   "payments": {
     "buyScans": "اسکن خریدیں",
@@ -408,5 +449,14 @@
   "help": {
     "title": "مدد اور سپورٹ",
     "noTickets": "ابھی تک کوئی ٹکٹ نہیں"
+  },
+  "theme": {
+    "label": "Appearance",
+    "dark": "Dark",
+    "light": "Light",
+    "auto": "Automatic",
+    "darkDesc": "Always use dark colors",
+    "lightDesc": "Always use light colors",
+    "autoDesc": "Follow your device setting"
   }
 }

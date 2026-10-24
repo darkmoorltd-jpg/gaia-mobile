@@ -218,7 +218,48 @@
     "version": "GAIA Mobile v1.0.0",
     "adminTitle": "কন্ট্রোল প্যানেল",
     "adminOverview": "ওভারভিউ",
-    "chat": "চ্যাট"
+    "chat": "চ্যাট",
+    "sections": {
+      "scans": "স্ক্যানস & AI",
+      "farm": "ফার্ম টুলস",
+      "money": "টাকা & ব্যবসা",
+      "community": "কমিউনিটি",
+      "account": "অ্যাকাউন্ট",
+      "support": "সাপোর্ট"
+    },
+    "items": {
+      "voiceAgronomist": "ভয়েস কৃষিবিদ",
+      "videoScan": "ভিডিও স্ক্যান",
+      "scanHistory": "স্ক্যান ইতিহাস",
+      "earlyWarning": "প্রাথমিক সতর্কতা",
+      "farmMapping": "ফার্ম ম্যাপিং",
+      "yieldEstimator": "ফসল অনুমানকারী",
+      "fertilizerCalc": "সার ক্যালকুলেটর",
+      "profitCalc": "লাভ ক্যালকুলেটর",
+      "plantingCalendar": "রোপণ ক্যালেন্ডার",
+      "seedRecommender": "বীজ সুপারিশকারী",
+      "farmJournal": "ফার্ম জার্নাল",
+      "satelliteMonitor": "স্যাটেলাইট মনিটর",
+      "wallet": "ওয়ালেট",
+      "paymentHistory": "পেমেন্ট ইতিহাস",
+      "savingsGroups": "সঞ্চয় গ্রুপ",
+      "rewards": "পুরস্কার ও রেফারেল",
+      "affiliate": "অ্যাফিলিয়েট প্রোগ্রাম",
+      "b2b": "B2B ড্যাশবোর্ড",
+      "ads": "স্পনসর্ড অ্যাডস",
+      "marketplace": "মার্কেটপ্লেস",
+      "university": "বিশ্ববিদ্যালয়",
+      "chat": "চ্যাট",
+      "gaiaMeet": "GAIA মিট",
+      "notifications": "বিজ্ঞপ্তি",
+      "verification": "যাচাই",
+      "badges": "ব্যাজ",
+      "farmingCalendar": "কৃষি ক্যালেন্ডার",
+      "blockedUsers": "ব্লক করা ব্যবহারকারী",
+      "helpSupport": "সহায়তা ও সমর্থন",
+      "settings": "সেটিংস",
+      "adminConsole": "অ্যাডমিন কনসোল"
+    }
   },
   "payments": {
     "buyScans": "স্ক্যান কিনুন",
@@ -408,5 +449,14 @@
   "help": {
     "title": "সাহায্য ও সমর্থন",
     "noTickets": "এখনও টিকিট নেই"
+  },
+  "theme": {
+    "label": "দর্শন",
+    "dark": "অন্ধকার",
+    "light": "আলো",
+    "auto": "স্বয়ংক্রিয়",
+    "darkDesc": "সবসময় অন্ধকার রং ব্যবহার করুন",
+    "lightDesc": "সবসময় হালকা রং ব্যবহার করুন",
+    "autoDesc": "আপনার ডিভাইসের সেটিং অনুসরণ করুন"
   }
 }
