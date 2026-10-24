@@ -204,6 +204,7 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themedPalette.obsidian } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(auth)/forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)/country-select" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(auth)/language-select" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" />

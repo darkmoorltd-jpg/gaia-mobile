@@ -20,6 +20,9 @@ export default function ForgotPassword() {
     setBusy(false);
     if (err) { Alert.alert('Reset failed', err); return; }
     setDone(true);
+    setTimeout(function() {
+      router.replace(('/reset-password?email=' + encodeURIComponent(email.trim())) as any);
+    }, 800);
   };
 
   return (
