@@ -14,7 +14,8 @@ import { bumpStreak } from '../src/utils/streak';
 import { registerPushToken } from '../src/utils/push';
 import { registerPushToken as registerExpoToken, subscribeToNotifications, triggerOutbreakScan } from '../src/utils/notifications';
 import { useLocation } from '../src/store/location';
-import { palette } from '../src/theme';
+import { palette, useSyncTheme } from '../src/theme';
+import { useThemeMode } from '../src/store/themeMode';
 import { installTapHandler, registerForPush } from '../src/utils/pushNotifications';
 import GaiaSplash from '../src/components/GaiaSplash';
 
@@ -23,8 +24,11 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
+  const themedPalette = useTheme((s) => s.palette);
   const router = useRouter();
   const segments = useSegments();
+
+  useSyncTheme();
 
   useEffect(() => {
     useLocation.getState().start();
@@ -59,6 +63,7 @@ function RootNavigator() {
       try {
         try { await useSettings.getState().load(); } catch {}
         try { await useLocale.getState().load(); } catch {}
+        try { await useThemeMode.getState().load(); } catch {}
         try { await loadStoredLanguage(); } catch {}
 
         const { data } = await supabase.auth.getSession();
@@ -196,7 +201,7 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.obsidian } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themedPalette.obsidian } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(auth)/country-select" options={{ headerShown: false, gestureEnabled: false }} />

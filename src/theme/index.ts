@@ -1,5 +1,7 @@
 import React from 'react';
 import { create } from 'zustand';
+import { useColorScheme } from 'react-native';
+import { useThemeMode } from '../store/themeMode';
 
 export const darkPalette = {
   obsidian: '#000000', abyss: '#080c0a',
@@ -77,3 +79,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export default ThemeProvider;
+
+// ── ThemeSync ──
+// Bridges useThemeMode + system color scheme into the legacy useTheme store.
+// Import this in _layout.tsx and call once at the app root.
+import { useEffect } from 'react';
+
+export function useSyncTheme() {
+  const mode = useThemeMode((s) => s.mode);
+  const loaded = useThemeMode((s) => s.loaded);
+  const system = useColorScheme();
+  const setTheme = useTheme((s) => s.setMode);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const effective: 'light' | 'dark' =
+      mode === 'auto' ? (system === 'dark' ? 'dark' : 'light') : mode;
+    setTheme(effective);
+  }, [mode, loaded, system, setTheme]);
+}

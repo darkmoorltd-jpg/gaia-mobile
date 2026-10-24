@@ -4,6 +4,7 @@ import {
   Alert, useColorScheme,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../src/theme';
 import { useLocale, langName } from '../src/store/locale';
@@ -113,7 +114,7 @@ export default function Settings() {
         <Text style={styles.section}>{t('profile.items.settings').toUpperCase()}</Text>
 
         <Pressable onPress={() => setLangOpen(true)} style={styles.row}>
-          <Text style={styles.rowLabel}>{t('profile.items.settings') && 'Language'}</Text>
+          <Text style={styles.rowLabel}>{t('settings.items.language')}</Text>
           <Text style={styles.rowValue}>{langName(currentLang || 'en')} ›</Text>
         </Pressable>
 
@@ -123,9 +124,9 @@ export default function Settings() {
           <Text style={styles.rowValue}>{themeLabel(themeMode)} ›</Text>
         </Pressable>
 
-        <Text style={styles.section}>ACCOUNT</Text>
+        <Text style={styles.section}>{t('settings.sections.account').toUpperCase()}</Text>
         <Pressable onPress={() => router.push('/profile')} style={styles.row}>
-          <Text style={styles.rowLabel}>{t('profile.items.settings') && 'My Profile'}</Text>
+          <Text style={styles.rowLabel}>{t('settings.items.myAccount')}</Text>
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
         <Pressable onPress={() => router.push('/verification')} style={styles.row}>
@@ -133,9 +134,29 @@ export default function Settings() {
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
 
-        <Text style={styles.section}>SUPPORT</Text>
+        <Text style={styles.section}>{t('settings.sections.support').toUpperCase()}</Text>
         <Pressable onPress={() => router.push('/help')} style={styles.row}>
           <Text style={styles.rowLabel}>{t('profile.items.helpSupport')}</Text>
+          <Text style={styles.rowValue}>›</Text>
+        </Pressable>
+
+        <Text style={styles.section}>{t('settings.sections.about').toUpperCase()}</Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>{t('settings.items.appVersion')}</Text>
+          <Text style={styles.rowValue}>v{Constants.expoConfig?.version || '1.0.0'}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>{t('settings.items.buildHash')}</Text>
+          <Text style={styles.rowValue}>{(Constants.expoConfig?.extra?.buildHash || 'dev').slice(0, 7)}</Text>
+        </View>
+
+        <Text style={styles.section}>{t('settings.sections.privacy').toUpperCase()}</Text>
+        <Pressable onPress={() => router.push('/help' as any)} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('settings.items.privacyPolicy')}</Text>
+          <Text style={styles.rowValue}>›</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/help' as any)} style={styles.row}>
+          <Text style={styles.rowLabel}>{t('settings.items.terms')}</Text>
           <Text style={styles.rowValue}>›</Text>
         </Pressable>
 
@@ -145,20 +166,22 @@ export default function Settings() {
           </Text>
         </Pressable>
 
-        <Text style={styles.version}>GAIA v1.0.0 · build</Text>
+        <Text style={styles.version}>
+          GAIA v{Constants.expoConfig?.version || '1.0.0'} · build {(Constants.expoConfig?.extra?.buildHash || 'dev').slice(0, 7)}
+        </Text>
       </ScrollView>
 
       {/* LANGUAGE PICKER MODAL */}
       <Modal visible={langOpen} animationType="slide" transparent onRequestClose={() => setLangOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Pressable onPress={() => setLangOpen(false)}><Text style={styles.back}>CLOSE</Text></Pressable>
-            <Text style={styles.title}>Language</Text>
-            <Text style={styles.sub}>{ALL_LANGUAGES.length} languages available</Text>
+            <Pressable onPress={() => setLangOpen(false)}><Text style={styles.back}>{t('common.close').toUpperCase()}</Text></Pressable>
+            <Text style={styles.title}>{t('settings.sections.language')}</Text>
+            <Text style={styles.sub}>{ALL_LANGUAGES.length} {t('settings.items.language')}</Text>
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search language…"
+              placeholder={t('onboarding.searchLanguage')}
               placeholderTextColor={palette.textDim}
               style={styles.search}
               autoCapitalize="none"
@@ -191,9 +214,9 @@ export default function Settings() {
       <Modal visible={themeOpen} animationType="slide" transparent onRequestClose={() => setThemeOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalSheet}>
-            <Pressable onPress={() => setThemeOpen(false)}><Text style={styles.back}>CLOSE</Text></Pressable>
+            <Pressable onPress={() => setThemeOpen(false)}><Text style={styles.back}>{t('common.close').toUpperCase()}</Text></Pressable>
             <Text style={styles.title}>{t('theme.label')}</Text>
-            <Text style={styles.sub}>Choose how GAIA looks</Text>
+            <Text style={styles.sub}>{t('theme.choose')}</Text>
 
             {(['dark', 'light', 'auto'] as ThemeMode[]).map((m) => {
               const active = themeMode === m;

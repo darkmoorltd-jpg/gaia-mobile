@@ -415,6 +415,29 @@
     "auto": "Automatic",
     "darkDesc": "Always use dark colors",
     "lightDesc": "Always use light colors",
-    "autoDesc": "Follow your device setting"
+    "autoDesc": "Follow your device setting",
+    "choose": "Choose how GAIA looks"
+  },
+  "settings": {
+    "items": {
+      "myAccount": "My Account",
+      "changePassword": "Change Password",
+      "biometric": "Biometric Login",
+      "darkMode": "Dark Mode",
+      "language": "Language",
+      "country": "Country",
+      "privacyPolicy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "appVersion": "App Version",
+      "buildHash": "Build"
+    },
+    "sections": {
+      "account": "ACCOUNT",
+      "appearance": "APPEARANCE",
+      "language": "LANGUAGE",
+      "privacy": "PRIVACY",
+      "support": "SUPPORT",
+      "about": "ABOUT"
+    }
   }
 }
