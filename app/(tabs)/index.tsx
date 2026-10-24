@@ -35,11 +35,6 @@ const EMPTY_PREFS: Prefs = { hidden: [], ordering: {} };
 
 export default function Home() {
   const { t } = useTranslation();
-  const __lang = i18n.language || 'en';
-  const __bundle = i18n.getResourceBundle(__lang, 'translation') || {};
-  const __hasDash = 'dashboard' in __bundle;
-  const __sampleTabs = t('tabs.home');
-  const __sampleDash = t('dashboard.greeting.morning');
 
   const SECTIONS = [
     { id: 'diagnose', label: t('dashboard.sections.diagnose'), tiles: [
@@ -485,11 +480,7 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.neon} />
         }
       >
-        {/* __I18N_DEBUG__ */}
-        <View style={{ padding: 8, marginHorizontal: 20, marginBottom: 8, backgroundColor: '#ffcc0033', borderColor: '#ffcc00', borderWidth: 1, borderRadius: 6 }}>
-          <Text style={{ color: '#ffcc00', fontSize: 9, fontFamily: 'monospace' }}>__DBG__ lang={__lang} hasDash={String(__hasDash)}</Text>
-          <Text style={{ color: '#ffcc00', fontSize: 9, fontFamily: 'monospace' }}>tabs={__sampleTabs} / dash={__sampleDash}</Text>
-        </View>
+        
 
         {/* EDIT toggle bar */}
         <View style={styles.topBar}>
