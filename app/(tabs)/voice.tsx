@@ -108,6 +108,7 @@ function goodbyeFor(lang: string): string {
 }
 
 function Voice() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();

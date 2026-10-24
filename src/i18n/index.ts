@@ -50,7 +50,7 @@ const resources = {
 
 i18n.use(initReactI18next).init({
   resources, lng: 'en', fallbackLng: 'en',
-  compatibilityJSON: 'v4',
+  compatibilityJSON: 'v3',
   interpolation: { escapeValue: false },
   react: { useSuspense: false },
   returnNull: false, returnEmptyString: false,

@@ -17,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { resolveLanguage } from '../src/utils/language';
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 class VoiceErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) { return { error }; }
@@ -107,6 +108,7 @@ function goodbyeFor(lang: string): string {
 }
 
 function Voice() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
