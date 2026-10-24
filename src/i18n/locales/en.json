@@ -402,7 +402,34 @@
   },
   "history": {
     "title": "Scan History",
-    "noScans": "No scans yet"
+    "subtitle": "All your AI diagnoses",
+    "filters": {
+      "all": "ALL",
+      "crops": "CROPS",
+      "pests": "PESTS",
+      "soil": "SOIL",
+      "livestock": "LIVESTOCK"
+    },
+    "empty": "No scans yet. Start by taking a photo.",
+    "emptyFilter": "No {{type}} scans yet.",
+    "loading": "Loading…",
+    "error": "Could not load history",
+    "retry": "Retry",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "confidence": "Confidence",
+    "crop": "Crop",
+    "type": "Type",
+    "model": "Model",
+    "onDevice": "On-device",
+    "scanDate": "Scanned",
+    "viewDetails": "View Details",
+    "close": "Close",
+    "delete": "Delete Scan",
+    "deleteConfirm": "Remove this scan from your history?",
+    "deleted": "Scan deleted",
+    "share": "Share",
+    "filtered": "{{count}} scans"
   },
   "help": {
     "title": "Help & Support",
