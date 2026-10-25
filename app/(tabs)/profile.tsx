@@ -10,6 +10,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useSettings } from '../../src/store/settings';
 import { ALL_COUNTRIES } from '../../src/data/countries';
 import { countryFlag } from '../../src/store/locale';
 import { FarmScoreCard } from '../../src/components/ScanExtras';
@@ -104,6 +105,7 @@ export default function Profile() {
   const plan = useAuth((s) => s.plan);
   const signOut = useAuth((s) => s.signOut);
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const flags = useSettings((s) => s.flags);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,7 +123,7 @@ export default function Profile() {
   const [kycVerifiedAt, setKycVerifiedAt] = useState<string | null>(null);
   const [kyc, setKyc] = useState<any>(null);
 
-  const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+
 
   const [f, setF] = useState<Record<string, any>>({});
   const originalRef = useRef<Record<string, any>>({});
@@ -135,7 +137,7 @@ export default function Profile() {
     if (!user) return;
     setLoadError(null);
     try {
-      const [profRes, verifRes, flagsRes] = await Promise.allSettled([
+      const [profRes, verifRes] = await Promise.allSettled([
         supabase.from('user_profiles').select('*,country,country_code').eq('user_id', user.id).maybeSingle(),
         supabase
           .from('farmer_verifications')
@@ -144,7 +146,6 @@ export default function Profile() {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase.from('app_settings').select('value').eq('key', 'feature_flags').maybeSingle(),
       ]);
 
       const prof = profRes.status === 'fulfilled' ? (profRes.value.data || {}) : {};
@@ -202,13 +203,6 @@ export default function Profile() {
       setF(next);
       originalRef.current = { ...next };
       setDirty(false);
-
-      if (flagsRes.status === 'fulfilled') {
-        const v = flagsRes.value.data?.value;
-        setFlags(v && typeof v === 'object' ? v : {});
-      } else {
-        setFlags({});
-      }
     } catch (e: any) {
       setLoadError(e?.message || 'Could not load profile');
     } finally {

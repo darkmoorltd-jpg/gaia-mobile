@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../../src/i18n';
 import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { useSettings } from '../../src/store/settings';
 import { supabase } from '../../src/api/supabase';
 import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
@@ -91,7 +92,7 @@ export default function Home() {
   const [badgeTier, setBadgeTier] = useState<string | null>(null);
   const [gaiaAcct, setGaiaAcct] = useState<string | null>(null);
   const [gaiaBal, setGaiaBal] = useState<number>(0);
-  const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+  const flags = useSettings((s) => s.flags);
   const [refreshing, setRefreshing] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>(EMPTY_PREFS);
   const [editMode, setEditMode] = useState(false);
@@ -104,7 +105,6 @@ export default function Home() {
       const [walletRes, badgeRes, flagsRes, prefsRes] = await Promise.allSettled([
         walletMe(),
         supabase.rpc('badge_current'),
-        supabase.from('app_settings').select('value').eq('key', 'feature_flags').maybeSingle(),
         supabase.from('user_dashboard_prefs').select('hidden,ordering').eq('user_id', user.id).maybeSingle(),
       ]);
       if (walletRes.status === 'fulfilled' && walletRes.value) {
@@ -112,10 +112,6 @@ export default function Home() {
         setGaiaBal(Number(walletRes.value.wallet.balance || 0));
       }
       if (badgeRes.status === 'fulfilled') setBadgeTier(badgeRes.value.data?.tier || null);
-      if (flagsRes.status === 'fulfilled') {
-        const v = flagsRes.value.data?.value;
-        setFlags(v && typeof v === 'object' ? v : {});
-      } else setFlags({});
       if (prefsRes.status === 'fulfilled' && prefsRes.value.data) {
         setPrefs({
           hidden: Array.isArray(prefsRes.value.data.hidden) ? prefsRes.value.data.hidden : [],
@@ -188,8 +184,8 @@ export default function Home() {
 
   const passFlag = useCallback((tile: TileItem) => {
     if (!tile.flag) return true;
-    if (!flags) return true;
-    return flags[tile.flag] !== false;
+    const v = flags[tile.flag];
+    return v === undefined ? true : !!v;
   }, [flags]);
 
   const orderedBlocks = useMemo(() => {
