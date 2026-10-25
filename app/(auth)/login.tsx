@@ -8,6 +8,7 @@ import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { useTranslation } from 'react-i18next';
 import { useLocale, countryFlag } from '../../src/store/locale';
+import { ALL_COUNTRIES } from '../../src/data/countries';
 import Dropdown from '../../src/components/Dropdown';
 import { supabase } from '../../src/api/supabase';
 import {
@@ -15,39 +16,6 @@ import {
   promptBiometric, getBiometricEmail,
 } from '../../src/utils/biometric';
 import { registerForPushNotifications } from '../../src/utils/push';
-
-const COUNTRY_FALLBACKS = [
-  { code: 'NG', name: 'Nigeria' },
-  { code: 'GH', name: 'Ghana' },
-  { code: 'CI', name: "Côte d'Ivoire" },
-  { code: 'SN', name: 'Senegal' },
-  { code: 'KE', name: 'Kenya' },
-  { code: 'ZA', name: 'South Africa' },
-  { code: 'UG', name: 'Uganda' },
-  { code: 'TZ', name: 'Tanzania' },
-  { code: 'RW', name: 'Rwanda' },
-  { code: 'ET', name: 'Ethiopia' },
-  { code: 'EG', name: 'Egypt' },
-  { code: 'MA', name: 'Morocco' },
-  { code: 'CM', name: 'Cameroon' },
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'FR', name: 'France' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'IN', name: 'India' },
-  { code: 'CN', name: 'China' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'AU', name: 'Australia' },
-];
-
-
 
 type Tab = 'password' | 'google' | 'agent';
 
@@ -72,6 +40,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const { t } = useTranslation();
   const pickCountry = useLocale((s) => s.country?.code || '');
+  // VERSION_STAMP_LOGIN
+  const __countryDebug = useLocale((s) => s.country?.code || 'none');
+  const __buildHash = 'f0ee52f';
+
+
   const pickLanguage = useLocale((s) => s.language);
   const countriesList = useLocale((s) => s.countries);
   const currentCountry = useLocale((s) => s.country || (s as any).countries?.find((c: any) => c.code === s.country?.code) || null);
@@ -174,6 +147,32 @@ export default function Login() {
   };
 
 
+  // HYDRATE_COUNTRY: read user_profiles.country on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user: me } } = await supabase.auth.getUser();
+        if (!me) return;
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('country')
+          .eq('user_id', me.id)
+          .maybeSingle();
+        const saved = data?.country;
+        if (!saved) return;
+        const current = useLocale.getState().country;
+        if (current && current.name.toLowerCase() === saved.toLowerCase()) return;
+        const info = ((ALL_COUNTRIES as any[]) || []).find((c: any) =>
+          c.code === saved || c.name.toLowerCase() === saved.toLowerCase()
+        );
+        if (info) {
+          await useLocale.getState().setCountry(info.code);
+          console.log('[login] hydrated from DB:', info.code);
+        }
+      } catch (e) { console.warn('[login] hydrate failed', e); }
+    })();
+  }, []);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -209,15 +208,32 @@ export default function Login() {
                 label="COUNTRY"
                 value={pickCountry}
                 options={(() => {
-                  const merged = new Map<string, { code: string; name: string }>();
-                  (countriesList || []).forEach((c: any) => merged.set(c.code, { code: c.code, name: c.name }));
-                  COUNTRY_FALLBACKS.forEach((c) => { if (!merged.has(c.code)) merged.set(c.code, c); });
-                  return Array.from(merged.values())
+                  const merged: Record<string, { code: string; name: string }> = {};
+                  (countriesList || []).forEach((c: any) => { merged[c.code] = { code: c.code, name: c.name }; });
+                  if (typeof ALL_COUNTRIES !== 'undefined') {
+                    ALL_COUNTRIES.forEach((c: any) => { if (!merged[c.code]) merged[c.code] = { code: c.code, name: c.name }; });
+                  }
+                  return Object.values(merged)
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code }));
                 })()}
                 onChange={async (v: string) => {
-                  try { await useLocale.getState().setCountry(v); } catch (e) { console.warn('setCountry failed', e); }
+                  console.log('[login] picked country:', v);
+                  try {
+                    await useLocale.getState().setCountry(v);
+                    const now = useLocale.getState().country;
+                    console.log('[login] store country now:', now?.code, now?.name, now?.payment_provider);
+                    // Sync to user_profiles
+                    try {
+                      const { data: { user: me } } = await supabase.auth.getUser();
+                      if (me && now) {
+                        await supabase.from('user_profiles').update({ country: now.name }).eq('user_id', me.id);
+                        console.log('[login] synced to user_profiles:', now.name);
+                      }
+                    } catch (e2) { console.warn('[login] profile sync failed', e2); }
+                  } catch (e: any) {
+                    console.warn('[login] setCountry failed:', e);
+                  }
                 }}
               />
             </View>
@@ -352,7 +368,14 @@ export default function Login() {
           </Text>
         </Pressable>
 
-      </ScrollView>
+      
+        {/* VERSION_STAMP_VISIBLE */}
+        <View style={{ alignItems: 'center', marginTop: 20 }}>
+          <Text style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>
+            build-{__buildHash} · country={__countryDebug}
+          </Text>
+        </View>
+</ScrollView>
     </KeyboardAvoidingView>
   );
 }
