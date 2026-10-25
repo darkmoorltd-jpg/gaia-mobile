@@ -15,6 +15,7 @@ import { countryFlag } from '../../src/store/locale';
 import { FarmScoreCard } from '../../src/components/ScanExtras';
 import { supabase } from '../../src/api/supabase';
 import { useTranslation } from 'react-i18next';
+import { useLocale } from '../../src/store/locale';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
