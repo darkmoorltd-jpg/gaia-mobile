@@ -66,34 +66,43 @@ export const useLocale = create<LocaleState>((set) => ({
   },
 
   setCountry: async (input: CountryInfo | string) => {
+    // 1. Resolve country SYNCHRONOUSLY (no DB call needed)
     let c: CountryInfo | null = null;
     if (typeof input === 'string') {
-      // Look up from countries list in the store, or fetch from DB
-      const fromList = (get() as any).countries?.find((x: any) => x.code === input);
-      if (fromList) {
-        c = fromList;
-      } else {
-        const { data } = await supabase
-          .from('countries')
-          .select('code,name,region,currency,currency_symbol,languages,default_language,payment_provider')
-          .eq('code', input)
-          .eq('enabled', true)
-          .maybeSingle();
-        c = (data as any) || null;
-      }
+      const storeList = (get() as any).countries || [];
+      c = storeList.find((x: any) => x.code === input)
+        || ALL_COUNTRIES.find((x: any) => x.code === input)
+        || null;
     } else {
       c = input;
     }
-    if (!c) return;
-    let rate = 1;
-    try {
-      const { data } = await supabase.from('currency_rates').select('rate').eq('code', c.currency).maybeSingle();
-      if (data && data.rate) rate = Number(data.rate) || 1;
-    } catch {}
-    await AsyncStorage.multiSet([[KEY_C, c.code], [KEY_JSON, JSON.stringify(c)], [KEY_RATE, String(rate)]]);
-    set({ country: c, rate, language: c.default_language || 'en' });
-    await AsyncStorage.setItem(KEY_L, c.default_language || 'en');
-    await setAppLanguage(c.default_language || 'en');
+    if (!c) {
+      console.warn('[locale] setCountry: unknown code', input);
+      return;
+    }
+
+    // 2. Update state IMMEDIATELY — UI reflects change instantly
+    set({ country: c, language: c.default_language || 'en' });
+
+    // 3. Persist + fetch rate in background (non-blocking)
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('currency_rates')
+          .select('rate')
+          .eq('code', c.currency)
+          .maybeSingle();
+        if (data && data.rate) set({ rate: Number(data.rate) || 1 });
+      } catch {}
+      try {
+        await AsyncStorage.multiSet([
+          [KEY_C, c.code],
+          [KEY_JSON, JSON.stringify(c)],
+        ]);
+        await AsyncStorage.setItem(KEY_L, c.default_language || 'en');
+      } catch {}
+      try { await setAppLanguage(c.default_language || 'en'); } catch {}
+    })();
   },
 
   setLanguage: async (code: string) => {

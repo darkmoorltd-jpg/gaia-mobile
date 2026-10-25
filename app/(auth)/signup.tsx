@@ -100,15 +100,42 @@ export default function Signup() {
 
         
         {/* COUNTRY_BANNER */}
-        {currentCountry ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)' }}>
-            <Text style={{ fontSize: 24 }}>{countryFlag(currentCountry.code)}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: '#2e7d32' }}>{currentCountry.name}</Text>
-              <Text style={{ fontSize: 11, color: '#607d8b' }}>{currentCountry.currency} · {currentCountry.payment_provider}</Text>
+        {(() => {
+          if (!country) return null;
+          const sel = (countriesList || []).find((c: any) => c.code === country)
+                   || ALL_COUNTRIES.find((c: any) => c.code === country);
+          if (!sel) return null;
+          const paymentColors: any = {
+            paystack: { bg: '#00C3F7', label: 'Paystack' },
+            flutterwave: { bg: '#F5A623', label: 'Flutterwave' },
+            stripe: { bg: '#635BFF', label: 'Stripe' },
+          };
+          const pm = paymentColors[sel.payment_provider] || { bg: '#666666', label: sel.payment_provider || 'Pay' };
+          return (
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', gap: 10,
+              padding: 12, marginBottom: 16, borderRadius: 12,
+              backgroundColor: 'rgba(0,255,136,0.08)',
+              borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)',
+            }}>
+              <Text style={{ fontSize: 28 }}>{countryFlag(sel.code)}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#2e7d32' }}>{sel.name}</Text>
+                <Text style={{ fontSize: 11, color: '#607d8b' }}>
+                  {sel.currency} · {sel.currency_symbol} · {(sel.languages || []).slice(0, 2).join(' / ').toUpperCase()}
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: pm.bg, paddingHorizontal: 10, paddingVertical: 5,
+                borderRadius: 8,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
+                  {pm.label}
+                </Text>
+              </View>
             </View>
-          </View>
-        ) : null}
+          );
+        })()}
 
 <Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
