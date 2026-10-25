@@ -135,7 +135,7 @@ export default function Profile() {
     setLoadError(null);
     try {
       const [profRes, verifRes, flagsRes] = await Promise.allSettled([
-        supabase.from('user_profiles').select('*,country').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_profiles').select('*,country,country_code').eq('user_id', user.id).maybeSingle(),
         supabase
           .from('farmer_verifications')
           .select('full_name,bvn,nin,crop,farm_size,status,id_status,selfie_status,name_match_verified_at,created_at,id_photo_url,id_image_url,selfie_url,state,lga,address,phone')
@@ -163,7 +163,7 @@ export default function Profile() {
         gender: prof.gender || '',
         date_of_birth: prof.date_of_birth || '',
         marital_status: prof.marital_status || '',
-        country: prof.country || useLocale.getState().country?.name || 'Nigeria',
+        country: prof.country || useLocale.getState().country?.name || '',
         state: prof.state || verif?.state || '',
         lga: prof.lga || verif?.lga || '',
         city: prof.city || '',
@@ -418,7 +418,8 @@ export default function Profile() {
         gender: f.gender || null,
         date_of_birth: f.date_of_birth || null,
         marital_status: f.marital_status || null,
-        country: f.country || useLocale.getState().country?.name || 'Nigeria',
+        country: f.country || useLocale.getState().country?.name || '',
+      country_code: f.country_code || useLocale.getState().country?.code || '',
         state: f.state || null,
         lga: f.lga || null,
         city: f.city || null,
@@ -554,14 +555,31 @@ export default function Profile() {
           <Text style={styles.email}>{user?.email}</Text>
         {/* COUNTRY_CHIP_PROFILE */}
         {(() => {
-          const cName = (f && f.country) ? f.country : '';
-          if (!cName) return null;
-          const list = (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) ? ALL_COUNTRIES : [];
-          const info = list.find((c: any) => c.name.toLowerCase() === cName.toLowerCase() || c.code === cName);
-          const flag = info ? countryFlag(info.code) : '🌍';
-          const display = info ? info.name : cName;
-          const provider = (info && info.payment_provider) ? info.payment_provider : 'paystack';
+          const locStore = useLocale.getState();
+          const locCountry = locStore?.country;
+          const fCountry = (f && f.country) ? String(f.country) : '';
+          const fCode = (f && f.country_code) ? String(f.country_code) : '';
+          const cName = fCountry || (locCountry?.name) || '';
+          const explicitCode = fCode || (locCountry?.code) || '';
+          if (!cName && !explicitCode) return null;
+
+          let resolvedCode = explicitCode;
+          let display = cName || explicitCode;
+          let provider = locCountry?.payment_provider || 'paystack';
+
+          if (!resolvedCode && cName) {
+            const list = (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) ? ALL_COUNTRIES : [];
+            const info = list.find((c: any) => c.name && c.name.toLowerCase() === cName.toLowerCase());
+            if (info) {
+              resolvedCode = info.code;
+              display = info.name;
+              provider = info.payment_provider || 'paystack';
+            }
+          }
+
+          const flag = resolvedCode ? countryFlag(resolvedCode) : '🌍';
           const pColors: any = { paystack: '#00C3F7', flutterwave: '#F5A623', stripe: '#635BFF' };
+
           return (
             <View style={{ alignItems: 'center', marginTop: 10 }}>
               <View style={{

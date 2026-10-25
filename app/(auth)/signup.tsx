@@ -74,9 +74,9 @@ export default function Signup() {
         await supabase.from('user_profiles').upsert({
           user_id: me.id,
           email: email.trim().toLowerCase(),
-          country: countryName,
-          country_code: countryCode,
-          preferred_language: lang,
+          country: (useLocale.getState().country?.name) || country,
+          country_code: (useLocale.getState().country?.code) || country,
+          preferred_language: useLocale.getState().language || 'en',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
         console.log('[signup] saved country:', countryName, countryCode);
