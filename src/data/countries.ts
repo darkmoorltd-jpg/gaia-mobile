@@ -1,6 +1,15 @@
 // AUTO-GENERATED from Supabase countries table
-// Do not edit manually — regenerate via Cell 2 of GAIA setup
-import { CountryInfo } from '../store/locale';
+// Local type — do NOT import from locale.ts (breaks circular dependency)
+export interface CountryInfo {
+  code: string;
+  name: string;
+  region: string;
+  currency: string;
+  currency_symbol: string;
+  languages: string[];
+  default_language: string;
+  payment_provider: 'paystack' | 'flutterwave' | 'stripe';
+}
 
 export const ALL_COUNTRIES: CountryInfo[] = [
   { code: 'NG', name: 'Nigeria', region: 'west_africa', currency: 'NGN', currency_symbol: '₦', languages: ['en','ha','yo','ig','pcm'], default_language: 'en', payment_provider: 'paystack' as any },

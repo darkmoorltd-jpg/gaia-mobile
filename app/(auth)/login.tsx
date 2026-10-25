@@ -40,6 +40,34 @@ export default function Login() {
   const [error, setError] = useState('');
   const { t } = useTranslation();
   const pickCountry = useLocale((s) => s.country?.code || '');
+  const [localCountry, setLocalCountry] = useState<string>(
+    (() => { try { return useLocale.getState().country?.code || 'NG'; } catch { return 'NG'; } })()
+  );
+
+  useEffect(() => {
+    const cur = useLocale.getState().country?.code;
+    if (cur && cur !== localCountry) setLocalCountry(cur);
+  }, [pickCountry]);
+
+  const changeCountry = (v: string) => {
+    setLocalCountry(v);
+    console.log('[login] picking country:', v);
+    useLocale.getState().setCountry(v)
+      .then(() => {
+        const c = useLocale.getState().country;
+        console.log('[login] store now:', c?.code, c?.name);
+        (async () => {
+          try {
+            const { data: { user: me } } = await supabase.auth.getUser();
+            if (me && c) {
+              await supabase.from('user_profiles').update({ country: c.name }).eq('user_id', me.id);
+              console.log('[login] profile country =', c.name);
+            }
+          } catch (e) { console.warn('[login] profile sync failed', e); }
+        })();
+      })
+      .catch((e) => console.warn('[login] setCountry failed', e));
+  };
   // VERSION_STAMP_LOGIN
   const __countryDebug = useLocale((s) => s.country?.code || 'none');
   const __buildHash = 'f0ee52f';
@@ -206,35 +234,18 @@ export default function Login() {
             <View style={{ flex: 1 }}>
               <Dropdown
                 label="COUNTRY"
-                value={pickCountry}
+                value={localCountry}
                 options={(() => {
                   const merged: Record<string, { code: string; name: string }> = {};
                   (countriesList || []).forEach((c: any) => { merged[c.code] = { code: c.code, name: c.name }; });
-                  if (typeof ALL_COUNTRIES !== 'undefined') {
+                  if (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) {
                     ALL_COUNTRIES.forEach((c: any) => { if (!merged[c.code]) merged[c.code] = { code: c.code, name: c.name }; });
                   }
                   return Object.values(merged)
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code }));
                 })()}
-                onChange={async (v: string) => {
-                  console.log('[login] picked country:', v);
-                  try {
-                    await useLocale.getState().setCountry(v);
-                    const now = useLocale.getState().country;
-                    console.log('[login] store country now:', now?.code, now?.name, now?.payment_provider);
-                    // Sync to user_profiles
-                    try {
-                      const { data: { user: me } } = await supabase.auth.getUser();
-                      if (me && now) {
-                        await supabase.from('user_profiles').update({ country: now.name }).eq('user_id', me.id);
-                        console.log('[login] synced to user_profiles:', now.name);
-                      }
-                    } catch (e2) { console.warn('[login] profile sync failed', e2); }
-                  } catch (e: any) {
-                    console.warn('[login] setCountry failed:', e);
-                  }
-                }}
+                onChange={changeCountry}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -373,6 +384,13 @@ export default function Login() {
         <View style={{ alignItems: 'center', marginTop: 20 }}>
           <Text style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>
             build-{__buildHash} · country={__countryDebug}
+          </Text>
+        </View>
+
+        {/* DEBUG_COUNTRY_UI */}
+        <View style={{ alignItems: 'center', marginTop: 12 }}>
+          <Text style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>
+            Country: {localCountry} · Store: {pickCountry || '-'}
           </Text>
         </View>
 </ScrollView>

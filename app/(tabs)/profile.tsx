@@ -10,6 +10,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import { useTheme, spacing, radius, typography } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
+import { ALL_COUNTRIES } from '../../src/data/countries';
+import { countryFlag } from '../../src/store/locale';
 import { FarmScoreCard } from '../../src/components/ScanExtras';
 import { supabase } from '../../src/api/supabase';
 import { useTranslation } from 'react-i18next';
@@ -133,7 +135,7 @@ export default function Profile() {
     setLoadError(null);
     try {
       const [profRes, verifRes, flagsRes] = await Promise.allSettled([
-        supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_profiles').select('*,country').eq('user_id', user.id).maybeSingle(),
         supabase
           .from('farmer_verifications')
           .select('full_name,bvn,nin,crop,farm_size,status,id_status,selfie_status,name_match_verified_at,created_at,id_photo_url,id_image_url,selfie_url,state,lga,address,phone')
@@ -550,6 +552,32 @@ export default function Profile() {
 
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
+        {/* COUNTRY_CHIP_PROFILE */}
+        {(() => {
+          const cName = (profile && profile.country) ? profile.country : '';
+          if (!cName) return null;
+          const list = (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) ? ALL_COUNTRIES : [];
+          const info = list.find((c: any) => c.name.toLowerCase() === cName.toLowerCase() || c.code === cName);
+          const flag = info ? countryFlag(info.code) : '🌍';
+          const display = info ? info.name : cName;
+          const provider = (info && info.payment_provider) ? info.payment_provider : 'paystack';
+          const pColors: any = { paystack: '#00C3F7', flutterwave: '#F5A623', stripe: '#635BFF' };
+          return (
+            <View style={{ alignItems: 'center', marginTop: 10 }}>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                paddingHorizontal: 14, paddingVertical: 8,
+                backgroundColor: 'rgba(0,255,136,0.08)',
+                borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)',
+              }}>
+                <Text style={{ fontSize: 22 }}>{flag}</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: palette.text }}>{display}</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: pColors[provider] || '#666' }} />
+                <Text style={{ fontSize: 10, fontWeight: '700', color: palette.textMuted }}>{provider}</Text>
+              </View>
+            </View>
+          );
+        })()}
 
           <View style={[styles.badge, { borderColor: verifColor, backgroundColor: verifColor + '22' }]}>
             <View style={[styles.badgeDot, { backgroundColor: verifColor }]} />
