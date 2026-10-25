@@ -71,12 +71,13 @@ export default function Signup() {
         const countryCode = info?.code || country;
         const lang = loc.language || info?.default_language || 'en';
 
+        const _picked = (countriesList || []).find((c: any) => c.code === country);
         await supabase.from('user_profiles').upsert({
           user_id: me.id,
           email: email.trim().toLowerCase(),
-          country: (useLocale.getState().country?.name) || country,
-          country_code: (useLocale.getState().country?.code) || country,
-          preferred_language: useLocale.getState().language || 'en',
+          country: _picked?.name || country,
+          country_code: _picked?.code || country,
+          preferred_language: _picked?.default_language || 'en',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
         console.log('[signup] saved country:', countryName, countryCode);
