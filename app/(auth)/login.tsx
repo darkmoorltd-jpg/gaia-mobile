@@ -16,6 +16,39 @@ import {
 } from '../../src/utils/biometric';
 import { registerForPushNotifications } from '../../src/utils/push';
 
+const COUNTRY_FALLBACKS = [
+  { code: 'NG', name: 'Nigeria' },
+  { code: 'GH', name: 'Ghana' },
+  { code: 'CI', name: "Côte d'Ivoire" },
+  { code: 'SN', name: 'Senegal' },
+  { code: 'KE', name: 'Kenya' },
+  { code: 'ZA', name: 'South Africa' },
+  { code: 'UG', name: 'Uganda' },
+  { code: 'TZ', name: 'Tanzania' },
+  { code: 'RW', name: 'Rwanda' },
+  { code: 'ET', name: 'Ethiopia' },
+  { code: 'EG', name: 'Egypt' },
+  { code: 'MA', name: 'Morocco' },
+  { code: 'CM', name: 'Cameroon' },
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'FR', name: 'France' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'IN', name: 'India' },
+  { code: 'CN', name: 'China' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'MX', name: 'Mexico' },
+  { code: 'AU', name: 'Australia' },
+];
+
+
+
 type Tab = 'password' | 'google' | 'agent';
 
 export default function Login() {
@@ -43,12 +76,10 @@ export default function Login() {
   const countriesList = useLocale((s) => s.countries);
   const currentCountry = useLocale((s) => s.country || (s as any).countries?.find((c: any) => c.code === s.country?.code) || null);
 
-  // If country is null (state not yet hydrated), load it
+  // Always load store on login mount (ensures countries list populated)
   useEffect(() => {
-    if (!currentCountry) {
-      useLocale.getState().load();
-    }
-  }, [currentCountry]);
+    useLocale.getState().load().catch(() => {});
+  }, []);
 
   const [bioAvailable, setBioAvailable] = useState(false);
   const [bioEnabled, setBioEnabled] = useState(false);
@@ -174,7 +205,21 @@ export default function Login() {
             
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
             <View style={{ flex: 1 }}>
-              <Dropdown label="COUNTRY" value={pickCountry} options={((countriesList?.length ?? 0) > 0 ? countriesList!.map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code })) : [{ label: countryFlag(pickCountry || 'NG') + ' ' + (currentCountry?.name || 'Select country'), value: pickCountry || 'NG' }])} onChange={(v) => { useLocale.getState().setCountry(v); }} />
+              <Dropdown
+                label="COUNTRY"
+                value={pickCountry}
+                options={(() => {
+                  const merged = new Map<string, { code: string; name: string }>();
+                  (countriesList || []).forEach((c: any) => merged.set(c.code, { code: c.code, name: c.name }));
+                  COUNTRY_FALLBACKS.forEach((c) => { if (!merged.has(c.code)) merged.set(c.code, c); });
+                  return Array.from(merged.values())
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code }));
+                })()}
+                onChange={async (v: string) => {
+                  try { await useLocale.getState().setCountry(v); } catch (e) { console.warn('setCountry failed', e); }
+                }}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Dropdown label="LANGUAGE" value={pickLanguage} options={[{ label: 'English', value: 'en' }, { label: 'Fran\u00e7ais', value: 'fr' }, { label: 'Portugu\u00eas', value: 'pt' }, { label: 'Espa\u00f1ol', value: 'es' }, { label: 'Deutsch', value: 'de' }, { label: 'Italiano', value: 'it' }, { label: 'Nederlands', value: 'nl' }, { label: 'Kiswahili', value: 'sw' }, { label: 'Hausa', value: 'ha' }, { label: 'Yor\u00f9b\u00e1', value: 'yo' }, { label: 'Igbo', value: 'ig' }, { label: 'Naij\u00e1', value: 'pcm' }]} onChange={(v) => { useLocale.getState().setLanguage(v); }} />

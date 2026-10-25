@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { useLocale, countryFlag } from '../../src/store/locale';
+import { supabase } from '../../src/api/supabase';
 import Dropdown from '../../src/components/Dropdown';
 
 export default function Signup() {
@@ -54,11 +55,24 @@ export default function Signup() {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setBusy(true); setError('');
-    const err = await signUp(email.trim(), password, country);
+    const err = await signUp(email.trim(), password);
     if (err) { setBusy(false); setError(err); return; }
+
+    // Save selected country to store + profile
     try { await useLocale.getState().setCountry(country); } catch {}
+    try {
+      const { data: { user: me } } = await supabase.auth.getUser();
+      if (me) {
+        await supabase.from('user_profiles').upsert({
+          user_id: me.id,
+          email: email.trim().toLowerCase(),
+        }, { onConflict: 'user_id' });
+      }
+    } catch {}
+
     setBusy(false);
-    router.replace('/(auth)/onboarding' as any);
+    // Go to tab home — onboarding is a legacy route
+    router.replace('/(tabs)' as any);
   };
 
   return (
@@ -88,7 +102,7 @@ export default function Signup() {
         {/* COUNTRY_BANNER */}
         {currentCountry ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)' }}>
-            <Text style={{ fontSize: 24 }}>{flagEmoji(currentCountry.code)}</Text>
+            <Text style={{ fontSize: 24 }}>{countryFlag(currentCountry.code)}</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13, fontWeight: '800', color: '#2e7d32' }}>{currentCountry.name}</Text>
               <Text style={{ fontSize: 11, color: '#607d8b' }}>{currentCountry.currency} · {currentCountry.payment_provider}</Text>

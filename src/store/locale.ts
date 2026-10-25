@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ALL_COUNTRIES } from '../data/countries';
 import { supabase } from '../api/supabase';
 import { setAppLanguage } from '../i18n';
 
@@ -26,6 +27,7 @@ interface LocaleState {
   clear: () => Promise<void>;
 }
 
+
 const KEY_C = 'gaia_country';
 const KEY_L = 'gaia_language';
 const KEY_JSON = 'gaia_country_json';
@@ -33,7 +35,7 @@ const KEY_RATE = 'gaia_rate';
 
 export const useLocale = create<LocaleState>((set) => ({
   country: null,
-  countries: [],
+  countries: ALL_COUNTRIES,
   language: null,
   rate: 1,
   loaded: false,
