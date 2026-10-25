@@ -24,6 +24,74 @@ function fmtDate(iso?: string) {
 
 type Tab = 'profile' | 'market' | 'kyc' | 'badges' | 'memory' | 'support' | 'payments' | 'chats';
 
+
+// ── Region classification (for filters) ──
+const WEST_AFRICA = new Set(['NG','GH','CI','SN','ML','BF','BJ','TG','NE','GN','SL','LR','GM','MR','CV','GW']);
+const EAST_AFRICA = new Set(['KE','TZ','UG','RW','BI','ET','SO','SS','DJ','ER','MG']);
+const CENTRAL_AFRICA = new Set(['CM','CD','CG','GA','CF','TD','ST','GQ']);
+const NORTH_AFRICA = new Set(['EG','MA','DZ','TN','LY','SD']);
+const SOUTHERN_AFRICA = new Set(['ZA','ZW','ZM','MW','MZ','BW','NA','AO','LS','SZ','MU']);
+const ARAB_COUNTRIES = new Set(['SA','AE','EG','MA','DZ','TN','LY','SD','IQ','JO','LB','KW','QA','BH','OM','YE','PS','SY','MR']);
+const EUROPE = new Set(['GB','IE','FR','DE','NL','BE','CH','AT','IT','ES','PT','GR','PL','CZ','HU','RO','BG','HR','FI','SE','NO','DK','UA','RU','IS','MT','CY','EE','LV','LT','SK','SI','RS','BA','MK','AL','MD','ME']);
+const ASIA = new Set(['IN','CN','JP','KR','ID','VN','TH','PH','MY','SG','PK','BD','LK','NP','MM','KH','LA','BT','MV','MN','TW','HK']);
+const MIDDLE_EAST = new Set(['SA','AE','IQ','JO','LB','KW','QA','BH','OM','YE','PS','SY','TR','IL','IR']);
+const NORTH_AMERICA = new Set(['US','CA','MX']);
+const SOUTH_AMERICA = new Set(['BR','AR','CO','PE','CL','EC','BO','PY','UY','VE','GY','SR']);
+const OCEANIA = new Set(['AU','NZ','PG','FJ','SB','VU','WS','TO']);
+
+type RegionKey = 'all'|'africa'|'west_africa'|'east_africa'|'central_africa'|'north_africa'|'southern_africa'|'europe'|'asia'|'middle_east'|'arab'|'north_america'|'south_america'|'oceania';
+
+function matchesRegion(code: string, region: RegionKey): boolean {
+  if (!code) code = 'NG';
+  const c = code.toUpperCase();
+  switch (region) {
+    case 'all': return true;
+    case 'africa': return WEST_AFRICA.has(c) || EAST_AFRICA.has(c) || CENTRAL_AFRICA.has(c) || NORTH_AFRICA.has(c) || SOUTHERN_AFRICA.has(c);
+    case 'west_africa': return WEST_AFRICA.has(c);
+    case 'east_africa': return EAST_AFRICA.has(c);
+    case 'central_africa': return CENTRAL_AFRICA.has(c);
+    case 'north_africa': return NORTH_AFRICA.has(c);
+    case 'southern_africa': return SOUTHERN_AFRICA.has(c);
+    case 'europe': return EUROPE.has(c);
+    case 'asia': return ASIA.has(c);
+    case 'middle_east': return MIDDLE_EAST.has(c);
+    case 'arab': return ARAB_COUNTRIES.has(c);
+    case 'north_america': return NORTH_AMERICA.has(c);
+    case 'south_america': return SOUTH_AMERICA.has(c);
+    case 'oceania': return OCEANIA.has(c);
+    default: return true;
+  }
+}
+
+const REGION_LABELS: Record<RegionKey, string> = {
+  all: 'ALL',
+  africa: '🌍 AFRICA',
+  west_africa: '🇳🇬 WEST AFRICA',
+  east_africa: '🇰🇪 EAST AFRICA',
+  central_africa: '🇨🇲 CENTRAL AFRICA',
+  north_africa: '🇪🇬 NORTH AFRICA',
+  southern_africa: '🇿🇦 SOUTHERN AFRICA',
+  europe: '🇪🇺 EUROPE',
+  asia: '🌏 ASIA',
+  middle_east: '🕌 MIDDLE EAST',
+  arab: '☪️ ARAB',
+  north_america: '🇺🇸 NORTH AMERICA',
+  south_america: '🇧🇷 SOUTH AMERICA',
+  oceania: '🇦🇺 OCEANIA',
+};
+
+const PLAN_FILTERS = ['all','free','starter','pro','business','enterprise','unlimited_year'];
+const KYC_FILTERS = ['all','approved','pending','rejected'];
+const PROVIDER_FILTERS = ['all','stripe','paystack','flutterwave','crypto'];
+
+function getProviderForCountry(code: string): string {
+  const c = (code || 'NG').toUpperCase();
+  if (EUROPE.has(c) || ASIA.has(c) || MIDDLE_EAST.has(c) || NORTH_AMERICA.has(c) || SOUTH_AMERICA.has(c) || OCEANIA.has(c)) return 'stripe';
+  if (WEST_AFRICA.has(c)) return 'paystack';
+  if (EAST_AFRICA.has(c) || CENTRAL_AFRICA.has(c) || NORTH_AFRICA.has(c) || SOUTHERN_AFRICA.has(c)) return 'flutterwave';
+  return 'paystack';
+}
+
 export default function AdminUsers() {
   const router = useRouter();
   const { palette } = useTheme();
@@ -34,6 +102,14 @@ export default function AdminUsers() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [filterRegion, setFilterRegion] = useState<RegionKey>('all');
+  const [filterCountry, setFilterCountry] = useState<string>('all');
+  const [filterPlan, setFilterPlan] = useState<string>('all');
+  const [filterKyc, setFilterKyc] = useState<string>('all');
+  const [filterProvider, setFilterProvider] = useState<string>('all');
+  const [filterOnline, setFilterOnline] = useState<string>('all');
+  const [filterUnlimited, setFilterUnlimited] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [groupByCountry, setGroupByCountry] = useState(false);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -266,12 +342,65 @@ export default function AdminUsers() {
     return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
   }
 
-  const filtered = search.trim()
-    ? rows.filter((r) => {
-        const hay = ((r.email || '') + ' ' + (r.first_name || '') + ' ' + (r.last_name || '') + ' ' + (r.state || '') + ' ' + (r.phone || '')).toLowerCase();
-        return hay.includes(search.toLowerCase());
-      })
-    : rows;
+  // Compose filter pipeline
+  const filtered = rows.filter((r) => {
+    // Search
+    if (search.trim()) {
+      const hay = ((r.email || '') + ' ' + (r.first_name || '') + ' ' + (r.last_name || '') + ' ' + (r.state || '') + ' ' + (r.phone || '') + ' ' + (r.country || '')).toLowerCase();
+      if (!hay.includes(search.toLowerCase())) return false;
+    }
+    // Region
+    if (filterRegion !== 'all' && !matchesRegion(r.country_code || 'NG', filterRegion)) return false;
+    // Country
+    if (filterCountry !== 'all' && (r.country_code || 'NG').toUpperCase() !== filterCountry) return false;
+    // Plan
+    if (filterPlan !== 'all') {
+      if (filterPlan === 'unlimited_year') {
+        if (!(r.unlimited_until && new Date(r.unlimited_until) > new Date())) return false;
+      } else if ((r.plan || 'free') !== filterPlan) {
+        return false;
+      }
+    }
+    // KYC
+    if (filterKyc !== 'all' && (r.verification_status || 'pending') !== filterKyc) return false;
+    // Provider
+    if (filterProvider !== 'all') {
+      if (filterProvider === 'crypto') return false; // crypto is per-transaction, skip
+      if (getProviderForCountry(r.country_code || 'NG') !== filterProvider) return false;
+    }
+    // Online
+    if (filterOnline === 'online' && !isOnline(r.last_seen)) return false;
+    if (filterOnline === 'offline' && isOnline(r.last_seen)) return false;
+    // Unlimited
+    if (filterUnlimited === 'yes') {
+      if (!(r.unlimited_until && new Date(r.unlimited_until) > new Date())) return false;
+    } else if (filterUnlimited === 'no') {
+      if (r.unlimited_until && new Date(r.unlimited_until) > new Date()) return false;
+    }
+    return true;
+  });
+
+  // Count active filters
+  const activeFilterCount = [
+    filterRegion !== 'all',
+    filterCountry !== 'all',
+    filterPlan !== 'all',
+    filterKyc !== 'all',
+    filterProvider !== 'all',
+    filterOnline !== 'all',
+    filterUnlimited !== 'all',
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setFilterRegion('all');
+    setFilterCountry('all');
+    setFilterPlan('all');
+    setFilterKyc('all');
+    setFilterProvider('all');
+    setFilterOnline('all');
+    setFilterUnlimited('all');
+    setSearch('');
+  };
 
   // Country grouping
   const FLAGS: Record<string, string> = {
@@ -339,6 +468,175 @@ export default function AdminUsers() {
             placeholderTextColor={palette.textDim}
             style={styles.search} autoCapitalize="none" />
         </View>
+
+        {/* Filter toggle + count */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          <Pressable
+            onPress={() => setShowFilters(!showFilters)}
+            style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+              backgroundColor: showFilters ? 'rgba(0,255,136,0.15)' : 'transparent',
+              borderWidth: 1, borderColor: showFilters ? '#00ff88' : '#2a3441' }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: '800', color: showFilters ? '#00ff88' : '#8899a6' }}>
+              ⚙️ FILTERS {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+            </Text>
+          </Pressable>
+          {activeFilterCount > 0 || search.trim() ? (
+            <Pressable
+              onPress={clearAllFilters}
+              style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center',
+                backgroundColor: 'rgba(255,59,92,0.15)', borderWidth: 1, borderColor: '#ff3b5c' }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: '800', color: '#ff3b5c' }}>CLEAR</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Filter panel */}
+        {showFilters ? (
+          <View style={{ padding: 14, marginBottom: 14, borderRadius: 12,
+            backgroundColor: 'rgba(0,0,0,0.3)', borderWidth: 1, borderColor: '#2a3441' }}>
+
+            {/* Region chips */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>REGION</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12, marginBottom: 16 }}>
+              {(Object.keys(REGION_LABELS) as RegionKey[]).map((k) => (
+                <Pressable
+                  key={k}
+                  onPress={() => { setFilterRegion(k); setFilterCountry('all'); }}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterRegion === k ? '#00ff88' : '#2a3441',
+                    backgroundColor: filterRegion === k ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterRegion === k ? '#00ff88' : '#cbd5e1' }}>
+                    {REGION_LABELS[k]}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* Country picker */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>COUNTRY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12, marginBottom: 16 }}>
+              <Pressable
+                onPress={() => setFilterCountry('all')}
+                style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                  borderWidth: 1.5, borderColor: filterCountry === 'all' ? '#00ff88' : '#2a3441',
+                  backgroundColor: filterCountry === 'all' ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+              >
+                <Text style={{ fontSize: 10, fontWeight: '800', color: filterCountry === 'all' ? '#00ff88' : '#cbd5e1' }}>ALL</Text>
+              </Pressable>
+              {Array.from(new Set(rows.map((r: any) => (r.country_code || 'NG').toUpperCase())))
+                .filter((c): c is string => c != null && c !== '')
+                .sort()
+                .map((code) => (
+                  <Pressable
+                    key={code}
+                    onPress={() => setFilterCountry(code)}
+                    style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                      borderWidth: 1.5, borderColor: filterCountry === code ? '#00ff88' : '#2a3441',
+                      backgroundColor: filterCountry === code ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                  >
+                    <Text style={{ fontSize: 10, fontWeight: '800', color: filterCountry === code ? '#00ff88' : '#cbd5e1' }}>
+                      {code}
+                    </Text>
+                  </Pressable>
+                ))
+              }
+            </ScrollView>
+
+            {/* Plan filter */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>PLAN</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12, marginBottom: 16 }}>
+              {PLAN_FILTERS.map((p) => (
+                <Pressable key={p}
+                  onPress={() => setFilterPlan(p)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterPlan === p ? '#00ff88' : '#2a3441',
+                    backgroundColor: filterPlan === p ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterPlan === p ? '#00ff88' : '#cbd5e1' }}>
+                    {p.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {/* KYC filter */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>KYC STATUS</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {KYC_FILTERS.map((k) => (
+                <Pressable key={k}
+                  onPress={() => setFilterKyc(k)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterKyc === k ? '#00ff88' : '#2a3441',
+                    backgroundColor: filterKyc === k ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterKyc === k ? '#00ff88' : '#cbd5e1' }}>
+                    {k.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Provider filter */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>PAYMENT PROVIDER</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {PROVIDER_FILTERS.map((pr) => (
+                <Pressable key={pr}
+                  onPress={() => setFilterProvider(pr)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterProvider === pr ? '#00ff88' : '#2a3441',
+                    backgroundColor: filterProvider === pr ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterProvider === pr ? '#00ff88' : '#cbd5e1' }}>
+                    {pr.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Online filter */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>STATUS</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+              {['all','online','offline'].map((o) => (
+                <Pressable key={o}
+                  onPress={() => setFilterOnline(o)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterOnline === o ? '#00ff88' : '#2a3441',
+                    backgroundColor: filterOnline === o ? 'rgba(0,255,136,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterOnline === o ? '#00ff88' : '#cbd5e1' }}>
+                    {o.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Unlimited filter */}
+            <Text style={{ fontSize: 10, fontWeight: '800', color: '#8899a6', letterSpacing: 1, marginBottom: 8 }}>SUBSCRIPTION</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {[['all','ALL'],['yes','👑 UNLIMITED'],['no','NO SUB']].map(([k, label]) => (
+                <Pressable key={k}
+                  onPress={() => setFilterUnlimited(k)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
+                    borderWidth: 1.5, borderColor: filterUnlimited === k ? '#ffd700' : '#2a3441',
+                    backgroundColor: filterUnlimited === k ? 'rgba(255,215,0,0.15)' : 'transparent' }}
+                >
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: filterUnlimited === k ? '#ffd700' : '#cbd5e1' }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Filtered count */}
+        <Text style={{ fontSize: 11, color: '#8899a6', marginBottom: 8 }}>
+          Showing {filtered.length} of {rows.length} users
+        </Text>
+
 
         {busy && rows.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
 
