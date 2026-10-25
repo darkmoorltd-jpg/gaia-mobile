@@ -10,8 +10,19 @@ export const ANNUAL_DURATION_DAYS = 365;
 
 // Countries where Stripe + $100/year unlimited is available
 export const STRIPE_COUNTRIES = new Set([
+  // Europe
   'GB','IE','FR','DE','NL','BE','CH','AT','IT','ES','PT','GR','PL','CZ',
-  'HU','RO','BG','HR','FI','SE','NO','DK','UA','RU','US','CA','MX','AU','NZ'
+  'HU','RO','BG','HR','FI','SE','NO','DK','UA','RU',
+  // North America
+  'US','CA','MX',
+  // Oceania
+  'AU','NZ',
+  // Asia
+  'IN','CN','JP','KR','ID','VN','TH','PH','MY','SG','PK','BD','LK','NP',
+  'MM','KH','LA',
+  // Middle East / Arab
+  'SA','AE','EG','MA','DZ','TN','LY','SD','IQ','JO','LB','KW','QA','BH',
+  'OM','YE','PS','SY','TR','IL','IR'
 ]);
 
 // Countries where Flutterwave is available (West + East Africa fallback)
