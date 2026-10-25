@@ -72,8 +72,8 @@
     "soil": "التربة",
     "livestock": "المواشي",
     "chat": "الدردشة",
-    "voice": "الصوت",
-    "profile": "الملف الشخصي"
+    "voice": "صوت",
+    "profile": "ملف"
   },
   "agentTabs": {
     "home": "الرئيسية",

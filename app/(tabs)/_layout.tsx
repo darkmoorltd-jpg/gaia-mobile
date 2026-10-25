@@ -35,9 +35,9 @@ export default function TabsLayout() {
           paddingBottom: 32,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '700',
-          letterSpacing: 1,
+          letterSpacing: 0.5,
           marginTop: 4,
         },
       }}
@@ -101,20 +101,40 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* NEW: voice tab (was lowercase before) */}
+      <Tabs.Screen
+        name="voice"
+        options={{
+          title: t('tabs.voice').toUpperCase(),
+          href: flagOn('voice') ? undefined : null,
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="V" focused={focused} color={color} />
+          ),
+        }}
+      />
+      {/* NEW: profile tab — always visible, no gate */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t('tabs.profile').toUpperCase(),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="U" focused={focused} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   iconWrap: {
-    width: 44,
-    height: 32,
+    width: 40, height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   iconWrapActive: {
     backgroundColor: 'rgba(0,255,136,0.12)',
   },
-  icon: { fontSize: 20, fontWeight: '900' },
+  icon: { fontSize: 18, fontWeight: '900' },
 });

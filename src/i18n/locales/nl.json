@@ -72,8 +72,8 @@
     "soil": "SOIL",
     "livestock": "LIVESTOCK",
     "chat": "CHAT",
-    "voice": "VOICE",
-    "profile": "PROFILE"
+    "voice": "STEM",
+    "profile": "PROFIEL"
   },
   "agentTabs": {
     "home": "HOME",
