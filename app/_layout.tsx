@@ -61,8 +61,8 @@ function RootNavigator() {
     let mounted = true;
     (async () => {
       try {
-        try { await useSettings.getState().load(); } catch {}
         try { await useLocale.getState().load(); } catch {}
+        try { await useSettings.getState().load(); } catch {}
         try { await useThemeMode.getState().load(); } catch {}
         try { await loadStoredLanguage(); } catch {}
 
