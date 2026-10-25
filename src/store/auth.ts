@@ -152,16 +152,13 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (error) return error.message;
       if (!data.user) return 'Signup failed';
 
-      // Resolve country from: explicit param > locale store > default NG
+      // Resolve country name + code from locale
       const locale = useLocale.getState();
-      const code = (
-        countryCode ||
-        locale.country?.code ||
-        'NG'
-      ).toUpperCase();
-
-      // Get country display name from countries catalog, fallback to code
+      const code = (countryCode || locale.country?.code || 'NG').toUpperCase();
       let countryName = locale.country?.name || code;
+      if (code === 'NG') countryName = 'Nigeria';
+
+      // Try to resolve proper name from countries table
       try {
         const { data: c } = await supabase
           .from('countries')
@@ -171,30 +168,28 @@ export const useAuth = create<AuthState>((set, get) => ({
         if (c?.name) countryName = c.name;
       } catch {}
 
-      // 1. Create comprehensive user_profiles row
       try {
-        await supabase.from('user_profiles').upsert({
-          user_id: data.user.id,
-          email: (data.user.email || email).toLowerCase(),
-          country: countryName,
-          country_code: code,
-          verification_status: 'pending',
-          account_status: 'active',
-          role: 'farmer',
-        }, { onConflict: 'user_id' });
-        console.log('[signup] profile created:', countryName, code);
-      } catch (e) { console.warn('[signup] profile:', e); }
-
-      // 2. Create user_scans row (30 free scans)
-      try {
-        await supabase.from('user_scans').upsert({
-          user_id: data.user.id,
-          scans_remaining: 30,
-          plan: 'free',
-        }, { onConflict: 'user_id' });
-      } catch (e) { console.warn('[signup] scans:', e); }
+        await supabase.from('user_scans').insert({
+          user_id: data.user.id, scans_remaining: 30, plan: 'free',
+        });
+      } catch {}
 
       await get().setLoginContext('user');
+
+      try {
+        await supabase.from('user_profiles').upsert(
+          {
+            user_id: data.user.id,
+            email: (data.user.email || email).toLowerCase(),
+            country: countryName,
+            country_code: code,
+            verification_status: 'pending',
+            account_status: 'active',
+          },
+          { onConflict: 'user_id' }
+        );
+      } catch (e) { console.warn('[signup] profile upsert failed', e); }
+
       set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
       await get().refreshScans();
       return null;
