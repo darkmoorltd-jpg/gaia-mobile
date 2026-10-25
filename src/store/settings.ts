@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../api/supabase';
 
 interface SettingsState {
-  // Effective flags (global merged with country overrides)
+  // Effective flags (global merged with country overrides) — what components read
   flags: Record<string, boolean>;
   // Raw values for admin UI
   globalFlags: Record<string, boolean>;
@@ -11,7 +11,11 @@ interface SettingsState {
   models: Record<string, string>;
   loaded: boolean;
   load: () => Promise<void>;
+  startPolling: () => void;
+  stopPolling: () => void;
 }
+
+let _pollId: any = null;
 
 export const useSettings = create<SettingsState>((set, get) => ({
   flags: {},
@@ -23,7 +27,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
 
   load: async () => {
     try {
-      // 1. Resolve current country from locale store (avoid circular import via dynamic)
+      // 1. Resolve current country
       let countryCode: string | null = null;
       try {
         const { useLocale } = await import('./locale');
@@ -43,7 +47,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
         if (r.key === 'model_config') Object.assign(models, r.value || {});
       });
 
-      // 3. Fetch country overrides if a country is set
+      // 3. Fetch country overrides
       const countryOverrides: Record<string, boolean> = {};
       if (countryCode) {
         try {
@@ -58,17 +62,42 @@ export const useSettings = create<SettingsState>((set, get) => ({
         } catch {}
       }
 
-      // 4. Effective flags = global defaults overridden by country-specific values
-      const flags = { ...globalFlags, ...countryOverrides };
+      // 4. Effective flags = global defaults overridden by country
+      const flags: Record<string, boolean> = { ...globalFlags };
+      Object.entries(countryOverrides).forEach(([k, v]) => {
+        flags[k] = v;
+      });
 
-      set({ flags, globalFlags, countryOverrides, countryCode, models, loaded: true });
+      set({
+        flags,
+        globalFlags,
+        countryOverrides,
+        countryCode,
+        models,
+        loaded: true,
+      });
     } catch (e) {
       console.log('[settings] load failed', e);
       set({ loaded: true });
     }
   },
+
+  startPolling: () => {
+    if (_pollId) return;
+    _pollId = setInterval(() => {
+      get().load().catch(() => {});
+    }, 60_000);
+  },
+
+  stopPolling: () => {
+    if (_pollId) {
+      clearInterval(_pollId);
+      _pollId = null;
+    }
+  },
 }));
 
+// Helper for event handlers only (NOT for render)
 export function isFlagOn(key: string, defaultValue: boolean = true): boolean {
   const f = useSettings.getState().flags[key];
   return f === undefined ? defaultValue : !!f;

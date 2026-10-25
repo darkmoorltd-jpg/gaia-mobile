@@ -8,7 +8,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-function FeatureGate({ flag, children }: Props) {
+export default function FeatureGate({ flag, children }: Props) {
   const flags = useSettings((s) => s.flags);
   const loaded = useSettings((s) => s.loaded);
   const { palette } = useTheme();
@@ -29,8 +29,7 @@ function FeatureGate({ flag, children }: Props) {
   );
 }
 
-// HOC: wrap a whole screen. Use as:
-//   export default gateScreen('wallet', WalletScreen);
+// HOC
 export function gateScreen<P extends object>(
   flag: string,
   Screen: React.ComponentType<P>
@@ -44,8 +43,11 @@ export function gateScreen<P extends object>(
   };
 }
 
-// Helper for menu filtering
-export function flagAllows(flags: Record<string, boolean>, flag: string | undefined | null): boolean {
+// Pure helper (used in .map() with the reactive `flags` from useSettings hook)
+export function flagAllows(
+  flags: Record<string, boolean>,
+  flag: string | undefined | null
+): boolean {
   if (!flag) return true;
   const v = flags[flag];
   return v === undefined ? true : !!v;
@@ -56,4 +58,3 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '900', marginBottom: 10 },
   sub: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
 });
-export default FeatureGate;

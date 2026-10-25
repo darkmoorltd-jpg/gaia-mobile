@@ -111,12 +111,10 @@ function RootNavigator() {
 
   // language switch handled inside setAppLanguage
 
-  // Poll remote config every 60s so admin toggles apply without app restart
+  // Poll remote config every 60s (also starts internal polling in settings store)
   useEffect(() => {
-    const id = setInterval(() => {
-      useSettings.getState().load().catch(() => {});
-    }, 60_000);
-    return () => clearInterval(id);
+    useSettings.getState().startPolling();
+    return () => useSettings.getState().stopPolling();
   }, []);
 
   useEffect(() => {

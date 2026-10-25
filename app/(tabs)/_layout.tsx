@@ -95,27 +95,9 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: t('tabs.chat').toUpperCase(),
+          href: flagOn('chat') ? undefined : null,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="M" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="voice"
-        options={{
-          title: (t('tabs.voice') || 'VOICE').toUpperCase(),
-          href: flagOn('voice') ? undefined : null,
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="V" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: (t('tabs.profile') || 'PROFILE').toUpperCase(),
-          tabBarIcon: ({ focused, color }) => (
-            <TabIcon emoji="U" focused={focused} color={color} />
           ),
         }}
       />
