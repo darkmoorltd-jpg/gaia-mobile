@@ -58,17 +58,32 @@ export default function Signup() {
     const err = await signUp(email.trim(), password);
     if (err) { setBusy(false); setError(err); return; }
 
-    // Save selected country to store + profile
+    // Save selected country to store first (hydrates full country info)
     try { await useLocale.getState().setCountry(country); } catch {}
+
+    // Persist country name + code + language to user_profiles
     try {
       const { data: { user: me } } = await supabase.auth.getUser();
       if (me) {
+        const loc = useLocale.getState();
+        const info = loc.country;
+        const countryName = info?.name || country;
+        const countryCode = info?.code || country;
+        const lang = loc.language || info?.default_language || 'en';
+
         await supabase.from('user_profiles').upsert({
           user_id: me.id,
           email: email.trim().toLowerCase(),
+          country: countryName,
+          country_code: countryCode,
+          preferred_language: lang,
+          updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
+        console.log('[signup] saved country:', countryName, countryCode);
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[signup] country save failed', e);
+    }
 
     setBusy(false);
     // Go to tab home — onboarding is a legacy route
