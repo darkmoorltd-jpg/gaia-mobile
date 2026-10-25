@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { supabase } from '../api/supabase';
+import { useLocale } from './locale';
 import { signInWithGoogle as googleFlow } from '../utils/googleAuth';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -149,23 +150,53 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) return error.message;
-      if (data.user) {
-        try {
-          await supabase.from('user_scans').insert({
-            user_id: data.user.id, scans_remaining: 30, plan: 'free',
-          });
-        } catch {}
-        await get().setLoginContext('user');
-        if (countryCode) {
-          try {
-            await supabase.from('user_profiles').upsert(
-              { user_id: data.user.id, email: data.user.email, country: countryCode },
-              { onConflict: 'user_id' }
-            );
-          } catch {}
-        }
-        set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
-      }
+      if (!data.user) return 'Signup failed';
+
+      // Resolve country from: explicit param > locale store > default NG
+      const locale = useLocale.getState();
+      const code = (
+        countryCode ||
+        locale.country?.code ||
+        'NG'
+      ).toUpperCase();
+
+      // Get country display name from countries catalog, fallback to code
+      let countryName = locale.country?.name || code;
+      try {
+        const { data: c } = await supabase
+          .from('countries')
+          .select('name')
+          .eq('code', code)
+          .maybeSingle();
+        if (c?.name) countryName = c.name;
+      } catch {}
+
+      // 1. Create comprehensive user_profiles row
+      try {
+        await supabase.from('user_profiles').upsert({
+          user_id: data.user.id,
+          email: (data.user.email || email).toLowerCase(),
+          country: countryName,
+          country_code: code,
+          verification_status: 'pending',
+          account_status: 'active',
+          role: 'farmer',
+        }, { onConflict: 'user_id' });
+        console.log('[signup] profile created:', countryName, code);
+      } catch (e) { console.warn('[signup] profile:', e); }
+
+      // 2. Create user_scans row (30 free scans)
+      try {
+        await supabase.from('user_scans').upsert({
+          user_id: data.user.id,
+          scans_remaining: 30,
+          plan: 'free',
+        }, { onConflict: 'user_id' });
+      } catch (e) { console.warn('[signup] scans:', e); }
+
+      await get().setLoginContext('user');
+      set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
+      await get().refreshScans();
       return null;
     } catch (e: any) { return e?.message ?? 'Sign up failed'; }
   },
@@ -180,18 +211,48 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (!session || !session.user) return 'Google sign-in did not return a session';
       const ban = await checkBan(session.user.id);
       if (ban) return ban;
+
+      // Resolve country from locale store
+      const locale = useLocale.getState();
+      const code = (locale.country?.code || 'NG').toUpperCase();
+      const countryName = locale.country?.name || code;
+
       let isNew = false;
       try {
-        const { data: ensured, error: ensureErr } = await supabase.rpc('ensure_user_profile');
-        if (ensureErr) console.log('ensure_user_profile failed', ensureErr);
-        if (!ensured) {
-          const check = await supabase.from('user_profiles').select('user_id').eq('user_id', session.user.id).maybeSingle();
-          if (!check.data) isNew = true;
-        } else {
-          const created = (ensured as any).created_at ? new Date((ensured as any).created_at).getTime() : 0;
-          if (Date.now() - created < 5000) isNew = true;
+        const check = await supabase
+          .from('user_profiles')
+          .select('user_id,country_code')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (!check.data) {
+          // New Google user — create profile
+          isNew = true;
+          await supabase.from('user_profiles').insert({
+            user_id: session.user.id,
+            email: (session.user.email || '').toLowerCase(),
+            country: countryName,
+            country_code: code,
+            verification_status: 'pending',
+            account_status: 'active',
+            role: 'farmer',
+          });
+          try {
+            await supabase.from('user_scans').insert({
+              user_id: session.user.id,
+              scans_remaining: 30,
+              plan: 'free',
+            });
+          } catch {}
+        } else if (!check.data.country_code) {
+          // Existing profile but missing country_code — backfill
+          await supabase.from('user_profiles').update({
+            country_code: code,
+            country: countryName,
+          }).eq('user_id', session.user.id);
         }
-      } catch (e) { console.log('ensure profile threw', e); }
+      } catch (e) { console.log('[google] profile:', e); }
+
       await get().setLoginContext('user');
       set({ user: session.user, session, loading: false, role: 'farmer', isNewUser: isNew });
       await Promise.all([get().refreshScans(), get().refreshRole()]);

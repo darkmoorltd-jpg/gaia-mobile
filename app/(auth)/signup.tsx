@@ -10,6 +10,8 @@ import { useLocale, countryFlag } from '../../src/store/locale';
 import Dropdown from '../../src/components/Dropdown';
 
 export default function Signup() {
+  const currentCountry = useLocale((s) => s.country);
+  const currentLang = useLocale((s) => s.language);
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
@@ -82,7 +84,19 @@ export default function Signup() {
           required
         />
 
-        <Text style={styles.label}>EMAIL</Text>
+        
+        {/* COUNTRY_BANNER */}
+        {currentCountry ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)' }}>
+            <Text style={{ fontSize: 24 }}>{flagEmoji(currentCountry.code)}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#2e7d32' }}>{currentCountry.name}</Text>
+              <Text style={{ fontSize: 11, color: '#607d8b' }}>{currentCountry.currency} · {currentCountry.payment_provider}</Text>
+            </View>
+          </View>
+        ) : null}
+
+<Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
           <TextInput
             value={email} onChangeText={setEmail}
