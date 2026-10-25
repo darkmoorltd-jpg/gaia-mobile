@@ -34,7 +34,7 @@ interface MenuItem { label: string; route: string; flag?: string; }
 interface Section { title: string; icon: string; items: MenuItem[]; }
 
 function getSections(t: any): Section[] {
-  return [] = [
+  return [
   { title: t('profile.sections.scansAi'), icon: 'AI', items: [
     { label: t('profile.items.voiceAgronomist'), route: '/voice', flag: 'voice' },
     { label: t('profile.items.videoScan'), route: '/video-scan', flag: 'video' },
