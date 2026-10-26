@@ -34,6 +34,12 @@ interface TileItem {
 type Prefs = { hidden: string[]; ordering: Record<string, string[]> };
 const EMPTY_PREFS: Prefs = { hidden: [], ordering: {} };
 
+// Which flag gates each top-level block
+const BLOCK_FLAGS: Record<string, string | undefined> = {
+  wallet: 'wallet',
+  agronomist: 'voice',
+};
+
 export default function Home() {
   const { t } = useTranslation();
 
@@ -322,6 +328,12 @@ export default function Home() {
 
   // -------- BLOCK RENDERERS --------
   const renderBlock = (id: string) => {
+    // Gate blocks by feature flag
+    const blockFlag = BLOCK_FLAGS[id];
+    if (blockFlag) {
+      const v = flags[blockFlag];
+      if (v === false) return null;
+    }
     switch (id) {
       case 'header':
         return (
