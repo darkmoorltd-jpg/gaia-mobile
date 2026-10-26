@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
   Platform, Alert, TextInput, ActivityIndicator, Modal} from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Localization from 'expo-localization';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { useLocale, countryFlag } from '../../src/store/locale';
@@ -29,33 +28,18 @@ export default function Signup() {
   const [country, setCountry] = useState<string>('');
   const [showPicker, setShowPicker] = useState(false);
 
-  // Get device region (e.g. "SA", "NG", "US") from expo-localization
-  const deviceRegion = (() => {
-    try {
-      const loc = Localization.getLocales?.() || [];
-      const region = loc[0]?.regionCode || '';
-      return (region || '').toUpperCase();
-    } catch {
-      return '';
-    }
-  })();
-
-  // Auto-detect country ONCE on mount: device region → store → first in list
+  // Auto-detect ONCE on mount: detectedCode → stored country → first in list
   const didAutoDetect = useRef(false);
   useEffect(() => {
     if (didAutoDetect.current) return;
-    if (countriesList.length === 0) return;  // wait for list
+    if (countriesList.length === 0) return;
 
     didAutoDetect.current = true;
 
-    // Priority: device region > detectedCode > store country > first
-    if (deviceRegion && countriesList.some((c: any) => c.code === deviceRegion)) {
-      setCountry(deviceRegion);
-      console.log('[signup] auto-detected device region:', deviceRegion);
-      return;
-    }
+    // Priority: detectedCode (from locale store) → store country → first
     if (detectedCode && countriesList.some((c: any) => c.code === detectedCode)) {
       setCountry(detectedCode);
+      console.log('[signup] auto-detected:', detectedCode);
       return;
     }
     const stored = useLocale.getState().country?.code;
@@ -64,7 +48,7 @@ export default function Signup() {
       return;
     }
     setCountry(countriesList[0].code);
-  }, [countriesList.length, deviceRegion]);
+  }, [countriesList.length, detectedCode]);
 
   // Helper to get picked country object
   const pickedCountry = countriesList.find((c: any) => c.code === country) || null;
