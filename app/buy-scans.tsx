@@ -10,7 +10,7 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { payWithCrypto, CRYPTO_OPTIONS, CRYPTO_PLANS } from '../src/utils/crypto_payments';
-import { fetchPlans, verifyPurchase, newRef, type Plan } from '../src/utils/purchases';
+import { fetchPlans, verifyPurchase, newRef, initiateFlutterwave, verifyFlutterwave, type Plan } from '../src/utils/purchases';
 import PaymentCelebration from '../src/components/PaymentCelebration';
 import { playSound, primeSounds } from '../src/utils/sounds';
 
@@ -78,6 +78,9 @@ export default function BuyScans() {
   }, [refreshScans]);
 
   const [payRef, setPayRef] = useState<string | null>(null);
+  const [provider, setProvider] = useState<'paystack' | 'flutterwave'>('paystack');
+  const [flwUrl, setFlwUrl] = useState<string | null>(null);
+  const [flwTxRef, setFlwTxRef] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [success, setSuccess] = useState<any>(null);
   const [showManual, setShowManual] = useState(false);
@@ -110,13 +113,27 @@ export default function BuyScans() {
     loadHistory();
   }, [loadPlans, loadHistory]);
 
-  const startPay = (p: Plan) => {
+  const startPay = async (p: Plan) => {
     if (!user) { Alert.alert('Sign in required'); return; }
     setSelected(p);
+    if (provider === 'flutterwave') {
+      setBusy(true);
+      try {
+        const { checkout_url, tx_ref } = await initiateFlutterwave(p.key, 'NGN');
+        setFlwUrl(checkout_url);
+        setFlwTxRef(tx_ref);
+      } catch (e: any) {
+        Alert.alert('Flutterwave error', e?.message || 'Could not start payment');
+        setSelected(null);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     setPayRef(newRef(p.key, user.id));
   };
 
-  const cancelPay = () => { setSelected(null); setPayRef(null); };
+  const cancelPay = () => { setSelected(null); setPayRef(null); setFlwUrl(null); setFlwTxRef(null); };
 
   const html = () => {
     if (!selected || !payRef) return '';
@@ -141,6 +158,28 @@ export default function BuyScans() {
       '  }' +
       '});' +
       '</script></body></html>';
+  };
+
+  const handleFlwSuccess = async () => {
+    if (!selected || !flwTxRef) return;
+    setFlwUrl(null);
+    setVerifying(true);
+    try {
+      const res = await verifyFlutterwave(flwTxRef, selected.key);
+      await refreshScans();
+      await loadHistory();
+      playSound('cash');
+      setCelebration({ amount: (res as any).amount_naira || 0, scans: (res as any).scans_added || 0, plan: selected.name });
+      setPendingSuccess({ ...res, plan_name: selected.name });
+      setSelected(null);
+      setFlwTxRef(null);
+    } catch (e: any) {
+      Alert.alert('Verification failed', (e && e.message ? e.message : 'Contact support') + '\nRef: ' + flwTxRef);
+      setSelected(null);
+      setFlwTxRef(null);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const onMessage = async (raw: string) => {
@@ -269,6 +308,38 @@ export default function BuyScans() {
           </View>
         ) : null}
 
+        <Text style={styles.sectionLabel}>PAYMENT METHOD</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+          <Pressable
+            onPress={() => setProvider('paystack')}
+            style={{
+              flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+              borderWidth: 2,
+              borderColor: provider === 'paystack' ? '#00C3F7' : '#2a3441',
+              backgroundColor: provider === 'paystack' ? 'rgba(0,195,247,0.12)' : 'transparent',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '900', color: provider === 'paystack' ? '#00C3F7' : '#8899a6' }}>
+              💳 PAYSTACK
+            </Text>
+            <Text style={{ fontSize: 9, color: '#8899a6', marginTop: 2 }}>Cards · USSD · Bank</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setProvider('flutterwave')}
+            style={{
+              flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+              borderWidth: 2,
+              borderColor: provider === 'flutterwave' ? '#F5A623' : '#2a3441',
+              backgroundColor: provider === 'flutterwave' ? 'rgba(245,166,35,0.12)' : 'transparent',
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '900', color: provider === 'flutterwave' ? '#F5A623' : '#8899a6' }}>
+              🌊 FLUTTERWAVE
+            </Text>
+            <Text style={{ fontSize: 9, color: '#8899a6', marginTop: 2 }}>Mobile Money · Cards</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.sectionLabel}>CHOOSE YOUR PLAN</Text>
 
         {cryptoPaidNotice ? (
@@ -381,11 +452,11 @@ export default function BuyScans() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      <Modal visible={!!selected && !!payRef} animationType="slide" onRequestClose={cancelPay}>
+      <Modal visible={!!(selected && payRef) || !!flwUrl} animationType="slide" onRequestClose={cancelPay}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Pressable onPress={cancelPay}><Text style={styles.modalClose}>CLOSE</Text></Pressable>
-            <Text style={styles.modalTitle}>{selected ? 'PAYING ' + selected.name.toUpperCase() : ''}</Text>
+            <Text style={styles.modalTitle}>{selected ? (flwUrl ? 'FLUTTERWAVE · ' : 'PAYING ') + selected.name.toUpperCase() : ''}</Text>
             <View style={{ width: 50 }} />
           </View>
 
