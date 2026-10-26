@@ -399,7 +399,8 @@
     "millet": "Millet",
     "cassava": "Cassava",
     "apple": "Apple",
-    "coffee": "Coffee"
+    "coffee": "Coffee",
+    "pineapple": "Pineapple"
   },
   "pests": {
     "title": "PEST DETECTION",

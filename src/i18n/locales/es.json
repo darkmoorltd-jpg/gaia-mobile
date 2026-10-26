@@ -402,7 +402,8 @@
     "millet": "Mijo",
     "cassava": "Yuca",
     "apple": "Manzana",
-    "coffee": "Café"
+    "coffee": "Café",
+    "pineapple": "Piña"
   },
   "pests": {
     "title": "DETECCIÓN DE PLAGAS",

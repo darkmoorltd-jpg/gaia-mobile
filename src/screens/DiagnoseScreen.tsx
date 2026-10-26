@@ -35,6 +35,7 @@ const ON_DEVICE_MAP: Record<string, { key: string; H: number; W: number; labels:
   soil_11class:   { key: 'soil_11class',   H: 384, W: 384, labels: [] },
   // livestock — server still uses 'cattle'/'poultry'; we ship poultry on-device
   poultry:        { key: 'poultry',        H: 224, W: 224, labels: [] },
+  pineapple:      { key: 'pineapple',      H: 224, W: 224, labels: [] },
 };
 
 async function onDeviceDiagnose(imageUri: string, modelKey: string): Promise<any | null> {

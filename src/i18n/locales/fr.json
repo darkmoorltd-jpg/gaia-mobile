@@ -402,7 +402,8 @@
     "millet": "Millet",
     "cassava": "Manioc",
     "apple": "Pomme",
-    "coffee": "Café"
+    "coffee": "Café",
+    "pineapple": "Ananas"
   },
   "pests": {
     "title": "DETECTION DES NUISIBLES",

@@ -417,7 +417,8 @@
     "millet": "수수",
     "cassava": "카사바",
     "apple": "사과",
-    "coffee": "커피"
+    "coffee": "커피",
+    "pineapple": "파인애플"
   },
   "pests": {
     "title": "해충 감지",
