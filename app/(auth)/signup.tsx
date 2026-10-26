@@ -10,6 +10,7 @@ import { supabase } from '../../src/api/supabase';
 import Dropdown from '../../src/components/Dropdown';
 
 export default function Signup() {
+  useEffect(() => { useLocale.getState().load().catch(() => {}); }, []);
   const currentCountry = useLocale((s) => s.country);
   const currentLang = useLocale((s) => s.language);
   const router = useRouter();
@@ -28,27 +29,7 @@ export default function Signup() {
   const [country, setCountry] = useState<string>('');
   const [showPicker, setShowPicker] = useState(false);
 
-  // Auto-detect ONCE on mount: detectedCode → stored country → first in list
-  const didAutoDetect = useRef(false);
-  useEffect(() => {
-    if (didAutoDetect.current) return;
-    if (countriesList.length === 0) return;
 
-    didAutoDetect.current = true;
-
-    // Priority: detectedCode (from locale store) → store country → first
-    if (detectedCode && countriesList.some((c: any) => c.code === detectedCode)) {
-      setCountry(detectedCode);
-      console.log('[signup] auto-detected:', detectedCode);
-      return;
-    }
-    const stored = useLocale.getState().country?.code;
-    if (stored && countriesList.some((c: any) => c.code === stored)) {
-      setCountry(stored);
-      return;
-    }
-    setCountry(countriesList[0].code);
-  }, [countriesList.length, detectedCode]);
 
   // Helper to get picked country object
   const pickedCountry = countriesList.find((c: any) => c.code === country) || null;
@@ -58,7 +39,7 @@ export default function Signup() {
 
 
   const handleSubmit = async () => {
-    if (!country) { setError('Please select your country.'); return; }
+    if (!country) { setShowPicker(true); return; }
     if (!email || !password) { setError('Email and password are required.'); return; }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
@@ -76,49 +57,102 @@ export default function Signup() {
       console.log('[signup] pending saved:', country, picked?.name);
     } catch (e) { console.warn('[signup] AS failed', e); }
 
-    const err = await signUp(email.trim(), password);
-    if (err) { setBusy(false); setError(err); return; }
+    // Build picked country info
+    const picked = (countriesList || []).find((c: any) => c.code === country);
+    const countryMeta = {
+      country_name: picked?.name || country,
+      country_code: picked?.code || country,
+      payment_provider: picked?.payment_provider || 'paystack',
+      preferred_language: picked?.default_language || 'en',
+    };
 
-    // Save selected country to store first (hydrates full country info)
-    try { await useLocale.getState().setCountry(country); } catch {}
+    // Sign up with country stored in user_metadata (survives email-confirm flow)
+    const { data: signupData, error: signupError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: { data: countryMeta },
+    });
 
-    // Persist country name + code + language to user_profiles
-    try {
-      const { data: { user: me } } = await supabase.auth.getUser();
-      if (me) {
-        const loc = useLocale.getState();
-        const info = loc.country;
-        const countryName = info?.name || country;
-        const countryCode = info?.code || country;
-        const lang = loc.language || info?.default_language || 'en';
-
-        const _picked = (countriesList || []).find((c: any) => c.code === country);
-        const _upd1 = await supabase.from('user_profiles').upsert({
-          user_id: me.id,
-          email: email.trim().toLowerCase(),
-          country: countryName,
-          country_code: countryCode,
-          preferred_language: lang,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
-
-        if (_upd1.error && String(_upd1.error.message).includes('country_code')) {
-          await supabase.from('user_profiles').upsert({
-            user_id: me.id,
-            email: email.trim().toLowerCase(),
-            country: countryName,
-            preferred_language: lang,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
-        };
-        console.log('[signup] saved country:', countryName, countryCode);
-      }
-    } catch (e) {
-      console.warn('[signup] country save failed', e);
+    if (signupError) {
+      setBusy(false);
+      setError(signupError.message);
+      return;
     }
 
+    // If session exists (email confirm OFF) → write to user_profiles NOW
+    if (signupData.session && signupData.user) {
+      try {
+        await supabase.from('user_profiles').upsert({
+          user_id: signupData.user.id,
+          email: signupData.user.email!.toLowerCase(),
+          country: countryMeta.country_name,
+          country_code: countryMeta.country_code,
+          payment_provider: countryMeta.payment_provider,
+          preferred_language: countryMeta.preferred_language,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' });
+        console.log('[signup] profile written immediately');
+      } catch (e) { console.warn('[signup] immediate write failed:', e); }
+    } else {
+      // No session (email confirm ON) → metadata will sync on first login
+      console.log('[signup] country saved to metadata, will sync on login');
+    }
+
+    // Also save to AsyncStorage as extra backup
+    try {
+      const AS = (await import('@react-native-async-storage/async-storage')).default;
+      await AS.setItem('gaia_pending_country', JSON.stringify(countryMeta));
+    } catch {}
+    setBusy(false); setError(err); return; }
+
+    // ─── Save to AsyncStorage FIRST (survives any session issue) ───
+    try {
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const pickedCountry = countriesList.find((c: any) => c.code === country);
+      await AsyncStorage.setItem('gaia_pending_country', country);
+      await AsyncStorage.setItem('gaia_pending_country_name', pickedCountry?.name || country);
+      console.log('[signup] pending saved:', country, pickedCountry?.name);
+    } catch (e) { console.warn('[signup] pending save failed', e); }
+
+    // ─── Set store ───
+    try { await useLocale.getState().setCountry(country); } catch {}
+
+    // ─── Write to DB with retries (survives signUp() race) ───
+    const picked = countriesList.find((c: any) => c.code === country);
+    const payload = {
+      country: picked?.name || country,
+      country_code: picked?.code || country,
+      preferred_language: picked?.default_language || 'en',
+      payment_provider: picked?.payment_provider || 'paystack',
+    };
+
+    let written = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const u = useAuth.getState().user;
+        if (!u) {
+          console.log('[signup] no session yet, waiting... attempt', attempt + 1);
+          await new Promise((r) => setTimeout(r, 700));
+          continue;
+        }
+        const { error } = await supabase.from('user_profiles').upsert(
+          { user_id: u.id, email: email.trim().toLowerCase(), ...payload, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+        if (!error) {
+          written = true;
+          console.log('[signup] ✅ DB saved:', payload);
+          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+          await AsyncStorage.multiRemove(['gaia_pending_country', 'gaia_pending_country_name']);
+          break;
+        }
+        console.log('[signup] DB error:', error.message);
+      } catch (e) { console.log('[signup] DB exception:', e); }
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    if (!written) console.warn('[signup] ⚠️ DB write failed — will retry on profile visit');
+
     setBusy(false);
-    // Go to tab home — onboarding is a legacy route
     router.replace('/(tabs)' as any);
   };
 

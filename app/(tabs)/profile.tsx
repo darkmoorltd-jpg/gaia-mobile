@@ -1,5 +1,5 @@
 // app/(tabs)/profile.tsx
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, Image, Alert,
   ActivityIndicator, TextInput, Modal, RefreshControl, Platform, Linking,
@@ -149,6 +149,38 @@ export default function Profile() {
       ]);
 
       const prof = profRes.status === 'fulfilled' ? (profRes.value.data || {}) : {};
+
+      // ── Read AsyncStorage pending country (survives email-confirm signup) ──
+      let pendingFromAS: any = null;
+      try {
+        const AS = (await import('@react-native-async-storage/async-storage')).default;
+        const raw = await AS.getItem('gaia_pending_country');
+        if (raw) pendingFromAS = JSON.parse(raw);
+      } catch {}
+
+      // If pending exists and DB is empty/different, use pending + try to sync
+      if (pendingFromAS && pendingFromAS.code) {
+        if (!prof.country_code || prof.country_code !== pendingFromAS.code) {
+          // Override profile object for display
+          prof.country = pendingFromAS.name;
+          prof.country_code = pendingFromAS.code;
+          prof.payment_provider = pendingFromAS.payment_provider || 'paystack';
+
+          // Try to persist to DB (may fail if session expired — that's fine, AS is source of truth)
+          try {
+            await supabase.from('user_profiles').upsert({
+              user_id: user.id,
+              email: user.email?.toLowerCase(),
+              country: pendingFromAS.name,
+              country_code: pendingFromAS.code,
+              payment_provider: pendingFromAS.payment_provider || 'paystack',
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+          } catch (e) {
+            console.warn('[profile] DB sync failed (AS still wins):', e);
+          }
+        }
+      }
       const verif = verifRes.status === 'fulfilled' ? verifRes.value.data : null;
 
       setKyc(verif || null);
@@ -165,7 +197,7 @@ export default function Profile() {
         gender: prof.gender || '',
         date_of_birth: prof.date_of_birth || '',
         marital_status: prof.marital_status || '',
-        country: prof.country || useLocale.getState().country?.name || '',
+        country: prof.country || '',
         state: prof.state || verif?.state || '',
         lga: prof.lga || verif?.lga || '',
         city: prof.city || '',
@@ -414,7 +446,7 @@ export default function Profile() {
         date_of_birth: f.date_of_birth || null,
         marital_status: f.marital_status || null,
         country: f.country || useLocale.getState().country?.name || '',
-      country_code: f.country_code || useLocale.getState().country?.code || '',
+      country_code: f.country_code || '',
         state: f.state || null,
         lga: f.lga || null,
         city: f.city || null,

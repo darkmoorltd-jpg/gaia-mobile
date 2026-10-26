@@ -126,6 +126,38 @@ export default function Login() {
     }
 
     const err = await signIn(identifier, password);
+    // Sync country from metadata → user_profiles (handles email-confirm case)
+    if (!err) {
+      try {
+        const { data: { user: me } } = await supabase.auth.getUser();
+        if (me) {
+          const meta = (me.user_metadata || {}) as any;
+          if (meta.country_code) {
+            const { data: prof } = await supabase
+              .from('user_profiles')
+              .select('country_code')
+              .eq('user_id', me.id)
+              .maybeSingle();
+
+            if (prof?.country_code !== meta.country_code) {
+              await supabase.from('user_profiles').upsert({
+                user_id: me.id,
+                email: me.email?.toLowerCase(),
+                country: meta.country_name || meta.country_code,
+                country_code: meta.country_code,
+                payment_provider: meta.payment_provider || 'paystack',
+                preferred_language: meta.preferred_language || 'en',
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'user_id' });
+              console.log('[login] metadata synced →', meta.country_code);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[login] metadata sync failed', e);
+      }
+    }
+
     if (err) { setError(err); setBusy(false); return; }
 
     // Sync pending country from signup → user_profiles
