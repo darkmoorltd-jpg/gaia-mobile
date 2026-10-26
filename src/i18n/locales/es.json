@@ -403,7 +403,8 @@
     "cassava": "Yuca",
     "apple": "Manzana",
     "coffee": "Café",
-    "pineapple": "Piña"
+    "pineapple": "Piña",
+    "potato": "Papa"
   },
   "pests": {
     "title": "DETECCIÓN DE PLAGAS",

@@ -418,7 +418,8 @@
     "cassava": "Кассава",
     "apple": "Яблуко",
     "coffee": "Кава",
-    "pineapple": "Ананас"
+    "pineapple": "Ананас",
+    "potato": "Картопля"
   },
   "pests": {
     "title": "Виявлення шкідників",

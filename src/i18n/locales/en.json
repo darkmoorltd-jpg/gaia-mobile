@@ -400,7 +400,8 @@
     "cassava": "Cassava",
     "apple": "Apple",
     "coffee": "Coffee",
-    "pineapple": "Pineapple"
+    "pineapple": "Pineapple",
+    "potato": "Potato"
   },
   "pests": {
     "title": "PEST DETECTION",

@@ -403,7 +403,8 @@
     "cassava": "Maniok",
     "apple": "Apfel",
     "coffee": "Kaffee",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Kartoffel"
   },
   "pests": {
     "title": "SCHÄDLINGSERKENNUNG",

@@ -403,7 +403,8 @@
     "cassava": "木薯",
     "apple": "苹果",
     "coffee": "咖啡",
-    "pineapple": "菠萝"
+    "pineapple": "菠萝",
+    "potato": "土豆"
   },
   "pests": {
     "title": "害虫检测",

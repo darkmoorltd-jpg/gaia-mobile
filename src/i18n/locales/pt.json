@@ -403,7 +403,8 @@
     "cassava": "Mandioca",
     "apple": "Maçã",
     "coffee": "Café",
-    "pineapple": "Abacaxi"
+    "pineapple": "Abacaxi",
+    "potato": "Batata"
   },
   "pests": {
     "title": "DETECÇÃO DE PRAGAS",

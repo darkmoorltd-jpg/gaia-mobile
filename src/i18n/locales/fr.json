@@ -403,7 +403,8 @@
     "cassava": "Manioc",
     "apple": "Pomme",
     "coffee": "Café",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Pomme de terre"
   },
   "pests": {
     "title": "DETECTION DES NUISIBLES",

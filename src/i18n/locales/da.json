@@ -418,7 +418,8 @@
     "cassava": "Maniok",
     "apple": "Æble",
     "coffee": "Kaffe",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Kartoffel"
   },
   "pests": {
     "title": "SKADEDETEKTERING",

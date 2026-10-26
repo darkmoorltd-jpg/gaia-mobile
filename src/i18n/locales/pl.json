@@ -418,7 +418,8 @@
     "cassava": "Maniok",
     "apple": "Jabłko",
     "coffee": "Kawa",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Ziemniak"
   },
   "pests": {
     "title": "DETEKCJA SZKODNIKÓW",

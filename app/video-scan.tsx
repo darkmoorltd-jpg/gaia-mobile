@@ -36,6 +36,7 @@ const CROPS = [
   { key: 'soil_11class', label: 'Soil', onDeviceKey: 'soil_11class' },
   { key: 'poultry', label: 'Poultry', onDeviceKey: 'poultry' },
   { key: 'pineapple', label: 'Pineapple', onDeviceKey: 'pineapple' },
+  { key: 'potato', label: 'Potato', onDeviceKey: 'potato' },
 ];
 
 const LABELS_BY_KEY: Record<string, string[]> = {

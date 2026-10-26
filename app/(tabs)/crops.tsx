@@ -23,6 +23,7 @@ export default function Tab() {
       { key: 'okra', label: 'Okra' },
       { key: 'cassava', label: t('crops.cassava') },
       { key: 'pineapple', label: t('crops.pineapple') },
+      { key: 'potato', label: t('crops.potato') },
       { key: 'apple',   label: t('crops.apple') },
       { key: 'coffee',  label: t('crops.coffee') },
     ],

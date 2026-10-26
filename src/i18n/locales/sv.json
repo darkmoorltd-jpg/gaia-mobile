@@ -418,7 +418,8 @@
     "cassava": "Tapioka",
     "apple": "Äpple",
     "coffee": "Kaffe",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Potatis"
   },
   "pests": {
     "title": "SKADEDETEKTION",

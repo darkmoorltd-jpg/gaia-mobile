@@ -403,7 +403,8 @@
     "cassava": "Manioca",
     "apple": "Mela",
     "coffee": "Caffè",
-    "pineapple": "Ananas"
+    "pineapple": "Ananas",
+    "potato": "Patata"
   },
   "pests": {
     "title": "RILEVAZIONE DI PARASSITI",

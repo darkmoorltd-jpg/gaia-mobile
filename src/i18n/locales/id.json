@@ -418,7 +418,8 @@
     "cassava": "Singkong",
     "apple": "Apel",
     "coffee": "Kopi",
-    "pineapple": "Nanas"
+    "pineapple": "Nanas",
+    "potato": "Kentang"
   },
   "pests": {
     "title": "DETEKSI HAMA",

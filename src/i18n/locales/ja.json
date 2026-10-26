@@ -418,7 +418,8 @@
     "cassava": "キャッサバ",
     "apple": "リンゴ",
     "coffee": "コーヒー",
-    "pineapple": "パイナップル"
+    "pineapple": "パイナップル",
+    "potato": "ジャガイモ"
   },
   "pests": {
     "title": "害虫検出",
