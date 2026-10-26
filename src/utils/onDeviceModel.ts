@@ -21,13 +21,13 @@ function getORT(): any | null {
 type InferenceSession = any;
 type Tensor = any;
 
-const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2/manifest.json';
+const MANIFEST_URL = 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v1/manifest.json';
 const CACHE_DIR = (FileSystem.documentDirectory || FileSystem.cacheDirectory || '') + 'gaia-models/';
 
 // Models not in the models-v1 manifest — hardcoded fallback URLs
 const EXTRA_MODELS: Record<string, ModelMeta> = {
   plant_id: {
-    url: 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v2-plant/model_int8.onnx',
+    url: 'https://github.com/darkmoorltd-jpg/gaia-mobile/releases/download/models-v1/plant_id.onnx',
     size_bytes: 100_160_000,
     img_size: 224,
     num_classes: 14829,
@@ -57,10 +57,15 @@ export async function getManifest(forceRefresh = false): Promise<Record<string, 
   try {
     const local = CACHE_DIR + 'manifest.json';
     const info = await FileSystem.getInfoAsync(local);
+    // Re-read cached file only if not forcing refresh
     if (info.exists && !forceRefresh) {
       const txt = await FileSystem.readAsStringAsync(local);
       _manifest = JSON.parse(txt);
       return _manifest!;
+    }
+    // Force-refresh path: delete old cached manifest first
+    if (forceRefresh && info.exists) {
+      await FileSystem.deleteAsync(local, { idempotent: true });
     }
     // download
     await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true }).catch(() => {});
@@ -81,8 +86,16 @@ export async function ensureModel(
   key: string,
   onProgress?: (pct: number, bytesIn: number, totalBytes: number) => void,
 ): Promise<string | null> {
-  const manifest = await getManifest();
-  const meta = manifest[key] || EXTRA_MODELS[key];
+  let manifest = await getManifest();
+  let meta = manifest[key] || EXTRA_MODELS[key];
+
+  // If key is missing from cache, force-refresh the manifest once
+  // (picks up models uploaded since app install)
+  if (!meta && !EXTRA_MODELS[key]) {
+    console.log('[models] key missing from cache, force-refreshing manifest:', key);
+    manifest = await getManifest(true);
+    meta = manifest[key];
+  }
   if (!meta) {
     console.warn('[models] no meta for', key);
     return null;
