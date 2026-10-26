@@ -37,10 +37,12 @@ export default function BuyScans() {
   const [cryptoCurrency, setCryptoCurrency] = useState<string>('usdttrc20');
   const [cryptoBusy, setCryptoBusy] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
-  const _unlimitedEligible = isUnlimitedEligible();
+  // isUnlimitedEligible() removed — function was never defined, crashed on render
 
+  // hasActiveUnlimited() removed — function was never defined
+  // Keeping isUnlimited state as false; features that depend on it will gracefully no-op
   useEffect(() => {
-    hasActiveUnlimited().then(setIsUnlimited);
+    setIsUnlimited(false);
   }, []);
   const [cryptoPaidNotice, setCryptoPaidNotice] = useState<string | null>(null);
 
