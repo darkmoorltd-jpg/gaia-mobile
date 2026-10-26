@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, TextInput, ActivityIndicator,
-} from 'react-native';
+  Platform, Alert, TextInput, ActivityIndicator, Modal} from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Localization from 'expo-localization';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { useLocale, countryFlag } from '../../src/store/locale';
@@ -27,26 +27,50 @@ export default function Signup() {
   const detectedCode = useLocale((s) => s.detectedCode);
   const countriesList = useLocale((s) => s.countries);
   const [country, setCountry] = useState<string>('');
-  const countryOptions = countriesList.length > 0
-    ? countriesList.map((c) => ({ label: `${countryFlag(c.code)} ${c.name}`, value: c.code }))
-    : ([
-        ['NG', 'Nigeria'],
-        ['GH', 'Ghana'],
-        ['KE', 'Kenya'],
-        ['ZA', 'South Africa'],
-        ['CI', "Côte d'Ivoire"],
-        ['US', 'United States'],
-        ['GB', 'United Kingdom'],
-      ] as [string, string][]).map(([code, name]) => ({ label: `${countryFlag(code)} ${name}`, value: code }));
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Get device region (e.g. "SA", "NG", "US") from expo-localization
+  const deviceRegion = (() => {
+    try {
+      const loc = Localization.getLocales?.() || [];
+      const region = loc[0]?.regionCode || '';
+      return (region || '').toUpperCase();
+    } catch {
+      return '';
+    }
+  })();
+
+  // Auto-detect country ONCE on mount: device region → store → first in list
+  const didAutoDetect = useRef(false);
   useEffect(() => {
-    if (country) return;
-    if (detectedCode && countriesList.some((c) => c.code === detectedCode)) {
+    if (didAutoDetect.current) return;
+    if (countriesList.length === 0) return;  // wait for list
+
+    didAutoDetect.current = true;
+
+    // Priority: device region > detectedCode > store country > first
+    if (deviceRegion && countriesList.some((c: any) => c.code === deviceRegion)) {
+      setCountry(deviceRegion);
+      console.log('[signup] auto-detected device region:', deviceRegion);
+      return;
+    }
+    if (detectedCode && countriesList.some((c: any) => c.code === detectedCode)) {
       setCountry(detectedCode);
       return;
     }
-    if (countriesList.length > 0) setCountry(countriesList[0].code);
-    else setCountry('NG');
-  }, [detectedCode, countriesList.length, country]);
+    const stored = useLocale.getState().country?.code;
+    if (stored && countriesList.some((c: any) => c.code === stored)) {
+      setCountry(stored);
+      return;
+    }
+    setCountry(countriesList[0].code);
+  }, [countriesList.length, deviceRegion]);
+
+  // Helper to get picked country object
+  const pickedCountry = countriesList.find((c: any) => c.code === country) || null;
+  const pickerOptions = countriesList.length > 0
+    ? countriesList.slice().sort((a: any, b: any) => a.name.localeCompare(b.name))
+    : [{ code: 'NG', name: 'Nigeria' }, { code: 'US', name: 'United States' }, { code: 'GB', name: 'United Kingdom' }] as any[];
 
 
   const handleSubmit = async () => {
@@ -115,53 +139,64 @@ export default function Signup() {
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>Start diagnosing your farm in 30 seconds.</Text>
 
-        <Dropdown
-          label="COUNTRY"
-          value={country}
-          options={countryOptions}
-          onChange={setCountry}
-          placeholder="Select your country"
-          required
-        />
+        <Text style={styles.label}>COUNTRY</Text>
+        <Pressable onPress={() => setShowPicker(true)} style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          padding: 16, borderRadius: 12, marginBottom: 16,
+          backgroundColor: palette.surface, borderWidth: 1.5, borderColor: palette.border,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={{ fontSize: 24 }}>{country ? countryFlag(country) : '🌍'}</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>
+              {pickedCountry?.name || country || 'Select country'}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 18, color: palette.neon }}>▾</Text>
+        </Pressable>
+
+        <Modal visible={showPicker} animationType="slide" transparent onRequestClose={() => setShowPicker(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: palette.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '88%' }}>
+              <Pressable onPress={() => setShowPicker(false)}>
+                <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: palette.textMuted, marginBottom: 12 }}>CLOSE</Text>
+              </Pressable>
+              <Text style={{ fontSize: 22, fontWeight: '900', color: palette.text, marginBottom: 4 }}>Select Country</Text>
+              <Text style={{ fontSize: 12, color: palette.textMuted, marginBottom: 16 }}>{pickerOptions.length} available</Text>
+              <ScrollView>
+                {pickerOptions.map((c: any) => {
+                  const on = c.code === country;
+                  return (
+                    <Pressable
+                      key={c.code}
+                      onPress={() => { setCountry(c.code); setShowPicker(false); }}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        paddingVertical: 14, paddingHorizontal: 14,
+                        borderRadius: 10, marginBottom: 4,
+                        backgroundColor: on ? 'rgba(0,255,136,0.12)' : 'transparent',
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Text style={{ fontSize: 26 }}>{countryFlag(c.code)}</Text>
+                        <View>
+                          <Text style={{ fontSize: 15, fontWeight: '700', color: on ? palette.neon : palette.text }}>{c.name}</Text>
+                          <Text style={{ fontSize: 10, color: palette.textMuted, marginTop: 2 }}>
+                            {c.currency || ''} · {c.payment_provider || 'paystack'}
+                          </Text>
+                        </View>
+                      </View>
+                      {on ? <Text style={{ fontSize: 18, color: palette.neon }}>✓</Text> : null}
+                    </Pressable>
+                  );
+                })}
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         
-        {/* COUNTRY_BANNER */}
-        {(() => {
-          if (!country) return null;
-          const sel = (countriesList || []).find((c: any) => c.code === country)
-                   || ALL_COUNTRIES.find((c: any) => c.code === country);
-          if (!sel) return null;
-          const paymentColors: any = {
-            paystack: { bg: '#00C3F7', label: 'Paystack' },
-            flutterwave: { bg: '#F5A623', label: 'Flutterwave' },
-            stripe: { bg: '#635BFF', label: 'Stripe' },
-          };
-          const pm = paymentColors[sel.payment_provider] || { bg: '#666666', label: sel.payment_provider || 'Pay' };
-          return (
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', gap: 10,
-              padding: 12, marginBottom: 16, borderRadius: 12,
-              backgroundColor: 'rgba(0,255,136,0.08)',
-              borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)',
-            }}>
-              <Text style={{ fontSize: 28 }}>{countryFlag(sel.code)}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#2e7d32' }}>{sel.name}</Text>
-                <Text style={{ fontSize: 11, color: '#607d8b' }}>
-                  {sel.currency} · {sel.currency_symbol} · {(sel.languages || []).slice(0, 2).join(' / ').toUpperCase()}
-                </Text>
-              </View>
-              <View style={{
-                backgroundColor: pm.bg, paddingHorizontal: 10, paddingVertical: 5,
-                borderRadius: 8,
-              }}>
-                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>
-                  {pm.label}
-                </Text>
-              </View>
-            </View>
-          );
-        })()}
+        
 
 <Text style={styles.label}>EMAIL</Text>
         <View style={styles.inputWrap}>
