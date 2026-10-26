@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
   Platform, Alert, TextInput, ActivityIndicator, Modal} from 'react-native';
@@ -46,7 +47,7 @@ export default function Signup() {
     setBusy(true); setError('');
     // Save country to AsyncStorage FIRST (survives email-confirm flow)
     try {
-      const AS = (await import('@react-native-async-storage/async-storage')).default;
+      const AS = AsyncStorage;
       const picked = (countriesList || []).find((c: any) => c.code === country);
       await AS.setItem('gaia_pending_country', JSON.stringify({
         code: country,
@@ -74,7 +75,8 @@ export default function Signup() {
     });
 
     if (signupError) {
-      setBusy(false);
+      try { await useLocale.getState().setCountry(country); } catch {}
+    setBusy(false);
       setError(signupError.message);
       return;
     }
@@ -100,57 +102,11 @@ export default function Signup() {
 
     // Also save to AsyncStorage as extra backup
     try {
-      const AS = (await import('@react-native-async-storage/async-storage')).default;
-      await AS.setItem('gaia_pending_country', JSON.stringify(countryMeta));
-    } catch {}
-    setBusy(false); setError(err); return; }
-
-    // ─── Save to AsyncStorage FIRST (survives any session issue) ───
-    try {
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-      const pickedCountry = countriesList.find((c: any) => c.code === country);
       await AsyncStorage.setItem('gaia_pending_country', country);
-      await AsyncStorage.setItem('gaia_pending_country_name', pickedCountry?.name || country);
-      console.log('[signup] pending saved:', country, pickedCountry?.name);
-    } catch (e) { console.warn('[signup] pending save failed', e); }
+      await AsyncStorage.setItem('gaia_pending_country_name', countryMeta.country_name);
+    } catch {}
 
-    // ─── Set store ───
-    try { await useLocale.getState().setCountry(country); } catch {}
 
-    // ─── Write to DB with retries (survives signUp() race) ───
-    const picked = countriesList.find((c: any) => c.code === country);
-    const payload = {
-      country: picked?.name || country,
-      country_code: picked?.code || country,
-      preferred_language: picked?.default_language || 'en',
-      payment_provider: picked?.payment_provider || 'paystack',
-    };
-
-    let written = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const u = useAuth.getState().user;
-        if (!u) {
-          console.log('[signup] no session yet, waiting... attempt', attempt + 1);
-          await new Promise((r) => setTimeout(r, 700));
-          continue;
-        }
-        const { error } = await supabase.from('user_profiles').upsert(
-          { user_id: u.id, email: email.trim().toLowerCase(), ...payload, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' }
-        );
-        if (!error) {
-          written = true;
-          console.log('[signup] ✅ DB saved:', payload);
-          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-          await AsyncStorage.multiRemove(['gaia_pending_country', 'gaia_pending_country_name']);
-          break;
-        }
-        console.log('[signup] DB error:', error.message);
-      } catch (e) { console.log('[signup] DB exception:', e); }
-      await new Promise((r) => setTimeout(r, 700));
-    }
-    if (!written) console.warn('[signup] ⚠️ DB write failed — will retry on profile visit');
 
     setBusy(false);
     router.replace('/(tabs)' as any);
