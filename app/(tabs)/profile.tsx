@@ -138,7 +138,7 @@ export default function Profile() {
     setLoadError(null);
     try {
       const [profRes, verifRes] = await Promise.allSettled([
-        supabase.from('user_profiles').select('*,country,country_code').eq('user_id', user.id).maybeSingle(),
+        supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle(),
         supabase
           .from('farmer_verifications')
           .select('full_name,bvn,nin,crop,farm_size,status,id_status,selfie_status,name_match_verified_at,created_at,id_photo_url,id_image_url,selfie_url,state,lga,address,phone')

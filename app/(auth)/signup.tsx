@@ -72,14 +72,24 @@ export default function Signup() {
         const lang = loc.language || info?.default_language || 'en';
 
         const _picked = (countriesList || []).find((c: any) => c.code === country);
-        await supabase.from('user_profiles').upsert({
+        const _upd1 = await supabase.from('user_profiles').upsert({
           user_id: me.id,
           email: email.trim().toLowerCase(),
-          country: _picked?.name || country,
-          country_code: _picked?.code || country,
-          preferred_language: _picked?.default_language || 'en',
+          country: countryName,
+          country_code: countryCode,
+          preferred_language: lang,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
+
+        if (_upd1.error && String(_upd1.error.message).includes('country_code')) {
+          await supabase.from('user_profiles').upsert({
+            user_id: me.id,
+            email: email.trim().toLowerCase(),
+            country: countryName,
+            preferred_language: lang,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+        };
         console.log('[signup] saved country:', countryName, countryCode);
       }
     } catch (e) {
