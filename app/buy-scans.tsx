@@ -2,36 +2,58 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, RefreshControl,
+  ActivityIndicator, Alert, Modal, RefreshControl, Linking,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
+// ── Lazy-load helpers so a broken module doesn't kill the page ──
+let CRYPTO_OPTIONS: any[] = [];
+let CRYPTO_PLANS: Record<string, any> = {};
+let payWithCrypto: any = null;
+try {
+  const c = require('../src/utils/crypto_payments');
+  CRYPTO_OPTIONS = c.CRYPTO_OPTIONS || [];
+  CRYPTO_PLANS = c.CRYPTO_PLANS || {};
+  payWithCrypto = c.payWithCrypto;
+} catch (e) {
+  console.warn('[buy-scans] crypto unavailable', e);
+}
+
+let initiateFlutterwave: any = null;
+let initiateStripe: any = null;
+try {
+  const p = require('../src/utils/purchases');
+  initiateFlutterwave = p.initiateFlutterwave;
+  initiateStripe = p.initiateStripe;
+} catch (e) {
+  console.warn('[buy-scans] purchases unavailable', e);
+}
+
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 
-type Plan = {
-  key: string;
-  name: string;
-  scans: number;
-  price: number;
-  priceLabel: string;
-  tag?: string;
-};
+type Method = 'paystack' | 'flutterwave' | 'crypto' | 'stripe';
 
-const PLANS: Plan[] = [
-  { key: 'starter',    name: 'Starter',    scans: 150,  price: 3000,  priceLabel: 'N3,000'  },
-  { key: 'pro',        name: 'Pro',        scans: 300,  price: 5000,  priceLabel: 'N5,000',  tag: 'POPULAR' },
-  { key: 'business',   name: 'Business',   scans: 1000, price: 10000, priceLabel: 'N10,000' },
-  { key: 'enterprise', name: 'Enterprise', scans: 5000, price: 20000, priceLabel: 'N20,000' },
+const NGN_PLANS = [
+  { key: 'starter',    name: 'Starter',    scans: 150,  naira: 3000  },
+  { key: 'pro',        name: 'Pro',        scans: 300,  naira: 5000  },
+  { key: 'business',   name: 'Business',   scans: 1000, naira: 10000 },
+  { key: 'enterprise', name: 'Enterprise', scans: 5000, naira: 20000 },
+];
+
+const USD_PLANS = [
+  { key: 'starter',    name: 'Starter',    scans: 150,  usd: 3.99  },
+  { key: 'pro',        name: 'Pro',        scans: 300,  usd: 6.99  },
+  { key: 'business',   name: 'Business',   scans: 1000, usd: 14.99 },
+  { key: 'enterprise', name: 'Enterprise', scans: 5000, usd: 29.99 },
 ];
 
 export default function BuyScans() {
   const router = useRouter();
-  const { t } = useTranslation();
   const palette = useTheme((s: any) => s.palette);
   const styles = createStyles(palette);
 
@@ -40,9 +62,11 @@ export default function BuyScans() {
   const plan = useAuth((s: any) => s.plan);
   const refreshScans = useAuth((s: any) => s.refreshScans);
 
+  const [method, setMethod] = useState<Method>('paystack');
   const [history, setHistory] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [paystackHtml, setPaystackHtml] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!user) { setBusy(false); return; }
@@ -54,12 +78,9 @@ export default function BuyScans() {
         .order('paid_at', { ascending: false })
         .limit(20);
       setHistory(data || []);
-    } catch (e) {
-      console.warn('history load failed', e);
-    } finally {
-      setBusy(false);
-      setRefreshing(false);
-    }
+    } catch {}
+    setBusy(false);
+    setRefreshing(false);
   }, [user]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
@@ -70,54 +91,91 @@ export default function BuyScans() {
     await loadHistory();
   }, [refreshScans, loadHistory]);
 
-  const buyPlan = (p: Plan) => {
+  const payPaystack = (p: any) => {
     if (!user) { Alert.alert('Sign in required'); return; }
-    const ref = 'GAIA_' + user.id.slice(0, 8) + '_' + Date.now().toString(36);
+    const ref = 'GAIA_' + p.key.toUpperCase() + '_' + user.id.slice(0, 6) + '_' + Date.now().toString(36);
     const html = `
-      <html><body>
-      <script src="https://js.paystack.co/v1/inline.js"></script>
-      <script>
-        window.onload = function() {
-          PaystackPop.setup({
-            key: '${PAYSTACK_PUBLIC}',
-            email: '${user.email}',
-            amount: ${p.price * 100},
-            currency: 'NGN',
-            ref: '${ref}',
-            label: 'GAIA ${p.name}',
-            callback: function(response) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({status: 'success', ref: response.reference, plan: '${p.key}'}));
-            },
-            onClose: function() {
-              window.ReactNativeWebView.postMessage(JSON.stringify({status: 'closed'}));
-            }
-          }).openIframe();
-        };
-      </script>
+      <html><head><script src="https://js.paystack.co/v1/inline.js"></script></head>
+      <body style="margin:0;padding:30px;background:#0a0e1a;color:#fff;font-family:-apple-system,sans-serif;">
+        <h2 style="color:#00ff88;">GAIA ${p.name}</h2>
+        <p style="color:#8899a6;">${p.scans} scans — ₦${p.naira.toLocaleString()}</p>
+        <button onclick="pay()" style="width:100%;padding:18px;background:#00ff88;color:#000;border:none;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;margin-top:20px;">Pay ₦${p.naira.toLocaleString()}</button>
+        <script>
+          function pay() {
+            PaystackPop.setup({
+              key: '${PAYSTACK_PUBLIC}',
+              email: '${user.email}',
+              amount: ${p.naira * 100},
+              currency: 'NGN',
+              ref: '${ref}',
+              label: 'GAIA ${p.name}',
+              callback: function(response) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference, plan: '${p.key}' }));
+              },
+              onClose: function() {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));
+              }
+            }).openIframe();
+          }
+        </script>
       </body></html>
     `;
-    // Simple: open Paystack via alert-free redirect
-    // (Using Alert + manual copy is more reliable than WebView on some devices)
-    Alert.alert(
-      'Pay ' + p.priceLabel,
-      'You will be redirected to Paystack to complete payment for ' + p.scans + ' scans.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Pay now',
-          onPress: () => {
-            // Navigate to Paystack hosted page directly
-            const url = 'https://paystack.com/pay/gaia_' + p.key + '?email=' + encodeURIComponent(user.email || '');
-            // Try in-app browser approach via Linking
-            import('expo-linking').then((L) => {
-              L.openURL(url).catch(() => {
-                Alert.alert('Cannot open browser', 'Please visit: ' + url);
-              });
-            });
-          },
-        },
-      ]
-    );
+    setPaystackHtml(html);
+  };
+
+  const payFlutterwave = async (p: any) => {
+    if (!user) { Alert.alert('Sign in required'); return; }
+    if (!initiateFlutterwave) { Alert.alert('Flutterwave unavailable'); return; }
+    try {
+      const res = await initiateFlutterwave(p.key, 'NGN');
+      if (res?.checkout_url) {
+        await Linking.openURL(res.checkout_url);
+        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 3000);
+      }
+    } catch (e: any) {
+      Alert.alert('Flutterwave error', e?.message || 'Try again');
+    }
+  };
+
+  const payCrypto = async (planKey: string, currency: string) => {
+    if (!user) { Alert.alert('Sign in required'); return; }
+    if (!payWithCrypto) { Alert.alert('Crypto unavailable'); return; }
+    try {
+      const res = await payWithCrypto(planKey, currency);
+      if (res?.invoice_url) {
+        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 5000);
+      }
+    } catch (e: any) {
+      Alert.alert('Crypto error', e?.message || 'Try again');
+    }
+  };
+
+  const payStripe = async (p: any) => {
+    if (!user) { Alert.alert('Sign in required'); return; }
+    if (!initiateStripe) { Alert.alert('Stripe unavailable'); return; }
+    try {
+      const res = await initiateStripe(p.key, 'USD');
+      if (res?.checkout_url) {
+        await Linking.openURL(res.checkout_url);
+        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 5000);
+      }
+    } catch (e: any) {
+      Alert.alert('Stripe error', e?.message || 'Contact support');
+    }
+  };
+
+  const handleWebViewMessage = async (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.status === 'success') {
+        setPaystackHtml(null);
+        await refreshScans();
+        await loadHistory();
+        Alert.alert('Payment successful', 'Your scans have been added.');
+      } else if (msg.status === 'closed') {
+        setPaystackHtml(null);
+      }
+    } catch {}
   };
 
   if (!user) {
@@ -157,29 +215,109 @@ export default function BuyScans() {
           <Text style={styles.heroMeta}>Plan: {String(plan || 'free').toUpperCase()}</Text>
         </LinearGradient>
 
-        <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
+        <Text style={styles.sectionLabel}>PAYMENT METHOD</Text>
 
-        {PLANS.map((p) => (
-          <Pressable key={p.key} onPress={() => buyPlan(p)} style={styles.planCard}>
-            {p.tag ? (
-              <View style={styles.planTag}>
-                <Text style={styles.planTagText}>{p.tag}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+          {([
+            { key: 'paystack',    label: 'Paystack' },
+            { key: 'flutterwave', label: 'Flutterwave' },
+            { key: 'crypto',      label: 'Crypto' },
+            { key: 'stripe',      label: 'Stripe (USD)' },
+          ] as { key: Method; label: string }[]).map((m) => (
+            <Pressable
+              key={m.key}
+              onPress={() => setMethod(m.key)}
+              style={[styles.methodChip, method === m.key && styles.methodChipOn]}
+            >
+              <Text style={[styles.methodChipText, method === m.key && styles.methodChipTextOn]}>
+                {m.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {(method === 'paystack' || method === 'flutterwave') && (
+          <>
+            <Text style={styles.sectionLabel}>CHOOSE A PLAN (NGN)</Text>
+            {NGN_PLANS.map((p) => (
+              <Pressable
+                key={p.key}
+                onPress={() => method === 'paystack' ? payPaystack(p) : payFlutterwave(p)}
+                style={styles.planCard}
+              >
+                <View style={styles.planTop}>
+                  <Text style={styles.planName}>{p.name}</Text>
+                  <Text style={styles.planScans}>{p.scans} scans</Text>
+                </View>
+                <View style={styles.planPriceRow}>
+                  <Text style={styles.planPrice}>N{p.naira.toLocaleString()}</Text>
+                  <Text style={styles.planPerScan}>N{Math.round(p.naira / p.scans)}/scan</Text>
+                </View>
+                <View style={styles.planCta}>
+                  <Text style={styles.planCtaText}>
+                    PAY WITH {method === 'paystack' ? 'PAYSTACK' : 'FLUTTERWAVE'}
+                  </Text>
+                  <Text style={styles.planCtaArrow}>›</Text>
+                </View>
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {method === 'crypto' && (
+          <>
+            <Text style={styles.sectionLabel}>CHOOSE A PLAN (USD)</Text>
+            {Object.entries(CRYPTO_PLANS).map(([key, p]: any) => (
+              <View key={key} style={styles.planCard}>
+                <View style={styles.planTop}>
+                  <Text style={styles.planName}>{p.label || key}</Text>
+                </View>
+                <View style={styles.planPriceRow}>
+                  <Text style={styles.planPrice}>${p.usd}</Text>
+                  <Text style={styles.planPerScan}>
+                    ${(p.usd / p.scans).toFixed(3)}/scan
+                  </Text>
+                </View>
+                <Text style={[styles.planPerScan, { marginBottom: 8 }]}>Pick currency:</Text>
+                <View style={styles.cryptoRow}>
+                  {CRYPTO_OPTIONS.map((c: any) => (
+                    <Pressable
+                      key={c.key}
+                      onPress={() => payCrypto(key, c.key)}
+                      style={styles.cryptoChip}
+                    >
+                      <Text style={styles.cryptoChipText}>
+                        {c.emoji} {c.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            ) : null}
-            <View style={styles.planTop}>
-              <Text style={styles.planName}>{p.name}</Text>
-              <Text style={styles.planScans}>{p.scans} scans</Text>
-            </View>
-            <View style={styles.planPriceRow}>
-              <Text style={styles.planPrice}>{p.priceLabel}</Text>
-              <Text style={styles.planPerScan}>N{Math.round(p.price / p.scans)}/scan</Text>
-            </View>
-            <View style={styles.planCta}>
-              <Text style={styles.planCtaText}>BUY WITH PAYSTACK</Text>
-              <Text style={styles.planCtaArrow}>›</Text>
-            </View>
-          </Pressable>
-        ))}
+            ))}
+          </>
+        )}
+
+        {method === 'stripe' && (
+          <>
+            <Text style={styles.sectionLabel}>CHOOSE A PLAN (USD)</Text>
+            {USD_PLANS.map((p) => (
+              <Pressable key={p.key} onPress={() => payStripe(p)} style={styles.planCard}>
+                <View style={styles.planTop}>
+                  <Text style={styles.planName}>{p.name}</Text>
+                  <Text style={styles.planScans}>{p.scans} scans</Text>
+                </View>
+                <View style={styles.planPriceRow}>
+                  <Text style={styles.planPrice}>${p.usd}</Text>
+                  <Text style={styles.planPerScan}>${(p.usd / p.scans).toFixed(3)}/scan</Text>
+                </View>
+                <View style={styles.planCta}>
+                  <Text style={styles.planCtaText}>PAY WITH STRIPE</Text>
+                  <Text style={styles.planCtaArrow}>›</Text>
+                </View>
+              </Pressable>
+            ))}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>PAYMENT HISTORY</Text>
 
@@ -199,19 +337,48 @@ export default function BuyScans() {
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.histScans}>+{h.scans_added || 0}</Text>
-                <Text style={styles.histAmount}>N{Number(h.amount || 0).toLocaleString()}</Text>
+                <Text style={styles.histAmount}>
+                  N{Number(h.amount || 0).toLocaleString()}
+                </Text>
               </View>
             </View>
           ))
         )}
 
         <Text style={styles.footer}>
-          Payments processed securely by Paystack.{'\n'}
-          Questions? Contact darkmoorltd@gmail.com
+          Payments processed securely. Contact darkmoorltd@gmail.com for help.
         </Text>
 
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      <Modal visible={!!paystackHtml} animationType="slide" onRequestClose={() => setPaystackHtml(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setPaystackHtml(null)}>
+              <Text style={styles.modalClose}>CLOSE</Text>
+            </Pressable>
+            <Text style={styles.modalTitle}>Paystack</Text>
+            <View style={{ width: 60 }} />
+          </View>
+          {paystackHtml && (
+            <WebView
+              source={{ html: paystackHtml }}
+              onMessage={handleWebViewMessage}
+              style={{ flex: 1 }}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              renderLoading={() => (
+                <View style={styles.webviewLoading}>
+                  <ActivityIndicator color={palette.neon} size="large" />
+                  <Text style={styles.webviewLoadingText}>Loading Paystack…</Text>
+                </View>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -228,9 +395,11 @@ const createStyles = (p: any) => StyleSheet.create({
   heroValue: { fontSize: 56, fontWeight: '900', color: '#000', letterSpacing: -3, marginTop: 4 },
   heroMeta: { fontSize: 12, color: 'rgba(0,0,0,0.6)', marginTop: 4, fontWeight: '600' },
   sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted, marginTop: 8, marginBottom: 12 },
-  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 12, borderWidth: 1.5, borderColor: p.border, position: 'relative' },
-  planTag: { position: 'absolute', top: -1, right: 20, backgroundColor: '#00ff88', paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, zIndex: 2 },
-  planTagText: { fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
+  methodChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginRight: 8 },
+  methodChipOn: { backgroundColor: 'rgba(0,255,136,0.15)', borderColor: p.neon },
+  methodChipText: { fontSize: 12, fontWeight: '700', color: p.textMuted },
+  methodChipTextOn: { color: p.neon },
+  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 12, borderWidth: 1.5, borderColor: p.border },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
   planName: { fontSize: 14, fontWeight: '900', color: p.text, letterSpacing: 1 },
   planScans: { fontSize: 13, fontWeight: '800', color: p.neon },
@@ -240,6 +409,9 @@ const createStyles = (p: any) => StyleSheet.create({
   planCta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   planCtaText: { fontSize: 12, fontWeight: '900', color: p.neon, letterSpacing: 1.5 },
   planCtaArrow: { fontSize: 18, color: p.neon, fontWeight: '300' },
+  cryptoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
+  cryptoChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: p.border },
+  cryptoChipText: { fontSize: 11, fontWeight: '700', color: p.text },
   histRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 14, backgroundColor: p.surface, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
   histPlan: { fontSize: 13, fontWeight: '800', color: p.text },
   histMeta: { fontSize: 10, color: p.textMuted, marginTop: 2 },
@@ -249,4 +421,9 @@ const createStyles = (p: any) => StyleSheet.create({
   cta: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, backgroundColor: p.neon, marginTop: 20 },
   ctaText: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   footer: { fontSize: 10, color: p.textDim, textAlign: 'center', marginTop: 30, lineHeight: 16 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1a2820' },
+  modalClose: { fontSize: 11, fontWeight: '900', color: '#00ff88', letterSpacing: 1.5 },
+  modalTitle: { fontSize: 12, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
+  webviewLoading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0a0e1a' },
+  webviewLoadingText: { color: '#fff', marginTop: 12, fontSize: 13 },
 });

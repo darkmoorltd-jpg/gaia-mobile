@@ -71,3 +71,54 @@ export async function verifyFlutterwave(txRef: string, planKey: string): Promise
   if (!r.ok) throw new Error(d.detail || d.error || 'FLW verify failed (' + r.status + ')');
   return d;
 }
+
+
+// ────────────────────────────────────────────────────────────
+// STRIPE — international card payments (USD)
+// ────────────────────────────────────────────────────────────
+export async function initiateStripe(
+  planKey: string,
+  currency: string = 'USD',
+): Promise<{ checkout_url: string; session_id: string }> {
+  const sess = await supabase.auth.getSession();
+  const token = sess.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+
+  const r = await fetch(API_BASE + '/payment/stripe/initiate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify({ plan: planKey, currency }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 404) {
+      throw new Error('Stripe is not configured on the server yet. Contact support.');
+    }
+    throw new Error(d.detail || d.error || 'Stripe initiate failed (' + r.status + ')');
+  }
+  return d;
+}
+
+export async function verifyStripe(
+  sessionId: string,
+  planKey: string,
+): Promise<any> {
+  const sess = await supabase.auth.getSession();
+  const token = sess.data.session?.access_token;
+  if (!token) throw new Error('Not authenticated');
+
+  const r = await fetch(API_BASE + '/payment/stripe/verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token,
+    },
+    body: JSON.stringify({ session_id: sessionId, plan: planKey }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.detail || d.error || 'Stripe verify failed (' + r.status + ')');
+  return d;
+}
