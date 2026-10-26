@@ -404,7 +404,8 @@
     "apple": "Pomme",
     "coffee": "Café",
     "pineapple": "Ananas",
-    "potato": "Pomme de terre"
+    "potato": "Pomme de terre",
+    "soybean": "Soja"
   },
   "pests": {
     "title": "DETECTION DES NUISIBLES",

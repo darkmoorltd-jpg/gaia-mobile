@@ -419,7 +419,8 @@
     "apple": "リンゴ",
     "coffee": "コーヒー",
     "pineapple": "パイナップル",
-    "potato": "ジャガイモ"
+    "potato": "ジャガイモ",
+    "soybean": "大豆"
   },
   "pests": {
     "title": "害虫検出",

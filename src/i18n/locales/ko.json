@@ -419,7 +419,8 @@
     "apple": "사과",
     "coffee": "커피",
     "pineapple": "파인애플",
-    "potato": "감자"
+    "potato": "감자",
+    "soybean": "콩"
   },
   "pests": {
     "title": "해충 감지",

@@ -419,7 +419,8 @@
     "apple": "Æble",
     "coffee": "Kaffe",
     "pineapple": "Ananas",
-    "potato": "Kartoffel"
+    "potato": "Kartoffel",
+    "soybean": "Soja"
   },
   "pests": {
     "title": "SKADEDETEKTERING",

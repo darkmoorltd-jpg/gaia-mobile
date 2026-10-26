@@ -401,7 +401,8 @@
     "apple": "Apple",
     "coffee": "Coffee",
     "pineapple": "Pineapple",
-    "potato": "Potato"
+    "potato": "Potato",
+    "soybean": "Soybean"
   },
   "pests": {
     "title": "PEST DETECTION",

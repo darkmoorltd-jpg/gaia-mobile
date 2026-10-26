@@ -404,7 +404,8 @@
     "apple": "Apfel",
     "coffee": "Kaffee",
     "pineapple": "Ananas",
-    "potato": "Kartoffel"
+    "potato": "Kartoffel",
+    "soybean": "Sojabohne"
   },
   "pests": {
     "title": "SCHÄDLINGSERKENNUNG",

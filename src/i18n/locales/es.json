@@ -404,7 +404,8 @@
     "apple": "Manzana",
     "coffee": "Café",
     "pineapple": "Piña",
-    "potato": "Papa"
+    "potato": "Papa",
+    "soybean": "Soja"
   },
   "pests": {
     "title": "DETECCIÓN DE PLAGAS",
