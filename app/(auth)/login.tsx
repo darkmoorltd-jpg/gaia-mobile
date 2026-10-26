@@ -126,8 +126,39 @@ export default function Login() {
     }
 
     const err = await signIn(identifier, password);
+    if (err) { setError(err); setBusy(false); return; }
+
+    // Sync pending country from signup → user_profiles
+    try {
+      const AS = (await import('@react-native-async-storage/async-storage')).default;
+      const raw = await AS.getItem('gaia_pending_country');
+      if (raw) {
+        const pending = JSON.parse(raw);
+        const me = useAuth.getState().user;
+        if (me && pending.code) {
+          const { error: syncErr } = await supabase
+            .from('user_profiles')
+            .upsert({
+              user_id: me.id,
+              email: me.email?.toLowerCase(),
+              country: pending.name,
+              country_code: pending.code,
+              payment_provider: pending.payment_provider || 'paystack',
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+          if (!syncErr) {
+            await AS.removeItem('gaia_pending_country');
+            console.log('[login] pending country synced:', pending.code, pending.name);
+          } else {
+            console.warn('[login] sync failed:', syncErr.message);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[login] pending sync error', e);
+    }
+
     try { router.replace('/(tabs)' as any); } catch {}
-    if (err) setError(err);
     setBusy(false);
   };
 

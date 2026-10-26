@@ -63,6 +63,19 @@ export default function Signup() {
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setBusy(true); setError('');
+    // Save country to AsyncStorage FIRST (survives email-confirm flow)
+    try {
+      const AS = (await import('@react-native-async-storage/async-storage')).default;
+      const picked = (countriesList || []).find((c: any) => c.code === country);
+      await AS.setItem('gaia_pending_country', JSON.stringify({
+        code: country,
+        name: picked?.name || country,
+        payment_provider: picked?.payment_provider || 'paystack',
+        ts: Date.now(),
+      }));
+      console.log('[signup] pending saved:', country, picked?.name);
+    } catch (e) { console.warn('[signup] AS failed', e); }
+
     const err = await signUp(email.trim(), password);
     if (err) { setBusy(false); setError(err); return; }
 
