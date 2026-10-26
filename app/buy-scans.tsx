@@ -1,626 +1,252 @@
+// app/buy-scans.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  ActivityIndicator, Alert, TextInput, Modal,
+  ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { payWithCrypto, CRYPTO_OPTIONS, CRYPTO_PLANS } from '../src/utils/crypto_payments';
-import { fetchPlans, verifyPurchase, newRef, initiateFlutterwave, verifyFlutterwave, type Plan } from '../src/utils/purchases';
-import PaymentCelebration from '../src/components/PaymentCelebration';
-import { playSound, primeSounds } from '../src/utils/sounds';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
-const num = (n: any) => Number(n || 0).toLocaleString('en-NG');
+
+type Plan = {
+  key: string;
+  name: string;
+  scans: number;
+  price: number;
+  priceLabel: string;
+  tag?: string;
+};
+
+const PLANS: Plan[] = [
+  { key: 'starter',    name: 'Starter',    scans: 150,  price: 3000,  priceLabel: 'N3,000'  },
+  { key: 'pro',        name: 'Pro',        scans: 300,  price: 5000,  priceLabel: 'N5,000',  tag: 'POPULAR' },
+  { key: 'business',   name: 'Business',   scans: 1000, price: 10000, priceLabel: 'N10,000' },
+  { key: 'enterprise', name: 'Enterprise', scans: 5000, price: 20000, priceLabel: 'N20,000' },
+];
 
 export default function BuyScans() {
   const router = useRouter();
-  const { palette } = useTheme();
+  const { t } = useTranslation();
+  const palette = useTheme((s: any) => s.palette);
   const styles = createStyles(palette);
+
   const user = useAuth((s: any) => s.user);
   const scansRemaining = useAuth((s: any) => s.scansRemaining);
   const plan = useAuth((s: any) => s.plan);
   const refreshScans = useAuth((s: any) => s.refreshScans);
 
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [celebration, setCelebration] = React.useState<{ amount: number; scans: number; plan: string } | null>(null);
-  const [pendingSuccess, setPendingSuccess] = React.useState<any>(null);
-  React.useEffect(() => { primeSounds(); }, []);
-  const [busy, setBusy] = useState(true);
   const [history, setHistory] = useState<any[]>([]);
-  const [selected, setSelected] = useState<Plan | null>(null);
-  const [cryptoPlan, setCryptoPlan] = useState<string>('starter');
-  const [cryptoCurrency, setCryptoCurrency] = useState<string>('usdttrc20');
-  const [cryptoBusy, setCryptoBusy] = useState(false);
-  const [isUnlimited, setIsUnlimited] = useState(false);
-  // isUnlimitedEligible() removed — function was never defined, crashed on render
-
-  // hasActiveUnlimited() removed — function was never defined
-  // Keeping isUnlimited state as false; features that depend on it will gracefully no-op
-  useEffect(() => {
-    setIsUnlimited(false);
-  }, []);
-  const [cryptoPaidNotice, setCryptoPaidNotice] = useState<string | null>(null);
-
-  // Poll for crypto credits every 5s while screen is open
-  useEffect(() => {
-    let cancelled = false;
-    const seen: Record<string, boolean> = {};
-    const checkCryptoPolling = async () => {
-      try {
-        const { data: { user: me } } = await supabase.auth.getUser();
-        if (!me || cancelled) return;
-        const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-        const { data } = await supabase
-          .from('crypto_payments')
-          .select('invoice_id,status,scans_to_add')
-          .eq('user_id', me.id)
-          .eq('status', 'credited')
-          .gte('updated_at', since)
-          .order('updated_at', { ascending: false })
-          .limit(1);
-        if (data && data.length > 0 && !cancelled) {
-          const row = data[0];
-          if (!seen[row.invoice_id]) {
-            seen[row.invoice_id] = true;
-            await refreshScans();
-            setCryptoPaidNotice(`✅ Payment confirmed! ${row.scans_to_add} scans added.`);
-            setTimeout(() => setCryptoPaidNotice(null), 8000);
-          }
-        }
-      } catch {}
-    };
-    const iv = setInterval(checkCryptoPolling, 5000);
-    checkCryptoPolling();
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [refreshScans]);
-
-  const [payRef, setPayRef] = useState<string | null>(null);
-  const [provider, setProvider] = useState<'paystack' | 'flutterwave'>('paystack');
-  const [flwUrl, setFlwUrl] = useState<string | null>(null);
-  const [flwTxRef, setFlwTxRef] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState(false);
-  const [success, setSuccess] = useState<any>(null);
-  const [showManual, setShowManual] = useState(false);
-  const [manualRef, setManualRef] = useState('');
-  const [manualPlan, setManualPlan] = useState<string>('starter');
-
-  const loadPlans = useCallback(async () => {
-    setBusy(true);
-    try {
-      const p = await fetchPlans();
-      setPlans(p);
-    } catch (e) { console.log('plans load failed', e); }
-    setBusy(false);
-  }, []);
+  const [busy, setBusy] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadHistory = useCallback(async () => {
-    if (!user) return;
+    if (!user) { setBusy(false); return; }
     try {
-      const r = await supabase.from('payment_history')
+      const { data } = await supabase
+        .from('payment_history')
         .select('amount, scans_added, plan, reference, paid_at')
         .eq('user_id', user.id)
         .order('paid_at', { ascending: false })
-        .limit(5);
-      if (!r.error) setHistory(r.data || []);
-    } catch {}
+        .limit(20);
+      setHistory(data || []);
+    } catch (e) {
+      console.warn('history load failed', e);
+    } finally {
+      setBusy(false);
+      setRefreshing(false);
+    }
   }, [user]);
 
-  useEffect(() => {
-    loadPlans();
-    loadHistory();
-  }, [loadPlans, loadHistory]);
+  useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  const startPay = async (p: Plan) => {
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refreshScans(); } catch {}
+    await loadHistory();
+  }, [refreshScans, loadHistory]);
+
+  const buyPlan = (p: Plan) => {
     if (!user) { Alert.alert('Sign in required'); return; }
-    setSelected(p);
-    if (provider === 'flutterwave') {
-      setBusy(true);
-      try {
-        const { checkout_url, tx_ref } = await initiateFlutterwave(p.key, 'NGN');
-        setFlwUrl(checkout_url);
-        setFlwTxRef(tx_ref);
-      } catch (e: any) {
-        Alert.alert('Flutterwave error', e?.message || 'Could not start payment');
-        setSelected(null);
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-    setPayRef(newRef(p.key, user.id));
+    const ref = 'GAIA_' + user.id.slice(0, 8) + '_' + Date.now().toString(36);
+    const html = `
+      <html><body>
+      <script src="https://js.paystack.co/v1/inline.js"></script>
+      <script>
+        window.onload = function() {
+          PaystackPop.setup({
+            key: '${PAYSTACK_PUBLIC}',
+            email: '${user.email}',
+            amount: ${p.price * 100},
+            currency: 'NGN',
+            ref: '${ref}',
+            label: 'GAIA ${p.name}',
+            callback: function(response) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({status: 'success', ref: response.reference, plan: '${p.key}'}));
+            },
+            onClose: function() {
+              window.ReactNativeWebView.postMessage(JSON.stringify({status: 'closed'}));
+            }
+          }).openIframe();
+        };
+      </script>
+      </body></html>
+    `;
+    // Simple: open Paystack via alert-free redirect
+    // (Using Alert + manual copy is more reliable than WebView on some devices)
+    Alert.alert(
+      'Pay ' + p.priceLabel,
+      'You will be redirected to Paystack to complete payment for ' + p.scans + ' scans.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Pay now',
+          onPress: () => {
+            // Navigate to Paystack hosted page directly
+            const url = 'https://paystack.com/pay/gaia_' + p.key + '?email=' + encodeURIComponent(user.email || '');
+            // Try in-app browser approach via Linking
+            import('expo-linking').then((L) => {
+              L.openURL(url).catch(() => {
+                Alert.alert('Cannot open browser', 'Please visit: ' + url);
+              });
+            });
+          },
+        },
+      ]
+    );
   };
 
-  const cancelPay = () => { setSelected(null); setPayRef(null); setFlwUrl(null); setFlwTxRef(null); };
-
-  const html = () => {
-    if (!selected || !payRef) return '';
-    const email = user && user.email ? user.email : '';
-    return '<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>' +
-      '<script src="https://js.paystack.co/v1/inline.js"></script>' +
-      '<style>html,body{margin:0;padding:0;background:#0a0e0c}</style></head><body><script>' +
-      'window.addEventListener("load", function() {' +
-      '  try {' +
-      '    PaystackPop.setup({' +
-      '      key: "' + PAYSTACK_PUBLIC + '",' +
-      '      email: "' + email + '",' +
-      '      amount: ' + selected.amount_kobo + ',' +
-      '      currency: "NGN",' +
-      '      ref: "' + payRef + '",' +
-      '      label: "GAIA ' + selected.name + '",' +
-      '      onClose: function() { window.ReactNativeWebView.postMessage(JSON.stringify({ status: "closed" })); },' +
-      '      callback: function(response) { window.ReactNativeWebView.postMessage(JSON.stringify({ status: "success", reference: response.reference })); }' +
-      '    }).openIframe();' +
-      '  } catch (err) {' +
-      '    window.ReactNativeWebView.postMessage(JSON.stringify({ status: "error", message: String(err) }));' +
-      '  }' +
-      '});' +
-      '</script></body></html>';
-  };
-
-  const handleFlwSuccess = async () => {
-    if (!selected || !flwTxRef) return;
-    setFlwUrl(null);
-    setVerifying(true);
-    try {
-      const res = await verifyFlutterwave(flwTxRef, selected.key);
-      await refreshScans();
-      await loadHistory();
-      playSound('cash');
-      setCelebration({ amount: (res as any).amount_naira || 0, scans: (res as any).scans_added || 0, plan: selected.name });
-      setPendingSuccess({ ...res, plan_name: selected.name });
-      setSelected(null);
-      setFlwTxRef(null);
-    } catch (e: any) {
-      Alert.alert('Verification failed', (e && e.message ? e.message : 'Contact support') + '\nRef: ' + flwTxRef);
-      setSelected(null);
-      setFlwTxRef(null);
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const onMessage = async (raw: string) => {
-    try {
-      const d = JSON.parse(raw);
-      if (d.status === 'closed') { cancelPay(); return; }
-      if (d.status === 'error') { Alert.alert('Paystack error', d.message); cancelPay(); return; }
-      if (d.status === 'success' && selected) {
-        setVerifying(true);
-        try {
-          const res = await verifyPurchase(d.reference, selected.key);
-          await refreshScans();
-          await loadHistory();
-          playSound('cash');
-          setCelebration({ amount: (res as any).amount || 0, scans: (res as any).scans_added || 0, plan: selected.name });
-          setPendingSuccess({ ...res, plan_name: selected.name });
-          setSelected(null);
-          setPayRef(null);
-        } catch (e: any) {
-          Alert.alert('Verification failed', (e && e.message ? e.message : 'Contact support') + '\nRef: ' + d.reference);
-        } finally {
-          setVerifying(false);
-        }
-      }
-    } catch {}
-  };
-
-  const doManualVerify = async () => {
-    if (!manualRef.trim()) { Alert.alert('Enter a reference'); return; }
-    setVerifying(true);
-    try {
-      const res = await verifyPurchase(manualRef.trim(), manualPlan);
-      await refreshScans();
-      await loadHistory();
-      playSound('cash');
-      setCelebration({ amount: (res as any).amount || 0, scans: (res as any).scans_added || 0, plan: manualPlan.toUpperCase() });
-      setPendingSuccess({ ...res, plan_name: manualPlan.toUpperCase() });
-      setShowManual(false);
-      setManualRef('');
-    } catch (e: any) {
-      Alert.alert('Verification failed', e && e.message ? e.message : 'Check the reference');
-    } finally {
-      setVerifying(false);
-    }
-  };
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.center}>
+          <Text style={styles.title}>Sign in required</Text>
+          <Pressable onPress={() => router.push('/(auth)/login' as any)} style={styles.cta}>
+            <Text style={styles.ctaText}>GO TO LOGIN</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.neon} />}
+      >
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>BACK</Text>
         </Pressable>
 
         <Text style={styles.title}>Buy Scans</Text>
-        <Text style={styles.sub}>Instant top-up. Pay inside the app.</Text>
+        <Text style={styles.subtitle}>Top up your AI diagnostics balance</Text>
 
         <LinearGradient
-          colors={['#00c853', '#009e52', '#003820']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          colors={[palette.neon, palette.neonDim || '#00b85c']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
-          <Text style={styles.heroLabel}>CURRENT BALANCE</Text>
-          <Text style={styles.heroValue}>{num(scansRemaining)}</Text>
-          <View style={styles.heroRow}>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{String(plan || 'free').toUpperCase()}</Text>
-            </View>
-            <Text style={styles.heroMeta}>scans available</Text>
-          </View>
+          <Text style={styles.heroLabel}>BALANCE</Text>
+          <Text style={styles.heroValue}>{scansRemaining}</Text>
+          <Text style={styles.heroMeta}>scans remaining</Text>
+          <Text style={styles.heroMeta}>Plan: {String(plan || 'free').toUpperCase()}</Text>
         </LinearGradient>
 
-        {history.length > 0 ? (
-          <>
-            <Text style={styles.sectionLabel}>RECENT PURCHASES</Text>
-            {history.map((h, i) => (
-              <View key={i} style={styles.histRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.histPlan}>{String(h.plan || '').toUpperCase()}</Text>
-                  <Text style={styles.histMeta}>{h.paid_at ? new Date(h.paid_at).toLocaleString() : ''}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.histScans}>+{num(h.scans_added)}</Text>
-                  <Text style={styles.histAmount}>N{num(h.amount)}</Text>
-                </View>
-              </View>
-            ))}
-          </>
-        ) : null}
+        <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
 
-        {_unlimitedEligible && !isUnlimited ? (
-          <>
-            <Text style={styles.sectionLabel}>BEST VALUE — ANNUAL</Text>
-            <View style={{
-              padding: 20, marginBottom: 16, borderRadius: 20,
-              borderWidth: 2, borderColor: '#ffd700',
-              backgroundColor: 'rgba(255,215,0,0.08)',
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontSize: 28, marginRight: 8 }}>👑</Text>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: '#ffd700' }}>UNLIMITED SCANS</Text>
+        {PLANS.map((p) => (
+          <Pressable key={p.key} onPress={() => buyPlan(p)} style={styles.planCard}>
+            {p.tag ? (
+              <View style={styles.planTag}>
+                <Text style={styles.planTagText}>{p.tag}</Text>
               </View>
-              <Text style={{ fontSize: 12, color: '#8899a6', marginBottom: 16 }}>
-                Pay once for a full year. No per-scan charges. Works for every crop, pest, soil type, and livestock scan.
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 }}>
-                <Text style={{ fontSize: 36, fontWeight: '900', color: '#ffd700' }}>{formatAnnualPrice()}</Text>
-                <Text style={{ fontSize: 14, color: '#8899a6', marginLeft: 8 }}>/ year</Text>
-              </View>
-              <Pressable
-                onPress={payAnnualUnlimited}
-                style={{ paddingVertical: 16, borderRadius: 12, backgroundColor: '#ffd700', alignItems: 'center' }}
-              >
-                <Text style={{ fontSize: 14, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
-                  UNLOCK UNLIMITED FOR 1 YEAR
-                </Text>
-              </Pressable>
+            ) : null}
+            <View style={styles.planTop}>
+              <Text style={styles.planName}>{p.name}</Text>
+              <Text style={styles.planScans}>{p.scans} scans</Text>
             </View>
-          </>
-        ) : null}
-
-        {isUnlimited ? (
-          <View style={{ padding: 16, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,200,83,0.15)', borderWidth: 1, borderColor: '#00c853' }}>
-            <Text style={{ fontSize: 14, fontWeight: '900', color: '#00c853' }}>👑 Unlimited plan active</Text>
-            <Text style={{ fontSize: 11, color: '#8899a6', marginTop: 4 }}>All scans are free until your annual plan expires.</Text>
-          </View>
-        ) : null}
-
-        <Text style={styles.sectionLabel}>PAYMENT METHOD</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-          <Pressable
-            onPress={() => setProvider('paystack')}
-            style={{
-              flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
-              borderWidth: 2,
-              borderColor: provider === 'paystack' ? '#00C3F7' : '#2a3441',
-              backgroundColor: provider === 'paystack' ? 'rgba(0,195,247,0.12)' : 'transparent',
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '900', color: provider === 'paystack' ? '#00C3F7' : '#8899a6' }}>
-              💳 PAYSTACK
-            </Text>
-            <Text style={{ fontSize: 9, color: '#8899a6', marginTop: 2 }}>Cards · USSD · Bank</Text>
+            <View style={styles.planPriceRow}>
+              <Text style={styles.planPrice}>{p.priceLabel}</Text>
+              <Text style={styles.planPerScan}>N{Math.round(p.price / p.scans)}/scan</Text>
+            </View>
+            <View style={styles.planCta}>
+              <Text style={styles.planCtaText}>BUY WITH PAYSTACK</Text>
+              <Text style={styles.planCtaArrow}>›</Text>
+            </View>
           </Pressable>
-          <Pressable
-            onPress={() => setProvider('flutterwave')}
-            style={{
-              flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
-              borderWidth: 2,
-              borderColor: provider === 'flutterwave' ? '#F5A623' : '#2a3441',
-              backgroundColor: provider === 'flutterwave' ? 'rgba(245,166,35,0.12)' : 'transparent',
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '900', color: provider === 'flutterwave' ? '#F5A623' : '#8899a6' }}>
-              🌊 FLUTTERWAVE
-            </Text>
-            <Text style={{ fontSize: 9, color: '#8899a6', marginTop: 2 }}>Mobile Money · Cards</Text>
-          </Pressable>
-        </View>
+        ))}
 
-        <Text style={styles.sectionLabel}>CHOOSE YOUR PLAN</Text>
+        <Text style={styles.sectionLabel}>PAYMENT HISTORY</Text>
 
-        {cryptoPaidNotice ? (
-          <View style={{ padding: 14, marginBottom: 16, borderRadius: 12, backgroundColor: 'rgba(0,200,83,0.15)', borderWidth: 1, borderColor: '#00c853' }}>
-            <Text style={{ fontSize: 13, fontWeight: '800', color: '#00c853' }}>{cryptoPaidNotice}</Text>
-          </View>
-        ) : null}
-
-        {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
-
-        {plans.map((p) => {
-          const isPopular = p.key === 'pro';
-          const isBest = p.key === 'enterprise';
-          const perScan = p.scans > 0 ? (p.amount_kobo / 100 / p.scans) : 0;
-          return (
-            <Pressable
-              key={p.key}
-              onPress={() => startPay(p)}
-              style={({ pressed }) => [styles.planCard, pressed && { opacity: 0.85 }]}
-            >
-              {(isPopular || isBest) ? (
-                <View style={[styles.planTag, isBest && { backgroundColor: '#ffb300' }]}>
-                  <Text style={[styles.planTagText, isBest && { color: '#000' }]}>
-                    {isBest ? 'BEST VALUE' : 'POPULAR'}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={styles.planTop}>
-                <Text style={styles.planName}>{p.name.toUpperCase()}</Text>
-                <Text style={styles.planScans}>{num(p.scans)} scans</Text>
-              </View>
-
-              <View style={styles.planPriceRow}>
-                <Text style={styles.planPrice}>N{num(p.amount_kobo / 100)}</Text>
-                <Text style={styles.planPerScan}>N{perScan.toFixed(1)} / scan</Text>
-              </View>
-
-              <View style={styles.planCta}>
-                <Text style={styles.planCtaText}>PAY NOW</Text>
-                <Text style={styles.planCtaArrow}>-</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-
-        
-        {/* Crypto payment option */}
-        <View style={{ marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: '#0d1410', borderWidth: 1, borderColor: '#00c853' }}>
-          <Text style={{ fontSize: 16, fontWeight: '900', color: '#00c853', marginBottom: 4 }}>💎 Pay with Crypto</Text>
-          <Text style={{ fontSize: 11, color: '#8899a6', marginBottom: 14 }}>
-            USDT · USDC · Bitcoin · Ethereum — scans added automatically after confirmation
-          </Text>
-
-          <Text style={{ fontSize: 10, color: '#8899a6', fontWeight: '800', marginBottom: 8, letterSpacing: 1 }}>SCAN PACK</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-            {Object.entries(CRYPTO_PLANS).map(([key, p]: any) => (
-              <Pressable
-                key={key}
-                onPress={() => setCryptoPlan(key)}
-                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5,
-                  borderColor: cryptoPlan === key ? '#00c853' : '#2a3441',
-                  backgroundColor: cryptoPlan === key ? 'rgba(0,200,83,0.15)' : 'transparent' }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: '800', color: cryptoPlan === key ? '#00c853' : '#e2e8f0' }}>
-                  {p.scans} · ${p.usd.toFixed(2)}
+        {busy ? (
+          <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} />
+        ) : history.length === 0 ? (
+          <Text style={styles.emptyText}>No payments yet.</Text>
+        ) : (
+          history.map((h, i) => (
+            <View key={i} style={styles.histRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.histPlan}>{String(h.plan || 'PURCHASE').toUpperCase()}</Text>
+                <Text style={styles.histMeta}>{h.reference || ''}</Text>
+                <Text style={styles.histMeta}>
+                  {h.paid_at ? new Date(h.paid_at).toLocaleDateString() : ''}
                 </Text>
-              </Pressable>
-            ))}
-          </View>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.histScans}>+{h.scans_added || 0}</Text>
+                <Text style={styles.histAmount}>N{Number(h.amount || 0).toLocaleString()}</Text>
+              </View>
+            </View>
+          ))
+        )}
 
-          <Text style={{ fontSize: 10, color: '#8899a6', fontWeight: '800', marginBottom: 8, letterSpacing: 1 }}>CRYPTOCURRENCY</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-            {CRYPTO_OPTIONS.map((o: any) => (
-              <Pressable
-                key={o.key}
-                onPress={() => setCryptoCurrency(o.key)}
-                style={{ paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1.5,
-                  borderColor: cryptoCurrency === o.key ? '#00c853' : '#2a3441',
-                  backgroundColor: cryptoCurrency === o.key ? 'rgba(0,200,83,0.15)' : 'transparent' }}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '800', color: cryptoCurrency === o.key ? '#00c853' : '#e2e8f0' }}>
-                  {o.emoji} {o.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Pressable
-            disabled={cryptoBusy}
-            onPress={async () => {
-              setCryptoBusy(true);
-              try { await payWithCrypto(cryptoPlan, cryptoCurrency); }
-              finally { setCryptoBusy(false); }
-            }}
-            style={{ paddingVertical: 16, borderRadius: 12, backgroundColor: '#00c853', alignItems: 'center', opacity: cryptoBusy ? 0.5 : 1 }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
-              {cryptoBusy ? 'OPENING…' : 'PAY $' + (CRYPTO_PLANS as any)[cryptoPlan].usd.toFixed(2) + ' IN ' + cryptoCurrency.toUpperCase()}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Pressable onPress={() => setShowManual(true)} style={styles.manualLink}>
-          <Text style={styles.manualLinkText}>Already paid? Enter reference</Text>
-        </Pressable>
-
-        <Text style={styles.footer}>Secure payment via Paystack - secret key held server-side</Text>
+        <Text style={styles.footer}>
+          Payments processed securely by Paystack.{'\n'}
+          Questions? Contact darkmoorltd@gmail.com
+        </Text>
 
         <View style={{ height: 80 }} />
       </ScrollView>
-
-      <Modal visible={!!(selected && payRef) || !!flwUrl} animationType="slide" onRequestClose={cancelPay}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Pressable onPress={cancelPay}><Text style={styles.modalClose}>CLOSE</Text></Pressable>
-            <Text style={styles.modalTitle}>{selected ? (flwUrl ? 'FLUTTERWAVE · ' : 'PAYING ') + selected.name.toUpperCase() : ''}</Text>
-            <View style={{ width: 50 }} />
-          </View>
-
-          {verifying ? (
-            <View style={styles.modalCenter}>
-              <ActivityIndicator color="#00ff88" size="large" />
-              <Text style={styles.modalCenterText}>Verifying payment...</Text>
-            </View>
-          ) : (
-            <WebView
-              originWhitelist={['*']}
-              source={{ html: html() }}
-              onMessage={(e) => onMessage(e.nativeEvent.data)}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              style={{ flex: 1, backgroundColor: '#0a0e0c' }}
-            />
-          )}
-        </View>
-      </Modal>
-
-      <Modal visible={showManual} animationType="slide" transparent onRequestClose={() => setShowManual(false)}>
-        <View style={styles.manualBg}>
-          <View style={styles.manualSheet}>
-            
-          <Text style={styles.manualTitle}>Enter Payment Reference</Text>
-            <Text style={styles.manualSub}>Paste the reference from your Paystack email or SMS.</Text>
-
-            <Text style={styles.manualLabel}>PLAN</Text>
-            <View style={styles.manualChips}>
-              {plans.map((p) => (
-                <Pressable
-                  key={p.key}
-                  onPress={() => setManualPlan(p.key)}
-                  style={[styles.manualChip, manualPlan === p.key && styles.manualChipOn]}
-                >
-                  <Text style={[styles.manualChipText, manualPlan === p.key && styles.manualChipTextOn]}>
-                    {p.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.manualLabel}>REFERENCE</Text>
-            <TextInput
-              value={manualRef}
-              onChangeText={setManualRef}
-              placeholder="GAIA_STARTER_..."
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              style={styles.manualInput}
-              autoCapitalize="characters"
-            />
-
-            <Pressable onPress={doManualVerify} disabled={verifying} style={[styles.manualBtn, verifying && { opacity: 0.5 }]}>
-              {verifying ? <ActivityIndicator color="#000" /> : <Text style={styles.manualBtnText}>VERIFY and CREDIT</Text>}
-            </Pressable>
-
-            <Pressable onPress={() => setShowManual(false)} style={styles.manualCancel}>
-              <Text style={styles.manualCancelText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={!!success} animationType="fade" transparent onRequestClose={() => setSuccess(null)}>
-        <View style={styles.successBg}>
-          <View style={styles.successCard}>
-            <Text style={styles.successIcon}>OK</Text>
-            <Text style={styles.successTitle}>Payment Successful</Text>
-            {success ? (
-              <>
-                <Text style={styles.successPlan}>{String(success.plan_name || '').toUpperCase()}</Text>
-                <Text style={styles.successScans}>+{num(success.scans_added)}</Text>
-                <Text style={styles.successBalance}>New balance: {num(success.scans_remaining)} scans</Text>
-              </>
-            ) : null}
-            <Pressable onPress={() => setSuccess(null)} style={styles.successBtn}>
-              <Text style={styles.successBtnText}>DONE</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <PaymentCelebration
-        visible={!!celebration}
-        amount={celebration?.amount || 0}
-        scansAdded={celebration?.scans}
-        planName={celebration?.plan}
-        onDone={() => {
-          setCelebration(null);
-          if (pendingSuccess) {
-            setSuccess(pendingSuccess);
-            setPendingSuccess(null);
-          }
-        }}
-      />
     </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 13, color: p.textMuted, marginTop: 4 },
-  hero: { marginTop: 20, padding: 24, borderRadius: 22, overflow: 'hidden' },
-  heroLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: 'rgba(255,255,255,0.7)' },
-  heroValue: { fontSize: 56, fontWeight: '900', color: '#fff', letterSpacing: -3, marginTop: 4 },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  heroBadge: { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  heroBadgeText: { fontSize: 10, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
-  heroMeta: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
-  sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted, marginTop: 24, marginBottom: 10 },
-  histRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 14, backgroundColor: p.surface, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: p.border },
-  histPlan: { fontSize: 13, fontWeight: '800', color: p.text },
-  histMeta: { fontSize: 10, color: p.textMuted, marginTop: 2 },
-  histScans: { fontSize: 14, fontWeight: '900', color: '#00ff88' },
-  histAmount: { fontSize: 10, color: p.textMuted, marginTop: 2 },
-  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 10, borderWidth: 1.5, borderColor: p.border, position: 'relative' },
+  title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
+  hero: { padding: 24, borderRadius: 22, marginBottom: 24 },
+  heroLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: 'rgba(0,0,0,0.6)' },
+  heroValue: { fontSize: 56, fontWeight: '900', color: '#000', letterSpacing: -3, marginTop: 4 },
+  heroMeta: { fontSize: 12, color: 'rgba(0,0,0,0.6)', marginTop: 4, fontWeight: '600' },
+  sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.8, color: p.textMuted, marginTop: 8, marginBottom: 12 },
+  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 12, borderWidth: 1.5, borderColor: p.border, position: 'relative' },
   planTag: { position: 'absolute', top: -1, right: 20, backgroundColor: '#00ff88', paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, zIndex: 2 },
   planTagText: { fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
-  planName: { fontSize: 12, fontWeight: '900', color: p.textMuted, letterSpacing: 1.5 },
-  planScans: { fontSize: 13, fontWeight: '800', color: '#00ff88' },
+  planName: { fontSize: 14, fontWeight: '900', color: p.text, letterSpacing: 1 },
+  planScans: { fontSize: 13, fontWeight: '800', color: p.neon },
   planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 16 },
   planPrice: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1 },
   planPerScan: { fontSize: 11, color: p.textMuted },
   planCta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   planCtaText: { fontSize: 12, fontWeight: '900', color: p.neon, letterSpacing: 1.5 },
   planCtaArrow: { fontSize: 18, color: p.neon, fontWeight: '300' },
-  manualLink: { marginTop: 12, padding: 14, alignItems: 'center' },
-  manualLinkText: { fontSize: 12, fontWeight: '700', color: p.neon, textDecorationLine: 'underline' },
-  footer: { fontSize: 10, color: p.textDim, textAlign: 'center', marginTop: 16 },
-  modalContainer: { flex: 1, backgroundColor: '#0a0e0c' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: 50, borderBottomWidth: 1, borderBottomColor: '#1a2820' },
-  modalClose: { fontSize: 11, fontWeight: '900', color: '#00ff88', letterSpacing: 1.5 },
-  modalTitle: { fontSize: 12, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
-  modalCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  modalCenterText: { fontSize: 14, color: '#00ff88', fontWeight: '700' },
-  manualBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  manualSheet: { backgroundColor: '#0f1512', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  manualTitle: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  manualSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, marginBottom: 20 },
-  manualLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: 'rgba(255,255,255,0.5)', marginTop: 16, marginBottom: 8 },
-  manualChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  manualChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
-  manualChipOn: { borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.12)' },
-  manualChipText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
-  manualChipTextOn: { color: '#00ff88' },
-  manualInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, color: '#fff', fontSize: 14 },
-  manualBtn: { marginTop: 24, padding: 18, borderRadius: 14, backgroundColor: '#00ff88', alignItems: 'center' },
-  manualBtnText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
-  manualCancel: { marginTop: 12, padding: 12, alignItems: 'center' },
-  manualCancelText: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
-  successBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', padding: 30 },
-  successCard: { width: '100%', padding: 32, borderRadius: 24, backgroundColor: '#0f1512', alignItems: 'center', borderWidth: 1.5, borderColor: '#00ff88' },
-  successIcon: { fontSize: 40, color: '#00ff88', fontWeight: '900', letterSpacing: 2 },
-  successTitle: { fontSize: 20, fontWeight: '900', color: '#fff', marginTop: 12 },
-  successPlan: { fontSize: 12, fontWeight: '900', color: '#00ff88', letterSpacing: 2, marginTop: 20 },
-  successScans: { fontSize: 52, fontWeight: '900', color: '#00ff88', letterSpacing: -3, marginTop: 8 },
-  successBalance: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 10 },
-  successBtn: { marginTop: 24, paddingVertical: 16, paddingHorizontal: 60, borderRadius: 12, backgroundColor: '#00ff88' },
-  successBtnText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1.5 },
+  histRow: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 14, backgroundColor: p.surface, borderRadius: 12, marginBottom: 6, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
+  histPlan: { fontSize: 13, fontWeight: '800', color: p.text },
+  histMeta: { fontSize: 10, color: p.textMuted, marginTop: 2 },
+  histScans: { fontSize: 14, fontWeight: '900', color: '#00ff88' },
+  histAmount: { fontSize: 10, color: p.textMuted, marginTop: 2 },
+  emptyText: { fontSize: 13, color: p.textMuted, textAlign: 'center', paddingVertical: 30 },
+  cta: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, backgroundColor: p.neon, marginTop: 20 },
+  ctaText: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  footer: { fontSize: 10, color: p.textDim, textAlign: 'center', marginTop: 30, lineHeight: 16 },
 });
