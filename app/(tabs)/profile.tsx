@@ -548,45 +548,52 @@ export default function Profile() {
 
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
+
+          {/* RAW_DB_DEBUG */}
+          <View style={{ backgroundColor: "rgba(255,0,0,0.15)", padding: 6, marginTop: 6, borderRadius: 4, borderWidth: 1, borderColor: "#ff0000" }}>
+            <Text style={{ fontSize: 10, color: "#ff0000", fontFamily: "monospace" }}>
+              f.country={"["}{String(f.country || "EMPTY")}{"]"} code={"["}{String(f.country_code || "EMPTY")}{"]"}
+            </Text>
+            <Text style={{ fontSize: 10, color: "#ff0000", fontFamily: "monospace" }}>
+              store={String((useLocale.getState().country && useLocale.getState().country.name) || "NONE")}
+            </Text>
+          </View>
         {/* COUNTRY_CHIP_PROFILE */}
         {(() => {
-          const locStore = useLocale.getState();
-          const locCountry = locStore?.country;
-          const fCountry = (f && f.country) ? String(f.country) : '';
-          const fCode = (f && f.country_code) ? String(f.country_code) : '';
-          const cName = fCountry || (locCountry?.name) || '';
-          const explicitCode = fCode || (locCountry?.code) || '';
-          if (!cName && !explicitCode) return null;
-
-          let resolvedCode = explicitCode;
-          let display = cName || explicitCode;
-          let provider = locCountry?.payment_provider || 'paystack';
-
-          if (!resolvedCode && cName) {
-            const list = (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) ? ALL_COUNTRIES : [];
-            const info = list.find((c: any) => c.name && c.name.toLowerCase() === cName.toLowerCase());
-            if (info) {
-              resolvedCode = info.code;
-              display = info.name;
-              provider = info.payment_provider || 'paystack';
-            }
+          const dbCountry = (f && f.country) ? String(f.country).trim() : "";
+          const dbCode = (f && f.country_code) ? String(f.country_code).trim() : "";
+          if (!dbCountry && !dbCode) {
+            return (
+              <View style={{ alignItems: "center", marginTop: 10 }}>
+                <Pressable onPress={() => setEditMode(true)} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: "rgba(255,152,0,0.08)", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,152,0,0.3)" }}>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: "#ff9800" }}>!</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#ff9800" }}>Set your country - tap EDIT PROFILE</Text>
+                </Pressable>
+              </View>
+            );
           }
-
-          const flag = resolvedCode ? countryFlag(resolvedCode) : '🌍';
-          const pColors: any = { paystack: '#00C3F7', flutterwave: '#F5A623', stripe: '#635BFF' };
-
+          const countries = useLocale.getState().countries || [];
+          let info = null;
+          for (let ci = 0; ci < countries.length; ci++) {
+            if (countries[ci].code === dbCode) { info = countries[ci]; break; }
+            if (dbCountry && countries[ci].name && countries[ci].name.toLowerCase() === dbCountry.toLowerCase()) { info = countries[ci]; break; }
+          }
+          const display = (info && info.name) ? info.name : (dbCountry || dbCode);
+          const codeForFlag = dbCode || (info ? info.code : "NG");
+          const flag = countryFlag(codeForFlag);
+          const provider = (info && info.payment_provider) ? info.payment_provider : "paystack";
+          let pColor = "#666";
+          let pLabel = provider;
+          if (provider === "paystack") { pColor = "#00C3F7"; pLabel = "Paystack"; }
+          else if (provider === "flutterwave") { pColor = "#F5A623"; pLabel = "Flutterwave"; }
+          else if (provider === "stripe") { pColor = "#635BFF"; pLabel = "Stripe"; }
           return (
-            <View style={{ alignItems: 'center', marginTop: 10 }}>
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                paddingHorizontal: 14, paddingVertical: 8,
-                backgroundColor: 'rgba(0,255,136,0.08)',
-                borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)',
-              }}>
+            <View style={{ alignItems: "center", marginTop: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: "rgba(0,255,136,0.08)", borderRadius: 20, borderWidth: 1, borderColor: "rgba(0,255,136,0.25)" }}>
                 <Text style={{ fontSize: 22 }}>{flag}</Text>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: palette.text }}>{display}</Text>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: pColors[provider] || '#666' }} />
-                <Text style={{ fontSize: 10, fontWeight: '700', color: palette.textMuted }}>{provider}</Text>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: palette.text }}>{display}</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: pColor }} />
+                <Text style={{ fontSize: 10, fontWeight: "700", color: pColor }}>{pLabel}</Text>
               </View>
             </View>
           );
