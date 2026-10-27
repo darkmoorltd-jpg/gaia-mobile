@@ -581,15 +581,6 @@ export default function Profile() {
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{user?.email}</Text>
 
-          {/* RAW_DB_DEBUG */}
-          <View style={{ backgroundColor: "rgba(255,0,0,0.15)", padding: 6, marginTop: 6, borderRadius: 4, borderWidth: 1, borderColor: "#ff0000" }}>
-            <Text style={{ fontSize: 10, color: "#ff0000", fontFamily: "monospace" }}>
-              f.country={"["}{String(f.country || "EMPTY")}{"]"} code={"["}{String(f.country_code || "EMPTY")}{"]"}
-            </Text>
-            <Text style={{ fontSize: 10, color: "#ff0000", fontFamily: "monospace" }}>
-              store={String((useLocale.getState().country && useLocale.getState().country.name) || "NONE")}
-            </Text>
-          </View>
         {/* COUNTRY_CHIP_PROFILE */}
         {(() => {
           const dbCountry = (f && f.country) ? String(f.country).trim() : "";
