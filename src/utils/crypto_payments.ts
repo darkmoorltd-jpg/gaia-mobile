@@ -5,10 +5,11 @@ import { supabase } from '../api/supabase';
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 
 export const CRYPTO_PLANS = {
-  starter:    { scans: 150,  usd: 2.00,  label: 'Starter — 150 scans' },
-  pro:        { scans: 300,  usd: 3.50,  label: 'Pro — 300 scans' },
-  business:   { scans: 1000, usd: 6.50,  label: 'Business — 1000 scans' },
-  enterprise: { scans: 5000, usd: 13.00, label: 'Enterprise — 5000 scans' },
+  starter:    { scans: 150,    usd: 2.00,  label: 'Starter — 150 scans' },
+  pro:        { scans: 300,    usd: 3.50,  label: 'Pro — 300 scans' },
+  business:   { scans: 1000,   usd: 6.50,  label: 'Business — 1000 scans' },
+  enterprise: { scans: 5000,   usd: 13.00, label: 'Enterprise — 5000 scans' },
+  unlimited:  { scans: 999999, usd: 100,   label: 'Unlimited — 1 year', annual: true },
 };
 
 export const CRYPTO_OPTIONS = [

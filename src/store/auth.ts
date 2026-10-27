@@ -15,6 +15,8 @@ interface AuthState {
   loading: boolean;
   scansRemaining: number;
   plan: string;
+  unlimitedUntil: string | null;
+  planExpiry: string | null;
   role: 'farmer' | 'agent' | 'admin' | null;
   loginContext: 'agent' | 'user' | null;
   isNewUser: boolean;
@@ -79,6 +81,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   loading: true,
   scansRemaining: 30,
   plan: 'free',
+  unlimitedUntil: null,
+  planExpiry: null,
   role: null,
   loginContext: null,
   isNewUser: false,

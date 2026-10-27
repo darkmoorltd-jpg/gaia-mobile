@@ -1,4 +1,3 @@
-// app/buy-scans.tsx
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
@@ -11,7 +10,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-// ── Lazy-load helpers so a broken module doesn't kill the page ──
 let CRYPTO_OPTIONS: any[] = [];
 let CRYPTO_PLANS: Record<string, any> = {};
 let payWithCrypto: any = null;
@@ -26,10 +24,12 @@ try {
 
 let initiateFlutterwave: any = null;
 let initiateStripe: any = null;
+let verifyPurchase: any = null;
 try {
   const p = require('../src/utils/purchases');
   initiateFlutterwave = p.initiateFlutterwave;
   initiateStripe = p.initiateStripe;
+  verifyPurchase = p.verifyPurchase;
 } catch (e) {
   console.warn('[buy-scans] purchases unavailable', e);
 }
@@ -39,17 +39,19 @@ const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 type Method = 'paystack' | 'flutterwave' | 'crypto' | 'stripe';
 
 const NGN_PLANS = [
-  { key: 'starter',    name: 'Starter',    scans: 150,  naira: 3000  },
-  { key: 'pro',        name: 'Pro',        scans: 300,  naira: 5000  },
-  { key: 'business',   name: 'Business',   scans: 1000, naira: 10000 },
-  { key: 'enterprise', name: 'Enterprise', scans: 5000, naira: 20000 },
+  { key: 'starter',    name: 'Starter',    scans: 150,    naira: 3000,   annual: false },
+  { key: 'pro',        name: 'Pro',        scans: 300,    naira: 5000,   annual: false },
+  { key: 'business',   name: 'Business',   scans: 1000,   naira: 10000,  annual: false },
+  { key: 'enterprise', name: 'Enterprise', scans: 5000,   naira: 20000,  annual: false },
+  { key: 'unlimited',  name: 'Unlimited',  scans: 999999, naira: 150000, annual: true,  badge: 'BEST VALUE' },
 ];
 
 const USD_PLANS = [
-  { key: 'starter',    name: 'Starter',    scans: 150,  usd: 3.99  },
-  { key: 'pro',        name: 'Pro',        scans: 300,  usd: 6.99  },
-  { key: 'business',   name: 'Business',   scans: 1000, usd: 14.99 },
-  { key: 'enterprise', name: 'Enterprise', scans: 5000, usd: 29.99 },
+  { key: 'starter',    name: 'Starter',    scans: 150,    usd: 3.99,  annual: false },
+  { key: 'pro',        name: 'Pro',        scans: 300,    usd: 6.99,  annual: false },
+  { key: 'business',   name: 'Business',   scans: 1000,   usd: 14.99, annual: false },
+  { key: 'enterprise', name: 'Enterprise', scans: 5000,   usd: 29.99, annual: false },
+  { key: 'unlimited',  name: 'Unlimited',  scans: 999999, usd: 100,   annual: true,  badge: 'BEST VALUE' },
 ];
 
 export default function BuyScans() {
@@ -60,13 +62,18 @@ export default function BuyScans() {
   const user = useAuth((s: any) => s.user);
   const scansRemaining = useAuth((s: any) => s.scansRemaining);
   const plan = useAuth((s: any) => s.plan);
+  const unlimitedUntil = useAuth((s: any) => s.unlimitedUntil);
   const refreshScans = useAuth((s: any) => s.refreshScans);
 
   const [method, setMethod] = useState<Method>('paystack');
   const [history, setHistory] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [paystackHtml, setPaystackHtml] = useState<string | null>(null);
+
+  const isUnlimited =
+    plan === 'unlimited' && (!unlimitedUntil || new Date(unlimitedUntil) > new Date());
 
   const loadHistory = useCallback(async () => {
     if (!user) { setBusy(false); return; }
@@ -95,11 +102,11 @@ export default function BuyScans() {
     if (!user) { Alert.alert('Sign in required'); return; }
     const ref = 'GAIA_' + p.key.toUpperCase() + '_' + user.id.slice(0, 6) + '_' + Date.now().toString(36);
     const html = `
-      <html><head><script src="https://js.paystack.co/v1/inline.js"></script></head>
+      <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://js.paystack.co/v1/inline.js"></script></head>
       <body style="margin:0;padding:30px;background:#0a0e1a;color:#fff;font-family:-apple-system,sans-serif;">
         <h2 style="color:#00ff88;">GAIA ${p.name}</h2>
-        <p style="color:#8899a6;">${p.scans} scans — ₦${p.naira.toLocaleString()}</p>
-        <button onclick="pay()" style="width:100%;padding:18px;background:#00ff88;color:#000;border:none;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;margin-top:20px;">Pay ₦${p.naira.toLocaleString()}</button>
+        <p style="color:#8899a6;">${p.annual ? 'UNLIMITED scans — 1 year' : p.scans + ' scans'} — &#8358;${p.naira.toLocaleString()}</p>
+        <button onclick="pay()" style="width:100%;padding:18px;background:#00ff88;color:#000;border:none;border-radius:14px;font-weight:900;font-size:16px;cursor:pointer;margin-top:20px;">Pay &#8358;${p.naira.toLocaleString()}</button>
         <script>
           function pay() {
             PaystackPop.setup({
@@ -130,10 +137,17 @@ export default function BuyScans() {
       const res = await initiateFlutterwave(p.key, 'NGN');
       if (res?.checkout_url) {
         await Linking.openURL(res.checkout_url);
-        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 3000);
+        Alert.alert(
+          'Complete payment',
+          'After paying on Flutterwave, come back to the app — scans will be credited automatically.',
+          [{ text: 'OK' }],
+        );
       }
     } catch (e: any) {
-      Alert.alert('Flutterwave error', e?.message || 'Try again');
+      Alert.alert(
+        'Flutterwave error',
+        e?.message || 'Flutterwave is currently unavailable. Please use Paystack instead.',
+      );
     }
   };
 
@@ -141,10 +155,41 @@ export default function BuyScans() {
     if (!user) { Alert.alert('Sign in required'); return; }
     if (!payWithCrypto) { Alert.alert('Crypto unavailable'); return; }
     try {
+      const { data: baseline } = await supabase
+        .from('user_scans')
+        .select('lifetime_scans_purchased')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const beforePurchased = baseline?.lifetime_scans_purchased || 0;
+
       const res = await payWithCrypto(planKey, currency);
-      if (res?.invoice_url) {
-        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 5000);
-      }
+      if (!res?.invoice_url) return;
+
+      let attempts = 0;
+      const maxAttempts = 40;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const { data: after } = await supabase
+            .from('user_scans')
+            .select('scans_remaining, lifetime_scans_purchased')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          const afterPurchased = after?.lifetime_scans_purchased || 0;
+          if (afterPurchased > beforePurchased) {
+            clearInterval(poll);
+            await refreshScans();
+            await loadHistory();
+            Alert.alert('Payment confirmed', 'Scans have been added to your account.');
+          } else if (attempts >= maxAttempts) {
+            clearInterval(poll);
+            Alert.alert(
+              'Still pending',
+              "Your crypto payment hasn't been confirmed yet. It will clear automatically once the network confirms. Contact support with your order ID if not received within 1 hour.",
+            );
+          }
+        } catch {}
+      }, 15000);
     } catch (e: any) {
       Alert.alert('Crypto error', e?.message || 'Try again');
     }
@@ -157,7 +202,11 @@ export default function BuyScans() {
       const res = await initiateStripe(p.key, 'USD');
       if (res?.checkout_url) {
         await Linking.openURL(res.checkout_url);
-        setTimeout(async () => { await refreshScans(); await loadHistory(); }, 5000);
+        Alert.alert(
+          'Complete payment',
+          'After paying on Stripe, come back to the app — scans will be credited automatically.',
+          [{ text: 'OK' }],
+        );
       }
     } catch (e: any) {
       Alert.alert('Stripe error', e?.message || 'Contact support');
@@ -167,11 +216,26 @@ export default function BuyScans() {
   const handleWebViewMessage = async (event: any) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
-      if (msg.status === 'success') {
+      if (msg.status === 'success' && msg.reference) {
         setPaystackHtml(null);
-        await refreshScans();
-        await loadHistory();
-        Alert.alert('Payment successful', 'Your scans have been added.');
+        setVerifying(true);
+        try {
+          const result = await verifyPurchase(msg.reference, msg.plan);
+          await refreshScans();
+          await loadHistory();
+          Alert.alert(
+            'Payment successful',
+            'Your ' + msg.plan.toUpperCase() + ' plan is active. ' +
+              (result?.scans_added ? result.scans_added + ' scans added.' : ''),
+          );
+        } catch (e: any) {
+          Alert.alert(
+            'Verification failed',
+            'Your payment reference is ' + msg.reference + '. Contact support with this reference.',
+          );
+        } finally {
+          setVerifying(false);
+        }
       } else if (msg.status === 'closed') {
         setPaystackHtml(null);
       }
@@ -210,8 +274,12 @@ export default function BuyScans() {
           style={styles.hero}
         >
           <Text style={styles.heroLabel}>BALANCE</Text>
-          <Text style={styles.heroValue}>{scansRemaining}</Text>
-          <Text style={styles.heroMeta}>scans remaining</Text>
+          <Text style={styles.heroValue}>{isUnlimited ? '\u221e' : scansRemaining}</Text>
+          <Text style={styles.heroMeta}>
+            {isUnlimited
+              ? 'Unlimited · renews ' + new Date(unlimitedUntil || '').toLocaleDateString()
+              : 'scans remaining'}
+          </Text>
           <Text style={styles.heroMeta}>Plan: {String(plan || 'free').toUpperCase()}</Text>
         </LinearGradient>
 
@@ -243,21 +311,28 @@ export default function BuyScans() {
               <Pressable
                 key={p.key}
                 onPress={() => method === 'paystack' ? payPaystack(p) : payFlutterwave(p)}
-                style={styles.planCard}
+                style={[styles.planCard, p.annual && styles.planCardFeatured]}
               >
+                {p.annual && (
+                  <View style={styles.planBadge}>
+                    <Text style={styles.planBadgeText}>{(p as any).badge || 'BEST VALUE'}</Text>
+                  </View>
+                )}
                 <View style={styles.planTop}>
                   <Text style={styles.planName}>{p.name}</Text>
-                  <Text style={styles.planScans}>{p.scans} scans</Text>
+                  <Text style={styles.planScans}>{p.annual ? 'UNLIMITED' : p.scans + ' scans'}</Text>
                 </View>
                 <View style={styles.planPriceRow}>
-                  <Text style={styles.planPrice}>N{p.naira.toLocaleString()}</Text>
-                  <Text style={styles.planPerScan}>N{Math.round(p.naira / p.scans)}/scan</Text>
+                  <Text style={styles.planPrice}>&#8358;{p.naira.toLocaleString()}</Text>
+                  <Text style={styles.planPerScan}>
+                    {p.annual ? 'per year' : '&#8358;' + Math.round(p.naira / p.scans) + '/scan'}
+                  </Text>
                 </View>
                 <View style={styles.planCta}>
                   <Text style={styles.planCtaText}>
                     PAY WITH {method === 'paystack' ? 'PAYSTACK' : 'FLUTTERWAVE'}
                   </Text>
-                  <Text style={styles.planCtaArrow}>›</Text>
+                  <Text style={styles.planCtaArrow}>{'>'}</Text>
                 </View>
               </Pressable>
             ))}
@@ -268,14 +343,19 @@ export default function BuyScans() {
           <>
             <Text style={styles.sectionLabel}>CHOOSE A PLAN (USD)</Text>
             {Object.entries(CRYPTO_PLANS).map(([key, p]: any) => (
-              <View key={key} style={styles.planCard}>
+              <View key={key} style={[styles.planCard, p.annual && styles.planCardFeatured]}>
+                {p.annual && (
+                  <View style={styles.planBadge}>
+                    <Text style={styles.planBadgeText}>BEST VALUE</Text>
+                  </View>
+                )}
                 <View style={styles.planTop}>
                   <Text style={styles.planName}>{p.label || key}</Text>
                 </View>
                 <View style={styles.planPriceRow}>
                   <Text style={styles.planPrice}>${p.usd}</Text>
                   <Text style={styles.planPerScan}>
-                    ${(p.usd / p.scans).toFixed(3)}/scan
+                    {p.annual ? 'per year' : '$' + (p.usd / p.scans).toFixed(3) + '/scan'}
                   </Text>
                 </View>
                 <Text style={[styles.planPerScan, { marginBottom: 8 }]}>Pick currency:</Text>
@@ -301,18 +381,29 @@ export default function BuyScans() {
           <>
             <Text style={styles.sectionLabel}>CHOOSE A PLAN (USD)</Text>
             {USD_PLANS.map((p) => (
-              <Pressable key={p.key} onPress={() => payStripe(p)} style={styles.planCard}>
+              <Pressable
+                key={p.key}
+                onPress={() => payStripe(p)}
+                style={[styles.planCard, p.annual && styles.planCardFeatured]}
+              >
+                {p.annual && (
+                  <View style={styles.planBadge}>
+                    <Text style={styles.planBadgeText}>{(p as any).badge || 'BEST VALUE'}</Text>
+                  </View>
+                )}
                 <View style={styles.planTop}>
                   <Text style={styles.planName}>{p.name}</Text>
-                  <Text style={styles.planScans}>{p.scans} scans</Text>
+                  <Text style={styles.planScans}>{p.annual ? 'UNLIMITED' : p.scans + ' scans'}</Text>
                 </View>
                 <View style={styles.planPriceRow}>
                   <Text style={styles.planPrice}>${p.usd}</Text>
-                  <Text style={styles.planPerScan}>${(p.usd / p.scans).toFixed(3)}/scan</Text>
+                  <Text style={styles.planPerScan}>
+                    {p.annual ? 'per year' : '$' + (p.usd / p.scans).toFixed(3) + '/scan'}
+                  </Text>
                 </View>
                 <View style={styles.planCta}>
                   <Text style={styles.planCtaText}>PAY WITH STRIPE</Text>
-                  <Text style={styles.planCtaArrow}>›</Text>
+                  <Text style={styles.planCtaArrow}>{'>'}</Text>
                 </View>
               </Pressable>
             ))}
@@ -336,10 +427,10 @@ export default function BuyScans() {
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.histScans}>+{h.scans_added || 0}</Text>
-                <Text style={styles.histAmount}>
-                  N{Number(h.amount || 0).toLocaleString()}
+                <Text style={styles.histScans}>
+                  {h.plan === 'unlimited' ? 'UNLIMITED' : '+' + (h.scans_added || 0)}
                 </Text>
+                <Text style={styles.histAmount}>&#8358;{Number(h.amount || 0).toLocaleString()}</Text>
               </View>
             </View>
           ))
@@ -372,7 +463,7 @@ export default function BuyScans() {
               renderLoading={() => (
                 <View style={styles.webviewLoading}>
                   <ActivityIndicator color={palette.neon} size="large" />
-                  <Text style={styles.webviewLoadingText}>Loading Paystack…</Text>
+                  <Text style={styles.webviewLoadingText}>Loading Paystack...</Text>
                 </View>
               )}
             />
@@ -399,7 +490,10 @@ const createStyles = (p: any) => StyleSheet.create({
   methodChipOn: { backgroundColor: 'rgba(0,255,136,0.15)', borderColor: p.neon },
   methodChipText: { fontSize: 12, fontWeight: '700', color: p.textMuted },
   methodChipTextOn: { color: p.neon },
-  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 12, borderWidth: 1.5, borderColor: p.border },
+  planCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, marginBottom: 12, borderWidth: 1.5, borderColor: p.border, position: 'relative' },
+  planCardFeatured: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.05)' },
+  planBadge: { position: 'absolute', top: -10, right: 16, backgroundColor: p.neon, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  planBadgeText: { fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1 },
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
   planName: { fontSize: 14, fontWeight: '900', color: p.text, letterSpacing: 1 },
   planScans: { fontSize: 13, fontWeight: '800', color: p.neon },
