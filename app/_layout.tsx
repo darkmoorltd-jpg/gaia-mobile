@@ -135,7 +135,7 @@ function RootNavigator() {
       router.replace('/(auth)/language-select' as any); return;
     }
     if (inOnboarding && hasCountry && hasLanguage) {
-      router.replace(user ? (loginContext === 'agent' ? '/agent/home' : '/(tabs)') : '/(auth)/login');
+      router.replace(user ? (loginContext === 'agent' ? '/agent/home' : role === 'provider' ? '/provider/home' : '/(tabs)') : '/(auth)/login');
       return;
     }
     if (inOnboarding) return;

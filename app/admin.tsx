@@ -9,6 +9,10 @@ interface Item { label: string; route: string }
 interface Section { title: string; icon: string; items: Item[]; color?: string }
 
 const SECTIONS: Section[] = [
+    { title: 'Input Providers', items: [
+        { label: 'Provider Applications', route: '/admin-input-providers' },
+        { label: 'Provider Payouts',      route: '/admin-provider-payouts' },
+    ]},
   {
     title: 'OVERVIEW',
     icon: 'OV',
