@@ -729,8 +729,20 @@ export default function Profile() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>FARM</Text>
-          <Picker styles={styles} palette={palette} label='Farm state' field='farm_state' options={['', ...NIGERIAN_STATES]} f={f} set={set} edit={editMode} />
-          <Field styles={styles} palette={palette} label='Farm LGA' field='farm_lga' f={f} set={set} edit={editMode} />
+          <LocationCascade
+            countryCode={f.country_code || f.country || 'NG'}
+            countryLocked={false}
+            primary={f.farm_state || ''}
+            secondary={f.farm_lga || ''}
+            city={''}
+            showCity={false}
+            showWard={false}
+            debug={false}
+            onChange={(u) => {
+              if (u.primary !== undefined) set('farm_state', u.primary);
+              if (u.secondary !== undefined) set('farm_lga', u.secondary);
+            }}
+          />
           <Field styles={styles} palette={palette} label='Farm address' field='farm_address' f={f} set={set} edit={editMode} />
           <Field styles={styles} palette={palette} label='Farm size (acres)' field='farm_size_acres' f={f} set={set} edit={editMode} keyboard='decimal-pad' />
           <Picker styles={styles} palette={palette} label='Farming type' field='farming_type' options={FARM_TYPES} f={f} set={set} edit={editMode} />

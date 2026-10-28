@@ -63,7 +63,7 @@ export default function LocationCascade({
   onChange,
   showWard = false,
   showCity = true,
-  debug = true,
+  debug = false,
 }: Props) {
   const { palette } = useTheme();
   const s = createStyles(palette);
