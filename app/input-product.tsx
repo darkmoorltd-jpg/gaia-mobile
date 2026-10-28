@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { categoryEmoji, categoryLabel } from '../src/data/input_categories';
+import ReviewModal from '../src/components/ReviewModal';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
@@ -26,6 +27,7 @@ export default function InputProductDetail() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [totalNgn, setTotalNgn] = useState(0);
   const [buyBusy, setBuyBusy] = useState(false);
+  const [reviews, setReviews] = useState<any>({ average: 0, count: 0, reviews: [] });
 
   useEffect(() => {
     (async () => {
@@ -35,6 +37,11 @@ export default function InputProductDetail() {
       const { data } = await supabase.rpc('input_product_detail', { p_product_id: params.id });
       if (data) { setProduct(data.product); setProvider(data.provider); }
       setBusy(false);
+    })();
+    (async () => {
+      if (!params.id) return;
+      const { data: rv } = await supabase.rpc('input_reviews_for_product', { p_product_id: params.id });
+      if (rv) setReviews(rv);
     })();
   }, [params.id]);
 
@@ -128,6 +135,29 @@ export default function InputProductDetail() {
             style={[styles.input, { marginTop: 10 }]} />
         ) : null}
 
+        <Text style={styles.section}>RATINGS & REVIEWS</Text>
+        <View style={styles.reviewSummary}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={styles.avgRating}>{reviews.average || '—'}</Text>
+            <Text style={{ fontSize: 10, color: palette.textMuted }}>{reviews.count || 0} review{(reviews.count||0) === 1 ? '' : 's'}</Text>
+          </View>
+          <View style={{ flex: 1, marginLeft: 16 }}>
+            <Text style={{ color: '#ffd700', fontSize: 20 }}>
+              {reviews.count > 0 ? '★'.repeat(Math.round(Number(reviews.average))) + '☆'.repeat(5 - Math.round(Number(reviews.average))) : '☆☆☆☆☆'}
+            </Text>
+          </View>
+        </View>
+        {(reviews.reviews || []).slice(0, 5).map((r: any, i: number) => (
+          <View key={i} style={styles.reviewCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={styles.reviewAuthor}>{r.reviewer_name}</Text>
+              <Text style={{ color: '#ffd700' }}>{'★'.repeat(r.rating)}</Text>
+            </View>
+            {r.comment ? <Text style={styles.reviewText}>{r.comment}</Text> : null}
+            <Text style={styles.reviewDate}>{new Date(r.created_at).toLocaleDateString()}</Text>
+          </View>
+        ))}
+
         <View style={styles.totalBox}>
           <Text style={styles.totalLabel}>TOTAL</Text>
           <Text style={styles.totalVal}>{money(total)}</Text>
@@ -174,6 +204,12 @@ const createStyles = (p: any) => StyleSheet.create({
   chipOn: { borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.12)' },
   chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
   chipTextOn: { color: '#b388ff' },
+  reviewSummary: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
+  avgRating: { fontSize: 32, fontWeight: '900', color: '#ffd700' },
+  reviewCard: { padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
+  reviewAuthor: { fontSize: 13, fontWeight: '800', color: p.text },
+  reviewText: { fontSize: 12, color: p.text, marginTop: 4, lineHeight: 18 },
+  reviewDate: { fontSize: 10, color: p.textDim, marginTop: 4 },
   totalBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: 'rgba(179,136,255,0.08)', borderWidth: 1, borderColor: 'rgba(179,136,255,0.3)', marginTop: 24 },
   totalLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted },
   totalVal: { fontSize: 24, fontWeight: '900', color: '#b388ff' },

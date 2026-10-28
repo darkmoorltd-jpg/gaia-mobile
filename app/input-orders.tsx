@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Refre
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
+import ReviewModal from '../src/components/ReviewModal';
 
 const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmt = (s?: string) => s ? new Date(s).toLocaleString() : '—';
@@ -14,6 +15,7 @@ export default function InputMyOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
+  const [reviewOrder, setReviewOrder] = useState<any>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -29,7 +31,10 @@ export default function InputMyOrders() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Confirm', onPress: async () => {
         const { error } = await supabase.rpc('input_confirm_received', { p_order_id: id });
-        if (error) Alert.alert('Failed', error.message); else load();
+        if (error) { Alert.alert('Failed', error.message); return; }
+        load();
+        const target = orders.find((o: any) => o.id === id);
+        setReviewOrder({ id, product_name: target?.product_name });
       }},
     ]);
   };
@@ -76,6 +81,13 @@ export default function InputMyOrders() {
 
         <View style={{ height: 60 }} />
       </ScrollView>
+      <ReviewModal
+        visible={!!reviewOrder}
+        orderId={reviewOrder?.id || null}
+        productName={reviewOrder?.product_name}
+        onClose={() => setReviewOrder(null)}
+        onSubmitted={() => { setReviewOrder(null); load(); }}
+      />
     </View>
   );
 }

@@ -64,6 +64,12 @@ export default function InputsBrowse() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{p.name}</Text>
               <Text style={styles.meta}>{p.provider_name} · {p.provider_city || p.provider_state}</Text>
+              {Number(p.review_count) > 0 ? (
+                <Text style={styles.ratingLine}>
+                  <Text style={{ color: '#ffd700' }}>{'★'.repeat(Math.round(Number(p.avg_rating)))}</Text>
+                  {' '}{p.avg_rating} ({p.review_count})
+                </Text>
+              ) : null}
               <Text style={styles.price}>{money(p.price_ngn)} <Text style={styles.unit}>/ {p.unit}</Text></Text>
               <Text style={styles.stock}>{p.quantity_available} {p.unit} in stock</Text>
             </View>
@@ -94,6 +100,7 @@ const createStyles = (p: any) => StyleSheet.create({
   name: { fontSize: 14, fontWeight: '800', color: p.text },
   meta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
   price: { fontSize: 16, fontWeight: '900', color: '#b388ff', marginTop: 4 },
+  ratingLine: { fontSize: 11, color: p.textMuted, marginTop: 2 },
   unit: { fontSize: 11, fontWeight: '500', color: p.textMuted },
   stock: { fontSize: 10, color: p.textDim, marginTop: 2 },
 });
