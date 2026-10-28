@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Image, Linking, TextInput, Alert,
+  View, Text, StyleSheet, ScrollView, Pressable, Image, TextInput, Alert,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
-import { useTheme, typography, spacing, radius } from '../src/theme';
+import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { getKycFields } from '../src/data/kyc_requirements';
+import { getPaymentConfig } from '../src/data/payment_config';
 
-const VERIFICATION_FEE = 2000;
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 
 function newRef(uid: string) {
@@ -24,13 +25,13 @@ export default function Verification() {
   const { user } = useAuth();
   const styles = createStyles(palette);
 
+  const [countryCode, setCountryCode] = useState<string>('NG');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [state, setState] = useState('');
   const [lga, setLga] = useState('');
   const [address, setAddress] = useState('');
-  const [bvn, setBvn] = useState('');
-  const [nin, setNin] = useState('');
+  const [kycValues, setKycValues] = useState<Record<string, string>>({});
   const [crop, setCrop] = useState('');
   const [farmSize, setFarmSize] = useState('');
   const [idPhoto, setIdPhoto] = useState<string | null>(null);
@@ -41,16 +42,28 @@ export default function Verification() {
   const [paid, setPaid] = useState(false);
   const [lockReason, setLockReason] = useState<string | null>(null);
   const [loadExisting, setLoadExisting] = useState(true);
-  const [resubmitMode, setResubmitMode] = useState(false);
-  const [rejectedDoc, setRejectedDoc] = useState<'id' | 'selfie' | null>(null);
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
-  const [acceptedDoc, setAcceptedDoc] = useState<'id' | 'selfie' | null>(null);
-  const [verifId, setVerifId] = useState<number | null>(null);
 
+  // Load profile + existing verification
   useEffect(() => {
     (async () => {
       if (!user) return;
       try {
+        const { data: prof } = await supabase
+          .from('user_profiles')
+          .select('country_code,country,phone,state,lga,street_address,first_name,last_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (prof) {
+          const cc = prof.country_code || 'NG';
+          setCountryCode(cc);
+          if (prof.phone) setPhone(prof.phone);
+          if (prof.state) setState(prof.state);
+          if (prof.lga) setLga(prof.lga);
+          if (prof.street_address) setAddress(prof.street_address);
+          const n = [prof.first_name, prof.last_name].filter(Boolean).join(' ');
+          if (n) setFullName(n);
+        }
+
         const { data } = await supabase
           .from('farmer_verifications')
           .select('*')
@@ -59,49 +72,18 @@ export default function Verification() {
         if (data) {
           const s = (data.status || '').toLowerCase();
           const ps = (data.payment_status || '').toLowerCase();
-          setVerifId(data.id);
-          if (ps === 'paid' && (s === 'pending' || s === 'pending_review')) {
-            setLockReason('pending_review');
-          } else if (s === 'approved') {
-            setLockReason('approved');
-          } else if (s === 'documents_rejected') {
-            const idRej = (data.id_status || '').toLowerCase() === 'rejected';
-            const selfRej = (data.selfie_status || '').toLowerCase() === 'rejected';
-            setResubmitMode(true);
-            if (idRej) {
-              setRejectedDoc('id');
-              setRejectionReason(data.id_rejection_reason || 'Please upload a clearer document');
-              if (!selfRej) setAcceptedDoc('selfie');
-            } else if (selfRej) {
-              setRejectedDoc('selfie');
-              setRejectionReason(data.selfie_rejection_reason || 'Please upload a clearer selfie');
-              if (!idRej) setAcceptedDoc('id');
-            }
-            if (data.full_name) setFullName(data.full_name);
-            if (data.phone) setPhone(data.phone);
-            if (data.state) setState(data.state);
-            if (data.lga) setLga(data.lga);
-            if (data.address) setAddress(data.address);
-            if (data.bvn) setBvn(data.bvn);
-            if (data.nin) setNin(data.nin);
-            if (data.crop) setCrop(data.crop);
-            if (data.farm_size) setFarmSize(String(data.farm_size));
-            // Pre-fill only the accepted doc so it renders as read-only; rejected stays empty
-            const idRej2 = (data.id_status || '').toLowerCase() === 'rejected';
-            const selfRej2 = (data.selfie_status || '').toLowerCase() === 'rejected';
-            if (selfRej2 && !idRej2) {
-              setIdPhoto(data.id_photo_url || data.id_image_url || null);
-            } else if (idRej2 && !selfRej2) {
-              setSelfie(data.selfie_url || null);
-            }
-          } else if (s === 'rejected') {
-            setLockReason(null);
-          }
+          if (ps === 'paid' && (s === 'pending' || s === 'pending_review')) setLockReason('pending_review');
+          else if (s === 'approved') setLockReason('approved');
+          if (data.kyc_data) setKycValues(data.kyc_data);
         }
       } catch {}
       setLoadExisting(false);
     })();
   }, [user]);
+
+  const kycFields = getKycFields(countryCode);
+  const payment = getPaymentConfig(countryCode);
+  const isManual = payment.gateway === 'manual';
 
   const pickImage = async (setter: (v: string) => void) => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -115,15 +97,10 @@ export default function Verification() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      if (!token) {
-        console.log('[uploadFile] no session token');
-        return null;
-      }
-
+      if (!token) return null;
       const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
       const path = user!.id + '/' + name + '_' + Date.now() + '.jpg';
       const uploadUrl = SUPABASE_URL + '/storage/v1/object/verifications/' + path;
-
       const res = await FileSystem.uploadAsync(uploadUrl, uri, {
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
@@ -133,85 +110,59 @@ export default function Verification() {
           'x-upsert': 'false',
         },
       });
-
-      console.log('[uploadFile] ' + name + ' -> ' + res.status + ' ' + (res.body || '').slice(0, 200));
-
-      if (res.status < 200 || res.status >= 300) {
-        return null;
-      }
-
+      if (res.status < 200 || res.status >= 300) return null;
       return SUPABASE_URL + '/storage/v1/object/public/verifications/' + path;
-    } catch (e: any) {
-      console.log('[uploadFile] exception: ' + (e?.message || String(e)));
-      return null;
+    } catch { return null; }
+  };
+
+  const validateKyc = (): string | null => {
+    for (const f of kycFields) {
+      if (!f.required) continue;
+      const v = (kycValues[f.key] || '').trim();
+      if (!v) return `${f.label} is required`;
+      if (f.maxLength && v.length > f.maxLength) return `${f.label} must be at most ${f.maxLength} characters`;
     }
+    return null;
   };
 
   const submit = async () => {
-    // === RESUBMIT MODE: only the rejected doc was changed, no new payment ===
-    if (resubmitMode) {
-      setBusy(true); setMessage('');
-      try {
-        let newIdUrl: string | null = null;
-        let newSelfieUrl: string | null = null;
-        if (rejectedDoc === 'id') {
-          if (!idPhoto) { setMessage('Please upload a new ID document'); setBusy(false); return; }
-          newIdUrl = await uploadFile(idPhoto, 'id');
-          if (!newIdUrl) throw new Error('ID upload failed — check your connection or try again. Photo: ' + idPhoto.slice(0, 40));
-        } else if (rejectedDoc === 'selfie') {
-          if (!selfie) { setMessage('Please upload a new selfie'); setBusy(false); return; }
-          newSelfieUrl = await uploadFile(selfie, 'selfie');
-          if (!newSelfieUrl) throw new Error('Selfie upload failed — check your connection or try again. Photo: ' + selfie.slice(0, 40));
-        }
-        const { error } = await supabase.rpc('user_resubmit_documents', {
-          p_id_url: newIdUrl,
-          p_selfie_url: newSelfieUrl,
-        });
-        if (error) throw error;
-        setMessage('Resubmitted. No new payment required.');
-        setResubmitMode(false);
-        setRejectedDoc(null);
-        setRejectionReason(null);
-        setLockReason('pending_review');
-      } catch (e: any) {
-        setMessage(e?.message || 'Resubmit failed');
-      } finally { setBusy(false); }
-      return;
-    }
-
-    // === NEW SUBMISSION PATH ===
     if (!fullName || !phone || !state || !idPhoto || !selfie) {
-      setMessage('Please fill all required fields and upload ID + selfie');
+      setMessage('Fill all required fields and upload ID + selfie');
       return;
     }
-    if (!/^[0-9]{11}$/.test(bvn)) {
-      setMessage('BVN must be exactly 11 digits');
-      return;
-    }
-    if (!/^[0-9]{11}$/.test(nin)) {
-      setMessage('NIN must be exactly 11 digits');
-      return;
-    }
+    const kycErr = validateKyc();
+    if (kycErr) { setMessage(kycErr); return; }
     setBusy(true); setMessage('');
     try {
       const idUrl = await uploadFile(idPhoto, 'id');
       const selfieUrl = await uploadFile(selfie, 'selfie');
+      if (!idUrl || !selfieUrl) throw new Error('Upload failed — check connection');
       const ref = newRef(user!.id);
+
       const { error } = await supabase.from('farmer_verifications').upsert({
         user_id: user!.id,
         full_name: fullName,
-        phone, state, lga, address, bvn, nin,
-        crop, farm_size: farmSize,
+        phone, state, lga, address,
+        country_code: countryCode,
+        kyc_data: kycValues,
         id_photo_url: idUrl,
         selfie_url: selfieUrl,
-        status: 'pending_payment',
+        status: isManual ? 'pending_manual_payment' : 'pending_payment',
         payment_status: 'pending',
         payment_reference: ref,
-        fee_naira: VERIFICATION_FEE,
+        currency: payment.currency,
+        fee_amount: payment.fee,
+        fee_naira: countryCode === 'NG' ? payment.fee : Math.round(payment.fee * (payment.currency === 'USD' ? 1500 : 1)),
       }, { onConflict: 'user_id' });
+
       if (error) throw error;
-      setPayRef(ref);
-      setMessage('Opening secure payment...');
+
+      if (isManual) {
+        setMessage(`Manual verification: send ${payment.feeLabel} to WhatsApp +234 800 000 0000 with your name. We'll confirm within 24h.`);
+      } else {
+        setPayRef(ref);
+        setMessage('Opening secure payment...');
+      }
     } catch (e: any) {
       setMessage(e?.message ?? 'Submission failed');
     } finally { setBusy(false); }
@@ -221,33 +172,19 @@ export default function Verification() {
     try {
       const data = JSON.parse(raw);
       if (data?.status !== 'success') {
-        setPayRef(null);
-        setMessage('Payment cancelled. You can retry anytime.');
-        return;
+        setPayRef(null); setMessage('Payment cancelled.'); return;
       }
       const ref = data.reference || payRef;
       if (!ref || !user) return;
-      // Update verification row -> move to pending review
       await supabase.from('farmer_verifications').update({
         payment_status: 'paid',
         payment_reference: ref,
         status: 'pending',
         updated_at: new Date().toISOString(),
       }).eq('user_id', user.id);
-      // Record payment history
-      await supabase.from('payment_history').insert({
-        user_id: user.id,
-        amount: VERIFICATION_FEE,
-        plan: 'verification',
-        reference: ref,
-        scans_added: 0,
-        paid_at: new Date().toISOString(),
-      });
-      setPayRef(null);
-      setPaid(true);
-      setMessage('');
+      setPayRef(null); setPaid(true); setMessage('');
     } catch (e: any) {
-      Alert.alert('Payment record failed', e?.message || 'Contact support with your reference');
+      Alert.alert('Payment record failed', e?.message || 'Contact support');
     }
   };
 
@@ -261,16 +198,12 @@ export default function Verification() {
           var handler = PaystackPop.setup({
             key: '${PAYSTACK_PUBLIC}',
             email: '${user?.email || ''}',
-            amount: ${VERIFICATION_FEE * 100},
-            currency: 'NGN',
+            amount: ${Math.round(payment.fee * 100)},
+            currency: '${payment.currency}',
             ref: '${payRef}',
-            label: 'GAIA Verification',
-            onClose: function() {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));
-            },
-            callback: function(response) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference }));
-            }
+            label: 'GAIA Verification (${payment.currency})',
+            onClose: function() { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' })); },
+            callback: function(response) { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference })); }
           });
           handler.openIframe();
         } catch (err) {
@@ -285,14 +218,7 @@ export default function Verification() {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.title}>Under review</Text>
-          <Text style={styles.subtitle}>
-            Your payment was received and your verification is being reviewed by our team.
-            You will be notified once it is approved.
-          </Text>
-          <View style={styles.feeBox}>
-            <Text style={styles.feeLabel}>STATUS</Text>
-            <Text style={styles.feeValue}>Pending review</Text>
-          </View>
+          <Text style={styles.subtitle}>Your verification is being reviewed. You'll be notified once approved.</Text>
           <Pressable onPress={() => router.back()} style={styles.cta}>
             <Text style={styles.ctaText}>DONE</Text>
           </Pressable>
@@ -300,19 +226,12 @@ export default function Verification() {
       </View>
     );
   }
-
   if (lockReason === 'approved') {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.title}>You are verified</Text>
-          <Text style={styles.subtitle}>
-            Your identity is verified. Wallet, loans, insurance, and marketplace are unlocked.
-          </Text>
-          <View style={styles.feeBox}>
-            <Text style={styles.feeLabel}>STATUS</Text>
-            <Text style={styles.feeValue}>Approved</Text>
-          </View>
+          <Text style={styles.subtitle}>Wallet, loans, insurance, marketplace are unlocked.</Text>
           <Pressable onPress={() => router.back()} style={styles.cta}>
             <Text style={styles.ctaText}>DONE</Text>
           </Pressable>
@@ -320,28 +239,18 @@ export default function Verification() {
       </View>
     );
   }
-
   if (loadExisting) {
-    return (
-      <View style={styles.container}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={styles.subtitle}>Loading...</Text>
-        </View>
-      </View>
-    );
+    return <View style={styles.container}><Text style={styles.subtitle}>Loading...</Text></View>;
   }
-
   if (paid) {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text style={styles.title}>Payment successful</Text>
-          <Text style={styles.subtitle}>
-            Thank you. Your verification is now under review. You will be notified once approved.
-          </Text>
+          <Text style={styles.subtitle}>Verification under review. You'll be notified.</Text>
           <View style={styles.feeBox}>
             <Text style={styles.feeLabel}>AMOUNT PAID</Text>
-            <Text style={styles.feeValue}>N2,000</Text>
+            <Text style={styles.feeValue}>{payment.feeLabel}</Text>
           </View>
           <Pressable onPress={() => router.back()} style={styles.cta}>
             <Text style={styles.ctaText}>DONE</Text>
@@ -350,7 +259,6 @@ export default function Verification() {
       </View>
     );
   }
-
   if (payRef) {
     return (
       <View style={styles.container}>
@@ -369,62 +277,53 @@ export default function Verification() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>BACK</Text>
         </Pressable>
-        <Text style={styles.title}>{resubmitMode ? 'Re-upload documents' : 'Verify your identity'}</Text>
+        <Text style={styles.title}>Verify your identity</Text>
         <Text style={styles.subtitle}>
-          {resubmitMode
-            ? 'Fix the rejected document below and tap resubmit. Free — no new payment.'
-            : 'Unlock wallet, loans, insurance, and marketplace. One-time fee of N2,000.'}
+          Unlock wallet, loans, insurance, and marketplace. {isManual ? 'Manual verification required for your country.' : 'One-time fee applies.'}
         </Text>
-        {!resubmitMode ? (
-          <View style={styles.feeBox}>
-            <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
-            <Text style={styles.feeValue}>N2,000</Text>
-          </View>
-        ) : null}
+        <View style={styles.feeBox}>
+          <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
+          <Text style={styles.feeValue}>{payment.feeLabel}</Text>
+          <Text style={styles.feeNote}>{payment.currency} · {countryCode}</Text>
+        </View>
+
         <Text style={styles.section}>PERSONAL</Text>
-        <Input label='FULL NAME' value={fullName} onChange={setFullName} palette={palette} />
-        <Input label='PHONE' value={phone} onChange={setPhone} keyboard='phone-pad' palette={palette} />
-        <Input label='STATE' value={state} onChange={setState} palette={palette} />
-        <Input label='LGA' value={lga} onChange={setLga} palette={palette} />
-        <Input label='ADDRESS' value={address} onChange={setAddress} palette={palette} />
-        <Text style={styles.section}>IDENTITY</Text>
-        <Input label='BVN (11 digits) *' value={bvn} onChange={(v: string) => setBvn(v.replace(/[^0-9]/g, '').slice(0, 11))} keyboard='number-pad' palette={palette} />
-        <Input label='NIN (11 digits) *' value={nin} onChange={(v: string) => setNin(v.replace(/[^0-9]/g, '').slice(0, 11))} keyboard='number-pad' palette={palette} />
+        <Input label="FULL NAME *" value={fullName} onChange={setFullName} palette={palette} />
+        <Input label="PHONE *" value={phone} onChange={setPhone} keyboard="phone-pad" palette={palette} />
+        <Input label="STATE / REGION *" value={state} onChange={setState} palette={palette} />
+        <Input label="LGA / DISTRICT" value={lga} onChange={setLga} palette={palette} />
+        <Input label="ADDRESS" value={address} onChange={setAddress} palette={palette} />
+
+        <Text style={styles.section}>IDENTITY ({countryCode})</Text>
+        {kycFields.map((field) => (
+          <Input
+            key={field.key}
+            label={field.label}
+            value={kycValues[field.key] || ''}
+            onChange={(v: string) => setKycValues({ [field.key]: v })}
+            keyboard={field.keyboard}
+            maxLength={field.maxLength}
+            palette={palette}
+          />
+        ))}
+
         <Text style={styles.section}>FARM</Text>
-        <Input label='MAIN CROP' value={crop} onChange={setCrop} palette={palette} />
-        <Input label='FARM SIZE' value={farmSize} onChange={setFarmSize} palette={palette} />
+        <Input label="MAIN CROP" value={crop} onChange={setCrop} palette={palette} />
+        <Input label="FARM SIZE (acres)" value={farmSize} onChange={setFarmSize} keyboard="decimal-pad" palette={palette} />
+
         <Text style={styles.section}>UPLOADS</Text>
-        {resubmitMode ? (
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <DocPanel
-              label="ID DOCUMENT"
-              uri={idPhoto}
-              status={rejectedDoc === 'id' ? 'rejected' : 'accepted'}
-              onPress={() => pickImage(setIdPhoto)}
-              palette={palette}
-            />
-            <DocPanel
-              label="SELFIE"
-              uri={selfie}
-              status={rejectedDoc === 'selfie' ? 'rejected' : 'accepted'}
-              onPress={() => pickImage(setSelfie)}
-              palette={palette}
-            />
-          </View>
-        ) : (
-          <>
-            <UploadBox label='ID DOCUMENT' uri={idPhoto} onPress={() => pickImage(setIdPhoto)} palette={palette} />
-            <UploadBox label='SELFIE' uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
-          </>
-        )}
+        <UploadBox label="ID DOCUMENT" uri={idPhoto} onPress={() => pickImage(setIdPhoto)} palette={palette} />
+        <UploadBox label="SELFIE" uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
+
         {message ? <Text style={styles.message}>{message}</Text> : null}
+
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           <Text style={styles.ctaText}>
-            {busy ? 'Submitting...' : resubmitMode ? 'RESUBMIT FOR REVIEW (NO CHARGE)' : 'SUBMIT AND PAY N2,000'}
+            {busy ? 'Submitting...' : isManual ? 'SUBMIT FOR MANUAL REVIEW' : `SUBMIT AND PAY ${payment.feeLabel}`}
           </Text>
         </Pressable>
         <View style={{ height: 80 }} />
@@ -433,14 +332,21 @@ export default function Verification() {
   );
 }
 
-function Input({ label, value, onChange, keyboard, palette }: any) {
+function Input({ label, value, onChange, keyboard, maxLength, palette }: any) {
   const s = createStyles(palette);
   return (
     <View style={{ marginBottom: 12 }}>
       <Text style={s.inputLabel}>{label}</Text>
       <View style={s.inputWrap}>
-        <TextInput value={value} onChangeText={onChange} keyboardType={keyboard || 'default'}
-          placeholder={label.toLowerCase()} placeholderTextColor={palette.textDim} style={s.input} />
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          keyboardType={keyboard || 'default'}
+          maxLength={maxLength}
+          placeholder={label.replace(' *', '').toLowerCase()}
+          placeholderTextColor={palette.textDim}
+          style={s.input}
+        />
       </View>
     </View>
   );
@@ -460,42 +366,6 @@ function UploadBox({ label, uri, onPress, palette }: any) {
   );
 }
 
-function DocPanel({ label, uri, status, onPress, palette }: any) {
-  const s = createStyles(palette);
-  const isRejected = status === 'rejected';
-  const isAccepted = status === 'accepted';
-  const accent = isRejected ? palette.danger : palette.neon;
-  const badgeBg = isRejected ? 'rgba(255,59,92,0.18)' : 'rgba(0,255,136,0.18)';
-  const badgeLabel = isRejected ? 'NEEDS FIX' : 'ACCEPTED';
-  const canTap = isRejected;
-
-  return (
-    <View style={{ flex: 1, marginBottom: 12 }}>
-      <Text style={s.docPanelLabel}>{label}</Text>
-      <Pressable
-        onPress={canTap ? onPress : undefined}
-        disabled={!canTap}
-        style={[
-          s.docPanelBox,
-          { borderColor: accent, borderStyle: isRejected ? 'dashed' : 'solid' },
-        ]}
-      >
-        {uri ? (
-          <Image source={{ uri }} style={s.docPanelImg} />
-        ) : (
-          <View style={s.docPanelPlaceholder}>
-            <Text style={s.docPanelPlus}>{isRejected ? '+' : '·'}</Text>
-            <Text style={s.docPanelHint}>{isRejected ? 'Tap to re-upload' : 'No photo'}</Text>
-          </View>
-        )}
-        <View style={[s.docPanelBadge, { backgroundColor: badgeBg, borderColor: accent }]}>
-          <Text style={[s.docPanelBadgeTxt, { color: accent }]}>{badgeLabel}</Text>
-        </View>
-      </Pressable>
-    </View>
-  );
-}
-
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
@@ -506,6 +376,7 @@ const createStyles = (p: any) => StyleSheet.create({
   feeBox: { marginTop: 20, padding: 20, borderRadius: 16, backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi },
   feeLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted },
   feeValue: { fontSize: 32, fontWeight: '900', color: p.neon, marginTop: 4 },
+  feeNote: { fontSize: 11, color: p.textMuted, marginTop: 4 },
   section: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginTop: 24, marginBottom: 10 },
   inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
   inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 12, paddingHorizontal: 14 },
