@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndic
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { supabase } from '../../src/api/supabase';
-import { shareFarmerViaWhatsApp } from '../../src/utils/whatsapp';
 
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString() : '-';
 const FILTERS = [

@@ -14,7 +14,7 @@ const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const API = 'https://gaia-api-xuly.onrender.com';
 const money = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
-type Tab = 'agents' | 'applications';
+type Tab = 'agents' | 'applications' | 'withdrawals';
 
 export default function AdminAgents() {
   const router = useRouter();
@@ -27,6 +27,7 @@ export default function AdminAgents() {
   const [tab, setTab] = useState<Tab>('agents');
   const [agents, setAgents] = useState<any[]>([]);
   const [apps, setApps] = useState<any[]>([]);
+  const [wds, setWds] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -36,12 +37,14 @@ export default function AdminAgents() {
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setBusy(true);
-    const [a, b] = await Promise.all([
+    const [a, b, c] = await Promise.all([
       supabase.rpc('admin_agent_leaderboard'),
       supabase.rpc('admin_list_agent_applications', { p_status: 'pending' }),
+      supabase.rpc('admin_list_agent_withdrawals', { p_status: 'pending' }),
     ]);
     if (!a.error) setAgents(a.data || []);
     if (!b.error) setApps(b.data || []);
+    if (!c.error) setWds(c.data || []);
     setBusy(false);
     setRef(false);
   }, [isAdmin]);
@@ -90,7 +93,10 @@ export default function AdminAgents() {
             <Text style={[styles.tabText, tab === 'agents' && styles.tabTextOn]}>AGENTS ({agents.length})</Text>
           </Pressable>
           <Pressable onPress={() => setTab('applications')} style={[styles.tabBtn, tab === 'applications' && styles.tabBtnOn]}>
-            <Text style={[styles.tabText, tab === 'applications' && styles.tabTextOn]}>APPLICATIONS ({apps.length})</Text>
+            <Text style={[styles.tabText, tab === 'applications' && styles.tabTextOn]}>APPS ({apps.length})</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('withdrawals')} style={[styles.tabBtn, tab === 'withdrawals' && styles.tabBtnOn]}>
+            <Text style={[styles.tabText, tab === 'withdrawals' && styles.tabTextOn]}>PAYOUTS ({wds.length})</Text>
           </Pressable>
         </View>
 

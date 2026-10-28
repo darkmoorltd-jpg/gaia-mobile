@@ -95,6 +95,17 @@ export default function AgentHome() {
         </LinearGradient>
 
 
+        <Pressable onPress={() => router.push('/agent/wallet' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16, backgroundColor: 'rgba(0,255,136,0.08)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)', marginBottom: 12 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#00ff88', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: '900', color: '#060B18' }}>₦</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: '#00ff88' }}>WALLET BALANCE</Text>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: '#ffffff', marginTop: 2 }}>{money(stats?.wallet_balance)}</Text>
+          </View>
+          <Text style={{ fontSize: 20, color: '#00ff88' }}>›</Text>
+        </Pressable>
+
         <GoalTracker verified={Number(stats?.verified || 0)} />
 
         <View style={styles.kpiRow}>

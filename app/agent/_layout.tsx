@@ -1,7 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet, type ColorValue } from 'react-native';
 import { useTheme } from '../../src/theme';
-import { useTranslation } from 'react-i18next';
 
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
@@ -14,7 +13,6 @@ function TabIcon({ emoji, focused, color }: {
 }
 
 export default function AgentLayout() {
-  const { t } = useTranslation();
   const palette = useTheme((s) => s.palette);
 
   return (
@@ -42,7 +40,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: t('agentTabs.home'),
+          title: 'HOME',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="H" focused={focused} color={color} />
           ),
@@ -51,7 +49,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="farmers"
         options={{
-          title: t('agentTabs.farmers'),
+          title: 'FARMERS',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="F" focused={focused} color={color} />
           ),
@@ -60,7 +58,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="register"
         options={{
-          title: t('agentTabs.register'),
+          title: 'REGISTER',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="+" focused={focused} color={color} />
           ),
@@ -69,7 +67,7 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="verify"
         options={{
-          title: t('agentTabs.verify'),
+          title: 'VERIFY',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="V" focused={focused} color={color} />
           ),
@@ -78,16 +76,25 @@ export default function AgentLayout() {
       <Tabs.Screen
         name="ledger"
         options={{
-          title: t('agentTabs.ledger'),
+          title: 'LEDGER',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="N" focused={focused} color={color} />
           ),
         }}
       />
       <Tabs.Screen
+        name="wallet"
+        options={{
+          title: 'WALLET',
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon emoji="₦" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          title: t('agentTabs.profile'),
+          title: 'PROFILE',
           tabBarIcon: ({ focused, color }) => (
             <TabIcon emoji="P" focused={focused} color={color} />
           ),

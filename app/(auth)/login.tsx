@@ -79,6 +79,20 @@ export default function Login() {
 
   const pickLanguage = useLocale((s) => s.language);
   const countriesList = useLocale((s) => s.countries);
+  // Aliases + local state matching the redesigned UI
+  const [country, setCountryRaw] = useState<string>(() => {
+    try { return useLocale.getState().country?.code || 'NG'; } catch { return 'NG'; }
+  });
+  const [showPicker, setShowPicker] = useState(false);
+  const setCountry = (v: string) => {
+    setCountryRaw(v);
+    try { useLocale.getState().setCountry(v); } catch {}
+  };
+  const currentLang = pickLanguage || 'en';
+  const pickedCountry = (countriesList || []).find((c: any) => c.code === country) || null;
+  const pickerOptions = countriesList.length > 0
+    ? countriesList.slice().sort((a: any, b: any) => a.name.localeCompare(b.name))
+    : [{ code: 'NG', name: 'Nigeria', currency: 'NGN', payment_provider: 'paystack' }];
   const currentCountry = useLocale((s) => s.country || (s as any).countries?.find((c: any) => c.code === s.country?.code) || null);
 
   // Always load store on login mount (ensures countries list populated)

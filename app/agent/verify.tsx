@@ -57,6 +57,7 @@ export default function AgentVerify() {
   const [busy, setBusy] = useState(false);
   const [payRef, setPayRef] = useState<string | null>(null);
   const [uploadedUrls, setUploadedUrls] = useState<{ id: string | null; selfie: string | null }>({ id: null, selfie: null });
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -78,6 +79,10 @@ export default function AgentVerify() {
           const found = list.find((x) => x.user_id === params.farmerId);
           if (found) pickFarmer(found);
         }
+      } catch {}
+      try {
+        const wr = await supabase.rpc('agent_wallet_get');
+        if (!wr.error && wr.data) setWalletBalance(Number(wr.data.balance || 0));
       } catch {}
       setLoading(false);
     })();
@@ -121,7 +126,45 @@ export default function AgentVerify() {
     } catch {}
   };
 
-  const startPayment = async () => {
+  const payFromWallet = async () => {
+    if (!selected) { Alert.alert('Pick a farmer first'); return; }
+    if (!fullName || !phone || !idImage || !selfie) {
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
+    }
+    if (walletBalance < FEE_KOBO / 100) {
+      Alert.alert('Insufficient wallet', 'Top up your wallet first. Balance: N' + walletBalance);
+      return;
+    }
+    setBusy(true);
+    try {
+      const idUrl = await uploadFile(idImage, 'id');
+      const selfieUrl = await uploadFile(selfie, 'selfie');
+      const kyc = {
+        full_name: fullName, phone, state, lga: lga || null, address: address || null,
+        bvn: bvn || null, nin: nin || null, id_type: idType, id_number: idNumber || null,
+        id_image_url: idUrl, selfie_url: selfieUrl,
+      };
+      const r = await supabase.rpc('agent_wallet_pay_verification', {
+        p_farmer_id: selected.user_id,
+        p_amount: FEE_KOBO / 100,
+        p_kyc: kyc,
+      });
+      setBusy(false);
+      if (r.error) { Alert.alert('Failed', r.error.message); return; }
+      const d = r.data || {};
+      if (d.ok === false) {
+        Alert.alert('Failed', d.error === 'insufficient_balance' ? 'Insufficient wallet balance' : (d.error || 'Try again'));
+        return;
+      }
+      Alert.alert('Verification submitted', 'Paid from wallet. You earn N500 once approved.');
+      router.replace('/agent/home' as any);
+    } catch (e: any) {
+      setBusy(false);
+      Alert.alert('Failed', e.message);
+    }
+  };
+
+    const startPayment = async () => {
     if (!selected) { Alert.alert('Pick a farmer first'); return; }
     if (!fullName || !phone || !idImage || !selfie) {
       Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
@@ -360,11 +403,21 @@ export default function AgentVerify() {
         <View style={styles.feeBox}>
           <Text style={styles.feeLbl}>VERIFICATION FEE</Text>
           <Text style={styles.feeVal}>N2,000</Text>
-          <Text style={styles.feeSub}>Submit sends this to admin. You earn N500 on approval.</Text>
+          <Text style={styles.feeSub}>Wallet: N{walletBalance.toLocaleString()} · you earn N500 on approval</Text>
         </View>
 
-        <Pressable onPress={startPayment} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY N2,000 & SUBMIT</Text>}
+        {walletBalance >= FEE_KOBO / 100 ? (
+          <Pressable onPress={payFromWallet} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
+            {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY N2,000 FROM WALLET</Text>}
+          </Pressable>
+        ) : (
+          <Pressable onPress={startPayment} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
+            {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY N2,000 WITH CARD</Text>}
+          </Pressable>
+        )}
+
+        <Pressable onPress={() => router.push('/agent/wallet' as any)} style={{ marginTop: 12, alignItems: 'center', paddingVertical: 10 }}>
+          <Text style={{ fontSize: 12, color: palette.neon, fontWeight: '700' }}>TOP UP WALLET →</Text>
         </Pressable>
 
         <View style={{ height: 80 }} />
