@@ -213,11 +213,14 @@ function RootNavigator() {
       <Stack.Screen name="escrow-receipt" options={{ headerShown: false }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-input-providers" options={{ headerShown: false }} />
       <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
       <Stack.Screen name="agent-leaderboard" options={{ headerShown: false }} />
       <Stack.Screen name="agent-field-map" options={{ headerShown: false }} />
       <Stack.Screen name="agent" options={{ headerShown: false }} />
+      <Stack.Screen name="provider" options={{ headerShown: false }} />
+      <Stack.Screen name="input-provider-apply" options={{ headerShown: false }} />
       <Stack.Screen name="photo-timeline" options={{ headerShown: false }} />
       <Stack.Screen name="alerts" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
