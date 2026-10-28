@@ -80,6 +80,32 @@ export const DEFAULT_PAYMENT: PaymentConfig = {
   feeLabel: '$2 USD',
 };
 
+// ============================================================
+// Paystack (Nigerian merchant) only accepts NGN.
+// We display the local price to the user, but charge NGN.
+// Approximate FX rates — update weekly via admin.
+// ============================================================
+export const NGN_RATES: Record<string, number> = {
+  NGN: 1, USD: 1600, GHS: 105, KES: 12, ZAR: 85,
+  BRL: 290, XOF: 2.6, EGP: 32, INR: 19, EUR: 1720,
+  GBP: 2020, JPY: 10.5, CNY: 220, CAD: 1160, AUD: 1040,
+  MXN: 80, TRY: 45, AED: 435, SAR: 425, ILS: 430,
+  PKR: 5.7, BDT: 13.5, PHP: 28, IDR: 0.10, VND: 0.065,
+  THB: 45, MYR: 360, KRW: 1.15, TZS: 0.62, UGX: 0.42,
+  ETB: 14, XAF: 2.6, MAD: 160, CLP: 1.7, COP: 0.40,
+  PEN: 425, ARS: 1.8, NZD: 950, CHF: 1800, PLN: 400,
+  SEK: 150, NOK: 150, DKK: 230, CZK: 70, HUF: 4.5,
+};
+
+export function toNaira(amount: number, currency: string): number {
+  const rate = NGN_RATES[currency.toUpperCase()] || 1600;
+  return Math.round(amount * rate / 10) * 10; // round to nearest ₦10
+}
+
+export function nairaLabel(amountNgn: number): string {
+  return '₦' + amountNgn.toLocaleString('en-NG');
+}
+
 export function getPaymentConfig(countryCode: string): PaymentConfig {
   const code = (countryCode || 'NG').toUpperCase();
   return PAYMENT_BY_COUNTRY[code] || DEFAULT_PAYMENT;

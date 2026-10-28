@@ -10,7 +10,7 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { getKycFields } from '../src/data/kyc_requirements';
-import { getPaymentConfig } from '../src/data/payment_config';
+import { getPaymentConfig, toNaira, nairaLabel } from '../src/data/payment_config';
 import LocationCascade from '../src/components/LocationCascade';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
@@ -85,6 +85,8 @@ export default function Verification() {
   const kycFields = getKycFields(countryCode);
   const payment = getPaymentConfig(countryCode);
   const isManual = payment.gateway === 'manual';
+  const ngnFee = toNaira(payment.fee, payment.currency);
+  const ngnLabel = nairaLabel(ngnFee);
 
   const pickImage = async (setter: (v: string) => void) => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -151,9 +153,9 @@ export default function Verification() {
         status: isManual ? 'pending_manual_payment' : 'pending_payment',
         payment_status: 'pending',
         payment_reference: ref,
-        currency: payment.currency,
-        fee_amount: payment.fee,
-        fee_naira: countryCode === 'NG' ? payment.fee : Math.round(payment.fee * (payment.currency === 'USD' ? 1500 : 1)),
+        currency: 'NGN',
+        fee_amount: ngnFee,
+        fee_naira: ngnFee,
       }, { onConflict: 'user_id' });
 
       if (error) throw error;
@@ -199,8 +201,8 @@ export default function Verification() {
           var handler = PaystackPop.setup({
             key: '${PAYSTACK_PUBLIC}',
             email: '${user?.email || ''}',
-            amount: ${Math.round(payment.fee * 100)},
-            currency: '${payment.currency}',
+            amount: ${Math.round(ngnFee * 100)},
+            currency: 'NGN',
             ref: '${payRef}',
             label: 'GAIA Verification (${payment.currency})',
             onClose: function() { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' })); },
@@ -251,7 +253,7 @@ export default function Verification() {
           <Text style={styles.subtitle}>Verification under review. You'll be notified.</Text>
           <View style={styles.feeBox}>
             <Text style={styles.feeLabel}>AMOUNT PAID</Text>
-            <Text style={styles.feeValue}>{payment.feeLabel}</Text>
+            <Text style={styles.feeValue}>{ngnLabel}</Text>
           </View>
           <Pressable onPress={() => router.back()} style={styles.cta}>
             <Text style={styles.ctaText}>DONE</Text>
@@ -292,8 +294,10 @@ export default function Verification() {
         </Text>
         <View style={styles.feeBox}>
           <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
-          <Text style={styles.feeValue}>{payment.feeLabel}</Text>
-          <Text style={styles.feeNote}>{payment.currency} · {countryCode}</Text>
+          <Text style={styles.feeValue}>{ngnLabel}</Text>
+          <Text style={styles.feeNote}>
+            {payment.currency !== 'NGN' ? '≈ ' + payment.feeLabel + ' · charged in NGN via Paystack' : 'NGN · Paystack'}
+          </Text>
         </View>
 
         <Text style={styles.section}>PERSONAL</Text>
@@ -340,7 +344,7 @@ export default function Verification() {
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           <Text style={styles.ctaText}>
-            {busy ? 'Submitting...' : isManual ? 'SUBMIT FOR MANUAL REVIEW' : `SUBMIT AND PAY ${payment.feeLabel}`}
+            {busy ? 'Submitting...' : isManual ? 'SUBMIT FOR MANUAL REVIEW' : `PAY ${ngnLabel}`}
           </Text>
         </Pressable>
         <View style={{ height: 80 }} />
