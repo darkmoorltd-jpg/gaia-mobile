@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, TextInput, ActivityIndicator, Modal} from 'react-native';
+  Platform, Alert, TextInput, ActivityIndicator, Modal,
+  Animated,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
@@ -24,6 +28,7 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const detectedCode = useLocale((s) => s.detectedCode);
   const countriesList = useLocale((s) => s.countries);
@@ -112,148 +117,236 @@ export default function Signup() {
     router.replace('/(tabs)' as any);
   };
 
+  const pwScore = (() => {
+    let s = 0;
+    if (password.length >= 6) s++;
+    if (password.length >= 10) s++;
+    if (/[A-Z]/.test(password)) s++;
+    if (/[0-9]/.test(password)) s++;
+    if (/[^A-Za-z0-9]/.test(password)) s++;
+    return s;
+  })();
+  const pwPct = (pwScore / 5) * 100;
+  const pwLabel = pwPct < 40 ? 'Weak' : pwPct < 80 ? 'Good' : 'Strong';
+  const pwColor = pwPct < 40 ? '#FF3B5C' : pwPct < 80 ? '#FFB300' : '#00FF88';
+  const formValid = !!country && !!email && password.length >= 6 && password === confirm;
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>BACK</Text>
-        </Pressable>
+    <View style={styles.root}>
+      <LinearGradient colors={['#060B18', '#0D1527', '#060B18']} style={StyleSheet.absoluteFillObject} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
+            <Text style={styles.back}>← BACK</Text>
+          </Pressable>
 
-        <Text style={styles.leaf}>GAIA</Text>
-        <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>Start diagnosing your farm in 30 seconds.</Text>
-
-        <Text style={styles.label}>COUNTRY</Text>
-        <Pressable onPress={() => setShowPicker(true)} style={{
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-          padding: 16, borderRadius: 12, marginBottom: 16,
-          backgroundColor: palette.surface, borderWidth: 1.5, borderColor: palette.border,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={{ fontSize: 24 }}>{country ? countryFlag(country) : '🌍'}</Text>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>
-              {pickedCountry?.name || country || 'Select country'}
-            </Text>
+          <View style={styles.progressRow}>
+            <View style={styles.progressDotOn} />
+            <View style={styles.progressDot} />
+            <View style={styles.progressDot} />
+            <Text style={styles.progressText}>STEP 1 OF 3 · ACCOUNT</Text>
           </View>
-          <Text style={{ fontSize: 18, color: palette.neon }}>▾</Text>
-        </Pressable>
 
-        <Modal visible={showPicker} animationType="slide" transparent onRequestClose={() => setShowPicker(false)}>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
-            <View style={{ backgroundColor: palette.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '88%' }}>
-              <Pressable onPress={() => setShowPicker(false)}>
-                <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: palette.textMuted, marginBottom: 12 }}>CLOSE</Text>
-              </Pressable>
-              <Text style={{ fontSize: 22, fontWeight: '900', color: palette.text, marginBottom: 4 }}>Select Country</Text>
-              <Text style={{ fontSize: 12, color: palette.textMuted, marginBottom: 16 }}>{pickerOptions.length} available</Text>
-              <ScrollView>
-                {pickerOptions.map((c: any) => {
-                  const on = c.code === country;
-                  return (
-                    <Pressable
-                      key={c.code}
-                      onPress={() => { setCountry(c.code); setShowPicker(false); }}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                        paddingVertical: 14, paddingHorizontal: 14,
-                        borderRadius: 10, marginBottom: 4,
-                        backgroundColor: on ? 'rgba(0,255,136,0.12)' : 'transparent',
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Text style={{ fontSize: 26 }}>{countryFlag(c.code)}</Text>
-                        <View>
-                          <Text style={{ fontSize: 15, fontWeight: '700', color: on ? palette.neon : palette.text }}>{c.name}</Text>
-                          <Text style={{ fontSize: 10, color: palette.textMuted, marginTop: 2 }}>
-                            {c.currency || ''} · {c.payment_provider || 'paystack'}
-                          </Text>
-                        </View>
-                      </View>
-                      {on ? <Text style={{ fontSize: 18, color: palette.neon }}>✓</Text> : null}
-                    </Pressable>
-                  );
-                })}
-                <View style={{ height: 40 }} />
-              </ScrollView>
+          <Text style={styles.leaf}>GAIA</Text>
+          <Text style={styles.title}>Create your account</Text>
+          <Text style={styles.subtitle}>30 free AI scans unlocked instantly.</Text>
+
+          <Text style={styles.label}>COUNTRY</Text>
+          <Pressable onPress={() => setShowPicker(true)} style={styles.countryCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <Text style={{ fontSize: 28 }}>{country ? countryFlag(country) : '🌍'}</Text>
+              <View>
+                <Text style={styles.countryName}>{pickedCountry?.name || country || 'Select country'}</Text>
+                <Text style={styles.countryMeta}>{(pickedCountry as any)?.currency || 'Paystack'} · {currentLang.toUpperCase()}</Text>
+              </View>
             </View>
+            <Text style={{ fontSize: 18, color: palette.neon }}>▾</Text>
+          </Pressable>
+
+          <Text style={styles.label}>EMAIL</Text>
+          <View style={styles.inputWrap}>
+            <Text style={styles.inputIcon}>📧</Text>
+            <TextInput
+              value={email} onChangeText={setEmail}
+              autoCapitalize="none" keyboardType="email-address"
+              placeholder="you@example.com" placeholderTextColor={palette.textDim}
+              style={styles.input} editable={!busy}
+            />
           </View>
-        </Modal>
 
-        
-        
+          <Text style={styles.label}>PASSWORD</Text>
+          <View style={styles.inputWrap}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              value={password} onChangeText={setPassword}
+              secureTextEntry={!showPw} placeholder="at least 6 characters"
+              placeholderTextColor={palette.textDim} style={styles.input} editable={!busy}
+            />
+            <Pressable onPress={() => setShowPw(!showPw)} hitSlop={10}>
+              <Text style={styles.eyeBtn}>{showPw ? '🙈' : '👁️'}</Text>
+            </Pressable>
+          </View>
+          {password.length > 0 ? (
+            <View style={styles.pwRow}>
+              <View style={styles.pwTrack}>
+                <View style={[styles.pwFill, { width: pwPct + '%', backgroundColor: pwColor }]} />
+              </View>
+              <Text style={[styles.pwLabel, { color: pwColor }]}>{pwLabel}</Text>
+            </View>
+          ) : null}
 
-<Text style={styles.label}>EMAIL</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            value={email} onChangeText={setEmail}
-            autoCapitalize="none" keyboardType="email-address"
-            placeholder="you@example.com" placeholderTextColor={palette.textDim}
-            style={styles.input} editable={!busy}
-          />
+          <Text style={styles.label}>CONFIRM PASSWORD</Text>
+          <View style={styles.inputWrap}>
+            <Text style={styles.inputIcon}>🔒</Text>
+            <TextInput
+              value={confirm} onChangeText={setConfirm}
+              secureTextEntry={!showPw} placeholder="type it again"
+              placeholderTextColor={palette.textDim} style={styles.input} editable={!busy}
+            />
+          </View>
+
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <Pressable onPress={handleSubmit} disabled={!formValid || busy}>
+            <LinearGradient
+              colors={(!formValid || busy) ? ['#1E2640', '#1E2640'] : ['#00FF88', '#00C853']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.cta}
+            >
+              {busy ? <ActivityIndicator color="#060B18" /> : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={styles.ctaText}>CREATE ACCOUNT</Text>
+                  <Text style={styles.ctaArrow}>→</Text>
+                </View>
+              )}
+            </LinearGradient>
+          </Pressable>
+
+          <View style={styles.benefits}>
+            <Text style={styles.benefit}>✓  30 free AI scans</Text>
+            <Text style={styles.benefit}>✓  Crop disease detection</Text>
+            <Text style={styles.benefit}>✓  Marketplace + agent tools</Text>
+          </View>
+
+          <Pressable onPress={() => router.replace('/(auth)/login' as any)} style={{ marginTop: 24 }}>
+            <Text style={styles.signup}>
+              Already have an account? <Text style={{ color: palette.neon, fontWeight: '900' }}>Sign in →</Text>
+            </Text>
+          </Pressable>
+
+          <View style={{ height: 60 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <Modal visible={showPicker} animationType="slide" transparent onRequestClose={() => setShowPicker(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalSheet}>
+            <Pressable onPress={() => setShowPicker(false)}>
+              <Text style={styles.modalClose}>CLOSE</Text>
+            </Pressable>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <Text style={styles.modalSub}>{pickerOptions.length} available</Text>
+            <ScrollView>
+              {pickerOptions.map((c: any) => {
+                const on = c.code === country;
+                return (
+                  <Pressable
+                    key={c.code}
+                    onPress={() => { setCountry(c.code); setShowPicker(false); }}
+                    style={[styles.countryRow, on && styles.countryRowOn]}
+                  >
+                    <Text style={styles.countryRowFlag}>{countryFlag(c.code)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.countryRowName, on && { color: palette.neon }]}>{c.name}</Text>
+                      <Text style={styles.countryRowMeta}>{(c.currency || '') + ' · ' + (c.payment_provider || 'paystack')}</Text>
+                    </View>
+                    {on ? <Text style={{ color: palette.neon, fontSize: 18 }}>✓</Text> : null}
+                  </Pressable>
+                );
+              })}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </View>
         </View>
-
-        <Text style={styles.label}>PASSWORD</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            value={password} onChangeText={setPassword}
-            secureTextEntry placeholder="at least 6 characters"
-            placeholderTextColor={palette.textDim} style={styles.input}
-            editable={!busy}
-          />
-        </View>
-
-        <Text style={styles.label}>CONFIRM PASSWORD</Text>
-        <View style={styles.inputWrap}>
-          <TextInput
-            value={confirm} onChangeText={setConfirm}
-            secureTextEntry placeholder="type it again"
-            placeholderTextColor={palette.textDim} style={styles.input}
-            editable={!busy}
-          />
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          onPress={handleSubmit}
-          disabled={busy || !email || !password || !confirm}
-          style={[styles.cta, (busy || !email || !password || !confirm) && { opacity: 0.4 }]}
-        >
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>CREATE ACCOUNT</Text>}
-        </Pressable>
-
-        <Pressable onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 24 }}>
-          <Text style={styles.signup}>Already have an account? Sign in</Text>
-        </Pressable>
-
-        <View style={{ height: 60 }} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
+  root: { flex: 1, backgroundColor: '#060B18' },
   scroll: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40 },
-  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 16 },
-  leaf: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: 8, marginBottom: 20 },
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.neon },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
+  progressDotOn: { width: 24, height: 4, borderRadius: 2, backgroundColor: '#00FF88' },
+  progressDot: { width: 8, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' },
+  progressText: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted, marginLeft: 6 },
+  leaf: {
+    fontSize: 40, fontWeight: '900', color: '#00FF88', letterSpacing: 8, marginBottom: 12,
+    textShadowColor: 'rgba(0,255,136,0.7)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20,
+  },
   title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
   subtitle: { fontSize: 14, color: p.textMuted, marginTop: 6, marginBottom: 24 },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
-  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16, marginBottom: 14 },
-  input: { paddingVertical: 14, color: p.text, fontSize: 15 },
-  error: { color: p.danger, textAlign: 'center', marginVertical: 12, fontSize: 13 },
-  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 8 },
-  ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  googleBtn: { padding: 18, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', marginBottom: 20 },
-  googleInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  googleIcon: { fontSize: 20, fontWeight: '900', color: '#4285F4' },
-  googleText: { fontSize: 14, fontWeight: '900', color: '#1f1f1f', letterSpacing: 0.5 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: p.border },
-  dividerText: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.textMuted },
+  label: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted, marginBottom: 8, marginTop: 8 },
+  countryCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 16, borderRadius: 14, marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5, borderColor: 'rgba(0,255,136,0.25)',
+  },
+  countryName: { fontSize: 15, fontWeight: '700', color: p.text },
+  countryMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, borderRadius: 14, marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  inputIcon: { fontSize: 16 },
+  input: { flex: 1, paddingVertical: 14, color: p.text, fontSize: 15 },
+  eyeBtn: { fontSize: 16, padding: 4 },
+  pwRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, marginTop: -4 },
+  pwTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  pwFill: { height: 4, borderRadius: 2 },
+  pwLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderRadius: 12, marginBottom: 16,
+    backgroundColor: 'rgba(255,59,92,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)',
+  },
+  errorIcon: { fontSize: 16 },
+  errorText: { flex: 1, fontSize: 13, color: '#FF6B8A', fontWeight: '600' },
+  cta: {
+    paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginTop: 12,
+    shadowColor: '#00FF88', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5, shadowRadius: 12, elevation: 6,
+  },
+  ctaText: { fontSize: 15, fontWeight: '900', color: '#060B18', letterSpacing: 1.5 },
+  ctaArrow: { fontSize: 18, color: '#060B18', fontWeight: '900' },
+  benefits: { marginTop: 20, gap: 8 },
+  benefit: { fontSize: 13, color: p.textMuted, fontWeight: '600' },
   signup: { color: p.textMuted, textAlign: 'center', fontSize: 14 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, maxHeight: '88%',
+  },
+  modalClose: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginBottom: 4 },
+  modalSub: { fontSize: 12, color: p.textMuted, marginBottom: 16 },
+  countryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12, marginBottom: 4,
+  },
+  countryRowOn: { backgroundColor: 'rgba(0,255,136,0.1)' },
+  countryRowFlag: { fontSize: 26 },
+  countryRowName: { fontSize: 15, fontWeight: '700', color: p.text },
+  countryRowMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
 });
+

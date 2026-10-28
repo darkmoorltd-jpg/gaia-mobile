@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useRefEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, TextInput, ActivityIndicator,
+  Platform, Alert, TextInput, ActivityIndicator,,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useTheme, spacing, radius } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
@@ -33,6 +36,7 @@ export default function Login() {
   const user = useAuth((s) => s.user);
 
   const [tab, setTab] = useState<Tab>('password');
+  const [showPw, setShowPw] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agentCode, setAgentCode] = useState('');
@@ -264,230 +268,373 @@ export default function Login() {
     })();
   }, []);
 
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 2400, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0, duration: 2400, useNativeDriver: false }),
+      ])
+    ).start();
+  }, [glowAnim]);
+  const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.35] });
+  const glowScale   = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] });
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.leaf}>GAIA</Text>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue protecting your farm</Text>
+    <View style={styles.root}>
+      <LinearGradient colors={['#060B18', '#0D1527', '#060B18']} style={StyleSheet.absoluteFillObject} />
+      <Animated.View style={[styles.glowHalo, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
 
-        <View style={styles.tabs}>
-          {([
-            { k: 'password', label: 'EMAIL' },
-            { k: 'google', label: 'GOOGLE' },
-            { k: 'agent', label: 'AGENT' },
-          ] as { k: Tab; label: string }[]).map((t) => (
-            <Pressable
-              key={t.k}
-              onPress={() => { setTab(t.k); setError(''); }}
-              style={[styles.tab, tab === t.k && styles.tabOn]}
-            >
-              <Text style={[styles.tabText, tab === t.k && styles.tabTextOn]}>{t.label}</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+
+          <View style={styles.topBar}>
+            <Pressable onPress={() => setShowPicker(true)} style={styles.countryPill}>
+              <Text style={styles.countryPillFlag}>{country ? countryFlag(country) : '🌍'}</Text>
+              <Text style={styles.countryPillText}>{country || 'Global'}</Text>
+              <Text style={styles.countryPillChev}>▾</Text>
             </Pressable>
-          ))}
-        </View>
-
-        {tab === 'password' ? (
-          <>
-            
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
-            <View style={{ flex: 1 }}>
-              <Dropdown
-                label="COUNTRY"
-                value={localCountry}
-                options={(() => {
-                  const merged: Record<string, { code: string; name: string }> = {};
-                  (countriesList || []).forEach((c: any) => { merged[c.code] = { code: c.code, name: c.name }; });
-                  if (typeof ALL_COUNTRIES !== 'undefined' && Array.isArray(ALL_COUNTRIES)) {
-                    ALL_COUNTRIES.forEach((c: any) => { if (!merged[c.code]) merged[c.code] = { code: c.code, name: c.name }; });
-                  }
-                  return Object.values(merged)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((c) => ({ label: countryFlag(c.code) + ' ' + c.name, value: c.code }));
-                })()}
-                onChange={changeCountry}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Dropdown label="LANGUAGE" value={pickLanguage} options={[{ label: 'English', value: 'en' }, { label: 'Fran\u00e7ais', value: 'fr' }, { label: 'Portugu\u00eas', value: 'pt' }, { label: 'Espa\u00f1ol', value: 'es' }, { label: 'Deutsch', value: 'de' }, { label: 'Italiano', value: 'it' }, { label: 'Nederlands', value: 'nl' }, { label: 'Kiswahili', value: 'sw' }, { label: 'Hausa', value: 'ha' }, { label: 'Yor\u00f9b\u00e1', value: 'yo' }, { label: 'Igbo', value: 'ig' }, { label: 'Naij\u00e1', value: 'pcm' }]} onChange={(v) => { useLocale.getState().setLanguage(v); }} />
-            </View>
           </View>
-<Text style={styles.label}>EMAIL OR PHONE</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={email} onChangeText={setEmail}
-                autoCapitalize="none" keyboardType="email-address"
-                placeholder="you@example.com or 08031234567" placeholderTextColor={palette.textDim}
-                style={styles.input}
-              />
-            </View>
-            <Text style={styles.label}>PASSWORD</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={password} onChangeText={setPassword}
-                secureTextEntry placeholder={t('password')}
-                placeholderTextColor={palette.textDim} style={styles.input}
-              />
-            </View>
-            <Pressable
-              onPress={() => router.push('/(auth)/forgot-password')}
-              style={{ alignSelf: 'flex-end', marginTop: -6, marginBottom: 12 }}
-            >
-              <Text style={styles.forgot}>Forgot password?</Text>
-            </Pressable>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <Pressable
-              onPress={handleLogin}
-              disabled={busy || !email || !password}
-              style={[styles.cta, (busy || !email || !password) && { opacity: 0.4 }]}
-            >
-              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>{t('signin_button')}</Text>}
-            </Pressable>
-            {bioAvailable && bioEnabled ? (
-              <Pressable onPress={handleBiometricLogin} style={styles.bioBtn}>
-                <Text style={styles.bioText}>USE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
-              </Pressable>
-            ) : null}
-            {bioAvailable && !bioEnabled && user ? (
-              <Pressable onPress={offerBiometricSetup} style={styles.bioBtnOutline}>
-                <Text style={styles.bioTextOutline}>ENABLE {(bioType || 'BIOMETRIC').toUpperCase()}</Text>
-              </Pressable>
-            ) : null}
-          </>
-        ) : null}
 
-        {tab === 'google' ? (
-          <>
-            <Text style={styles.googleIntro}>
-              Use your Google account to sign in instantly. No password to remember.
-            </Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <Pressable onPress={handleGoogle} disabled={busy} style={[styles.googleBtn, busy && { opacity: 0.6 }]}>
-              {busy ? <ActivityIndicator color="#4285F4" /> : (
-                <View style={styles.googleInner}>
-                  <Text style={styles.googleIcon}>G</Text>
-                  <Text style={styles.googleText}>CONTINUE WITH GOOGLE</Text>
+          <View style={styles.hero}>
+            <Text style={styles.brand}>GAIA</Text>
+            <Text style={styles.tagline}>Your farm. Diagnosed.</Text>
+            <Text style={styles.taglineSub}>AI agronomist · 152 diseases · 10+ crops</Text>
+          </View>
+
+          <View style={styles.tabBar}>
+            {(['password', 'agent', 'google'] as Tab[]).map((tk) => (
+              <Pressable
+                key={tk}
+                onPress={() => { try { Haptics.selectionAsync(); } catch {}; setTab(tk); setError(''); }}
+                style={[styles.tabBtn, tab === tk && styles.tabBtnOn]}
+              >
+                <Text style={[styles.tabText, tab === tk && styles.tabTextOn]}>
+                  {tk === 'password' ? 'Password' : tk === 'agent' ? 'Agent' : 'Google'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {tab === 'password' && (
+            <View style={styles.form}>
+              <Text style={styles.label}>EMAIL · PHONE · USERNAME</Text>
+              <View style={styles.inputWrap}>
+                <Text style={styles.inputIcon}>📧</Text>
+                <TextInput
+                  value={email} onChangeText={setEmail}
+                  placeholder="you@example.com" placeholderTextColor={palette.textDim}
+                  style={styles.input} autoCapitalize="none" keyboardType="email-address"
+                  editable={!busy}
+                />
+              </View>
+
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.inputWrap}>
+                <Text style={styles.inputIcon}>🔒</Text>
+                <TextInput
+                  value={password} onChangeText={setPassword}
+                  placeholder="••••••••" placeholderTextColor={palette.textDim}
+                  style={styles.input} secureTextEntry={!showPw} editable={!busy}
+                />
+                <Pressable onPress={() => setShowPw(!showPw)} hitSlop={10}>
+                  <Text style={styles.eyeBtn}>{showPw ? '🙈' : '👁️'}</Text>
+                </Pressable>
+              </View>
+
+              <Pressable onPress={() => router.push('/(auth)/forgot-password' as any)} style={styles.forgotBtn}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Text style={styles.errorText}>{error}</Text>
                 </View>
-              )}
-            </Pressable>
-            <Text style={styles.googleFoot}>
-              You will be redirected to Google. Sign in and you'll return to GAIA automatically.
+              ) : null}
+
+              <Pressable onPress={handleLogin} disabled={busy || !email || !password}>
+                <LinearGradient
+                  colors={(busy || !email || !password) ? ['#1E2640', '#1E2640'] : ['#00FF88', '#00C853']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.cta}
+                >
+                  {busy ? <ActivityIndicator color="#060B18" /> : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={styles.ctaText}>SIGN IN</Text>
+                      <Text style={styles.ctaArrow}>→</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </View>
+          )}
+
+          {tab === 'agent' && (
+            <View style={styles.form}>
+              <View style={styles.agentBadge}>
+                <Text style={styles.agentBadgeIcon}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.agentBadgeTitle}>EXTENSION AGENT</Text>
+                  <Text style={styles.agentBadgeSub}>Register farmers · Earn ₦500 per verified</Text>
+                </View>
+              </View>
+
+              <Text style={styles.label}>AGENT EMAIL</Text>
+              <View style={styles.inputWrap}>
+                <Text style={styles.inputIcon}>📧</Text>
+                <TextInput
+                  value={email} onChangeText={setEmail}
+                  placeholder="agent@example.com" placeholderTextColor={palette.textDim}
+                  style={styles.input} autoCapitalize="none" keyboardType="email-address" editable={!busy}
+                />
+              </View>
+
+              <Text style={styles.label}>AGENT CODE</Text>
+              <View style={styles.inputWrap}>
+                <Text style={styles.inputIcon}>🔑</Text>
+                <TextInput
+                  value={agentCode} onChangeText={(v) => setAgentCode(v.toUpperCase())}
+                  placeholder="AGT-0001" placeholderTextColor={palette.textDim}
+                  style={[styles.input, { letterSpacing: 3, fontWeight: '700' }]}
+                  autoCapitalize="characters" editable={!busy}
+                />
+              </View>
+
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.inputWrap}>
+                <Text style={styles.inputIcon}>🔒</Text>
+                <TextInput
+                  value={password} onChangeText={setPassword}
+                  placeholder="••••••••" placeholderTextColor={palette.textDim}
+                  style={styles.input} secureTextEntry={!showPw} editable={!busy}
+                />
+                <Pressable onPress={() => setShowPw(!showPw)} hitSlop={10}>
+                  <Text style={styles.eyeBtn}>{showPw ? '🙈' : '👁️'}</Text>
+                </Pressable>
+              </View>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <Pressable onPress={handleAgent} disabled={busy || !email || !agentCode || !password}>
+                <LinearGradient
+                  colors={(busy || !email || !agentCode || !password) ? ['#1E2640', '#1E2640'] : ['#FFD700', '#FFA000']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.cta}
+                >
+                  {busy ? <ActivityIndicator color="#060B18" /> : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={[styles.ctaText, { color: '#060B18' }]}>SIGN IN AS AGENT</Text>
+                      <Text style={[styles.ctaArrow, { color: '#060B18' }]}>→</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              </Pressable>
+
+              <Pressable onPress={() => router.push('/agent-apply' as any)} style={styles.applyLink}>
+                <Text style={styles.applyLinkText}>
+                  Not an agent yet? <Text style={{ fontWeight: '900', color: '#FFD700' }}>Apply here →</Text>
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {tab === 'google' && (
+            <View style={styles.form}>
+              <Text style={styles.googleHeading}>Continue with Google</Text>
+              <Text style={styles.googleSub}>Skip the forms. Get 30 free scans instantly.</Text>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorIcon}>⚠️</Text>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <Pressable onPress={handleGoogle} style={styles.googleBtn} disabled={busy}>
+                <View style={styles.googleInner}>
+                  <Text style={styles.googleG}>G</Text>
+                  {busy ? <ActivityIndicator color="#1F1F1F" /> : <Text style={styles.googleBtnText}>Continue with Google</Text>}
+                </View>
+              </Pressable>
+            </View>
+          )}
+
+          <View style={styles.bottomCta}>
+            <Text style={styles.bottomText}>
+              New to GAIA?{' '}
+              <Text style={styles.bottomLink} onPress={() => router.push('/(auth)/signup' as any)}>
+                Create account →
+              </Text>
             </Text>
-          </>
-        ) : null}
+          </View>
 
-        {tab === 'agent' ? (
-          <>
-            <Text style={styles.googleIntro}>
-              Extension agents and support staff use their assigned agent code to sign in.
-            </Text>
-            <Text style={styles.label}>AGENT EMAIL</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={email} onChangeText={setEmail}
-                autoCapitalize="none" keyboardType="email-address"
-                placeholder="agent@example.com" placeholderTextColor={palette.textDim}
-                style={styles.input}
-              />
-            </View>
-            <Text style={styles.label}>AGENT CODE</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={agentCode} onChangeText={(v) => setAgentCode(v.toUpperCase())}
-                autoCapitalize="characters"
-                placeholder="GAIA-AG-0001" placeholderTextColor={palette.textDim}
-                style={styles.input}
-              />
-            </View>
-            <Text style={styles.label}>PASSWORD</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                value={password} onChangeText={setPassword}
-                secureTextEntry placeholder="password"
-                placeholderTextColor={palette.textDim} style={styles.input}
-              />
-            </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            <Pressable
-              onPress={handleAgent}
-              disabled={busy || !email || !agentCode || !password}
-              style={[styles.cta, (busy || !email || !agentCode || !password) && { opacity: 0.4 }]}
-            >
-              {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>SIGN IN AS AGENT</Text>}
+          <View style={styles.trustRow}>
+            <Text style={styles.trustText}>🔒 NDPR</Text>
+            <Text style={styles.trustDot}>·</Text>
+            <Text style={styles.trustText}>End-to-end</Text>
+            <Text style={styles.trustDot}>·</Text>
+            <Text style={styles.trustText}>30 free scans</Text>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <Modal visible={showPicker} animationType="slide" transparent onRequestClose={() => setShowPicker(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalSheet}>
+            <Pressable onPress={() => setShowPicker(false)}>
+              <Text style={styles.modalClose}>CLOSE</Text>
             </Pressable>
-
-        {/* DEBUG-BAR */}
-        <View style={{ marginTop: 20, padding: 10, backgroundColor: '#111', borderRadius: 8 }}>
-          <Text style={{ color: '#0f0', fontSize: 9, fontFamily: 'monospace' }}>
-            DEBUG ctx={loginContext || '-'} role={role || '-'} user={user?.email?.slice(0,20) || 'none'}
-          </Text>
+            <Text style={styles.modalTitle}>Select Country</Text>
+            <Text style={styles.modalSub}>{ALL_COUNTRIES.length} available</Text>
+            <ScrollView>
+              {ALL_COUNTRIES.slice().sort((a: any, b: any) => a.name.localeCompare(b.name)).map((c: any) => {
+                const on = c.code === country;
+                return (
+                  <Pressable
+                    key={c.code}
+                    onPress={() => { setCountry(c.code); try { changeCountry(c.code); } catch {} setShowPicker(false); }}
+                    style={[styles.countryRow, on && styles.countryRowOn]}
+                  >
+                    <Text style={styles.countryRowFlag}>{countryFlag(c.code)}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.countryRowName, on && { color: palette.neon }]}>{c.name}</Text>
+                      <Text style={styles.countryRowMeta}>{(c.currency || '') + ' · ' + (c.payment_provider || 'paystack')}</Text>
+                    </View>
+                    {on ? <Text style={{ color: palette.neon, fontSize: 18 }}>✓</Text> : null}
+                  </Pressable>
+                );
+              })}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </View>
         </View>
-          </>
-        ) : null}
-
-        <Pressable onPress={() => router.push('/agent-apply' as any)} style={{ marginTop: 12 }}>
-          <Text style={[styles.signup, { color: palette.neon }]}>Want to become an agent? Apply here</Text>
-        </Pressable>
-
-        <Pressable onPress={() => router.push('/(auth)/signup')} style={{ marginTop: 24 }}>
-          <Text style={styles.signup}>Don't have an account? Sign up</Text>
-        </Pressable>
-        <View style={{ height: 60 }} />
-              <Pressable onPress={() => router.push('/agent-apply' as any)} style={{ marginTop: 24, paddingVertical: 12, alignItems: 'center' }}>
-          <Text style={[styles.signup, { color: palette.neon, fontWeight: '700' }]}>
-            Want to become a GAIA agent? Apply here
-          </Text>
-        </Pressable>
-
-      
-        {/* VERSION_STAMP_VISIBLE */}
-        <View style={{ alignItems: 'center', marginTop: 20 }}>
-          <Text style={{ fontSize: 9, color: '#555', fontFamily: 'monospace' }}>
-            build-{__buildHash} · country={__countryDebug}
-          </Text>
-        </View>
-
-        {/* DEBUG_COUNTRY_UI */}
-        <View style={{ alignItems: 'center', marginTop: 12 }}>
-          <Text style={{ fontSize: 11, color: '#888', fontFamily: 'monospace' }}>
-            Country: {localCountry} · Store: {pickCountry || '-'}
-          </Text>
-        </View>
-</ScrollView>
-    </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { paddingHorizontal: 24, paddingTop: 80, paddingBottom: 40 },
-  leaf: { fontSize: 40, fontWeight: '900', color: p.neon, letterSpacing: 8, marginBottom: 20 },
-  title: { fontSize: 30, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  subtitle: { fontSize: 14, color: p.textMuted, marginTop: 6 },
-  tabs: { flexDirection: 'row', marginTop: 28, marginBottom: 24, backgroundColor: p.surface, borderRadius: 12, padding: 4, borderWidth: 1, borderColor: p.border },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
-  tabOn: { backgroundColor: 'rgba(0,255,136,0.12)' },
-  tabText: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: p.textMuted },
-  tabTextOn: { color: p.neon },
-  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
-  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 14, paddingHorizontal: 16, marginBottom: 14 },
-  input: { paddingVertical: 14, color: p.text, fontSize: 15 },
-  error: { color: p.danger, textAlign: 'center', marginVertical: 12, fontSize: 13 },
-  forgot: { fontSize: 12, color: p.neon, fontWeight: '700' },
-  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 8 },
-  ctaText: { fontSize: 15, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  googleIntro: { fontSize: 13, color: p.textMuted, lineHeight: 20, marginBottom: 20 },
-  googleBtn: { padding: 18, borderRadius: 14, backgroundColor: '#ffffff', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)' },
+  root: { flex: 1, backgroundColor: '#060B18' },
+  glowHalo: {
+    position: 'absolute', top: -60, left: '50%',
+    width: 260, height: 260, borderRadius: 130, marginLeft: -130,
+    backgroundColor: '#00FF88',
+    shadowColor: '#00FF88',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1, shadowRadius: 100, elevation: 20,
+  },
+  scroll: { paddingHorizontal: 22, paddingTop: 40, paddingBottom: 60 },
+  topBar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
+  countryPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1, borderColor: 'rgba(0,255,136,0.2)',
+  },
+  countryPillFlag: { fontSize: 16 },
+  countryPillText: { fontSize: 12, fontWeight: '700', color: p.text },
+  countryPillChev: { fontSize: 10, color: p.neon },
+  hero: { alignItems: 'center', marginTop: 24, marginBottom: 40 },
+  brand: {
+    fontSize: 72, fontWeight: '900', color: '#00FF88', letterSpacing: 6,
+    textShadowColor: 'rgba(0,255,136,0.9)',
+    textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 30,
+    marginBottom: 8,
+  },
+  tagline: { fontSize: 18, fontWeight: '700', color: p.text },
+  taglineSub: { fontSize: 12, color: p.textMuted, marginTop: 8, letterSpacing: 0.4 },
+  tabBar: {
+    flexDirection: 'row', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 4,
+    marginBottom: 24,
+  },
+  tabBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  tabBtnOn: { backgroundColor: 'rgba(0,255,136,0.12)' },
+  tabText: { fontSize: 12, fontWeight: '700', color: p.textDim },
+  tabTextOn: { color: p.neon, fontWeight: '900' },
+  form: {},
+  label: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted, marginBottom: 8, marginTop: 4 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 16,
+  },
+  inputIcon: { fontSize: 16 },
+  input: { flex: 1, paddingVertical: 14, color: p.text, fontSize: 15 },
+  eyeBtn: { fontSize: 16, padding: 4 },
+  forgotBtn: { alignSelf: 'flex-end', marginBottom: 20, paddingVertical: 4 },
+  forgotText: { fontSize: 13, color: p.neon, fontWeight: '600' },
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 12, borderRadius: 12,
+    backgroundColor: 'rgba(255,59,92,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)',
+    marginBottom: 16,
+  },
+  errorIcon: { fontSize: 16 },
+  errorText: { flex: 1, fontSize: 13, color: '#FF6B8A', fontWeight: '600' },
+  cta: {
+    paddingVertical: 18, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginTop: 4,
+    shadowColor: '#00FF88', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5, shadowRadius: 12, elevation: 6,
+  },
+  ctaText: { fontSize: 15, fontWeight: '900', color: '#060B18', letterSpacing: 1.5 },
+  ctaArrow: { fontSize: 18, color: '#060B18', fontWeight: '900' },
+  agentBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 14, borderRadius: 14,
+    backgroundColor: 'rgba(255,215,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)',
+    marginBottom: 20,
+  },
+  agentBadgeIcon: { fontSize: 28 },
+  agentBadgeTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#FFD700' },
+  agentBadgeSub: { fontSize: 12, color: p.textMuted, marginTop: 2 },
+  applyLink: { alignItems: 'center', marginTop: 24, paddingVertical: 10 },
+  applyLinkText: { fontSize: 13, color: p.textMuted },
+  googleHeading: { fontSize: 22, fontWeight: '900', color: p.text, textAlign: 'center', marginBottom: 6 },
+  googleSub: { fontSize: 13, color: p.textMuted, textAlign: 'center', marginBottom: 24 },
+  googleBtn: {
+    backgroundColor: '#fff', paddingVertical: 16, borderRadius: 14, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
+  },
   googleInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  googleIcon: { fontSize: 20, fontWeight: '900', color: '#4285F4' },
-  googleText: { fontSize: 14, fontWeight: '900', color: '#1f1f1f', letterSpacing: 0.5 },
-  googleFoot: { fontSize: 11, color: p.textMuted, textAlign: 'center', marginTop: 14, lineHeight: 16 },
-  bioBtn: { marginTop: 12, padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.borderHi, alignItems: 'center' },
-  bioText: { color: p.neon, fontWeight: '900', letterSpacing: 1 },
-  bioBtnOutline: { marginTop: 12, padding: 16, borderRadius: 14, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
-  bioTextOutline: { color: p.text, fontWeight: '700', letterSpacing: 1 },
-  signup: { color: p.textMuted, textAlign: 'center', fontSize: 14 },
+  googleG: { fontSize: 22, fontWeight: '900', color: '#4285F4' },
+  googleBtnText: { fontSize: 14, fontWeight: '800', color: '#1F1F1F' },
+  bottomCta: { alignItems: 'center', marginTop: 32, marginBottom: 12 },
+  bottomText: { fontSize: 14, color: p.textMuted },
+  bottomLink: { color: p.neon, fontWeight: '900' },
+  trustRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
+  trustText: { fontSize: 10, color: p.textDim },
+  trustDot: { fontSize: 10, color: p.textDim },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, maxHeight: '88%',
+  },
+  modalClose: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginBottom: 4 },
+  modalSub: { fontSize: 12, color: p.textMuted, marginBottom: 16 },
+  countryRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 14, paddingHorizontal: 14,
+    borderRadius: 12, marginBottom: 4,
+  },
+  countryRowOn: { backgroundColor: 'rgba(0,255,136,0.1)' },
+  countryRowFlag: { fontSize: 26 },
+  countryRowName: { fontSize: 15, fontWeight: '700', color: p.text },
+  countryRowMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
 });
+
