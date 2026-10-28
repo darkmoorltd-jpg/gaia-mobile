@@ -31,6 +31,8 @@ export default function ProviderLayout() {
         tabBarIcon: ({ focused, color }) => <TabIcon emoji="P" focused={focused} color={color} /> }} />
       <Tabs.Screen name="orders" options={{ title: 'ORDERS',
         tabBarIcon: ({ focused, color }) => <TabIcon emoji="O" focused={focused} color={color} /> }} />
+      <Tabs.Screen name="wallet" options={{ title: 'WALLET',
+        tabBarIcon: ({ focused, color }) => <TabIcon emoji="W" focused={focused} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'BUSINESS',
         tabBarIcon: ({ focused, color }) => <TabIcon emoji="B" focused={focused} color={color} /> }} />
     </Tabs>

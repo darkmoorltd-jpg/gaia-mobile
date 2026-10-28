@@ -214,6 +214,7 @@ function RootNavigator() {
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
       <Stack.Screen name="admin-input-providers" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-provider-payouts" options={{ headerShown: false }} />
       <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
       <Stack.Screen name="agent-leaderboard" options={{ headerShown: false }} />

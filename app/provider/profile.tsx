@@ -67,6 +67,9 @@ export default function ProviderProfile() {
           </>
         )}
 
+        <Pressable onPress={() => router.push('/provider/wallet' as any)} style={[styles.logout, { borderColor: '#b388ff', marginTop: 20 }]}>
+          <Text style={[styles.logoutText, { color: '#b388ff' }]}>VIEW WALLET →</Text>
+        </Pressable>
         <Pressable onPress={logout} style={styles.logout}>
           <Text style={styles.logoutText}>SIGN OUT</Text>
         </Pressable>
