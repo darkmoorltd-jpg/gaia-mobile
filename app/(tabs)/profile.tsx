@@ -15,6 +15,7 @@ import { ALL_COUNTRIES } from '../../src/data/countries';
 import { countryFlag } from '../../src/store/locale';
 import { FarmScoreCard } from '../../src/components/ScanExtras';
 import { supabase } from '../../src/api/supabase';
+import LocationCascade from '../../src/components/LocationCascade';
 import { useTranslation } from 'react-i18next';
 import { useLocale } from '../../src/store/locale';
 
@@ -707,10 +708,20 @@ export default function Profile() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>ADDRESS</Text>
-          <Field styles={styles} palette={palette} label='Country' field='country' f={f} set={set} edit={editMode} />
-          <Picker styles={styles} palette={palette} label='State' field='state' options={['', ...NIGERIAN_STATES]} f={f} set={set} edit={editMode} />
-          <Field styles={styles} palette={palette} label='LGA' field='lga' f={f} set={set} edit={editMode} />
-          <Field styles={styles} palette={palette} label='City / Town' field='city' f={f} set={set} edit={editMode} />
+          <LocationCascade
+                countryCode={f.country_code || f.country || 'NG'}
+                countryLocked={true}
+                primary={f.state || ''}
+                secondary={f.lga || ''}
+                city={f.city || ''}
+                showCity={true}
+                showWard={false}
+                onChange={(u) => {
+                  if (u.primary !== undefined) set('state', u.primary);
+                  if (u.secondary !== undefined) set('lga', u.secondary);
+                  if (u.city !== undefined) set('city', u.city);
+                }}
+              />
           <Field styles={styles} palette={palette} label='Street address' field='street_address' f={f} set={set} edit={editMode} />
           <Field styles={styles} palette={palette} label='Landmark' field='landmark' f={f} set={set} edit={editMode} />
           <Field styles={styles} palette={palette} label='Postal code' field='postal_code' f={f} set={set} edit={editMode} keyboard='number-pad' />
