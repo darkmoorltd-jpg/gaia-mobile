@@ -76,7 +76,7 @@ export default function AgentWallet() {
   const submitWithdraw = async () => {
     const amt = parseFloat(wdAmount);
     if (!amt || amt < 500) { Alert.alert('Min N500'); return; }
-    > Number(w.balance)) { Alert.alert('Insufficient', 'You only have ' + money(w.balance)); return; }
+    if (amt > Number(w.balance)) { Alert.alert('Insufficient', 'You only have ' + money(w.balance)); return; }
     if (!wdBank || !wdAcct || !wdName) { Alert.alert('Fill all bank details'); return; }
     setWdBusy(true);
     const r = await supabase.rpc('agent_request_withdrawal', {
