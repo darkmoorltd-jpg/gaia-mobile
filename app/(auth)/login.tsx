@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView,
-  Platform, Alert, TextInput, ActivityIndicator,
+  Platform, Alert, TextInput, ActivityIndicator, Modal,
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
