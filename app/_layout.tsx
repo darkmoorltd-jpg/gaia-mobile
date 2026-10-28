@@ -221,6 +221,9 @@ function RootNavigator() {
       <Stack.Screen name="agent" options={{ headerShown: false }} />
       <Stack.Screen name="provider" options={{ headerShown: false }} />
       <Stack.Screen name="input-provider-apply" options={{ headerShown: false }} />
+      <Stack.Screen name="input-orders" options={{ headerShown: false }} />
+      <Stack.Screen name="input-product" options={{ headerShown: false }} />
+      <Stack.Screen name="inputs" options={{ headerShown: false }} />
       <Stack.Screen name="photo-timeline" options={{ headerShown: false }} />
       <Stack.Screen name="alerts" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
