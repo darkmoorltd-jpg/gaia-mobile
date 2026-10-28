@@ -11,6 +11,7 @@ import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { getKycFields } from '../src/data/kyc_requirements';
 import { getPaymentConfig } from '../src/data/payment_config';
+import LocationCascade from '../src/components/LocationCascade';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 
@@ -282,6 +283,10 @@ export default function Verification() {
           <Text style={styles.backText}>BACK</Text>
         </Pressable>
         <Text style={styles.title}>Verify your identity</Text>
+        {/* DBG-COUNTRY */}
+        <Text style={{fontSize: 10, color: "#ff9800", textAlign: "center", marginTop: 4, fontFamily: "monospace"}}>
+          country_code={countryCode} · currency={payment.currency}
+        </Text>
         <Text style={styles.subtitle}>
           Unlock wallet, loans, insurance, and marketplace. {isManual ? 'Manual verification required for your country.' : 'One-time fee applies.'}
         </Text>
@@ -294,9 +299,21 @@ export default function Verification() {
         <Text style={styles.section}>PERSONAL</Text>
         <Input label="FULL NAME *" value={fullName} onChange={setFullName} palette={palette} />
         <Input label="PHONE *" value={phone} onChange={setPhone} keyboard="phone-pad" palette={palette} />
-        <Input label="STATE / REGION *" value={state} onChange={setState} palette={palette} />
-        <Input label="LGA / DISTRICT" value={lga} onChange={setLga} palette={palette} />
-        <Input label="ADDRESS" value={address} onChange={setAddress} palette={palette} />
+        <LocationCascade
+          countryCode={countryCode}
+          countryLocked={false}
+          primary={state}
+          secondary={lga}
+          city={''}
+          showCity={false}
+          showWard={false}
+          debug={false}
+          onChange={(u) => {
+            if (u.primary !== undefined) setState(u.primary);
+            if (u.secondary !== undefined) setLga(u.secondary);
+          }}
+        />
+        <Input label="ADDRESS *" value={address} onChange={setAddress} palette={palette} />
 
         <Text style={styles.section}>IDENTITY ({countryCode})</Text>
         {kycFields.map((field) => (
