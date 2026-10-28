@@ -1,12 +1,30 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { useTheme } from '../theme';
 import Dropdown from './Dropdown';
-import { COUNTRY_BY_CODE, CountryMeta } from '../data/countries_full';
-import { getPrimaryOptions as getLocalPrimary, getSecondaryOptions, hasPrimarySubdivisions } from '../data/subdivisions';
+import { COUNTRY_BY_CODE, COUNTRIES_FULL, CountryMeta } from '../data/countries_full';
+import { getPrimaryOptions as getLocalPrimary, getSecondaryOptions } from '../data/subdivisions';
 import { isoPrimaryOptions } from '../data/iso_subdivisions';
 
-// Combined: local (NG/GH/KE with LGA-level) wins, else global ISO 3166-2
+// Build name→code map once
+const NAME_TO_CODE: Record<string, string> = COUNTRIES_FULL.reduce((acc, c) => {
+  acc[c.name.toLowerCase()] = c.code;
+  return acc;
+}, {} as Record<string, string>);
+
+function normalizeCountryCode(input: string): string {
+  if (!input) return 'NG';
+  const trimmed = input.trim();
+  if (trimmed.length === 2 && /^[A-Za-z]{2}$/.test(trimmed)) {
+    return trimmed.toUpperCase();
+  }
+  const lower = trimmed.toLowerCase();
+  if (NAME_TO_CODE[lower]) return NAME_TO_CODE[lower];
+  const m = trimmed.match(/\b([A-Za-z]{2})\b/);
+  if (m) return m[1].toUpperCase();
+  return 'NG';
+}
+
 function getPrimaryOptions(countryCode: string): string[] {
   const local = getLocalPrimary(countryCode);
   if (local.length > 0) return local;
@@ -19,9 +37,9 @@ function hasCascadeData(countryCode: string): boolean {
 
 interface Props {
   countryCode: string;
-  countryLocked?: boolean;         // true in profile, false in signup
-  primary: string;                 // state / region / province
-  secondary: string;               // LGA / district / constituency
+  countryLocked?: boolean;
+  primary: string;
+  secondary: string;
   city: string;
   ward?: string;
   onChange: (updates: {
@@ -32,6 +50,7 @@ interface Props {
   }) => void;
   showWard?: boolean;
   showCity?: boolean;
+  debug?: boolean;
 }
 
 export default function LocationCascade({
@@ -44,23 +63,31 @@ export default function LocationCascade({
   onChange,
   showWard = false,
   showCity = true,
+  debug = true,
 }: Props) {
   const { palette } = useTheme();
   const s = createStyles(palette);
 
-  const meta: CountryMeta | undefined = COUNTRY_BY_CODE[countryCode];
-  const countryName = meta?.name || countryCode || 'Not selected';
+  const code = normalizeCountryCode(countryCode);
+  const meta: CountryMeta | undefined = COUNTRY_BY_CODE[code];
+  const countryName = meta?.name || code || 'Not selected';
   const primaryLabel = meta?.primaryLabel || 'State / Region';
   const secondaryLabel = meta?.secondaryLabel || 'LGA / District';
 
-  const primaryOptions = getPrimaryOptions(countryCode);
-  const secondaryOptions = primary ? getSecondaryOptions(countryCode, primary) : [];
-  const hasData = hasCascadeData(countryCode);
+  const primaryOptions = getPrimaryOptions(code);
+  const secondaryOptions = primary ? getSecondaryOptions(code, primary) : [];
+  const hasData = hasCascadeData(code);
   const hasSecondaryData = secondaryOptions.length > 0;
 
   return (
     <View>
-      {/* Country — locked pill in profile mode, dropdown in signup mode */}
+      {debug ? (
+        <View style={s.debugBox}>
+          <Text style={s.debugText}>code={code} hasData={String(hasData)} prim={primaryOptions.length} sec={secondaryOptions.length}</Text>
+          <Text style={s.debugText}>input="{countryCode || '(empty)'}" primary="{primary || '(empty)'}"</Text>
+        </View>
+      ) : null}
+
       {countryLocked ? (
         <View>
           <Text style={s.label}>COUNTRY</Text>
@@ -71,14 +98,13 @@ export default function LocationCascade({
         </View>
       ) : null}
 
-      {/* Primary subdivision */}
       {hasData ? (
         <Dropdown
           label={primaryLabel.toUpperCase()}
           value={primary}
           options={primaryOptions}
           onChange={(v) => onChange({ primary: v, secondary: '' })}
-          placeholder={`Select ${primaryLabel.toLowerCase()}`}
+          placeholder={'Select ' + primaryLabel.toLowerCase()}
         />
       ) : (
         <View>
@@ -86,21 +112,20 @@ export default function LocationCascade({
           <TextInput
             value={primary}
             onChangeText={(v) => onChange({ primary: v })}
-            placeholder={`Enter ${primaryLabel.toLowerCase()}`}
+            placeholder={'Enter ' + primaryLabel.toLowerCase()}
             placeholderTextColor={palette.textDim}
             style={s.input}
           />
         </View>
       )}
 
-      {/* Secondary subdivision */}
       {hasSecondaryData ? (
         <Dropdown
           label={secondaryLabel.toUpperCase()}
           value={secondary}
           options={secondaryOptions}
           onChange={(v) => onChange({ secondary: v })}
-          placeholder={primary ? `Select ${secondaryLabel.toLowerCase()}` : `Pick ${primaryLabel.toLowerCase()} first`}
+          placeholder={primary ? 'Select ' + secondaryLabel.toLowerCase() : 'Pick ' + primaryLabel.toLowerCase() + ' first'}
         />
       ) : (
         <View>
@@ -108,14 +133,13 @@ export default function LocationCascade({
           <TextInput
             value={secondary}
             onChangeText={(v) => onChange({ secondary: v })}
-            placeholder={`Enter ${secondaryLabel.toLowerCase()}`}
+            placeholder={'Enter ' + secondaryLabel.toLowerCase()}
             placeholderTextColor={palette.textDim}
             style={s.input}
           />
         </View>
       )}
 
-      {/* City */}
       {showCity ? (
         <View>
           <Text style={s.label}>CITY / TOWN</Text>
@@ -129,7 +153,6 @@ export default function LocationCascade({
         </View>
       ) : null}
 
-      {/* Ward */}
       {showWard ? (
         <View>
           <Text style={s.label}>WARD</Text>
@@ -156,4 +179,9 @@ const createStyles = (p: any) => StyleSheet.create({
   },
   lockedText: { fontSize: 15, fontWeight: '700', color: p.text },
   lockedNote: { fontSize: 10, color: p.textDim, fontStyle: 'italic' },
+  debugBox: {
+    padding: 8, borderRadius: 6, backgroundColor: 'rgba(255,59,92,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)', marginBottom: 8,
+  },
+  debugText: { fontSize: 9, color: '#ff3b5c', fontFamily: 'monospace', lineHeight: 12 },
 });
