@@ -38,6 +38,11 @@ interface Section { title: string; icon: string; items: MenuItem[]; }
 
 function getSections(t: any): Section[] {
   return [
+  { title: 'GAIA INPUTS', icon: 'GI', items: [
+    { label: 'Become Input Provider', route: '/input-provider-apply' },
+    { label: 'Buy Farm Inputs',       route: '/inputs' },
+    { label: 'My Input Orders',       route: '/input-orders' },
+  ]},
   { title: t('profile.sections.scansAi'), icon: 'AI', items: [
     { label: t('profile.items.voiceAgronomist'), route: '/voice', flag: 'voice' },
     { label: t('profile.items.videoScan'), route: '/video-scan', flag: 'video' },
