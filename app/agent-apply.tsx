@@ -7,11 +7,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
+import Dropdown from '../src/components/Dropdown';
+import { NIGERIA_STATES_WITH_LGAS, NIGERIA_STATES, lgasForState } from '../src/data/nigeria_lgas';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const FEE_KOBO = 300000;
 
-const STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
+const STATES = NIGERIA_STATES;
 
 function newRef() {
   return 'GAIA_AGENT_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -204,16 +206,19 @@ export default function AgentApply() {
         <TextInput value={homeAddress} onChangeText={setHomeAddress} multiline style={[styles.input, { minHeight: 70 }]} placeholderTextColor={palette.textDim} />
 
         <Text style={styles.sectionLabel}>LOCATION</Text>
-        <Text style={styles.label}>STATE</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {STATES.map((s) => (
-            <Pressable key={s} onPress={() => setState(s)} style={[styles.chip, state === s && styles.chipOn]}>
-              <Text style={[styles.chipText, state === s && styles.chipTextOn]}>{s}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <Text style={styles.label}>LGA</Text>
-        <TextInput value={lga} onChangeText={setLga} placeholderTextColor={palette.textDim} style={styles.input} />
+        <Dropdown
+          label="STATE"
+          value={state}
+          options={STATES}
+          onChange={(v) => { setState(v); setLga(''); }}
+        />
+        <Dropdown
+          label="LGA"
+          value={lga}
+          options={lgasForState(state)}
+          onChange={setLga}
+          placeholder={state ? `Select LGA in ${state}` : 'Pick a state first'}
+        />
         <Text style={styles.label}>ZONE</Text>
         <TextInput value={zone} onChangeText={setZone} placeholder="Kaduna North" placeholderTextColor={palette.textDim} style={styles.input} />
         <Text style={styles.label}>ORGANIZATION</Text>
