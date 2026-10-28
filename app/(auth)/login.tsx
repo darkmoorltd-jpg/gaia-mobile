@@ -296,7 +296,7 @@ export default function Login() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#060B18', '#0D1527', '#060B18']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#ECFDF5', '#D1FAE5', '#ECFDF5']} style={StyleSheet.absoluteFillObject} />
       <Animated.View style={[styles.glowHalo, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -369,7 +369,7 @@ export default function Login() {
 
               <Pressable onPress={handleLogin} disabled={busy || !email || !password}>
                 <LinearGradient
-                  colors={(busy || !email || !password) ? ['#1E2640', '#1E2640'] : ['#00FF88', '#00C853']}
+                  colors={(busy || !email || !password) ? ['#E2E8F0', '#E2E8F0'] : ['#10B981', '#059669']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={styles.cta}
                 >
@@ -437,7 +437,7 @@ export default function Login() {
 
               <Pressable onPress={handleAgent} disabled={busy || !email || !agentCode || !password}>
                 <LinearGradient
-                  colors={(busy || !email || !agentCode || !password) ? ['#1E2640', '#1E2640'] : ['#FFD700', '#FFA000']}
+                  colors={(busy || !email || !agentCode || !password) ? ['#E2E8F0', '#E2E8F0'] : ['#FFD700', '#FFA000']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={styles.cta}
                 >
@@ -536,119 +536,126 @@ export default function Login() {
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#060B18' },
+  root: { flex: 1, backgroundColor: '#ECFDF5' },
   glowHalo: {
     position: 'absolute', top: -60, left: '50%',
     width: 260, height: 260, borderRadius: 130, marginLeft: -130,
-    backgroundColor: '#00FF88',
-    shadowColor: '#00FF88',
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1, shadowRadius: 100, elevation: 20,
+    shadowOpacity: 0.5, shadowRadius: 80, elevation: 10,
   },
   scroll: { paddingHorizontal: 22, paddingTop: 40, paddingBottom: 60 },
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
   countryPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(0,255,136,0.2)',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
   countryPillFlag: { fontSize: 16 },
-  countryPillText: { fontSize: 12, fontWeight: '700', color: p.text },
-  countryPillChev: { fontSize: 10, color: p.neon },
+  countryPillText: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
+  countryPillChev: { fontSize: 10, color: '#10B981' },
   hero: { alignItems: 'center', marginTop: 24, marginBottom: 40 },
   brand: {
-    fontSize: 72, fontWeight: '900', color: '#00FF88', letterSpacing: 6,
-    textShadowColor: 'rgba(0,255,136,0.9)',
-    textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 30,
+    fontSize: 72, fontWeight: '900', color: '#10B981', letterSpacing: 6,
+    textShadowColor: 'rgba(16,185,129,0.35)',
+    textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20,
     marginBottom: 8,
   },
-  tagline: { fontSize: 18, fontWeight: '700', color: p.text },
-  taglineSub: { fontSize: 12, color: p.textMuted, marginTop: 8, letterSpacing: 0.4 },
+  tagline: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  taglineSub: { fontSize: 12, color: '#64748B', marginTop: 8, letterSpacing: 0.4 },
   tabBar: {
     flexDirection: 'row', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 4,
+    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 4,
+    borderWidth: 1, borderColor: 'rgba(16,185,129,0.15)',
     marginBottom: 24,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   tabBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
-  tabBtnOn: { backgroundColor: 'rgba(0,255,136,0.12)' },
-  tabText: { fontSize: 12, fontWeight: '700', color: p.textDim },
-  tabTextOn: { color: p.neon, fontWeight: '900' },
+  tabBtnOn: { backgroundColor: 'rgba(16,185,129,0.12)' },
+  tabText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  tabTextOn: { color: '#10B981', fontWeight: '900' },
   form: {},
-  label: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted, marginBottom: 8, marginTop: 4 },
+  label: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: '#64748B', marginBottom: 8, marginTop: 4 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 14, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.08)',
     marginBottom: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
   },
   inputIcon: { fontSize: 16 },
-  input: { flex: 1, paddingVertical: 14, color: p.text, fontSize: 15 },
+  input: { flex: 1, paddingVertical: 14, color: '#0F172A', fontSize: 15 },
   eyeBtn: { fontSize: 16, padding: 4 },
   forgotBtn: { alignSelf: 'flex-end', marginBottom: 20, paddingVertical: 4 },
-  forgotText: { fontSize: 13, color: p.neon, fontWeight: '600' },
+  forgotText: { fontSize: 13, color: '#10B981', fontWeight: '600' },
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 12, borderRadius: 12,
-    backgroundColor: 'rgba(255,59,92,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,59,92,0.4)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)',
     marginBottom: 16,
   },
   errorIcon: { fontSize: 16 },
-  errorText: { flex: 1, fontSize: 13, color: '#FF6B8A', fontWeight: '600' },
+  errorText: { flex: 1, fontSize: 13, color: '#DC2626', fontWeight: '600' },
   cta: {
     paddingVertical: 18, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center', marginTop: 4,
-    shadowColor: '#00FF88', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5, shadowRadius: 12, elevation: 6,
+    shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
-  ctaText: { fontSize: 15, fontWeight: '900', color: '#060B18', letterSpacing: 1.5 },
-  ctaArrow: { fontSize: 18, color: '#060B18', fontWeight: '900' },
+  ctaText: { fontSize: 15, fontWeight: '900', color: '#FFFFFF', letterSpacing: 1.5 },
+  ctaArrow: { fontSize: 18, color: '#FFFFFF', fontWeight: '900' },
   agentBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     padding: 14, borderRadius: 14,
-    backgroundColor: 'rgba(255,215,0,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)',
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)',
     marginBottom: 20,
   },
   agentBadgeIcon: { fontSize: 28 },
-  agentBadgeTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#FFD700' },
-  agentBadgeSub: { fontSize: 12, color: p.textMuted, marginTop: 2 },
+  agentBadgeTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#D97706' },
+  agentBadgeSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
   applyLink: { alignItems: 'center', marginTop: 24, paddingVertical: 10 },
-  applyLinkText: { fontSize: 13, color: p.textMuted },
-  googleHeading: { fontSize: 22, fontWeight: '900', color: p.text, textAlign: 'center', marginBottom: 6 },
-  googleSub: { fontSize: 13, color: p.textMuted, textAlign: 'center', marginBottom: 24 },
+  applyLinkText: { fontSize: 13, color: '#64748B' },
+  googleHeading: { fontSize: 22, fontWeight: '900', color: '#0F172A', textAlign: 'center', marginBottom: 6 },
+  googleSub: { fontSize: 13, color: '#64748B', textAlign: 'center', marginBottom: 24 },
   googleBtn: {
-    backgroundColor: '#fff', paddingVertical: 16, borderRadius: 14, alignItems: 'center',
+    backgroundColor: '#FFFFFF', paddingVertical: 16, borderRadius: 14, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
+    shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
+    borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)',
   },
   googleInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   googleG: { fontSize: 22, fontWeight: '900', color: '#4285F4' },
   googleBtnText: { fontSize: 14, fontWeight: '800', color: '#1F1F1F' },
   bottomCta: { alignItems: 'center', marginTop: 32, marginBottom: 12 },
-  bottomText: { fontSize: 14, color: p.textMuted },
-  bottomLink: { color: p.neon, fontWeight: '900' },
+  bottomText: { fontSize: 14, color: '#64748B' },
+  bottomLink: { color: '#10B981', fontWeight: '900' },
   trustRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
-  trustText: { fontSize: 10, color: p.textDim },
-  trustDot: { fontSize: 10, color: p.textDim },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  trustText: { fontSize: 10, color: '#94A3B8' },
+  trustDot: { fontSize: 10, color: '#94A3B8' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalSheet: {
-    backgroundColor: p.abyss, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 20, maxHeight: '88%',
   },
-  modalClose: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginBottom: 4 },
-  modalSub: { fontSize: 12, color: p.textMuted, marginBottom: 16 },
+  modalClose: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: '#64748B', marginBottom: 12 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 4 },
+  modalSub: { fontSize: 12, color: '#64748B', marginBottom: 16 },
   countryRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 14, paddingHorizontal: 14,
     borderRadius: 12, marginBottom: 4,
   },
-  countryRowOn: { backgroundColor: 'rgba(0,255,136,0.1)' },
+  countryRowOn: { backgroundColor: 'rgba(16,185,129,0.1)' },
   countryRowFlag: { fontSize: 26 },
-  countryRowName: { fontSize: 15, fontWeight: '700', color: p.text },
-  countryRowMeta: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  countryRowName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  countryRowMeta: { fontSize: 11, color: '#64748B', marginTop: 2 },
 });
-
