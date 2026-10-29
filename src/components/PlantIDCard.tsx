@@ -7,33 +7,25 @@ import { useTheme } from '../theme';
 import { tap as hapticTap, success as hapticSuccess, warn as hapticWarn } from '../utils/haptics';
 
 const PLANTNET_API_KEY = '2b10uEiVux2nL6EOw863Ot9uO';
-const BASE = 'https://my-api.plantnet.org/v2';
+const API_URL = 'https://my-api.plantnet.org/v2/identify/all';
 
-const GAIA_CROPS = ['maize','rice','cassava','yam','tomato','pepper','cabbage','millet','sorghum','soybean','groundnut','cowpea','wheat','cocoa','oil palm'];
+// Crops GAIA currently diagnoses
+const GAIA_CROPS = ['maize', 'rice', 'cassava', 'yam', 'tomato', 'pepper', 'cabbage', 'millet', 'sorghum', 'soybean', 'groundnut', 'cowpea', 'wheat', 'cocoa', 'oil palm'];
 
-type Mode = 'species' | 'disease';
-
-interface SpeciesResult { common: string; latin: string; confidence: number; hasDiseaseModel: boolean; }
-interface DiseaseResult { eppoCode: string; name: string; confidence: number; }
-interface VarietyResult { varietyName: string; species: string; confidence: number; }
-
-const MODE_LABELS: Record<Mode, { icon: string; label: string }> = {
-  species: { icon: '🌿', label: 'Species' },
-  disease: { icon: '🦠', label: 'Disease' },
-};
+interface PlantResult {
+  common: string;
+  latin: string;
+  confidence: number;
+  hasDiseaseModel: boolean;
+}
 
 export default function PlantIDCard() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const router = useRouter();
-
-  const [mode, setMode] = useState<Mode>('species');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [species, setSpecies] = useState<SpeciesResult[] | null>(null);
-  const [diseases, setDiseases] = useState<DiseaseResult[] | null>(null);
-
-  const resetResults = () => { setSpecies(null); setDiseases(null); setVarieties(null); };
+  const [results, setResults] = useState<PlantResult[] | null>(null);
 
   const pickImage = async () => {
     hapticTap();
@@ -42,31 +34,26 @@ export default function PlantIDCard() {
     Alert.alert('Choose source', '', [
       { text: 'Camera', onPress: async () => {
         const r = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true });
-        if (!r.canceled) analyze(r.assets[0].uri);
+        if (!r.canceled) identifyPlant(r.assets[0].uri);
       }},
       { text: 'Gallery', onPress: async () => {
         const r = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true,
         });
-        if (!r.canceled) analyze(r.assets[0].uri);
+        if (!r.canceled) identifyPlant(r.assets[0].uri);
       }},
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
-  // ============================================================
-  // Upload + call the right endpoint based on mode
-  // ============================================================
-  const analyze = async (uri: string) => {
-    setImageUri(uri);
-    resetResults();
+  const identifyPlant = async (uri: string) => {
+    setImageUri(uri); 
+    setResults(null); 
     setBusy(true);
-
-    const endpoint = mode === 'disease' ? '/identify/all?health=only' : '/identify/all';
-
+    
     try {
-      const up = await FileSystem.uploadAsync(
-        BASE + endpoint + '?api-key=' + PLANTNET_API_KEY + '&lang=en',
+      const uploadResult = await FileSystem.uploadAsync(
+        API_URL + '?api-key=' + PLANTNET_API_KEY,
         uri,
         {
           httpMethod: 'POST',
@@ -74,105 +61,46 @@ export default function PlantIDCard() {
           fieldName: 'images',
           mimeType: 'image/jpeg',
           parameters: { organs: 'leaf' },
-        },
+        }
       );
 
-      if (up.status < 200 || up.status >= 300) {
-        throw new Error('Pl@ntNet HTTP ' + up.status);
-      }
-      const data = JSON.parse(up.body || '{}');
-      const results = data.results || [];
-
-      if (results.length === 0) {
-        throw new Error('No match found. Try a clearer close-up of a single leaf.');
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(`Pl@ntNet error: HTTP ${uploadResult.status}`);
       }
 
-      if (mode === 'species') {
-        const mapped: SpeciesResult[] = results.slice(0, 5).map((r: any) => {
-          const common = r.species?.commonNames?.[0] || r.species?.scientificNameWithoutAuthor || 'Unknown';
-          const latin = r.species?.scientificNameWithoutAuthor || '';
-          const confidence = r.score || 0;
-          const lc = common.toLowerCase();
-          const hasDiseaseModel = GAIA_CROPS.some(c => lc.includes(c) || latin.toLowerCase().includes(c));
-          return { common, latin, confidence, hasDiseaseModel };
-        });
-        setSpecies(mapped);
-        if (mapped[0]?.hasDiseaseModel) hapticSuccess(); else hapticWarn();
-      } else if (mode === 'disease') {
-        const mapped: DiseaseResult[] = results.slice(0, 5).map((r: any) => ({
-          eppoCode: r.eppoCode || r.name || r.code || '?',
-          name: r.name || r.label || r.eppoCode || 'Unknown',
-          confidence: r.score ?? r.probability ?? 0,
-        }));
-        setDiseases(mapped);
-        if (mapped[0] && mapped[0].confidence > 0.5) hapticWarn(); else hapticTap();
-      } else {
-        // Variety: results grouped by species, varieties nested
-        const flat: VarietyResult[] = [];
-        results.forEach((sp: any) => {
-          const speciesName =
-            sp.species?.commonNames?.[0] ||
-            sp.species?.scientificNameWithoutAuthor ||
-            'Unknown species';
-          (sp.varieties || []).forEach((v: any) => {
-            flat.push({
-              varietyName: v.name || v.label || '?',
-              species: speciesName,
-              confidence: v.score ?? v.probability ?? 0,
-            });
-          });
-        });
-        flat.sort((a, b) => b.confidence - a.confidence);
-        if (flat.length === 0) throw new Error('No variety match — this crop may not be in the variety database yet.');
-        setVarieties(flat.slice(0, 5));
-        hapticSuccess();
+      const data = JSON.parse(uploadResult.body);
+      if (!data.results || data.results.length === 0) {
+        throw new Error('No plant matches found. Try a clearer photo of a single leaf.');
       }
+
+      const top: PlantResult[] = data.results.slice(0, 5).map((r: any) => {
+        const common = r.species.commonNames?.[0] || r.species.scientificNameWithoutAuthor || 'Unknown';
+        const latin = r.species.scientificNameWithoutAuthor || '';
+        const confidence = r.score;
+        const lowerCommon = common.toLowerCase();
+        const hasDiseaseModel = GAIA_CROPS.some(c => lowerCommon.includes(c) || latin.toLowerCase().includes(c));
+        return { common, latin, confidence, hasDiseaseModel };
+      });
+
+      setResults(top);
+      if (top[0]?.hasDiseaseModel) hapticSuccess(); else hapticWarn();
+
     } catch (e: any) {
-      Alert.alert(
-        mode === 'disease' ? 'Disease detection failed' :
-        mode === 'variety' ? 'Variety detection failed' :
-                             'Identification failed',
-        e?.message || 'Try again.',
-      );
+      Alert.alert('Identification failed', e.message || 'Check internet and try again.');
     } finally {
       setBusy(false);
     }
   };
 
-  const switchMode = (m: Mode) => {
-    hapticTap();
-    setMode(m);
-    resetResults();
-  };
+  const top1 = results?.[0];
+  const conf = top1 ? top1.confidence * 100 : 0;
+  const low = conf < 35;
 
-  // ============================================================
-  // Rendering
-  // ============================================================
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>🌱 Plant Intelligence</Text>
-        <Text style={styles.subtitle}>
-          {mode === 'species'  ? 'Powered by Pl@ntNet · 60,000+ species · Disease beta' :
-           mode === 'disease'  ? 'Detect diseases & pests (beta · limited crops)' :
-                                 'Identify cultivated varieties (beta · limited crops)'}
-        </Text>
-      </View>
-
-      {/* Mode picker */}
-      <View style={styles.modeRow}>
-        {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => switchMode(m)}
-            style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-          >
-            <Text style={styles.modeIcon}>{MODE_LABELS[m].icon}</Text>
-            <Text style={[styles.modeLabel, mode === m && styles.modeLabelActive]}>
-              {MODE_LABELS[m].label}
-            </Text>
-          </Pressable>
-        ))}
+        <Text style={styles.title}>🌱 Plant ID</Text>
+        <Text style={styles.subtitle}>Powered by DARKMOOR LTD 🌱</Text>
       </View>
 
       {imageUri ? <Image source={{ uri: imageUri }} style={styles.thumbnail} resizeMode="cover" /> : null}
@@ -180,74 +108,45 @@ export default function PlantIDCard() {
       {busy ? (
         <View style={styles.busyRow}>
           <ActivityIndicator color={palette.neon} />
-          <Text style={styles.busyText}>
-            {mode === 'species' ? 'Identifying species…' :
-             mode === 'disease' ? 'Analyzing for diseases…' :
-                                  'Matching variety…'}
-          </Text>
+          <Text style={styles.busyText}>Identifying species…</Text>
         </View>
       ) : null}
 
-      {/* --- SPECIES RESULT --- */}
-      {mode === 'species' && species && species.length > 0 ? (
+      {results && results.length > 0 ? (
         <View style={styles.resultBox}>
-          <Text style={styles.resultCommon}>{species[0].common}</Text>
-          {species[0].latin ? <Text style={styles.resultLatin}>{species[0].latin}</Text> : null}
-          <Text style={styles.resultConf}>{(species[0].confidence * 100).toFixed(1)}% confidence</Text>
-          {species[0].hasDiseaseModel ? (
+          <Text style={styles.resultCommon}>{top1?.common}</Text>
+          {top1?.latin ? <Text style={styles.resultLatin}>{top1?.latin}</Text> : null}
+          <Text style={styles.resultConf}>
+            {conf.toFixed(1)}% confidence{low ? ' (low — try clearer photo)' : ''}
+          </Text>
+
+          {top1?.hasDiseaseModel ? (
             <Pressable onPress={() => { hapticTap(); router.push('/(tabs)/crops' as any); }} style={styles.diagnoseBtn}>
               <Text style={styles.diagnoseBtnText}>DIAGNOSE DISEASES</Text>
             </Pressable>
           ) : (
-            <Text style={styles.note}>Wild plant or unsupported crop.</Text>
+            <Text style={styles.note}>
+              {top1?.hasDiseaseModel 
+                ? '🌱 GAIA diagnoses this crop.' 
+                : '🌿 Wild plant or unsupported crop.'}
+            </Text>
           )}
-          {species.length > 1 ? (
+
+          {results.length > 1 ? (
             <View style={styles.altsBox}>
               <Text style={styles.altsLabel}>OTHER MATCHES</Text>
-              {species.slice(1).map((p, i) => (
-                <Text key={i} style={styles.altRow}>• {p.common} <Text style={styles.altConf}>{(p.confidence * 100).toFixed(1)}%</Text></Text>
+              {results.slice(1).map((p, i) => (
+                <Text key={i} style={styles.altRow}>
+                  • {p.common} <Text style={styles.altConf}>{(p.confidence * 100).toFixed(1)}%</Text>
+                </Text>
               ))}
             </View>
           ) : null}
         </View>
-      ) : null}
-
-      {/* --- DISEASE RESULT --- */}
-      {mode === 'disease' && diseases && diseases.length > 0 ? (
-        <View style={styles.resultBox}>
-          <Text style={styles.resultCommon}>{diseases[0].name}</Text>
-          <Text style={styles.resultLatin}>EPPO: {diseases[0].eppoCode}</Text>
-          <Text style={styles.resultConf}>{(diseases[0].confidence * 100).toFixed(1)}% confidence</Text>
-          <Text style={styles.note}>
-            ⚠️ Consult a local agronomist before applying chemical treatments.
-          </Text>
-          {diseases.length > 1 ? (
-            <View style={styles.altsBox}>
-              <Text style={styles.altsLabel}>OTHER POSSIBILITIES</Text>
-              {diseases.slice(1).map((d, i) => (
-                <Text key={i} style={styles.altRow}>• {d.name} <Text style={styles.altConf}>{(d.confidence * 100).toFixed(1)}%</Text></Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-
-
-      {/* Mode-specific hint */}
-      {mode === 'disease' && !busy && !diseases ? (
-        <Text style={styles.note}>Beta: only well-documented crop diseases are supported. Not all plants will return results.</Text>
-      ) : null}
-      {mode === 'variety' && !busy && !varieties ? (
-        <Text style={styles.note}>Beta: only well-documented crops (tomato, citrus, cucumber, banana…) are supported.</Text>
       ) : null}
 
       <Pressable onPress={pickImage} disabled={busy} style={[styles.pickBtn, busy && { opacity: 0.5 }]}>
-        <Text style={styles.pickBtnText}>
-          {imageUri ? 'Try Another Photo' :
-           mode === 'disease' ? 'Scan for Disease' :
-           mode === 'variety' ? 'Scan for Variety' : 'Take Photo'}
-        </Text>
+        <Text style={styles.pickBtnText}>{imageUri ? 'Try Another Photo' : 'Take Photo'}</Text>
       </Pressable>
     </View>
   );
@@ -257,15 +156,7 @@ const createStyles = (p: any) => StyleSheet.create({
   card: { backgroundColor: p.surface, borderRadius: 20, padding: 20, marginVertical: 12, borderWidth: 1, borderColor: p.border },
   header: { marginBottom: 14 },
   title: { fontSize: 18, fontWeight: '900', color: p.text },
-  subtitle: { fontSize: 12, color: p.textMuted, marginTop: 4 },
-
-  modeRow: { flexDirection: 'row', gap: 6, marginBottom: 14, backgroundColor: 'rgba(0,0,0,0.15)', padding: 4, borderRadius: 12 },
-  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: 8 },
-  modeBtnActive: { backgroundColor: 'rgba(0,255,136,0.15)' },
-  modeIcon: { fontSize: 14 },
-  modeLabel: { fontSize: 11, fontWeight: '700', color: p.textMuted },
-  modeLabelActive: { color: p.neon },
-
+  subtitle: { fontSize: 12, color: p.neon, marginTop: 4, fontWeight: '700', letterSpacing: 0.5 },
   thumbnail: { width: '100%', height: 180, borderRadius: 14, marginBottom: 14 },
   busyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 12 },
   busyText: { fontSize: 13, color: p.textMuted },
@@ -275,7 +166,7 @@ const createStyles = (p: any) => StyleSheet.create({
   resultConf: { fontSize: 12, color: p.textMuted, marginTop: 8, marginBottom: 12 },
   diagnoseBtn: { backgroundColor: p.neon, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   diagnoseBtnText: { fontSize: 12, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  note: { fontSize: 11, color: p.textMuted, fontStyle: 'italic', marginTop: 8, lineHeight: 16 },
+  note: { fontSize: 12, color: p.textMuted, fontStyle: 'italic', marginTop: 4 },
   altsBox: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   altsLabel: { fontSize: 9, fontWeight: '900', color: p.textDim, letterSpacing: 1.5, marginBottom: 6 },
   altRow: { fontSize: 12, color: p.text, marginBottom: 4 },
