@@ -53,6 +53,7 @@ export default function Home() {
     { id: 'my_farm', label: t('dashboard.sections.myFarm'), tiles: [
       { key: 'seller',   title: t('dashboard.tiles.seller'),   sub: t('dashboard.tiles.sellerSub'),   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store', flag: 'marketplace' },
       { key: 'mapping',  title: t('dashboard.tiles.mapping'),  sub: t('dashboard.tiles.mappingSub'),  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
+      { key: 'soil-data', title: 'Soil by GPS', sub: 'Real soil chemistry', img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/soil-data' },
       { key: 'journal',  title: t('dashboard.tiles.journal'),  sub: t('dashboard.tiles.journalSub'),  img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
       { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
     ]},
