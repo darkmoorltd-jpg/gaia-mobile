@@ -74,6 +74,7 @@ function getSections(t: any): Section[] {
     { label: 'Alerts & Follow-ups', route: '/alerts' },
     { label: 'Photo Timeline', route: '/photo-timeline' },
     { label: t('profile.items.verification'), route: '/verification' },
+    { label: 'Bank-Grade KYC', route: '/kyc-verify' },
     { label: t('profile.items.badges'), route: '/badges', flag: 'badges' },
     { label: t('profile.items.farmingCalendar'), route: '/calendar', flag: 'calendar' },
     { label: t('profile.items.blockedUsers'), route: '/blocked-users' },
