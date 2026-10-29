@@ -11,7 +11,7 @@ const BASE = 'https://my-api.plantnet.org/v2';
 
 const GAIA_CROPS = ['maize','rice','cassava','yam','tomato','pepper','cabbage','millet','sorghum','soybean','groundnut','cowpea','wheat','cocoa','oil palm'];
 
-type Mode = 'species' | 'disease' | 'variety';
+type Mode = 'species' | 'disease';
 
 interface SpeciesResult { common: string; latin: string; confidence: number; hasDiseaseModel: boolean; }
 interface DiseaseResult { eppoCode: string; name: string; confidence: number; }
@@ -20,7 +20,6 @@ interface VarietyResult { varietyName: string; species: string; confidence: numb
 const MODE_LABELS: Record<Mode, { icon: string; label: string }> = {
   species: { icon: '🌿', label: 'Species' },
   disease: { icon: '🦠', label: 'Disease' },
-  variety: { icon: '🌾', label: 'Variety' },
 };
 
 export default function PlantIDCard() {
@@ -33,7 +32,6 @@ export default function PlantIDCard() {
   const [busy, setBusy] = useState(false);
   const [species, setSpecies] = useState<SpeciesResult[] | null>(null);
   const [diseases, setDiseases] = useState<DiseaseResult[] | null>(null);
-  const [varieties, setVarieties] = useState<VarietyResult[] | null>(null);
 
   const resetResults = () => { setSpecies(null); setDiseases(null); setVarieties(null); };
 
@@ -64,10 +62,7 @@ export default function PlantIDCard() {
     resetResults();
     setBusy(true);
 
-    const endpoint =
-      mode === 'disease' ? '/diseases/identify' :
-      mode === 'variety' ? '/varieties/identify' :
-                           '/identify/all';
+    const endpoint = mode === 'disease' ? '/identify/all?health=only' : '/identify/all';
 
     try {
       const up = await FileSystem.uploadAsync(
@@ -158,7 +153,7 @@ export default function PlantIDCard() {
       <View style={styles.header}>
         <Text style={styles.title}>🌱 Plant Intelligence</Text>
         <Text style={styles.subtitle}>
-          {mode === 'species'  ? 'Powered by Pl@ntNet · 60,000+ species' :
+          {mode === 'species'  ? 'Powered by Pl@ntNet · 60,000+ species · Disease beta' :
            mode === 'disease'  ? 'Detect diseases & pests (beta · limited crops)' :
                                  'Identify cultivated varieties (beta · limited crops)'}
         </Text>
@@ -237,22 +232,7 @@ export default function PlantIDCard() {
         </View>
       ) : null}
 
-      {/* --- VARIETY RESULT --- */}
-      {mode === 'variety' && varieties && varieties.length > 0 ? (
-        <View style={styles.resultBox}>
-          <Text style={styles.resultCommon}>{varieties[0].varietyName}</Text>
-          <Text style={styles.resultLatin}>{varieties[0].species}</Text>
-          <Text style={styles.resultConf}>{(varieties[0].confidence * 100).toFixed(1)}% confidence</Text>
-          {varieties.length > 1 ? (
-            <View style={styles.altsBox}>
-              <Text style={styles.altsLabel}>OTHER VARIETIES</Text>
-              {varieties.slice(1).map((v, i) => (
-                <Text key={i} style={styles.altRow}>• {v.varietyName} ({v.species}) <Text style={styles.altConf}>{(v.confidence * 100).toFixed(1)}%</Text></Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
+
 
       {/* Mode-specific hint */}
       {mode === 'disease' && !busy && !diseases ? (
