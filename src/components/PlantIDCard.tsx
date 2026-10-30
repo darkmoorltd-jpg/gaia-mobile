@@ -38,7 +38,6 @@ export default function PlantIDCard() {
   const [results, setResults] = useState<PlantResult[] | null>(null);
   const [history, setHistory] = useState<PlantResult[]>([]);
 
-  // Pulse animation for the camera button
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     Animated.loop(
@@ -115,12 +114,12 @@ export default function PlantIDCard() {
         );
 
         if (uploadResult.status === 429) {
-          console.log(`[PlantID] Key ${i + 1} limit reached. Rotating...`);
+          console.log('[PlantID] Key ' + (i + 1) + ' limit reached. Rotating...');
           continue; 
         }
 
         if (uploadResult.status < 200 || uploadResult.status >= 300) {
-          throw new Error(`Pl@ntNet HTTP ${uploadResult.status}`);
+          throw new Error('Pl@ntNet HTTP ' + uploadResult.status);
         }
 
         jsonData = JSON.parse(uploadResult.body);
@@ -169,19 +168,16 @@ export default function PlantIDCard() {
 
   return (
     <View style={styles.card}>
-      {/* Dynamic Header */}
       <LinearGradient colors={['rgba(0,255,136,0.1)', 'transparent']} style={styles.headerGradient}>
-        <View style={}>
-styles.headerRow}>
+        <View style={styles.headerRow}>
           <View>
-                       <Text style={styles.title}> <🌱 Plant ID</Text>
-            <Text styleText={styles.subtitle}>Powered by DARKMO styleOR AI</Text>
+            <Text style={styles.title}>🌱 Plant ID</Text>
+            <Text style={styles.subtitle}>Powered by DARKMOOR AI</Text>
           </View>
-          <View={ style={styles.badge}><Text style={styles.badgeText}>60K+ Species</Text></View>
+          <View style={styles.badge}><Text style={styles.badgeText}>60K+ Species</Text></View>
         </View>
       </LinearGradient>
 
-      {/* Image / Scanner Area */}
       {imageUri ? (
         <View style={styles.imageContainer}>
           <Image source={{ uri: imageUri }} style={styles.thumbnail} resizeMode="cover" />
@@ -189,7 +185,8 @@ styles.headerRow}>
         </View>
       ) : (
         <Animated.View style={[styles.scannerPlaceholder, { transform: [{ scale: pulseAnim }] }]}>
-          <Pressable onPress={pickImage} style={styles.scanBtnInnerstyles.scanIcon}>📸</Text>
+          <Pressable onPress={pickImage} style={styles.scanBtnInner}>
+            <Text style={styles.scanIcon}>📸</Text>
             <Text style={styles.scanText}>Tap to Scan</Text>
           </Pressable>
         </Animated.View>
@@ -202,7 +199,6 @@ styles.headerRow}>
         </View>
       ) : null}
 
-      {/* Result Card */}
       {results && results.length > 0 ? (
         <View style={styles.resultBox}>
           <View style={styles.resultHeader}>
@@ -231,14 +227,12 @@ styles.headerRow}>
         </View>
       ) : null}
 
-      {/* Main Action Button */}
       {imageUri ? (
          <Pressable onPress={pickImage} disabled={busy} style={[styles.pickBtn, busy && { opacity: 0.5 }]}>
            <Text style={styles.pickBtnText}>Scan Another Plant</Text>
          </Pressable>
       ) : null}
 
-      {/* History Section */}
       {history.length > 0 ? (
         <View style={styles.historyContainer}>
           <View style={styles.historyHeader}>
