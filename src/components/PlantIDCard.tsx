@@ -6,10 +6,20 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
 import { tap as hapticTap, success as hapticSuccess, warn as hapticWarn } from '../utils/haptics';
 
-const PLANTNET_API_KEY = '2b10uEiVux2nL6EOw863Ot9uO';
-const API_URL = 'https://my-api.plantnet.org/v2/identify/all';
+// ============================================================
+// 🔑 API KEY ROTATION
+// Add as many keys as you want here. The app will automatically
+// cycle to the next key if one hits its daily limit (HTTP 429).
+// ============================================================
+const PLANTNET_KEYS = [
+  '2b10uEiVux2nL6EOw863Ot9uO', // Key 1 (Original)
+  '2b100GopxEAOR8NfYlKcGE2qYO', // Key 2
+  '2b10ouIpoVFQ1yciN9SADrN5e',  // Key 3
+  '2b10W7qi9yUJ5VZpuzw0mD5rie', // Key 4
+  '2b10bRL4XK2I9Hp9immlNr8U8',  // Key 5
+];
 
-// Crops GAIA currently diagnoses
+const API_URL = 'https://my-api.plantnet.org/v2/identify/all';
 const GAIA_CROPS = ['maize', 'rice', 'cassava', 'yam', 'tomato', 'pepper', 'cabbage', 'millet', 'sorghum', 'soybean', 'groundnut', 'cowpea', 'wheat', 'cocoa', 'oil palm'];
 
 interface PlantResult {
@@ -51,29 +61,67 @@ export default function PlantIDCard() {
     setResults(null); 
     setBusy(true);
     
-    try {
-      const uploadResult = await FileSystem.uploadAsync(
-        API_URL + '?api-key=' + PLANTNET_API_KEY,
-        uri,
-        {
-          httpMethod: 'POST',
-          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          fieldName: 'images',
-          mimeType: 'image/jpeg',
-          parameters: { organs: 'leaf' },
+    let success = false;
+    let jsonData: any = null;
+    let lastError: any = null;
+
+    // Loop through all available API keys
+    for (let i = 0; i < PLANTNET_KEYS.length; i++) {
+      const apiKey = PLANTNET_KEYS[i];
+      
+      try {
+        const uploadResult = await FileSystem.uploadAsync(
+          API_URL + '?api-key=' + apiKey,
+          uri,
+          {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'images',
+            mimeType: 'image/jpeg',
+            parameters: { organs: 'leaf' },
+          }
+        );
+
+        // If we hit the daily limit (429), skip to the next key silently
+        if (uploadResult.status === 429) {
+          console.log(`[PlantID] Key ${i + 1} limit reached. Rotating to next key...`);
+          continue; 
         }
-      );
 
-      if (uploadResult.status < 200 || uploadResult.status >= 300) {
-        throw new Error(`Pl@ntNet error: HTTP ${uploadResult.status}`);
+        // If it's another error, throw it
+        if (uploadResult.status < 200 || uploadResult.status >= 300) {
+          throw new Error(`Pl@ntNet HTTP ${uploadResult.status}`);
+        }
+
+        // If success, save the data and break the loop
+        jsonData = JSON.parse(uploadResult.body);
+        success = true;
+        break;
+
+      } catch (e: any) {
+        lastError = e;
+        // If it's a network error (no internet), don't try other keys, just fail.
+        if (!e.message.includes('HTTP')) {
+          break; 
+        }
       }
+    }
 
-      const data = JSON.parse(uploadResult.body);
-      if (!data.results || data.results.length === 0) {
+    if (!success) {
+      Alert.alert(
+        'Identification failed', 
+        lastError?.message || 'All daily limits reached. Please try again tomorrow.'
+      );
+      setBusy(false);
+      return;
+    }
+
+    try {
+      if (!jsonData.results || jsonData.results.length === 0) {
         throw new Error('No plant matches found. Try a clearer photo of a single leaf.');
       }
 
-      const top: PlantResult[] = data.results.slice(0, 5).map((r: any) => {
+      const top: PlantResult[] = jsonData.results.slice(0, 5).map((r: any) => {
         const common = r.species.commonNames?.[0] || r.species.scientificNameWithoutAuthor || 'Unknown';
         const latin = r.species.scientificNameWithoutAuthor || '';
         const confidence = r.score;
@@ -86,7 +134,7 @@ export default function PlantIDCard() {
       if (top[0]?.hasDiseaseModel) hapticSuccess(); else hapticWarn();
 
     } catch (e: any) {
-      Alert.alert('Identification failed', e.message || 'Check internet and try again.');
+      Alert.alert('Identification failed', e.message);
     } finally {
       setBusy(false);
     }
