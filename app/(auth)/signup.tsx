@@ -14,6 +14,19 @@ import { useLocale, countryFlag } from '../../src/store/locale';
 import { supabase } from '../../src/api/supabase';
 import Dropdown from '../../src/components/Dropdown';
 
+
+const COUNTRY_CODES = [
+  { iso: 'NG', flag: '🇳🇬', dial: '+234' },
+  { iso: 'GH', flag: '🇬🇭', dial: '+233' },
+  { iso: 'KE', flag: '🇰🇪', dial: '+254' },
+  { iso: 'ZA', flag: '🇿🇦', dial: '+27' },
+  { iso: 'GB', flag: '🇬🇧', dial: '+44' },
+  { iso: 'US', flag: '🇺🇸', dial: '+1' },
+  { iso: 'FR', flag: '🇫🇷', dial: '+33' },
+  { iso: 'IN', flag: '🇮🇳', dial: '+91' },
+  { iso: 'CN', flag: '🇨🇳', dial: '+86' },
+];
+
 export default function Signup() {
   useEffect(() => { useLocale.getState().load().catch(() => {}); }, []);
   const currentCountry = useLocale((s) => s.country);
@@ -26,6 +39,7 @@ export default function Signup() {
 
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+234');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -77,6 +91,33 @@ export default function Signup() {
       preferred_language: picked?.default_language || 'en',
     };
 
+    // ============================================================
+    // Normalize phone (country code + local number → E.164)
+    // ============================================================
+    let digits = (phone || '').replace(/[^0-9]/g, '');
+    if (digits.startsWith('0')) digits = digits.slice(1);
+    const finalPhone = phoneCountryCode.replace('+', '') + digits;
+
+    if (finalPhone.length < 10) {
+      setError('Enter a valid phone number (at least 10 digits).');
+      setBusy(false);
+      return;
+    }
+
+    // ============================================================
+    // Duplicate phone pre-check (friendly error before hitting DB constraint)
+    // ============================================================
+    try {
+      const dupCheck = await supabase.rpc('find_email_by_identifier', { p_identifier: finalPhone });
+      if (dupCheck.data) {
+        setError('This phone number is already registered. Please log in instead, or use a different number.');
+        setBusy(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('[signup] phone pre-check failed (continuing):', e);
+    }
+
     // Sign up with country stored in user_metadata (survives email-confirm flow)
     const { data: signupData, error: signupError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
@@ -102,7 +143,7 @@ export default function Signup() {
         await supabase.from('user_profiles').upsert({
           user_id: signupData.user.id,
           email: signupData.user.email!.toLowerCase(),
-          phone: normalizedPhone,
+          phone: finalPhone,
           country: countryMeta.country_name,
           country_code: countryMeta.country_code,
           payment_provider: countryMeta.payment_provider,
@@ -186,12 +227,38 @@ export default function Signup() {
           </View>
 
           <Text style={styles.label}>PHONE NUMBER *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {COUNTRY_CODES.map((c) => {
+              const selected = phoneCountryCode === c.dial;
+              return (
+                <Pressable
+                  key={c.iso}
+                  onPress={() => setPhoneCountryCode(c.dial)}
+                  style={{
+                    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: selected ? palette.neon : palette.border,
+                    backgroundColor: selected ? 'rgba(0,255,136,0.12)' : palette.surface,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 11, fontWeight: '700',
+                    color: selected ? palette.neon : palette.textMuted,
+                  }}>
+                    {c.flag} {c.dial}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
         <View style={styles.inputWrap}>
           <TextInput
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
-            placeholder="08031234567"
+            placeholder={phoneCountryCode === '+234' ? '08031234567' : '8012345678'}
             placeholderTextColor={palette.textDim}
             style={styles.input}
             editable={!busy}
