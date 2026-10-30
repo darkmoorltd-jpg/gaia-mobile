@@ -39,7 +39,7 @@ export default function AgentWallet() {
         </View>
 
         <Text style={styles.sectionLabel}>TOP UP</Text>
-        <Pressable onPress={() => Alert.alert('Coming soon', 'Direct wallet top-up via Paystack will be enabled in the next update. For now, contact admin to fund your wallet.')} style={styles.topupBtn}>
+        <Pressable onPress={() => router.push('/wallet' as any)} style={styles.topupBtn}>
           <Text style={styles.topupTxt}>+ FUND WALLET</Text>
         </Pressable>
 
