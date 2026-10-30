@@ -4,13 +4,16 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useTheme } from '../../src/theme';
+import Dropdown from '../../src/components/Dropdown';
+import { NIGERIA_STATES, lgasForState } from '../../src/data/nigeria_lgas';
 import { supabase } from '../../src/api/supabase';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const FEE_KOBO = 200000;
-const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
+
 const ID_TYPES = ['National ID Card', 'Drivers License', 'International Passport', 'Voters Card (PVC)', 'NIN Slip'];
 
 interface Farmer {
@@ -96,9 +99,37 @@ export default function AgentVerify() {
     setLga(f.lga || '');
   };
 
-  const pickImage = async (setter: (v: string) => void) => {
+  const pickImage = async (setter: (v: string) => void, isIdPhoto = false) => {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
-    if (!res.canceled) setter(res.assets[0].uri);
+    if (!res.canceled) {
+      const uri = res.assets[0].uri;
+      setter(uri);
+      
+      if (isIdPhoto) {
+        try {
+          // Run OCR on the ID card
+          const result = await TextRecognition.recognize(uri);
+          const text = result.text;
+          
+          // Look for 11 digit numbers (BVN or NIN)
+          const matches = text.match(/\b\d{11}\b/g);
+          if (matches && matches.length > 0) {
+            const num = matches[0];
+            Alert.alert(
+              'ID Detected',
+              `Found number: ${num}. Is this your BVN or NIN?`,
+              [
+                { text: 'Ignore', style: 'cancel' },
+                { text: 'Set as BVN', onPress: () => setBvn(num) },
+                { text: 'Set as NIN', onPress: () => setNin(num) }
+              ]
+            );
+          }
+        } catch (e) {
+          console.log('OCR failed', e);
+        }
+      }
+    }
   };
 
   const uploadFile = async (uri: string, name: string): Promise<string | null> => {
@@ -350,17 +381,20 @@ export default function AgentVerify() {
         <Text style={styles.label}>PHONE</Text>
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
 
-        <Text style={styles.label}>STATE</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {STATES.map((s) => (
-            <Pressable key={s} onPress={() => setState(s)} style={[styles.chip, state === s && styles.chipOn]}>
-              <Text style={[styles.chipText, state === s && styles.chipTextOn]}>{s}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <Dropdown
+          label="STATE"
+          value={state}
+          options={NIGERIA_STATES}
+          onChange={(v) => { setState(v); setLga(''); }}
+        />
 
-        <Text style={styles.label}>LGA</Text>
-        <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholder="e.g. Zaria" placeholderTextColor={palette.textDim} />
+        <Dropdown
+          label="LGA"
+          value={lga}
+          options={lgasForState(state)}
+          onChange={setLga}
+          placeholder={state ? `Select LGA in ${state}` : 'Pick a state first'}
+        />
 
         <Text style={styles.label}>ADDRESS</Text>
         <TextInput value={address} onChangeText={setAddress} style={styles.input} placeholder="Street address" placeholderTextColor={palette.textDim} />
@@ -384,7 +418,7 @@ export default function AgentVerify() {
         <TextInput value={idNumber} onChangeText={setIdNumber} style={styles.input} placeholderTextColor={palette.textDim} />
 
         <Text style={styles.label}>ID PHOTO</Text>
-        <Pressable onPress={() => pickImage(setIdImage)} style={styles.upload}>
+        <Pressable onPress={() => pickImage(setIdImage, true)} style={styles.upload}>
           {idImage ? <Image source={{ uri: idImage }} style={styles.uploadImg} /> : <Text style={styles.uploadText}>TAP TO ADD ID PHOTO</Text>}
         </Pressable>
 

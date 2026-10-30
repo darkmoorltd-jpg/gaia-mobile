@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../src/theme';
 import { supabase } from '../../src/api/supabase';
 
@@ -9,10 +10,41 @@ const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
 const CROPS = ['Maize','Rice','Sorghum','Millet','Cowpea (Beans)','Soybean','Groundnut','Tomato','Pepper','Cassava','Yam','Onion'];
 
+
+const OFFLINE_KEY = '@gaia_offline_farmers';
+
+async function syncOfflineFarmers(token: string) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_KEY);
+    if (!raw) return;
+    const queue = JSON.parse(raw);
+    if (queue.length === 0) return;
+    
+    const remaining = [];
+    for (const payload of queue) {
+      const r = await fetch(API_BASE + '/agent/register-farmer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) remaining.push(payload);
+    }
+    await AsyncStorage.setItem(OFFLINE_KEY, JSON.stringify(remaining));
+  } catch {}
+}
+
 export default function AgentRegister() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
+
+  useEffect(() => {
+    (async () => {
+      const sess = await supabase.auth.getSession();
+      const token = sess.data.session?.access_token;
+      if (token) syncOfflineFarmers(token);
+    })();
+  }, []);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -55,10 +87,7 @@ export default function AgentRegister() {
       const sess = await supabase.auth.getSession();
       const token = sess.data.session?.access_token;
       if (!token) throw new Error('Not authenticated');
-      const r = await fetch(API_BASE + '/agent/register-farmer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
+      const payload = {
           full_name: fullName.trim(),
           phone: phone.trim(),
           email: email.trim() || null,
@@ -69,9 +98,31 @@ export default function AgentRegister() {
           farm_size_acres: parseFloat(farmSize) || 1.0,
           gps_lat: gpsLat,
           gps_lng: gpsLng,
-        }),
-      });
-      const data = await r.json();
+      };
+
+      try {
+        const r = await fetch(API_BASE + '/agent/register-farmer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || data.error || ('HTTP ' + r.status));
+        
+        setResult(data);
+      } catch (err: any) {
+        if (err.message.includes('Network') || err.message.includes('fetch')) {
+          // Offline fallback
+          const raw = await AsyncStorage.getItem(OFFLINE_KEY);
+          const queue = raw ? JSON.parse(raw) : [];
+          queue.push(payload);
+          await AsyncStorage.setItem(OFFLINE_KEY, JSON.stringify(queue));
+          Alert.alert('Saved Offline', 'No network. Farmer registration saved locally and will sync automatically when internet returns.');
+          setResult({ phone: payload.phone, email: payload.email || 'N/A', temp_password: payload.password, offline: true });
+        } else {
+          Alert.alert('Failed', err.message);
+        }
+      }
       if (!r.ok) {
         Alert.alert('Failed', data.detail || data.error || ('HTTP ' + r.status));
         setBusy(false);
