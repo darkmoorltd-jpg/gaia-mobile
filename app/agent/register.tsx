@@ -138,6 +138,23 @@ export default function AgentRegister() {
         throw new Error(data.detail || data.error || ('HTTP ' + r.status));
       }
 
+
+      // Link farmer to current agent via RPC
+      try {
+        const linkRes = await supabase.rpc('agent_link_farmer', {
+          p_farmer_id: data.farmer_id,
+          p_phone: payload.phone,
+          p_state: payload.state,
+          p_lga: payload.lga,
+          p_crop: payload.crop,
+          p_farm_size: payload.farm_size_acres,
+        });
+        if (linkRes.error) console.warn('[agent] link failed:', linkRes.error.message);
+        else console.log('[agent] farmer linked:', linkRes.data);
+      } catch (e) {
+        console.warn('[agent] link exception:', e);
+      }
+
       setResult(data);
     } catch (err: any) {
       // Offline fallback
