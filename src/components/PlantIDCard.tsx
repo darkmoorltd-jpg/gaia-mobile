@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Image, Alert, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Alert, ActivityIndicator, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
 import { tap as hapticTap, success as hapticSuccess, warn as hapticWarn } from '../utils/haptics';
+
+// Enable smooth layout animations on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const PLANTNET_KEYS = [
   '2b10uEiVux2nL6EOw863Ot9uO',
@@ -33,6 +38,9 @@ export default function PlantIDCard() {
   const styles = createStyles(palette);
   const router = useRouter();
   
+  // Revolutionary expand/collapse state
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<PlantResult[] | null>(null);
@@ -49,6 +57,12 @@ export default function PlantIDCard() {
     
     loadHistory();
   }, []);
+
+  const toggleExpand = () => {
+    hapticTap();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsExpanded(!isExpanded);
+  };
 
   const loadHistory = async () => {
     try {
@@ -67,6 +81,7 @@ export default function PlantIDCard() {
   };
 
   const clearHistory = async () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     await AsyncStorage.removeItem(HISTORY_KEY);
     setHistory([]);
   };
@@ -166,6 +181,29 @@ export default function PlantIDCard() {
   const conf = top1 ? top1.confidence * 100 : 0;
   const low = conf < 35;
 
+  // ============================================================
+  // REVOLUTIONARY COLLAPSED STATE
+  // ============================================================
+  if (!isExpanded) {
+    return (
+      <Pressable onPress={toggleExpand} style={styles.collapsedCard}>
+        <View style={styles.collapsedIconWrap}>
+          <Text style={styles.collapsedIcon}>🌱</Text>
+        </View>
+        <View style={styles.collapsedTextWrap}>
+          <Text style={styles.collapsedTitle}>Plant ID</Text>
+          <Text style={styles.collapsedSub}>Identify 60K+ species instantly</Text>
+        </View>
+        <View style={styles.collapsedChevronWrap}>
+          <Text style={styles.collapsedChevron}>›</Text>
+        </View>
+      </Pressable>
+    );
+  }
+
+  // ============================================================
+  // EXPANDED STATE (The badass UI)
+  // ============================================================
   return (
     <View style={styles.card}>
       <LinearGradient colors={['rgba(0,255,136,0.1)', 'transparent']} style={styles.headerGradient}>
@@ -174,7 +212,9 @@ export default function PlantIDCard() {
             <Text style={styles.title}>🌱 Plant ID</Text>
             <Text style={styles.subtitle}>Powered by DARKMOOR AI</Text>
           </View>
-          <View style={styles.badge}><Text style={styles.badgeText}>60K+ Species</Text></View>
+          <Pressable onPress={toggleExpand} style={styles.minimizeBtn} hitSlop={15}>
+            <Text style={styles.minimizeText}>✕</Text>
+          </Pressable>
         </View>
       </LinearGradient>
 
@@ -252,14 +292,47 @@ export default function PlantIDCard() {
 }
 
 const createStyles = (p: any) => StyleSheet.create({
+  // --- Collapsed State Styles ---
+  collapsedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: p.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,136,0.25)',
+    shadowColor: '#00ff88',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  collapsedIconWrap: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: 'rgba(0,255,136,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 14,
+  },
+  collapsedIcon: { fontSize: 24 },
+  collapsedTextWrap: { flex: 1 },
+  collapsedTitle: { fontSize: 16, fontWeight: '900', color: p.text, letterSpacing: -0.3 },
+  collapsedSub: { fontSize: 11, color: p.neon, marginTop: 2, fontWeight: '600' },
+  collapsedChevronWrap: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  collapsedChevron: { fontSize: 22, color: p.neon, fontWeight: '400', lineHeight: 24 },
+
+  // --- Expanded State Styles ---
   card: { backgroundColor: p.surface, borderRadius: 24, marginVertical: 12, borderWidth: 1, borderColor: 'rgba(0,255,136,0.15)', overflow: 'hidden', shadowColor: '#00ff88', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
-  
   headerGradient: { padding: 20, paddingBottom: 15 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   title: { fontSize: 20, fontWeight: '900', color: p.text, letterSpacing: -0.5 },
   subtitle: { fontSize: 10, fontWeight: '800', color: p.neon, marginTop: 4, letterSpacing: 1.5, textTransform: 'uppercase' },
-  badge: { backgroundColor: 'rgba(0,255,136,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(0,255,136,0.3)' },
-  badgeText: { fontSize: 10, fontWeight: '800', color: p.neon },
+  minimizeBtn: { padding: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  minimizeText: { fontSize: 14, fontWeight: '800', color: p.textMuted },
 
   scannerPlaceholder: { height: 140, marginHorizontal: 20, borderRadius: 16, borderWidth: 2, borderColor: 'rgba(0,255,136,0.3)', borderStyle: 'dashed', backgroundColor: 'rgba(0,255,136,0.03)', alignItems: 'center', justifyContent: 'center' },
   scanBtnInner: { alignItems: 'center' },
