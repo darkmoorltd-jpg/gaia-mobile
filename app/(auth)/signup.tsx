@@ -16,15 +16,60 @@ import Dropdown from '../../src/components/Dropdown';
 
 
 const COUNTRY_CODES = [
-  { iso: 'NG', flag: '🇳🇬', dial: '+234' },
-  { iso: 'GH', flag: '🇬🇭', dial: '+233' },
-  { iso: 'KE', flag: '🇰🇪', dial: '+254' },
-  { iso: 'ZA', flag: '🇿🇦', dial: '+27' },
-  { iso: 'GB', flag: '🇬🇧', dial: '+44' },
-  { iso: 'US', flag: '🇺🇸', dial: '+1' },
-  { iso: 'FR', flag: '🇫🇷', dial: '+33' },
-  { iso: 'IN', flag: '🇮🇳', dial: '+91' },
-  { iso: 'CN', flag: '🇨🇳', dial: '+86' },
+  { iso: 'NG', flag: '🇳🇬', name: 'Nigeria',       dial: '+234' },
+  { iso: 'GH', flag: '🇬🇭', name: 'Ghana',         dial: '+233' },
+  { iso: 'KE', flag: '🇰🇪', name: 'Kenya',         dial: '+254' },
+  { iso: 'ZA', flag: '🇿🇦', name: 'South Africa',  dial: '+27' },
+  { iso: 'ET', flag: '🇪🇹', name: 'Ethiopia',      dial: '+251' },
+  { iso: 'TZ', flag: '🇹🇿', name: 'Tanzania',      dial: '+255' },
+  { iso: 'UG', flag: '🇺🇬', name: 'Uganda',        dial: '+256' },
+  { iso: 'CM', flag: '🇨🇲', name: 'Cameroon',      dial: '+237' },
+  { iso: 'CI', flag: '🇨🇮', name: 'Ivory Coast',   dial: '+225' },
+  { iso: 'SN', flag: '🇸🇳', name: 'Senegal',       dial: '+221' },
+  { iso: 'ML', flag: '🇲🇱', name: 'Mali',          dial: '+223' },
+  { iso: 'BF', flag: '🇧🇫', name: 'Burkina Faso',  dial: '+226' },
+  { iso: 'NE', flag: '🇳🇪', name: 'Niger',         dial: '+227' },
+  { iso: 'TD', flag: '🇹🇩', name: 'Chad',          dial: '+235' },
+  { iso: 'BJ', flag: '🇧🇯', name: 'Benin',         dial: '+229' },
+  { iso: 'TG', flag: '🇹🇬', name: 'Togo',          dial: '+228' },
+  { iso: 'SL', flag: '🇸🇱', name: 'Sierra Leone',  dial: '+232' },
+  { iso: 'LR', flag: '🇱🇷', name: 'Liberia',       dial: '+231' },
+  { iso: 'GM', flag: '🇬🇲', name: 'Gambia',        dial: '+220' },
+  { iso: 'GW', flag: '🇬🇼', name: 'Guinea-Bissau', dial: '+245' },
+  { iso: 'GN', flag: '🇬🇳', name: 'Guinea',        dial: '+224' },
+  { iso: 'MR', flag: '🇲🇷', name: 'Mauritania',    dial: '+222' },
+  { iso: 'MA', flag: '🇲🇦', name: 'Morocco',       dial: '+212' },
+  { iso: 'DZ', flag: '🇩🇿', name: 'Algeria',       dial: '+213' },
+  { iso: 'TN', flag: '🇹🇳', name: 'Tunisia',       dial: '+216' },
+  { iso: 'LY', flag: '🇱🇾', name: 'Libya',         dial: '+218' },
+  { iso: 'EG', flag: '🇪🇬', name: 'Egypt',         dial: '+20' },
+  { iso: 'SD', flag: '🇸🇩', name: 'Sudan',         dial: '+249' },
+  { iso: 'SS', flag: '🇸🇸', name: 'South Sudan',   dial: '+211' },
+  { iso: 'CD', flag: '🇨🇩', name: 'DR Congo',      dial: '+243' },
+  { iso: 'CG', flag: '🇨🇬', name: 'Congo',         dial: '+242' },
+  { iso: 'GA', flag: '🇬🇦', name: 'Gabon',         dial: '+241' },
+  { iso: 'AO', flag: '🇦🇴', name: 'Angola',        dial: '+244' },
+  { iso: 'ZM', flag: '🇿🇲', name: 'Zambia',        dial: '+260' },
+  { iso: 'ZW', flag: '🇿🇼', name: 'Zimbabwe',      dial: '+263' },
+  { iso: 'MW', flag: '🇲🇼', name: 'Malawi',        dial: '+265' },
+  { iso: 'MZ', flag: '🇲🇿', name: 'Mozambique',    dial: '+258' },
+  { iso: 'BW', flag: '🇧🇼', name: 'Botswana',      dial: '+267' },
+  { iso: 'NA', flag: '🇳🇦', name: 'Namibia',       dial: '+264' },
+  { iso: 'MG', flag: '🇲🇬', name: 'Madagascar',    dial: '+261' },
+  { iso: 'RW', flag: '🇷🇼', name: 'Rwanda',        dial: '+250' },
+  { iso: 'BI', flag: '🇧🇮', name: 'Burundi',       dial: '+257' },
+  { iso: 'SO', flag: '🇸🇴', name: 'Somalia',       dial: '+252' },
+  { iso: 'GB', flag: '🇬🇧', name: 'United Kingdom',dial: '+44' },
+  { iso: 'US', flag: '🇺🇸', name: 'United States', dial: '+1' },
+  { iso: 'CA', flag: '🇨🇦', name: 'Canada',        dial: '+1' },
+  { iso: 'FR', flag: '🇫🇷', name: 'France',        dial: '+33' },
+  { iso: 'DE', flag: '🇩🇪', name: 'Germany',       dial: '+49' },
+  { iso: 'IN', flag: '🇮🇳', name: 'India',         dial: '+91' },
+  { iso: 'CN', flag: '🇨🇳', name: 'China',         dial: '+86' },
+  { iso: 'AE', flag: '🇦🇪', name: 'UAE',           dial: '+971' },
+  { iso: 'SA', flag: '🇸🇦', name: 'Saudi Arabia',  dial: '+966' },
+  { iso: 'BR', flag: '🇧🇷', name: 'Brazil',        dial: '+55' },
+  { iso: 'AU', flag: '🇦🇺', name: 'Australia',     dial: '+61' },
 ];
 
 export default function Signup() {
@@ -227,32 +272,15 @@ export default function Signup() {
           </View>
 
           <Text style={styles.label}>PHONE NUMBER *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {COUNTRY_CODES.map((c) => {
-              const selected = phoneCountryCode === c.dial;
-              return (
-                <Pressable
-                  key={c.iso}
-                  onPress={() => setPhoneCountryCode(c.dial)}
-                  style={{
-                    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-                    borderWidth: 1,
-                    borderColor: selected ? palette.neon : palette.border,
-                    backgroundColor: selected ? 'rgba(0,255,136,0.12)' : palette.surface,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 11, fontWeight: '700',
-                    color: selected ? palette.neon : palette.textMuted,
-                  }}>
-                    {c.flag} {c.dial}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
+        <Dropdown
+          label="COUNTRY CODE"
+          value={phoneCountryCode}
+          options={COUNTRY_CODES.map(c => ({
+            label: `${c.flag} ${c.name} (${c.dial})`,
+            value: c.dial
+          }))}
+          onChange={setPhoneCountryCode}
+        />
         <View style={styles.inputWrap}>
           <TextInput
             value={phone}
