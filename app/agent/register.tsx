@@ -1,33 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, TextInput,
+  Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../src/theme';
 import { supabase } from '../../src/api/supabase';
+import Dropdown from '../../src/components/Dropdown';
+import { NIGERIA_STATES, lgasForState } from '../../src/data/nigeria_lgas';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
-const STATES = ['Kaduna','Kano','Katsina','Niger','Plateau','Bauchi','Zamfara','Sokoto','Jigawa','Kebbi','Kwara','Nasarawa','Benue','FCT Abuja'];
-const CROPS = ['Maize','Rice','Sorghum','Millet','Cowpea (Beans)','Soybean','Groundnut','Tomato','Pepper','Cassava','Yam','Onion'];
+const OFFLINE_KEY = 'gaia_offline_farmers_v1';
 
+const CROPS = [
+  'Maize', 'Rice', 'Sorghum', 'Millet', 'Cowpea (Beans)', 'Soybean',
+  'Groundnut', 'Tomato', 'Pepper', 'Cassava', 'Yam', 'Onion',
+  'Cabbage', 'Wheat', 'Cocoa', 'Oil Palm', 'Plantain', 'Banana',
+  'Potato', 'Sweet Potato', 'Sesame', 'Ginger', 'Garlic',
+  'Watermelon', 'Pineapple',
+];
 
-const OFFLINE_KEY = '@gaia_offline_farmers';
-
+// ============================================================
+// Offline queue (sync unsent registrations on app open)
+// ============================================================
 async function syncOfflineFarmers(token: string) {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_KEY);
     if (!raw) return;
-    const queue = JSON.parse(raw);
-    if (queue.length === 0) return;
-    
-    const remaining = [];
+    const queue: any[] = JSON.parse(raw);
+    if (!queue.length) return;
+
+    const remaining: any[] = [];
     for (const payload of queue) {
-      const r = await fetch(API_BASE + '/agent/register-farmer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify(payload),
-      });
-      if (!r.ok) remaining.push(payload);
+      try {
+        const r = await fetch(API_BASE + '/agent/register-farmer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        });
+        if (!r.ok) remaining.push(payload);
+      } catch {
+        remaining.push(payload);
+      }
     }
     await AsyncStorage.setItem(OFFLINE_KEY, JSON.stringify(remaining));
   } catch {}
@@ -49,6 +65,7 @@ export default function AgentRegister() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [dob, setDob] = useState('');
   const [password, setPassword] = useState('');
   const [state, setState] = useState('Kaduna');
   const [lga, setLga] = useState('');
@@ -74,72 +91,90 @@ export default function AgentRegister() {
   };
 
   const submit = async () => {
-    if (!fullName.trim() || !phone.trim() || !state.trim()) {
-      Alert.alert('Missing info', 'Name, phone, and state are required.');
+    // Validation
+    if (!fullName.trim() || !phone.trim() || !email.trim() || !state.trim()) {
+      Alert.alert('Missing info', 'Name, phone, email, and state are required.');
       return;
     }
     if (!password || password.length < 6) {
       Alert.alert('Password required', 'Set a password for the farmer (min 6 characters).');
       return;
     }
+    if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      Alert.alert('Invalid DOB', 'Use format YYYY-MM-DD (e.g. 1990-01-15).');
+      return;
+    }
+
     setBusy(true);
+
+    const payload = {
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
+      password: password.trim(),
+      dob: dob || null,
+      state: state,
+      lga: lga.trim() || null,
+      crop: crop,
+      farm_size_acres: parseFloat(farmSize) || 1.0,
+      gps_lat: gpsLat,
+      gps_lng: gpsLng,
+    };
+
     try {
       const sess = await supabase.auth.getSession();
       const token = sess.data.session?.access_token;
       if (!token) throw new Error('Not authenticated');
-      const payload = {
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          email: email.trim() || null,
-          password: password.trim() || null,
-          state: state,
-          lga: lga.trim() || null,
-          crop: crop,
-          farm_size_acres: parseFloat(farmSize) || 1.0,
-          gps_lat: gpsLat,
-          gps_lng: gpsLng,
-      };
 
-      try {
-        const r = await fetch(API_BASE + '/agent/register-farmer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify(payload),
-        });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.detail || data.error || ('HTTP ' + r.status));
-        
-        setResult(data);
-      } catch (err: any) {
-        if (err.message.includes('Network') || err.message.includes('fetch')) {
-          // Offline fallback
+      const r = await fetch(API_BASE + '/agent/register-farmer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        throw new Error(data.detail || data.error || ('HTTP ' + r.status));
+      }
+
+      setResult(data);
+    } catch (err: any) {
+      // Offline fallback
+      if (err.message.includes('Network') || err.message.includes('fetch') || err.message.includes('Failed to fetch')) {
+        try {
           const raw = await AsyncStorage.getItem(OFFLINE_KEY);
           const queue = raw ? JSON.parse(raw) : [];
           queue.push(payload);
           await AsyncStorage.setItem(OFFLINE_KEY, JSON.stringify(queue));
-          Alert.alert('Saved Offline', 'No network. Farmer registration saved locally and will sync automatically when internet returns.');
-          setResult({ phone: payload.phone, email: payload.email || 'N/A', temp_password: payload.password, offline: true });
-        } else {
-          Alert.alert('Failed', err.message);
+          Alert.alert('Saved Offline', 'No network. This farmer will sync automatically when internet returns.');
+          setResult({
+            phone: payload.phone,
+            email: payload.email,
+            temp_password: payload.password,
+            offline: true,
+          });
+        } catch {
+          Alert.alert('Error', 'Could not save offline.');
         }
+      } else {
+        Alert.alert('Failed', err.message);
       }
-      if (!r.ok) {
-        Alert.alert('Failed', data.detail || data.error || ('HTTP ' + r.status));
-        setBusy(false);
-        return;
-      }
-
-      setResult(data);
-    } catch (e: any) {
-      Alert.alert('Failed', e.message);
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
+  // ============================================================
+  // SUCCESS SCREEN
+  // ============================================================
   if (result) {
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.successTitle}>Farmer registered</Text>
+          <Text style={styles.successTitle}>
+            {result.offline ? 'Saved Offline' : 'Farmer registered'}
+          </Text>
           <View style={styles.successCard}>
             <Text style={styles.successLbl}>PHONE</Text>
             <Text style={styles.successVal}>{result.phone}</Text>
@@ -148,11 +183,25 @@ export default function AgentRegister() {
             <Text style={styles.successLbl}>EMAIL</Text>
             <Text style={styles.successVal}>{result.email}</Text>
           </View>
-          <Text style={styles.successHint}>Share the password with the farmer. They can change it after first sign-in.</Text>
-          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setPassword(''); setLga(''); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
+          <Text style={styles.successHint}>
+            {result.offline
+              ? 'This record will be uploaded automatically the next time you have internet. Write down the password now.'
+              : 'Share the password with the farmer. They can change it after first sign-in.'}
+          </Text>
+          <Pressable
+            onPress={() => {
+              setResult(null);
+              setFullName(''); setPhone(''); setEmail(''); setDob(''); setPassword('');
+              setLga(''); setGpsLat(null); setGpsLng(null);
+            }}
+            style={styles.cta}
+          >
             <Text style={styles.ctaText}>REGISTER ANOTHER</Text>
           </Pressable>
-          <Pressable onPress={() => router.back()} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.border, marginTop: 10 }]}>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: palette.border, marginTop: 10 }]}
+          >
             <Text style={[styles.ctaText, { color: palette.text }]}>BACK TO HOME</Text>
           </Pressable>
         </ScrollView>
@@ -160,6 +209,9 @@ export default function AgentRegister() {
     );
   }
 
+  // ============================================================
+  // FORM
+  // ============================================================
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -170,45 +222,93 @@ export default function AgentRegister() {
         <Text style={styles.sub}>Create a GAIA account on behalf of a farmer</Text>
 
         <Text style={styles.label}>FULL NAME *</Text>
-        <TextInput value={fullName} onChangeText={setFullName} placeholder="e.g. Ibrahim Musa" placeholderTextColor={palette.textDim} style={styles.input} />
+        <TextInput
+          value={fullName}
+          onChangeText={setFullName}
+          placeholder="e.g. Ibrahim Musa"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
 
         <Text style={styles.label}>PHONE *</Text>
-        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="08031234567" placeholderTextColor={palette.textDim} style={styles.input} />
+        <TextInput
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          placeholder="08031234567"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
+
+        <Text style={styles.label}>EMAIL *</Text>
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder="farmer@example.com"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
+
+        <Text style={styles.label}>DATE OF BIRTH (YYYY-MM-DD)</Text>
+        <TextInput
+          value={dob}
+          onChangeText={setDob}
+          placeholder="1990-01-15"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
 
         <Text style={styles.label}>SET FARMER PASSWORD *</Text>
-        <TextInput value={password} onChangeText={setPassword} autoCapitalize="none" secureTextEntry placeholder="min 6 characters" placeholderTextColor={palette.textDim} style={styles.input} />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          autoCapitalize="none"
+          secureTextEntry
+          placeholder="min 6 characters"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
         <Text style={styles.hint}>Write this down. You will read it to the farmer.</Text>
 
-        <Text style={styles.label}>EMAIL (OPTIONAL)</Text>
-        <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="farmer@example.com" placeholderTextColor={palette.textDim} style={styles.input} />
+        <Dropdown
+          label="STATE *"
+          value={state}
+          options={NIGERIA_STATES}
+          onChange={(v) => { setState(v); setLga(''); }}
+        />
 
-        <Text style={styles.label}>STATE *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {STATES.map((s) => (
-            <Pressable key={s} onPress={() => setState(s)} style={[styles.chip, state === s && styles.chipOn]}>
-              <Text style={[styles.chipText, state === s && styles.chipTextOn]}>{s}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <Dropdown
+          label="LGA"
+          value={lga}
+          options={lgasForState(state)}
+          onChange={setLga}
+          placeholder={state ? `Select LGA in ${state}` : 'Pick a state first'}
+        />
 
-        <Text style={styles.label}>LGA</Text>
-        <TextInput value={lga} onChangeText={setLga} placeholder="e.g. Zaria" placeholderTextColor={palette.textDim} style={styles.input} />
-
-        <Text style={styles.label}>PRIMARY CROP</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {CROPS.map((c) => (
-            <Pressable key={c} onPress={() => setCrop(c)} style={[styles.chip, crop === c && styles.chipOn]}>
-              <Text style={[styles.chipText, crop === c && styles.chipTextOn]}>{c}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
+        <Dropdown
+          label="PRIMARY CROP"
+          value={crop}
+          options={CROPS}
+          onChange={setCrop}
+        />
 
         <Text style={styles.label}>FARM SIZE (ACRES)</Text>
-        <TextInput value={farmSize} onChangeText={setFarmSize} keyboardType="decimal-pad" placeholder="1.5" placeholderTextColor={palette.textDim} style={styles.input} />
+        <TextInput
+          value={farmSize}
+          onChangeText={setFarmSize}
+          keyboardType="decimal-pad"
+          placeholder="1.5"
+          placeholderTextColor={palette.textDim}
+          style={styles.input}
+        />
 
         <Text style={styles.label}>GPS LOCATION</Text>
         <Pressable onPress={captureGps} disabled={gpsBusy} style={[styles.gpsBtn, gpsLat && styles.gpsBtnOn]}>
-          {gpsBusy ? <ActivityIndicator color={palette.neon} /> : (
+          {gpsBusy ? (
+            <ActivityIndicator color={palette.neon} />
+          ) : (
             <Text style={[styles.gpsText, gpsLat && styles.gpsTextOn]}>
               {gpsLat && gpsLng
                 ? 'GPS: ' + gpsLat.toFixed(4) + ', ' + gpsLng.toFixed(4)
@@ -218,7 +318,11 @@ export default function AgentRegister() {
         </Pressable>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>REGISTER FARMER</Text>}
+          {busy ? (
+            <ActivityIndicator color={palette.obsidian} />
+          ) : (
+            <Text style={styles.ctaText}>REGISTER FARMER</Text>
+          )}
         </Pressable>
 
         <View style={{ height: 60 }} />
@@ -236,11 +340,6 @@ const createStyles = (p: any) => StyleSheet.create({
   hint: { fontSize: 10, color: p.textDim, marginTop: 4, marginBottom: 4, fontStyle: 'italic' },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 16, marginBottom: 6 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
-  chips: { gap: 6, paddingRight: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
-  chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
-  chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
-  chipTextOn: { color: p.neon },
   gpsBtn: { padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
   gpsBtnOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.08)' },
   gpsText: { fontSize: 12, fontWeight: '800', color: p.textMuted, letterSpacing: 0.5 },
