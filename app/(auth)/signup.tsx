@@ -25,6 +25,7 @@ export default function Signup() {
   const signUp = useAuth((s) => s.signUp);
 
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,6 +48,10 @@ export default function Signup() {
   const handleSubmit = async () => {
     if (!country) { setShowPicker(true); return; }
     if (!email || !password) { setError('Email and password are required.'); return; }
+    if (!phone || !/^(0|234)[0-9]{10}$/.test(phone.replace(/\s/g, ''))) {
+      setError('Enter a valid phone number (e.g. 08031234567).');
+      return;
+    }
     if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setBusy(true); setError('');
@@ -89,9 +94,15 @@ export default function Signup() {
     // If session exists (email confirm OFF) → write to user_profiles NOW
     if (signupData.session && signupData.user) {
       try {
+        // Normalize phone to E.164 (234...)
+        let normalizedPhone = (phone || '').replace(/[^0-9]/g, '');
+        if (normalizedPhone.startsWith('0')) normalizedPhone = '234' + normalizedPhone.slice(1);
+        else if (!normalizedPhone.startsWith('234') && normalizedPhone.length === 10) normalizedPhone = '234' + normalizedPhone;
+
         await supabase.from('user_profiles').upsert({
           user_id: signupData.user.id,
           email: signupData.user.email!.toLowerCase(),
+          phone: normalizedPhone,
           country: countryMeta.country_name,
           country_code: countryMeta.country_code,
           payment_provider: countryMeta.payment_provider,
@@ -174,7 +185,20 @@ export default function Signup() {
             />
           </View>
 
-          <Text style={styles.label}>PASSWORD</Text>
+          <Text style={styles.label}>PHONE NUMBER *</Text>
+        <View style={styles.inputWrap}>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="08031234567"
+            placeholderTextColor={palette.textDim}
+            style={styles.input}
+            editable={!busy}
+          />
+        </View>
+
+        <Text style={styles.label}>PASSWORD</Text>
           <View style={styles.inputWrap}>
             <Text style={styles.inputIcon}>🔒</Text>
             <TextInput

@@ -29,7 +29,7 @@ interface AuthState {
   loadLoginContext: () => Promise<void>;
   setLoginContext: (c: 'agent' | 'user' | null) => Promise<void>;
 
-  signIn: (email: string, password: string) => Promise<string | null>;
+  signIn: (identifier: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string, countryCode?: string) => Promise<string | null>;
   signInWithGoogle: () => Promise<string | null>;
   resetPassword: (email: string) => Promise<string | null>;
@@ -129,16 +129,23 @@ export const useAuth = create<AuthState>((set, get) => ({
     } catch {}
   },
 
-  signIn: async (email, password) => {
+  signIn: async (identifier, password) => {
     try {
+      let email = (identifier || '').trim();
+      if (!email.includes('@')) {
+        const res = await supabase.rpc('find_email_by_identifier', { p_identifier: email });
+        if (res.error || !res.data) {
+          return 'No account found with that email, phone number, or username.';
+        }
+        email = res.data;
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return error.message;
 
-      // Check ban BEFORE flipping state
       const ban = await checkBan(data.user.id);
       if (ban) return ban;
 
-      // Set context + state
       await get().setLoginContext('user');
       set({ user: data.user, session: data.session, loading: false, role: null });
       try { await get().refreshScans(); } catch {}
@@ -150,54 +157,38 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, countryCode?: string) => {
+  signUp: async (email, password, phone) => {
     try {
+      let normalized = (phone || '').replace(/\s/g, '').replace(/[^0-9]/g, '');
+      if (normalized.startsWith('0')) normalized = '234' + normalized.slice(1);
+      else if (normalized && !normalized.startsWith('234')) normalized = '234' + normalized;
+
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) return error.message;
-      if (!data.user) return 'Signup failed';
 
-      // Resolve country name + code from locale
-      const locale = useLocale.getState();
-      const code = (countryCode || locale.country?.code || 'NG').toUpperCase();
-      let countryName = locale.country?.name || code;
-      if (code === 'NG') countryName = 'Nigeria';
-
-      // Try to resolve proper name from countries table
-      try {
-        const { data: c } = await supabase
-          .from('countries')
-          .select('name')
-          .eq('code', code)
-          .maybeSingle();
-        if (c?.name) countryName = c.name;
-      } catch {}
-
-      try {
-        await supabase.from('user_scans').insert({
-          user_id: data.user.id, scans_remaining: 30, plan: 'free',
-        });
-      } catch {}
-
-      await get().setLoginContext('user');
-
-      try {
-        await supabase.from('user_profiles').upsert(
-          {
+      if (data.user) {
+        try {
+          await supabase.from('user_scans').insert({
             user_id: data.user.id,
-            email: (data.user.email || email).toLowerCase(),
-            country: countryName,
-            country_code: code,
-            verification_status: 'pending',
-            account_status: 'active',
-          },
-          { onConflict: 'user_id' }
-        );
-      } catch (e) { console.warn('[signup] profile upsert failed', e); }
+            scans_remaining: 30,
+            plan: 'free',
+          });
+        } catch {}
 
-      set({ user: data.user, session: data.session, loading: false, role: 'farmer' });
-      await get().refreshScans();
+        try {
+          await supabase.from('user_profiles').upsert({
+            user_id: data.user.id,
+            email: email.toLowerCase(),
+            phone: normalized || null,
+          }, { onConflict: 'user_id' });
+        } catch {}
+
+        set({ user: data.user, session: data.session, loading: false });
+      }
       return null;
-    } catch (e: any) { return e?.message ?? 'Sign up failed'; }
+    } catch (e: any) {
+      return e?.message ?? 'Sign up failed';
+    }
   },
 
   signInWithGoogle: async () => {
