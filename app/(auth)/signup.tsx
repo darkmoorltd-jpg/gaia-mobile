@@ -55,7 +55,7 @@ const COUNTRY_CODES = [
   { iso: 'MW', flag: '🇲🇼', name: 'Malawi',          dial: '+265' },
   { iso: 'MZ', flag: '🇲🇿', name: 'Mozambique',      dial: '+258' },
   { iso: 'BW', flag: '🇧🇼', name: 'Botswana',        dial: '+267' },
-  { iso: 'NA', flag: '🇳🇦', name: 'Namibia',ape         dial: '+264' },
+  { iso: 'NA', flag: '🇳🇦', name: 'Namibia', dial: '+264' },
   { iso: 'MG', flag: '🇲🇬', name: 'Madagascar',      dial: '+261' },
   { iso: 'RW', flag: '🇷🇼', name: 'Rwanda',          dial: '+250' },
   { iso: 'BI', flag: '🇧🇮', name: 'Burundi',         dial: '+257' },
