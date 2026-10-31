@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Activi
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -30,6 +31,8 @@ export default function RentStore() {
   const [docs, setDocs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [coords, setCoords] = useState<{lat: number, lon: number} | null>(null);
+  const [gpsBusy, setGpsBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -61,9 +64,28 @@ export default function RentStore() {
     if (!r.canceled) setDocs([...docs, r.assets[0].uri]);
   };
 
+  
+  const captureGPS = async () => {
+    setGpsBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location is required to pin your farm on the map.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCoords({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+      Alert.alert('Location Pinned', 'Your farm location has been captured.');
+    } catch (e: any) {
+      Alert.alert('GPS Error', e.message);
+    } finally {
+      setGpsBusy(false);
+    }
+  };
+
   const submit = async () => {
-    if (!name.trim() || !location.trim() || images.length === 0 || docs.length === 0) {
-      Alert.alert('Missing info', 'Please fill all fields and upload at least 1 image and 1 document.');
+    if (!name.trim() || !location.trim() || images.length === 0 || docs.length === 0 || !coords) {
+      Alert.alert('Missing info', 'Please fill all fields, upload docs, and pin your GPS location.');
       return;
     }
     const activePlan = PLANS.find(p => p.id === plan)!;
@@ -98,6 +120,8 @@ export default function RentStore() {
         p_images: imgUrls,
         p_documents: docUrls,
         p_amount: price,
+        p_lat: coords.lat,
+        p_lon: coords.lon,
       });
 
       if (error) throw error;
@@ -146,6 +170,10 @@ export default function RentStore() {
         <Text style={styles.label}>3. STORE DETAILS</Text>
         <TextInput value={name} onChangeText={setName} placeholder="Store Name (e.g. Prosper Farms)" placeholderTextColor="#888" style={styles.input} />
         <TextInput value={location} onChangeText={setLocation} placeholder="Store/Farm Location (e.g. Kaduna North)" placeholderTextColor="#888" style={styles.input} />
+        
+        <Pressable onPress={captureGPS} disabled={gpsBusy} style={{ backgroundColor: coords ? 'rgba(0,255,136,0.2)' : p.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: p.neon, alignItems: 'center', marginTop: 8 }}>
+          {gpsBusy ? <ActivityIndicator color={p.neon} /> : <Text style={{ color: p.neon, fontWeight: '900' }}>{coords ? '✅ Location Pinned (GPS)' : '📍 Pin Farm Location on Map'}</Text>}
+        </Pressable>
 
         <Text style={styles.label}>4. STORE IMAGES</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>

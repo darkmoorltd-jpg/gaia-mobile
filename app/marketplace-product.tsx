@@ -135,9 +135,14 @@ export default function ProductDetail() {
                 ✅ Verified · ⭐ {listing.rating ? listing.rating.toFixed(1) : '4.5'}
               </Text>
             </View>
-            <Pressable onPress={onChat} style={styles.sellerChatBtn}>
-              <Text style={styles.sellerChatTxt}>CHAT</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable onPress={() => router.push({ pathname: '/store-map', params: { store_id: listing.seller_id } } as any)} style={[styles.sellerChatBtn, { backgroundColor: '#2196f3' }]}>
+                <Text style={styles.sellerChatTxt}>📍 MAP</Text>
+              </Pressable>
+              <Pressable onPress={onChat} style={styles.sellerChatBtn}>
+                <Text style={styles.sellerChatTxt}>CHAT</Text>
+              </Pressable>
+            </View>
           </View>
 
           <Text style={styles.sectionLabel}>DESCRIPTION</Text>
