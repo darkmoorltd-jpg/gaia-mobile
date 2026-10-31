@@ -12,18 +12,21 @@ export default function AdminMarketplace() {
   const user = useAuth((s) => s.user);
   const isAdmin = user?.email === 'darkmoorltd@gmail.com';
 
-  const [tab, setTab] = useState<'overview' | 'stores' | 'listings' | 'disputes' | 'broadcast'>('overview');
+  const [tab, setTab] = useState<'overview' | 'stores' | 'listings' | 'sellers' | 'buyers' | 'orders' | 'disputes' | 'broadcast'>('overview');
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
 
   const [stats, setStats] = useState<any>(null);
   const [stores, setStores] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
+  const [sellers, setSellers] = useState<any[]>([]);
+  const [buyers, setBuyers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [disputes, setDisputes] = useState<any[]>([]);
   
   const [viewStore, setViewStore] = useState<any | null>(null);
+  const [viewOrder, setViewOrder] = useState<any | null>(null);
 
-  // Broadcast state
   const [bTitle, setBTitle] = useState('');
   const [bBody, setBBody] = useState('');
   const [bTarget, setBTarget] = useState<'sellers'|'buyers'>('sellers');
@@ -32,16 +35,22 @@ export default function AdminMarketplace() {
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setBusy(true);
-    const [st, s, l, d] = await Promise.all([
+    const [st, s, l, sel, buy, o, d] = await Promise.all([
       supabase.rpc('admin_marketplace_stats'),
       supabase.from('marketplace_stores').select('*').order('created_at', { ascending: false }),
       supabase.from('marketplace_listings').select('*').order('created_at', { ascending: false }),
+      supabase.rpc('admin_marketplace_sellers'),
+      supabase.rpc('admin_marketplace_buyers'),
+      supabase.from('marketplace_orders').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.rpc('admin_get_disputes')
     ]);
     
     if (st.data) setStats(st.data);
     if (s.data) setStores(s.data);
     if (l.data) setListings(l.data);
+    if (sel.data) setSellers(sel.data);
+    if (buy.data) setBuyers(buy.data);
+    if (o.data) setOrders(o.data);
     if (d.data) setDisputes(d.data);
     
     setBusy(false);
@@ -50,21 +59,10 @@ export default function AdminMarketplace() {
 
   useEffect(() => { load(); }, [load]);
 
-  // --- ACTIONS ---
   const approveStore = async (id: string) => {
     const { error } = await supabase.rpc('admin_approve_store', { p_store_id: id });
     if (error) Alert.alert('Error', error.message);
     else { setViewStore(null); load(); }
-  };
-
-  const suspendStore = (id: string) => {
-    Alert.alert('Suspend Store?', 'They will not be able to sell until re-approved.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Suspend', style: 'destructive', onPress: async () => {
-        await supabase.rpc('admin_update_store_status', { p_store_id: id, p_status: 'rejected' });
-        load();
-      }},
-    ]);
   };
 
   const approveListing = async (id: number) => {
@@ -75,13 +73,10 @@ export default function AdminMarketplace() {
   const bulkApproveListings = () => {
     const pending = listings.filter(l => l.approval_status === 'pending');
     if (pending.length === 0) return Alert.alert('No pending listings');
-    
     Alert.alert('Approve All?', `Approve all ${pending.length} pending listings?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Approve All', onPress: async () => {
-        for (const l of pending) {
-          await supabase.rpc('admin_approve_listing', { p_listing_id: l.id });
-        }
+        for (const l of pending) await supabase.rpc('admin_approve_listing', { p_listing_id: l.id });
         load();
       }}
     ]);
@@ -118,6 +113,9 @@ export default function AdminMarketplace() {
     { id: 'overview', label: '📊 Stats' },
     { id: 'stores', label: '🏪 Stores (' + pendingStoresCount + ')' },
     { id: 'listings', label: '📦 Listings (' + pendingListingsCount + ')' },
+    { id: 'sellers', label: '👥 Sellers' },
+    { id: 'buyers', label: '🛍️ Buyers' },
+    { id: 'orders', label: '🚚 Orders' },
     { id: 'disputes', label: '🛡️ Disputes (' + disputes.length + ')' },
     { id: 'broadcast', label: '📢 Broadcast' },
   ];
@@ -143,7 +141,7 @@ export default function AdminMarketplace() {
 
         {busy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 20 }} /> : null}
 
-        {/* --- OVERVIEW TAB --- */}
+        {/* --- OVERVIEW --- */}
         {tab === 'overview' && stats ? (
           <View style={styles.grid}>
             <View style={styles.statBox}>
@@ -155,17 +153,65 @@ export default function AdminMarketplace() {
               <Text style={styles.statLbl}>PLATFORM FEES (5%)</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statVal}>{stats.active_stores}</Text>
-              <Text style={styles.statLbl}>ACTIVE STORES</Text>
+              <Text style={styles.statVal}>{sellers.length}</Text>
+              <Text style={styles.statLbl}>TOTAL SELLERS</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={[styles.statVal, { color: '#ffb300' }]}>{stats.pending_stores + stats.pending_listings}</Text>
-              <Text style={styles.statLbl}>PENDING APPROVALS</Text>
+              <Text style={styles.statVal}>{buyers.length}</Text>
+              <Text style={styles.statLbl}>TOTAL BUYERS</Text>
             </View>
           </View>
         ) : null}
 
-        {/* --- STORES TAB --- */}
+        {/* --- SELLERS --- */}
+        {tab === 'sellers' ? (
+          sellers.map(sel => (
+            <View key={sel.user_id} style={styles.card}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={styles.cardTitle}>{sel.store_name}</Text>
+                <Text style={[styles.statusChip, { color: '#00ff88', borderColor: '#00ff88' }]}>{sel.store_type.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.cardMeta}>👤 {sel.name} · {sel.email}</Text>
+              <Text style={styles.cardMeta}>📞 {sel.phone || 'No phone'}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                <Text style={[styles.cardMeta, { color: '#00ff88', fontWeight: 'bold' }]}>GMV: ₦{Number(sel.total_sales).toLocaleString()}</Text>
+                <Text style={styles.cardMeta}>{sel.order_count} orders</Text>
+              </View>
+            </View>
+          ))
+        ) : null}
+
+        {/* --- BUYERS --- */}
+        {tab === 'buyers' ? (
+          buyers.map(b => (
+            <View key={b.user_id} style={styles.card}>
+              <Text style={styles.cardTitle}>{b.name}</Text>
+              <Text style={styles.cardMeta}>✉️ {b.email}</Text>
+              <Text style={styles.cardMeta}>📞 {b.phone || 'No phone'}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                <Text style={[styles.cardMeta, { color: '#ffb300', fontWeight: 'bold' }]}>Total Spent: ₦{Number(b.total_spend).toLocaleString()}</Text>
+                <Text style={styles.cardMeta}>{b.order_count} purchases</Text>
+              </View>
+            </View>
+          ))
+        ) : null}
+
+        {/* --- ORDERS --- */}
+        {tab === 'orders' ? (
+          orders.map(o => (
+            <Pressable key={o.id} onPress={() => setViewOrder(o)} style={styles.card}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={styles.cardTitle}>{o.listing_title}</Text>
+                <Text style={styles.statusChip}>{o.status.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.cardMeta}>₦{Number(o.total).toLocaleString()} · Qty {o.quantity}</Text>
+              <Text style={styles.cardMeta}>Ref: {o.order_ref}</Text>
+              <Text style={[styles.cardMeta, { color: palette.neon, marginTop: 4 }]}>Tap for full details →</Text>
+            </Pressable>
+          ))
+        ) : null}
+
+        {/* --- STORES --- */}
         {tab === 'stores' ? (
           stores.map(s => (
             <Pressable key={s.id} onPress={() => setViewStore(s)} style={styles.card}>
@@ -181,7 +227,7 @@ export default function AdminMarketplace() {
           ))
         ) : null}
 
-        {/* --- LISTINGS TAB --- */}
+        {/* --- LISTINGS --- */}
         {tab === 'listings' ? (
           <>
             {pendingListingsCount > 0 ? (
@@ -189,7 +235,6 @@ export default function AdminMarketplace() {
                 <Text style={{ fontWeight: '900', color: '#000' }}>⚡ BULK APPROVE ALL ({pendingListingsCount})</Text>
               </Pressable>
             ) : null}
-
             {listings.map(l => (
               <View key={l.id} style={styles.card}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -199,25 +244,19 @@ export default function AdminMarketplace() {
                   </Text>
                 </View>
                 <Text style={styles.cardMeta}>₦{Number(l.price).toLocaleString()} · Qty: {l.quantity} {l.unit}</Text>
-                
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                  {l.approval_status === 'pending' ? (
-                    <>
-                      <Pressable onPress={() => approveListing(l.id)} style={[styles.smallBtn, { backgroundColor: '#00ff88' }]}>
-                        <Text style={{ fontWeight: '900', color: '#000', fontSize: 11 }}>APPROVE</Text>
-                      </Pressable>
-                      <Pressable onPress={() => supabase.from('marketplace_listings').update({ approval_status: 'rejected' }).eq('id', l.id).then(load)} style={[styles.smallBtn, { borderColor: '#ff3b5c', borderWidth: 1 }]}>
-                        <Text style={{ fontWeight: '900', color: '#ff3b5c', fontSize: 11 }}>REJECT</Text>
-                      </Pressable>
-                    </>
-                  ) : null}
-                </View>
+                {l.approval_status === 'pending' ? (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <Pressable onPress={() => approveListing(l.id)} style={[styles.smallBtn, { backgroundColor: '#00ff88' }]}>
+                      <Text style={{ fontWeight: '900', color: '#000', fontSize: 11 }}>APPROVE</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             ))}
           </>
         ) : null}
 
-        {/* --- DISPUTES TAB --- */}
+        {/* --- DISPUTES --- */}
         {tab === 'disputes' ? (
           disputes.length === 0 ? <Text style={styles.cardMeta}>No open disputes. 🎉</Text> :
           disputes.map(d => (
@@ -228,8 +267,6 @@ export default function AdminMarketplace() {
               </View>
               <Text style={styles.cardMeta}>Total: ₦{Number(d.order_total).toLocaleString()}</Text>
               <Text style={styles.cardMeta}>Reason: <Text style={{ color: '#fff' }}>{d.reason}</Text></Text>
-              <Text style={styles.cardMeta}>Details: {d.description || '—'}</Text>
-              
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                 <Pressable onPress={() => resolveDispute(d.id, 'refund')} style={[styles.smallBtn, { backgroundColor: '#ff3b5c' }]}>
                   <Text style={{ fontWeight: '900', color: '#fff', fontSize: 11 }}>REFUND BUYER</Text>
@@ -242,11 +279,10 @@ export default function AdminMarketplace() {
           ))
         ) : null}
 
-        {/* --- BROADCAST TAB --- */}
+        {/* --- BROADCAST --- */}
         {tab === 'broadcast' ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Send Push Notification</Text>
-            <Text style={styles.cardMeta}>Target Audience:</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginVertical: 10 }}>
               <Pressable onPress={() => setBTarget('sellers')} style={[styles.smallBtn, bTarget === 'sellers' && { backgroundColor: '#00ff88' }]}>
                 <Text style={{ fontWeight: '900', color: bTarget === 'sellers' ? '#000' : '#fff' }}>SELLERS</Text>
@@ -255,10 +291,8 @@ export default function AdminMarketplace() {
                 <Text style={{ fontWeight: '900', color: bTarget === 'buyers' ? '#000' : '#fff' }}>BUYERS</Text>
               </Pressable>
             </View>
-            
-            <TextInput value={bTitle} onChangeText={setBTitle} placeholder="Title (e.g. New Feature)" placeholderTextColor="#888" style={styles.input} />
+            <TextInput value={bTitle} onChangeText={setBTitle} placeholder="Title" placeholderTextColor="#888" style={styles.input} />
             <TextInput value={bBody} onChangeText={setBBody} placeholder="Message body..." placeholderTextColor="#888" style={[styles.input, { height: 80, textAlignVertical: 'top' }]} multiline />
-            
             <Pressable onPress={sendBroadcast} disabled={bSending} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 16 }]}>
               {bSending ? <ActivityIndicator color="#000" /> : <Text style={{ fontWeight: '900', color: '#000' }}>SEND BROADCAST</Text>}
             </Pressable>
@@ -275,32 +309,41 @@ export default function AdminMarketplace() {
             <Pressable onPress={() => setViewStore(null)}><Text style={styles.back}>CLOSE</Text></Pressable>
             <Text style={styles.title}>{viewStore?.store_name}</Text>
             <Text style={styles.cardMeta}>{viewStore?.store_type.toUpperCase()} · {viewStore?.status.toUpperCase()}</Text>
-
-            <Text style={styles.section}>STORE IMAGES</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                 {viewStore?.images?.length > 0 ? viewStore.images.map((img: string, i: number) => (
                   <Image key={i} source={{ uri: img }} style={{ width: 120, height: 120, borderRadius: 8 }} />
-                )) : <Text style={styles.cardMeta}>No images uploaded.</Text>}
+                )) : <Text style={styles.cardMeta}>No images.</Text>}
               </View>
             </ScrollView>
-
-            <Text style={styles.section}>DOCUMENTS</Text>
-            {viewStore?.documents?.length > 0 ? viewStore.documents.map((doc: string, i: number) => (
-              <Pressable key={i} onPress={() => Linking.openURL(doc)} style={{ padding: 12, backgroundColor: 'rgba(0,255,136,0.1)', borderRadius: 8, marginBottom: 8 }}>
-                <Text style={{ color: palette.neon, fontWeight: 'bold' }}>📄 Open Document {i+1}</Text>
-              </Pressable>
-            )) : <Text style={styles.cardMeta}>No documents uploaded.</Text>}
-
             {viewStore?.status === 'pending' ? (
               <Pressable onPress={() => approveStore(viewStore.id)} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 20 }]}>
                 <Text style={{ fontWeight: '900', color: '#000' }}>APPROVE STORE</Text>
               </Pressable>
-            ) : (
-              <Pressable onPress={() => suspendStore(viewStore.id)} style={[styles.btn, { borderColor: '#ff3b5c', borderWidth: 1, marginTop: 20 }]}>
-                <Text style={{ fontWeight: '900', color: '#ff3b5c' }}>SUSPEND STORE</Text>
-              </Pressable>
-            )}
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- ORDER VIEW MODAL --- */}
+      <Modal visible={!!viewOrder} transparent animationType="slide" onRequestClose={() => setViewOrder(null)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalSheet}>
+            <Pressable onPress={() => setViewOrder(null)}><Text style={styles.back}>CLOSE</Text></Pressable>
+            <Text style={styles.title}>Order Details</Text>
+            <Text style={styles.cardTitle}>{viewOrder?.listing_title}</Text>
+            
+            <Text style={styles.section}>BUYER INFO</Text>
+            <Text style={styles.cardMeta}>Name: {viewOrder?.buyer_name}</Text>
+            <Text style={styles.cardMeta}>Phone: {viewOrder?.buyer_phone}</Text>
+            <Text style={styles.cardMeta}>Address: {viewOrder?.delivery_address}</Text>
+            <Text style={styles.cardMeta}>Method: {viewOrder?.delivery_method}</Text>
+
+            <Text style={styles.section}>PAYMENT & STATUS</Text>
+            <Text style={styles.cardMeta}>Total: ₦{Number(viewOrder?.total).toLocaleString()}</Text>
+            <Text style={styles.cardMeta}>Status: {viewOrder?.status?.toUpperCase()}</Text>
+            <Text style={styles.cardMeta}>Ref: {viewOrder?.order_ref}</Text>
+            <Text style={styles.cardMeta}>Date: {new Date(viewOrder?.created_at).toLocaleString()}</Text>
           </View>
         </View>
       </Modal>
