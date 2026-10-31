@@ -20,7 +20,7 @@ const PLANS = [
 export default function RentStore() {
   const router = useRouter();
   const { palette } = useTheme();
-  const { user } = useAuth();
+  const user = useAuth((s) => s.user); // Safer selector
   const styles = createStyles(palette);
 
   const [plan, setPlan] = useState('small');
@@ -36,22 +36,34 @@ export default function RentStore() {
 
   useEffect(() => {
     (async () => {
-      const w = await walletMe();
-      if (w) setBalance(Number(w.wallet.balance || 0));
+      try {
+        const w = await walletMe();
+        if (w) setBalance(Number(w.wallet.balance || 0));
+      } catch (e) {
+        console.warn('[rent-store] wallet fetch failed', e);
+      }
     })();
   }, []);
 
   const uploadFile = async (uri: string, mime: string, folder: string) => {
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
-    const ext = mime.includes('pdf') ? 'pdf' : 'jpg';
-    const path = user!.id + '/' + folder + '-' + Date.now() + '.' + ext;
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const bucket = folder === 'image' ? 'listing-images' : 'store-docs';
-    const { error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, { contentType: mime });
-    if (error) return null;
-    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const ext = mime.includes('pdf') ? 'pdf' : 'jpg';
+      const path = user!.id + '/' + folder + '-' + Date.now() + '.' + ext;
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const bucket = folder === 'image' ? 'listing-images' : 'store-docs';
+      const { error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, { contentType: mime });
+      if (error) {
+        console.warn('[rent-store] upload error', error);
+        return null;
+      }
+      return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+    } catch (e) {
+      console.warn('[rent-store] file processing error', e);
+      return null;
+    }
   };
 
   const pickImage = async () => {
@@ -60,11 +72,10 @@ export default function RentStore() {
   };
 
   const pickDoc = async () => {
-    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'] });
+    const', r = await DocumentPicker.getDocumentAsync({ type: ['application '/pdf', 'image/*'] });
     if (!r.canceled) setDocs([...docs, r.assets[0].uri]);
   };
 
-  
   const captureGPS = async () => {
     setGpsBusy(true);
     try {
@@ -85,7 +96,7 @@ export default function RentStore() {
 
   const submit = async () => {
     if (!name.trim() || !location.trim() || images.length === 0 || docs.length === 0 || !coords) {
-      Alert.alert('Missing info', 'Please fill all fields, upload docs, and pin your GPS location.');
+      Alert.alert('Missing infoPlease fill all fields, upload docs, and pin your GPS location.');
       return;
     }
     const activePlan = PLANS.find(p => p.id === plan)!;
@@ -171,8 +182,23 @@ export default function RentStore() {
         <TextInput value={name} onChangeText={setName} placeholder="Store Name (e.g. Prosper Farms)" placeholderTextColor="#888" style={styles.input} />
         <TextInput value={location} onChangeText={setLocation} placeholder="Store/Farm Location (e.g. Kaduna North)" placeholderTextColor="#888" style={styles.input} />
         
-        <Pressable onPress={captureGPS} disabled={gpsBusy} style={{ backgroundColor: coords ? 'rgba(0,255,136,0.2)' : p.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: p.neon, alignItems: 'center', marginTop: 8 }}>
-          {gpsBusy ? <ActivityIndicator color={p.neon} /> : <Text style={{ color: p.neon, fontWeight: '900' }}>{coords ? '✅ Location Pinned (GPS)' : '📍 Pin Farm Location on Map'}</Text>}
+        {/* FIXED: p.surface -> palette.surface, p.neon -> palette.neon */}
+        <Pressable 
+          onPress={captureGPS} 
+          disabled={gpsBusy} 
+          style={{ 
+            backgroundColor: coords ? 'rgba(0,255,136,0.2)' : palette.surface, 
+            padding: 16, borderRadius: 12, borderWidth: 1, 
+            borderColor: palette.neon, alignItems: 'center', marginTop: 8 
+          }}
+        >
+          {gpsBusy ? (
+            <ActivityIndicator color={palette.neon} />
+          ) : (
+            <Text style={{ color: palette.neon, fontWeight: '900' }}>
+              {coords ? '✅ Location Pinned (GPS)' : '📍 Pin Farm Location on Map'}
+            </Text>
+          )}
         </Pressable>
 
         <Text style={styles.label}>4. STORE IMAGES</Text>
