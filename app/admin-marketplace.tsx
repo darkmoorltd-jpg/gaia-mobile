@@ -30,6 +30,7 @@ export default function AdminMarketplace() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [expiring, setExpiring] = useState<any[]>([]);
   const [topSellers, setTopSellers] = useState<any[]>([]);
+  const [topSellers, setTopSellers] = useState<any[]>([]);
   
   // Modals
   const [viewStore, setViewStore] = useState<any | null>(null);
@@ -55,6 +56,7 @@ export default function AdminMarketplace() {
     const p = await safeCall(() => supabase.rpc('admin_get_withdrawals'));
     const e = await safeCall(() => supabase.rpc('admin_get_expiring_stores'));
     const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
+    const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
     
     setStats(st);
     setChart(ch);
@@ -64,6 +66,7 @@ export default function AdminMarketplace() {
     setDisputes(d);
     setPayouts(p);
     setExpiring(e);
+    setTopSellers(ts);
     setTopSellers(ts);
     
     setBusy(false);
@@ -159,6 +162,20 @@ export default function AdminMarketplace() {
                 <Text style={styles.statLbl}>RECENT ORDERS</Text>
               </View>
             </View>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🏆 Top Sellers Leaderboard</Text>
+              {topSellers.map((s, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#888', marginRight: 12 }}>#{i+1}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{s.store_name || s.email?.split('@')[0]}</Text>
+                    <Text style={{ color: '#888', fontSize: 11 }}>{s.order_count} orders</Text>
+                  </View>
+                  <Text style={{ color: '#00ff88', fontWeight: '900' }}>₦{Number(s.revenue).toLocaleString()}</Text>
+                </View>
+              ))}
+            </View>
+            
             <View style={styles.card}>
               <Text style={styles.cardTitle}>🏆 Top Sellers Leaderboard</Text>
               {topSellers.map((s, i) => (
