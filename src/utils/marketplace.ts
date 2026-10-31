@@ -48,7 +48,7 @@ export async function fetchListings(category?: string): Promise<Listing[]> {
     let q = supabase
       .from('marketplace_listings')
       .select('*')
-      .eq('sold', false)
+      .eq('sold', false).eq('approval_status', 'approved')
       .order('created_at', { ascending: false })
       .limit(200);
     if (category && category !== 'All') q = q.eq('category', category);
@@ -112,6 +112,7 @@ export async function createListing(
         images: listing.images || [],
         delivery_method: listing.delivery_method || 'both',
         delivery_fee: listing.delivery_fee || 0,
+        approval_status: 'pending',
       })
       .select()
       .single();

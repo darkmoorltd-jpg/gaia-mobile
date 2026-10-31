@@ -208,6 +208,7 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen name="rag" />
+      <Stack.Screen name="marketplace-rent-store" options={{ headerShown: false }} />
       <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
       <Stack.Screen name="escrow-chat" options={{ headerShown: false }} />
       <Stack.Screen name="escrow-receipt" options={{ headerShown: false }} />

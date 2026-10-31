@@ -9,6 +9,7 @@ import {
   fetchSellerListings, deleteListing, fetchSellerOrders, naira, getSellerSummary,
   SellerSummary,
 } from '../src/utils/marketplace';
+import { supabase } from '../src/api/supabase';
 
 export default function SellerStore() {
   const router = useRouter();
@@ -19,10 +20,13 @@ export default function SellerStore() {
   const [orders, setOrders] = useState<any[]>([]);
   const [summary, setSummary] = useState<SellerSummary | null>(null);
   const [busy, setBusy] = useState(true);
+  const [store, setStore] = useState<any>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     setBusy(true);
+    const { data: storeData } = await supabase.from('marketplace_stores').select('*').eq('seller_id', user.id).maybeSingle();
+    setStore(storeData);
     const [ls, os, sm] = await Promise.all([
       fetchSellerListings(user.id),
       fetchSellerOrders(user.id),
@@ -45,13 +49,49 @@ export default function SellerStore() {
 
   const awaiting = summary ? summary.orders_awaiting_shipment : 0;
 
+  if (!store) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>🏪</Text>
+        <Text style={[styles.title, { textAlign: 'center' }]}>No Store Found</Text>
+        <Text style={[styles.sub, { textAlign: 'center', marginBottom: 24 }]}>You need to rent a store to start selling on GAIA.</Text>
+        <Pressable onPress={() => router.push('/marketplace-rent-store' as any)} style={styles.addBtn}>
+          <Text style={styles.addBtnTxt}>RENT A STORE</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (store.status === 'pending') {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>⏳</Text>
+        <Text style={[styles.title, { textAlign: 'center' }]}>Application Pending</Text>
+        <Text style={[styles.sub, { textAlign: 'center', marginBottom: 24 }]}>Admin is reviewing your store ({store.store_name}). We will notify you once approved.</Text>
+      </View>
+    );
+  }
+
+  if (store.status === 'rejected') {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>❌</Text>
+        <Text style={[styles.title, { textAlign: 'center' }]}>Store Rejected</Text>
+        <Text style={[styles.sub, { textAlign: 'center', marginBottom: 24 }]}>Your store application was rejected. Please contact support.</Text>
+        <Pressable onPress={() => router.push('/help' as any)} style={styles.addBtn}>
+          <Text style={styles.addBtnTxt}>CONTACT SUPPORT</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>BACK</Text>
         </Pressable>
-        <Text style={styles.title}>My Store</Text>
+        <Text style={styles.title}>{store.store_name}</Text>
         <Text style={styles.sub}>{user?.email}</Text>
 
         <View style={styles.walletCard}>

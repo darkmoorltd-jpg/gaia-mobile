@@ -37,7 +37,7 @@ export default function SellForm() {
       if (!user) return;
       const ok = await isVerifiedSeller(user.id);
       setVerified(ok);
-      if (!ok) router.replace('/marketplace-verify-gate' as any);
+      if (!ok) router.replace('/marketplace-store' as any);
     })();
   }, [user]);
 
@@ -87,7 +87,7 @@ export default function SellForm() {
       if (error || !id) {
         Alert.alert('Failed', error || 'Could not publish');
       } else {
-        Alert.alert('Published', 'Your listing is live');
+        Alert.alert('Submitted', 'Your listing is pending admin approval.');
         router.replace('/marketplace-store' as any);
       }
     } catch (e: any) {
