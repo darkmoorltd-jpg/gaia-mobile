@@ -55,6 +55,8 @@ export default function Home() {
       { key: 'mapping',  title: t('dashboard.tiles.mapping'),  sub: t('dashboard.tiles.mappingSub'),  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
       { key: 'soil-data', title: 'Soil by GPS', sub: 'Real soil chemistry', img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/soil-data' },
       { key: 'journal',  title: t('dashboard.tiles.journal'),  sub: t('dashboard.tiles.journalSub'),  img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
+      { key: 'batches', title: 'Harvest Batches', sub: 'Create crop passports', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-batches' },
+      { key: 'eudr', title: 'EU Export Center', sub: 'EUDR compliance', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/eudr-dashboard' },
       { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
     ]},
     { id: 'ai_tools', label: t('dashboard.sections.aiTools'), tiles: [
@@ -63,6 +65,7 @@ export default function Home() {
     ]},
     { id: 'market', label: t('dashboard.sections.market'), tiles: [
       { key: 'marketplace', title: t('dashboard.tiles.marketplace'), sub: t('dashboard.tiles.marketplaceSub'), img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
+      { key: 'organic', title: 'GAIA Organic', sub: 'Certified chemical-free', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-market' },
       { key: 'buy-scans',   title: t('dashboard.tiles.buyScans'),    sub: t('dashboard.tiles.buyScansSub'),    img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
     ]},
   ];
