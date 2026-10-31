@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
@@ -25,7 +25,6 @@ export default function SellerStore() {
     setBusy(true);
     setError('');
     try {
-      // Fetch store (the gatekeeper)
       const { data: storeData, error: storeErr } = await supabase
         .from('marketplace_stores')
         .select('*')
@@ -35,8 +34,7 @@ export default function SellerStore() {
       if (storeErr) console.warn('[store] fetch error:', storeErr.message);
       setStore(storeData);
 
-      // Only load heavy data if store exists
-      if (storeData) {
+      if (storeData && storeData.store_name) {
         try {
           const [ls, sm] = await Promise.all([ fetchSellerListings(user.id), getSellerSummary() ]);
           setListings(ls || []);
@@ -94,12 +92,12 @@ export default function SellerStore() {
     );
   }
 
-  // ============ NO STORE STATE ============
-  if (!store) {
+  // ============ NO STORE / INVALID STORE STATE ============
+  if (!store || !store.store_name) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ fontSize: 64, marginBottom: 16 }}>🏪</Text>
-        <Text style={[styles.title, { textAlign: 'center' }]}>No Store Found</Text>
+        <Text style={[styles.title, { textAlign: 'center', flex: 0 }]}>No Store Found</Text>
         <Text style={[styles.sub, { textAlign: 'center', marginTop: 8, marginBottom: 24, fontSize: 14, lineHeight: 20 }]}>
           You need to rent a store to start selling on GAIA Marketplace.
           Choose a plan, upload your docs, and admin will approve you within 24 hours.
@@ -110,7 +108,6 @@ export default function SellerStore() {
         <Pressable onPress={() => router.back()} style={{ marginTop: 16, padding: 8 }}>
           <Text style={{ color: palette.textMuted, fontSize: 12 }}>← Back</Text>
         </Pressable>
-        {error ? <Text style={{ color: palette.danger, marginTop: 20, fontSize: 12 }}>{error}</Text> : null}
       </View>
     );
   }
@@ -120,7 +117,7 @@ export default function SellerStore() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ fontSize: 64, marginBottom: 16 }}>⏳</Text>
-        <Text style={[styles.title, { textAlign: 'center' }]}>Application Under Review</Text>
+        <Text style={[styles.title, { textAlign: 'center', flex: 0 }]}>Application Under Review</Text>
         <Text style={[styles.sub, { textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20 }]}>
           Admin is reviewing <Text style={{ color: palette.neon, fontWeight: '700' }}>{store.store_name}</Text>.
           You'll get a notification once approved (usually within 24 hours).
@@ -145,7 +142,7 @@ export default function SellerStore() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ fontSize: 64, marginBottom: 16 }}>❌</Text>
-        <Text style={[styles.title, { textAlign: 'center' }]}>Store Rejected</Text>
+        <Text style={[styles.title, { textAlign: 'center', flex: 0 }]}>Store Rejected</Text>
         <Text style={[styles.sub, { textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20 }]}>
           Your store application for {store.store_name} was rejected.
           Please contact support for details or reapply.
@@ -162,7 +159,7 @@ export default function SellerStore() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Text style={{ fontSize: 64, marginBottom: 16 }}>⌛</Text>
-        <Text style={[styles.title, { textAlign: 'center' }]}>Store Expired</Text>
+        <Text style={[styles.title, { textAlign: 'center', flex: 0 }]}>Store Expired</Text>
         <Text style={[styles.sub, { textAlign: 'center', marginTop: 8, fontSize: 14, lineHeight: 20 }]}>
           Your subscription for {store.store_name} has expired.
           Renew now to keep your listings visible.
@@ -186,8 +183,8 @@ export default function SellerStore() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          <Text style={styles.title} numberOfLines={1}>{store.store_name}</Text>
-          <View style={{ alignItems: 'flex-end' }}>
+          <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>{store.store_name}</Text>
+          <View style={{ alignItems: 'flex-end', flex: 0 }}>
             <Text style={{ fontSize: 16, color: '#ffd700', fontWeight: '900' }}>★ {rating.avg > 0 ? rating.avg.toFixed(1) : '—'}</Text>
             <Text style={{ fontSize: 10, color: '#888' }}>{rating.count} reviews</Text>
           </View>
@@ -282,7 +279,7 @@ const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { padding: 20, paddingTop: 56 },
   back: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1, flex: 1, marginRight: 8 },
+  title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1, marginRight: 8 },
   sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 },
   walletCard: { padding: 20, borderRadius: 20, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 16 },
   walletLbl: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: p.textMuted },
