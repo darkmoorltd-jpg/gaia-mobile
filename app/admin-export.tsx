@@ -1,110 +1,180 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, Share } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useTheme, spacing, radius } from '../src/theme';
-import { useAuth } from '../src/store/auth';
-import { useIsAdmin } from '../src/utils/admin';
+import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-function toCSV(rows: any[]): string {
-  if (!rows || rows.length === 0) return '';
-  const keys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
-  const esc = (v: any) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-  };
-  const head = keys.join(',');
-  const body = rows.map((r) => keys.map((k) => esc(r[k])).join(',')).join('\n');
-  return head + '\n' + body;
-}
-
-export default function AdminExport() {
+export default function AdminExportScreen() {
   const router = useRouter();
   const { palette } = useTheme();
-  const s = createStyles(palette);
-  const user = useAuth((x) => x.user);
+  const styles = createStyles(palette);
 
-  const { isAdmin, isSuperAdmin } = useIsAdmin();
-  const [busy, setBusy] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [farmers, setFarmers] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-  const doExport = async (name: string, rows: any[]) => {
-    if (!rows || rows.length === 0) { Alert.alert('Nothing to export'); return; }
+  const loadData = useCallback(async () => {
+    setBusy(true);
     try {
-      const csv = toCSV(rows);
-      const path = FileSystem.cacheDirectory + name + '-' + Date.now() + '.csv';
-      await FileSystem.writeAsStringAsync(path, csv);
-      await Share.share({ message: 'GAIA export', url: path });
+      const { data, error } = await supabase.rpc('admin_export_farmers', { p_limit: 5000 });
+      if (error) throw error;
+      setFarmers(data || []);
+      setLoaded(true);
     } catch (e: any) {
-      Alert.alert('Export failed', e?.message || 'Try again');
+      Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  // ============================================================
+  // EXPORT TO EXCEL (CSV)
+  // ============================================================
+  const exportToExcel = async () => {
+    if (farmers.length === 0) return;
+    setBusy(true);
+    try {
+      const headers = ['Farmer ID', 'Full Name', 'Phone', 'State', 'LGA', 'Crop', 'Farm Size (Acres)', 'BVN', 'NIN', 'KYC Status', 'Bank', 'Account No', 'Lat', 'Lon', 'Registered At'];
+      
+      const rows = farmers.map(f => [
+        f.unique_farmer_id || '', f.full_name || '', f.phone || '', f.state || '', f.lga || '',
+        f.primary_crop || '', f.farm_size_acres || 0, f.bvn || '', f.nin || '', f.kyc_status || '',
+        f.bank_name || '', f.account_number || '', f.gps_lat || '', f.gps_lon || '', new Date(f.registered_at).toLocaleDateString()
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const fileUri = FileSystem.cacheDirectory + 'GAIA_Farmers_' + Date.now() + '.csv';
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: 'Export Farmers to Excel' });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (e: any) {
+      Alert.alert('Export Failed', e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const exportUsers = async () => {
-    setBusy('users');
-    const { data, error } = await supabase.rpc('admin_list_users');
-    setBusy('');
-    if (error) { Alert.alert('Failed', error.message); return; }
-    doExport('gaia-users', data || []);
+  // ============================================================
+  // EXPORT TO PDF
+  // ============================================================
+  const exportToPDF = async () => {
+    if (farmers.length === 0) return;
+    setBusy(true);
+    try {
+      const rowsHtml = farmers.map((f, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${f.full_name || 'Unknown'}</td>
+          <td>${f.phone || '-'}</td>
+          <td>${f.state || '-'}</td>
+          <td>${f.primary_crop || '-'}</td>
+          <td>${f.farm_size_acres || 0}</td>
+          <td>${f.kyc_status?.toUpperCase() || 'PENDING'}</td>
+        </tr>
+      `).join('');
+
+      const html = `
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
+            h1 { color: #1b5e20; text-align: center; }
+            p { text-align: center; color: #666; margin-bottom: 30px; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; font-size: 10px; }
+            th { background-color: #e8f5e9; color: #1b5e20; padding: 10px; text-align: left; border-bottom: 2px solid #4caf50; }
+            td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+            tr:nth-child(even) { background-color: #fafafa; }
+            .footer { text-align: center; margin-top: 30px; font-size: 10px; color: #888; }
+          </style>
+        </head>
+        <body>
+          <h1>GAIA National Farmer Registry Export</h1>
+          <p>Generated on ${new Date().toLocaleString()} · Total Farmers: ${farmers.length}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Full Name</th>
+                <th>Phone</th>
+                <th>State</th>
+                <th>Primary Crop</th>
+                <th>Size (Ac)</th>
+                <th>KYC Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">Powered by Darkmoor Ltd · NDFR-Ready Data</div>
+        </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Export Farmers to PDF' });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (e: any) {
+      Alert.alert('Export Failed', e.message);
+    } finally {
+      setBusy(false);
+    }
   };
-
-  const exportPayments = async () => {
-    setBusy('payments');
-    const { data, error } = await supabase.from('payment_history').select('*').order('paid_at', { ascending: false });
-    setBusy('');
-    if (error) { Alert.alert('Failed', error.message); return; }
-    doExport('gaia-payments', data || []);
-  };
-
-  const exportOrders = async () => {
-    setBusy('orders');
-    const { data, error } = await supabase.from('marketplace_orders').select('*').order('created_at', { ascending: false });
-    setBusy('');
-    if (error) { Alert.alert('Failed', error.message); return; }
-    doExport('gaia-orders', data || []);
-  };
-
-  const exportListings = async () => {
-    setBusy('listings');
-    const { data, error } = await supabase.from('marketplace_listings').select('*').order('created_at', { ascending: false });
-    setBusy('');
-    if (error) { Alert.alert('Failed', error.message); return; }
-    doExport('gaia-listings', data || []);
-  };
-
-  const exportVerifications = async () => {
-    setBusy('kyc');
-    const { data, error } = await supabase.from('farmer_verifications').select('*').order('created_at', { ascending: false });
-    setBusy('');
-    if (error) { Alert.alert('Failed', error.message); return; }
-    doExport('gaia-kyc', data || []);
-  };
-
-  if (!isAdmin) return <View style={s.blocked}><Text style={s.blockedText}>Access denied</Text></View>;
-
-  const Btn = ({ k, label, fn }: any) => (
-    <Pressable disabled={!!busy} onPress={fn} style={s.btn}>
-      {busy === k ? <ActivityIndicator color={palette.obsidian} /> : <Text style={s.btnText}>{label}</Text>}
-    </Pressable>
-  );
 
   return (
-    <View style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll}>
-        <Pressable onPress={() => router.back()}><Text style={s.back}>BACK</Text></Pressable>
-        <Text style={s.title}>Export CSV</Text>
-        <Text style={s.sub}>Tap any dataset — the file shares to your device</Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
+        
+        <Text style={styles.title}>📊 Data Export</Text>
+        <Text style={styles.subtitle}>Export NDFR-ready data for Ministry & BOA</Text>
 
-        <Btn k="users" label="USERS" fn={exportUsers} />
-        <Btn k="payments" label="PAYMENT HISTORY" fn={exportPayments} />
-        <Btn k="orders" label="MARKETPLACE ORDERS" fn={exportOrders} />
-        <Btn k="listings" label="MARKETPLACE LISTINGS" fn={exportListings} />
-        <Btn k="kyc" label="KYC SUBMISSIONS" fn={exportVerifications} />
+        {!loaded && !busy ? (
+          <Pressable onPress={loadData} style={styles.loadBtn}>
+            <Text style={styles.loadBtnText}>Load Farmer Registry</Text>
+          </Pressable>
+        ) : null}
 
-        <Text style={s.hint}>
-          CSV files land in the share sheet — save to Drive, WhatsApp, or Files.
-        </Text>
+        {busy ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={palette.neon} />
+            <Text style={styles.busyText}>Processing...</Text>
+          </View>
+        ) : null}
+
+        {loaded && !busy ? (
+          <View style={styles.card}>
+            <Text style={styles.count}>{farmers.length}</Text>
+            <Text style={styles.countLabel}>Farmers Ready to Export</Text>
+
+            <View style={styles.divider} />
+
+            <Pressable onPress={exportToExcel} style={styles.exportBtn}>
+              <Text style={styles.exportBtnText}>📥 Download Excel (CSV)</Text>
+            </Pressable>
+
+            <Pressable onPress={exportToPDF} style={[styles.exportBtn, { marginTop: 12, backgroundColor: '#ff3b5c' }]}>
+              <Text style={styles.exportBtnText}>📄 Download PDF Report</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={{ height: 80 }} />
       </ScrollView>
     </View>
   );
@@ -112,13 +182,18 @@ export default function AdminExport() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
-  back: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: '900', color: p.text },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 20 },
-  btn: { padding: 18, borderRadius: 12, backgroundColor: p.neon, alignItems: 'center', marginBottom: 10 },
-  btnText: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-  hint: { fontSize: 11, color: p.textMuted, fontStyle: 'italic', marginTop: 16, lineHeight: 16 },
-  blocked: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  blockedText: { fontSize: 20, fontWeight: '900', color: p.danger },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 40 },
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  subtitle: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 24 },
+  center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12 },
+  busyText: { fontSize: 13, color: p.textMuted },
+  loadBtn: { backgroundColor: p.neon, paddingVertical: 18, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  loadBtnText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  card: { backgroundColor: p.surface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: p.border, alignItems: 'center', marginTop: 20 },
+  count: { fontSize: 48, fontWeight: '900', color: p.neon, letterSpacing: -2 },
+  countLabel: { fontSize: 13, color: p.textMuted, fontWeight: '600', marginTop: 4 },
+  divider: { width: '100%', height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 24 },
+  exportBtn: { width: '100%', backgroundColor: p.neon, paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  exportBtnText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });

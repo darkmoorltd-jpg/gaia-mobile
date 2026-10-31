@@ -216,6 +216,7 @@ function RootNavigator() {
       <Stack.Screen name="admin-input-providers" options={{ headerShown: false }} />
       <Stack.Screen name="admin-provider-payouts" options={{ headerShown: false }} />
       <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-export" options={{ headerShown: false }} />
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
       <Stack.Screen name="agent-leaderboard" options={{ headerShown: false }} />
       <Stack.Screen name="agent-field-map" options={{ headerShown: false }} />
