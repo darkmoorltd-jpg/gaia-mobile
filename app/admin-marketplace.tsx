@@ -59,7 +59,6 @@ export default function AdminMarketplace() {
     const e = await safeCall(() => supabase.rpc('admin_get_expiring_stores'));
     const cfg = await safeObj(() => supabase.from('marketplace_config').select('*').eq('id', 1).single());
     const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
-    const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
     
     setStats(st);
     setChart(ch);
