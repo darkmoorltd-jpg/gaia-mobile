@@ -34,6 +34,7 @@ export default function SellForm() {
   const [quantity, setQuantity] = useState('');
   const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
+  const [comm, setComm] = useState(5);
   useEffect(() => {
     if (isEdit && user) {
       (async () => {
@@ -54,6 +55,8 @@ export default function SellForm() {
 
   useEffect(() => {
     (async () => {
+      const { data: cfg } = await supabase.from('marketplace_config').select('commission_pct').eq('id', 1).single();
+      if (cfg) setComm(cfg.commission_pct);
       if (!user) return;
       const ok = await isVerifiedSeller(user.id);
       setVerified(ok);
@@ -256,7 +259,7 @@ export default function SellForm() {
           {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>{isEdit ? 'UPDATE LISTING' : 'PUBLISH LISTING'}</Text>}
         </Pressable>
 
-        <Text style={styles.note}>You earn 95% of sale price · GAIA takes 5% platform fee</Text>
+        <Text style={styles.note}>You earn {100 - comm}% of sale price · GAIA takes {comm}% platform fee</Text>
 
         <View style={{ height: 60 }} />
       </ScrollView>

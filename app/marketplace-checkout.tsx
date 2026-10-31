@@ -19,6 +19,7 @@ export default function Checkout() {
   const styles = createStyles(palette);
 
   const [items, setItems] = useState<any[]>([]);
+  const [delivFee, setDelivFee] = useState(2500);
   const [busy, setBusy] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [balance, setBalance] = useState(0);
@@ -46,7 +47,9 @@ export default function Checkout() {
       setPinSet(await hasWalletPin());
 
       try {
-        const { data: prof } = await supabase
+        const { data: cfg } = await supabase.from('marketplace_config').select('delivery_fee').eq('id', 1).single();
+      if (cfg) setDelivFee(cfg.delivery_fee);
+      const { data: prof } = await supabase
           .from('user_profiles')
           .select('first_name,last_name,phone,state')
           .eq('user_id', user.id)
@@ -63,7 +66,7 @@ export default function Checkout() {
   }, [user]));
 
   const subtotal = items.reduce((a, it) => a + Number((it.listing && it.listing.price) || 0) * it.quantity, 0);
-  const delivery = method === 'home' && subtotal > 0 ? 2500 : 0;
+  const delivery = method === 'home' && subtotal > 0 ? delivFee : 0;
   const total = subtotal + delivery;
   const shortfall = Math.max(0, total - balance);
 
@@ -109,8 +112,8 @@ export default function Checkout() {
           listing_image: (l.images && l.images[0]) || null,
           quantity: it.quantity,
           subtotal: itemSub,
-          delivery_fee: method === 'home' ? 2500 : 0,
-          total: itemSub + (method === 'home' ? 2500 : 0),
+          delivery_fee: method === 'home' ? delivFee : 0,
+          total: itemSub + (method === 'home' ? delivFee : 0),
           status: 'pending',
           delivery_address: address.trim(),
           delivery_method: method,
@@ -177,7 +180,7 @@ export default function Checkout() {
         <Pressable onPress={() => setMethod('home')} style={[styles.optionRow, method === 'home' && styles.optionRowActive]}>
           <View style={[styles.radio, method === 'home' && styles.radioActive]} />
           <Text style={styles.optionTxt}>Home delivery</Text>
-          <Text style={styles.optionPrice}>{naira(2500)}</Text>
+          <Text style={styles.optionPrice}>{naira(delivFee)}</Text>
         </Pressable>
         <Pressable onPress={() => setMethod('pickup')} style={[styles.optionRow, method === 'pickup' && styles.optionRowActive]}>
           <View style={[styles.radio, method === 'pickup' && styles.radioActive]} />

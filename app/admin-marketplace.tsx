@@ -37,7 +37,10 @@ export default function AdminMarketplace() {
   const [viewListing, setViewListing] = useState<any | null>(null);
 
   // Settings
+  const [config, setConfig] = useState<any>(null);
   const [deliveryFee, setDeliveryFee] = useState('2500');
+  const [commFee, setCommFee] = useState('5');
+  const [boostFee, setBoostFee] = useState('1000');
   const [bTitle, setBTitle] = useState('');
   const [bBody, setBBody] = useState('');
 
@@ -55,6 +58,7 @@ export default function AdminMarketplace() {
     const d = await safeCall(() => supabase.rpc('admin_get_disputes'));
     const p = await safeCall(() => supabase.rpc('admin_get_withdrawals'));
     const e = await safeCall(() => supabase.rpc('admin_get_expiring_stores'));
+    const cfg = await safeObj(() => supabase.from('marketplace_config').select('*').eq('id', 1).single());
     const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
     const ts = await safeCall(() => supabase.rpc('admin_top_sellers'));
     
@@ -66,6 +70,12 @@ export default function AdminMarketplace() {
     setDisputes(d);
     setPayouts(p);
     setExpiring(e);
+    if (cfg) {
+      setConfig(cfg);
+      setDeliveryFee(String(cfg.delivery_fee));
+      setCommFee(String(cfg.commission_pct));
+      setBoostFee(String(cfg.boost_fee));
+    }
     setTopSellers(ts);
     setTopSellers(ts);
     
@@ -88,9 +98,14 @@ export default function AdminMarketplace() {
     await supabase.rpc('admin_settle_withdrawal', { p_id: id, p_status: status });
     load();
   };
-  const saveDelivery = async () => {
-    await supabase.from('marketplace_delivery_config').update({ base_fee: Number(deliveryFee) }).eq('id', 1);
-    Alert.alert('Saved', 'Delivery fee updated.');
+  const saveConfig = async () => {
+    await supabase.from('marketplace_config').update({
+      delivery_fee: Number(deliveryFee),
+      commission_pct: Number(commFee),
+      boost_fee: Number(boostFee),
+    }).eq('id', 1);
+    Alert.alert('Saved', 'Financial settings updated successfully.');
+    load();
   };
   const sendBroadcast = async () => {
     if (!bTitle.trim() || !bBody.trim()) return;
@@ -109,7 +124,7 @@ export default function AdminMarketplace() {
     { id: 'payouts', label: '💸 Payouts (' + payouts.filter((x:any)=>x.status==='pending').length + ')' },
     { id: 'expiring', label: '⏳ Expiring' },
     { id: 'broadcast', label: '📢 Broadcast' },
-    { id: 'settings', label: '⚙️ Settings' },
+    { id: 'settings', label: '⚙️ Financials' },
   ];
 
   const filterData = (data: any[], key: string) => {
@@ -297,9 +312,18 @@ export default function AdminMarketplace() {
         {/* --- SETTINGS --- */}
         {tab === 'settings' ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Global Delivery Fee</Text>
+            <Text style={styles.cardTitle}>Financial Engine</Text>
+            
+            <Text style={{ color: '#888', fontSize: 12, marginTop: 12, marginBottom: 4 }}>Platform Commission (%)</Text>
+            <TextInput value={commFee} onChangeText={setCommFee} keyboardType="numeric" style={styles.input} />
+            
+            <Text style={{ color: '#888', fontSize: 12, marginTop: 12, marginBottom: 4 }}>Boost Fee (₦)</Text>
+            <TextInput value={boostFee} onChangeText={setBoostFee} keyboardType="numeric" style={styles.input} />
+            
+            <Text style={{ color: '#888', fontSize: 12, marginTop: 12, marginBottom: 4 }}>Global Delivery Fee (₦)</Text>
             <TextInput value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="numeric" style={styles.input} />
-            <Pressable onPress={saveDelivery} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 12 }]}><Text style={{ fontWeight: '900', color: '#000' }}>SAVE FEE</Text></Pressable>
+            
+            <Pressable onPress={saveConfig} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 20 }]}><Text style={{ fontWeight: '900', color: '#000' }}>SAVE CHANGES</Text></Pressable>
           </View>
         ) : null}
 
