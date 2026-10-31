@@ -38,7 +38,14 @@ export default function TraceBatch() {
       .eq('user_id', batch.farmer_id)
       .maybeSingle();
 
-    setResult({ ...batch, farmer: profile });
+    // Fetch movements too
+    const { data: movements } = await supabase
+      .from('batch_movements')
+      .select('*')
+      .eq('batch_id', batch.id)
+      .order('dispatched_at', { ascending: false });
+
+    setResult({ ...batch, farmer: profile, movements: movements || [] });
     setBusy(false);
   };
 

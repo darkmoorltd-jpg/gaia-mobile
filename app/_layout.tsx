@@ -258,6 +258,8 @@ function RootNavigator() {
       <Stack.Screen name="video-history-map" options={{ headerShown: false }} />
       <Stack.Screen name="video-growth" options={{ headerShown: false }} />
       <Stack.Screen name="video-session-report" options={{ headerShown: false }} />
+    <Stack.Screen name="warehouse-network" options={{ headerShown: false }} />
+    <Stack.Screen name="food-security" options={{ headerShown: false }} />
     </Stack>
   );
 }
