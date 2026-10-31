@@ -30,7 +30,6 @@ export default function AdminMarketplace() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [expiring, setExpiring] = useState<any[]>([]);
   const [topSellers, setTopSellers] = useState<any[]>([]);
-  const [topSellers, setTopSellers] = useState<any[]>([]);
   
   // Modals
   const [viewStore, setViewStore] = useState<any | null>(null);
