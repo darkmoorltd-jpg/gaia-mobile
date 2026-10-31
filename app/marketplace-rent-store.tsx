@@ -72,7 +72,7 @@ export default function RentStore() {
   };
 
   const pickDoc = async () => {
-    const', r = await DocumentPicker.getDocumentAsync({ type: ['application '/pdf', 'image/*'] });
+    const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'] });
     if (!r.canceled) setDocs([...docs, r.assets[0].uri]);
   };
 
