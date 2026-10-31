@@ -238,6 +238,8 @@ function RootNavigator() {
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="kyc-verify" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
+      <Stack.Screen name="farm-batches" options={ headerShown: false } />
+      <Stack.Screen name="trace-batch" options={ headerShown: false } />
       <Stack.Screen name="video-scan" options={{ headerShown: false }} />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />
