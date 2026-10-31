@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
   Image, Alert, ActivityIndicator, Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme, spacing, radius } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -11,6 +11,7 @@ import {
   createListing, uploadListingImage, isVerifiedSeller,
   CATEGORIES, UNITS,
 } from '../src/utils/marketplace';
+import { supabase } from '../src/api/supabase';
 
 const { width } = Dimensions.get('window');
 const PICK_W = (width - 60) / 3;
@@ -19,6 +20,8 @@ export default function SellForm() {
   const router = useRouter();
   const { palette } = useTheme();
   const { user } = useAuth();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEdit = !!id;
   const styles = createStyles(palette);
 
   const [verified, setVerified] = useState<boolean | null>(null);
@@ -31,6 +34,23 @@ export default function SellForm() {
   const [quantity, setQuantity] = useState('');
   const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (isEdit && user) {
+      (async () => {
+        const { data } = await supabase.from('marketplace_listings').select('*').eq('id', id).single();
+        if (data) {
+          setTitle(data.title);
+          setDescription(data.description || '');
+          setCategory(data.category);
+          setPrice(String(data.price));
+          setUnit(data.unit);
+          setQuantity(String(data.quantity));
+          setLocation(data.location || '');
+          setPhotos(data.images || []);
+        }
+      })();
+    }
+  }, [id, isEdit, user]);
 
   useEffect(() => {
     (async () => {
@@ -72,6 +92,28 @@ export default function SellForm() {
         const u = await uploadListingImage(user.id, p);
         if (u) urls.push(u);
       }
+      if (isEdit) {
+        const { error } = await supabase.from('marketplace_listings').update({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          price: Number(price),
+          unit,
+          quantity: Number(quantity),
+          location: location.trim(),
+          images: urls.length > 0 ? urls : photos,
+          approval_status: 'pending',
+        }).eq('id', id);
+        if (error) {
+          Alert.alert('Failed', error.message);
+        } else {
+          Alert.alert('Updated', 'Listing is pending admin approval.');
+          router.replace('/marketplace-store');
+        }
+        setBusy(false);
+        return;
+      }
+      
       const { id, error } = await createListing(user.id, {
         title: title.trim(),
         description: description.trim(),
@@ -110,7 +152,7 @@ export default function SellForm() {
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>BACK</Text>
         </Pressable>
-        <Text style={styles.title}>New listing</Text>
+        <Text style={styles.title}>{isEdit ? 'Edit listing' : 'New listing'}</Text>
 
         <Text style={styles.label}>PHOTOS (max 6)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -211,7 +253,7 @@ export default function SellForm() {
         />
 
         <Pressable onPress={publish} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>PUBLISH LISTING</Text>}
+          {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>{isEdit ? 'UPDATE LISTING' : 'PUBLISH LISTING'}</Text>}
         </Pressable>
 
         <Text style={styles.note}>You earn 95% of sale price · GAIA takes 5% platform fee</Text>

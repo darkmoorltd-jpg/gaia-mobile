@@ -172,6 +172,9 @@ export default function SellerStore() {
                 <Pressable onPress={() => router.push({ pathname: '/marketplace-product', params: { id: String(l.id) } } as any)} style={styles.smallBtn}>
                   <Text style={styles.smallBtnTxt}>VIEW</Text>
                 </Pressable>
+                <Pressable onPress={() => router.push({ pathname: '/marketplace-sell', params: { id: String(l.id) } } as any)} style={styles.smallBtn}>
+                  <Text style={styles.smallBtnTxt}>EDIT</Text>
+                </Pressable>
                 <Pressable onPress={() => onDelete(l.id)} style={styles.smallBtnDanger}>
                   <Text style={styles.smallBtnDangerTxt}>DELETE</Text>
                 </Pressable>

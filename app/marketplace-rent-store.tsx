@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { walletMe } from '../src/utils/wallet';
 
 const PLANS = [
   { id: 'small', name: 'Small', month: 2500, year: 25000, desc: 'Up to 10 listings' },
@@ -28,6 +29,14 @@ export default function RentStore() {
   const [images, setImages] = useState<string[]>([]);
   const [docs, setDocs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [balance, setBalance] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      const w = await walletMe();
+      if (w) setBalance(Number(w.wallet.balance || 0));
+    })();
+  }, []);
 
   const uploadFile = async (uri: string, mime: string, folder: string) => {
     const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
@@ -57,6 +66,17 @@ export default function RentStore() {
       Alert.alert('Missing info', 'Please fill all fields and upload at least 1 image and 1 document.');
       return;
     }
+    const activePlan = PLANS.find(p => p.id === plan)!;
+    const price = cycle === 'monthly' ? activePlan.month : activePlan.year;
+
+    if (balance < price) {
+      Alert.alert('Insufficient Balance', `You need ₦${price.toLocaleString()} but you have ₦${balance.toLocaleString()}. Please top up your wallet.`, [
+        { text: 'Top Up', onPress: () => router.push('/wallet' as any) },
+        { text: 'Cancel', style: 'cancel' }
+      ]);
+      return;
+    }
+
     setBusy(true);
     try {
       const imgUrls = [];
@@ -70,19 +90,19 @@ export default function RentStore() {
         if (url) docUrls.push(url);
       }
 
-      const { error } = await supabase.from('marketplace_stores').insert({
-        seller_id: user!.id,
-        store_name: name.trim(),
-        store_type: plan,
-        billing_cycle: cycle,
-        location: location.trim(),
-        images: imgUrls,
-        documents: docUrls,
-        status: 'pending',
+      const { data, error } = await supabase.rpc('pay_store_rent', {
+        p_store_name: name.trim(),
+        p_store_type: plan,
+        p_billing_cycle: cycle,
+        p_location: location.trim(),
+        p_images: imgUrls,
+        p_documents: docUrls,
+        p_amount: price,
       });
+
       if (error) throw error;
 
-      Alert.alert('Application submitted', 'Admin will review your store within 24 hours. Once approved, you can start listing.');
+      Alert.alert('Success', 'Payment successful. Admin will review your store within 24 hours.');
       router.replace('/marketplace-store');
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -100,6 +120,7 @@ export default function RentStore() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Rent a Store</Text>
         <Text style={styles.subtitle}>You need an active store to sell on GAIA.</Text>
+        <Text style={[styles.subtitle, { color: palette.neon, fontWeight: 'bold' }]}>Wallet Balance: ₦{balance.toLocaleString()}</Text>
 
         <Text style={styles.label}>1. SELECT PLAN</Text>
         <View style={styles.planGrid}>
@@ -134,17 +155,18 @@ export default function RentStore() {
           </View>
         </ScrollView>
 
-        <Text style={styles.label}>5. LEASE / OWNERSHIP DOCUMENTS</Text>
+        <Text style={styles.label}>5. LEASE / ID / ATTESTATION LETTER</Text>
+        <Text style={styles.hint}>Upload any proof that you own/rent the land (e.g. ID Card, Community Letter, Lease).</Text>
         {docs.map((d, i) => <Text key={i} style={styles.docTxt}>📎 Document {i+1} attached</Text>)}
         <Pressable onPress={pickDoc} style={styles.addDocBtn}><Text style={styles.addTxt}>+ Upload Document</Text></Pressable>
 
         <View style={styles.totalBox}>
-          <Text style={styles.totalLbl}>TOTAL TO PAY</Text>
+          <Text style={styles.totalLbl}>TOTAL TO PAY FROM WALLET</Text>
           <Text style={styles.totalVal}>₦{price.toLocaleString()}</Text>
         </View>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaTxt}>APPLY & PAY ₦{price.toLocaleString()}</Text>}
+          {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaTxt}>PAY ₦{price.toLocaleString()} & APPLY</Text>}
         </Pressable>
       </ScrollView>
     </View>
@@ -158,6 +180,7 @@ const createStyles = (p: any) => StyleSheet.create({
   title: { fontSize: 30, fontWeight: '900', color: p.text },
   subtitle: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
   label: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, color: p.textMuted, marginTop: 20, marginBottom: 8 },
+  hint: { fontSize: 11, color: p.textDim, marginBottom: 8, fontStyle: 'italic' },
   planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   planCard: { width: '48%', padding: 16, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border },
   planActive: { backgroundColor: p.neon, borderColor: p.neon },
