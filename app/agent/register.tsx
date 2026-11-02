@@ -406,18 +406,27 @@ export default function AgentRegister() {
         <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="e.g. Ward 3" />
 
         <Text style={styles.label}>FARMER CATEGORY *</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {Object.keys(FARMER_CATEGORIES).map(cat => (
-            <Pressable
-              key={cat}
-              onPress={() => { setFarmerCategory(cat); setCrop(FARMER_CATEGORIES[cat].subs[0]); }}
-              style={{ width: '31%', padding: 12, borderRadius: 8, backgroundColor: farmerCategory === cat ? '#00ff88' : '#222', alignItems: 'center', marginBottom: 6 }}
-            >
-              <Text style={{ fontSize: 20 }}>{FARMER_CATEGORIES[cat].icon}</Text>
-              <Text style={{ fontSize: 10, fontWeight: '800', color: farmerCategory === cat ? '#000' : '#888', marginTop: 4, textAlign: 'center' }}>{cat}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {['CROPS','LIVESTOCK','WATER','SERVICES'].map((group) => (
+          <View key={group} style={{ marginBottom: 10 }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: '#666', letterSpacing: 1.5, marginBottom: 6 }}>
+              {group}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {Object.entries(FARMER_CATEGORIES)
+                .filter(([_, v]) => v.group === group)
+                .map(([cat, v]) => (
+                  <Pressable
+                    key={cat}
+                    onPress={() => { setFarmerCategory(cat); setCrop(v.subs[0]); }}
+                    style={{ width: '31%', padding: 10, borderRadius: 8, backgroundColor: farmerCategory === cat ? '#00ff88' : '#222', alignItems: 'center', marginBottom: 4 }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{v.icon}</Text>
+                    <Text style={{ fontSize: 9, fontWeight: '800', color: farmerCategory === cat ? '#000' : '#888', marginTop: 2, textAlign: 'center' }} numberOfLines={2}>{cat}</Text>
+                  </Pressable>
+                ))}
+            </View>
+          </View>
+        ))}
 
         <Text style={styles.label}>PRIMARY ENTERPRISE *</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
