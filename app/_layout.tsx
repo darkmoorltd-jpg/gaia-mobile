@@ -262,6 +262,7 @@ function RootNavigator() {
     <Stack.Screen name="food-security" options={{ headerShown: false }} />
     <Stack.Screen name="clinical-nutrition" options={{ headerShown: false }} />
     <Stack.Screen name="care-subscribe" options={{ headerShown: false }} />
+    <Stack.Screen name="admin-kyc-queue" options={{ headerShown: false }} />
     </Stack>
   );
 }

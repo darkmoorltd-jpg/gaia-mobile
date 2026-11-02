@@ -55,6 +55,7 @@ export default function AgentRegister() {
   // Core
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [stateName, setStateName] = useState('Kaduna');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [lga, setLga] = useState('');
@@ -212,7 +213,7 @@ export default function AgentRegister() {
         body: JSON.stringify({
           full_name: fullName.trim(), phone: phone.trim(),
           email: email.trim() || null, password: password.trim() || null,
-          state: 'Kaduna', lga: lga.trim() || null, crop: crop,
+          state: stateName.trim(), lga: lga.trim() || null, crop: crop,
           farm_size_acres: parseFloat(farmSize) || 1.0,
           gps_lat: gpsLat, gps_lng: gpsLng,
         }),
@@ -300,7 +301,7 @@ export default function AgentRegister() {
           // ---- MIRROR TO user_profiles (so admin + Dr. Vinc + marketplace see it) ----
           await supabase.from('user_profiles').update({
             phone: phone.trim(),
-            state: 'Kaduna',
+            state: stateName.trim(),
             lga: lga.trim() || null,
             ward: ward || null,
             primary_crops: crop,
@@ -418,6 +419,7 @@ export default function AgentRegister() {
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholder="Phone *" placeholderTextColor="#888" />
         <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" style={styles.input} placeholder="Email (optional)" placeholderTextColor="#888" />
         <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholder="Password *" placeholderTextColor="#888" />
+        <TextInput value={stateName} onChangeText={setStateName} style={styles.input} placeholder="State *" placeholderTextColor="#888" />
         <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholder="LGA *" placeholderTextColor="#888" />
         <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="Ward (Sub-LGA)" placeholderTextColor="#888" />
 
