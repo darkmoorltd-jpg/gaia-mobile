@@ -25,12 +25,18 @@ export default function CareSubscribe() {
       const { data: plansData } = await supabase.from('care_plans').select('*');
       setPlans(plansData || []);
 
-      const { data: subData } = await supabase.from('care_subscriptions').select('*').eq('user_id', user?.id).maybeSingle();
-      setCurrent(subData);
+      if (user?.id) {
+        const { data: subData } = await supabase.from('care_subscriptions').select('*').eq('user_id', user.id).maybeSingle();
+        setCurrent(subData);
+      }
     })();
   }, [user]);
 
   const initiatePayment = (plan: any) => {
+    if (!user?.email) {
+      Alert.alert('Error', 'User email not found. Please try again.');
+      return;
+    }
     setSelectedPlan(plan);
     setPayRef('CARE_' + user.id.slice(0,6) + '_' + Date.now());
   };
@@ -41,7 +47,6 @@ export default function CareSubscribe() {
       if (msg.status === 'success') {
         setBusy(true);
         
-        // 1. Save Subscription
         const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + 30);
         await supabase.from('care_subscriptions').upsert({
           user_id: user.id,
@@ -52,7 +57,6 @@ export default function CareSubscribe() {
           payment_reference: msg.reference
         }, { onConflict: 'user_id' });
 
-        // 2. Generate their first meal plan automatically
         await supabase.from('meal_plans').upsert({
           user_id: user.id,
           plan_name: `${selectedPlan.name} Starter Plan`,
@@ -74,7 +78,7 @@ export default function CareSubscribe() {
     }
   };
 
-  const payHtml = payRef && selectedPlan ? `
+  const payHtml = payRef && selectedPlan && user?.email ? `
     <html><body style="margin:0;background:#000;">
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <script>
@@ -103,8 +107,8 @@ export default function CareSubscribe() {
 
         {current ? (
           <View style={styles.currentBox}>
-            <Text style={styles.currentTitle}>Active Plan: {current.plan.toUpperCase()}</Text>
-            <Text style={styles.currentSub}>Renews on {current.next_billing_date}</Text>
+            <Text style={styles.currentTitle}>Active Plan: {current.plan?.toUpperCase() || 'UNKNOWN'}</Text>
+            <Text style={styles.currentSub}>Renews on {current.next_billing_date || 'N/A'}</Text>
             <Pressable onPress={() => router.push('/clinical-nutrition')} style={{ marginTop: 12, backgroundColor: '#000', padding: 10, borderRadius: 8, alignItems: 'center' }}>
               <Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>GO TO CLINIC</Text>
             </Pressable>
@@ -118,7 +122,8 @@ export default function CareSubscribe() {
               <Text style={styles.planPrice}>₦{Number(plan.price_ngn).toLocaleString()}<Text style={styles.perMonth}>/mo</Text></Text>
             </View>
             <View style={styles.featureList}>
-              {JSON.parse(plan.features || '[]').map((f: string, i: number) => (
+              {/* FIXED: Safely handle array or string from Supabase */}
+              {(Array.isArray(plan.features) ? plan.features : JSON.parse(plan.features || '[]')).map((f: string, i: number) => (
                 <Text key={i} style={styles.featureItem}>✅ {f}</Text>
               ))}
             </View>
