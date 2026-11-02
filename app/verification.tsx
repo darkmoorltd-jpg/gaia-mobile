@@ -28,6 +28,12 @@ export default function Verification() {
 
   const [countryCode, setCountryCode] = useState<string>('NG');
   const [fullName, setFullName] = useState('');
+  const [householdSize, setHouseholdSize] = useState('1');
+  const [literacyLevel, setLiteracyLevel] = useState<1|2|3>(3);
+  const [educationLevel, setEducationLevel] = useState<0|1|2|3|4>(2);
+  const [disability, setDisability] = useState('');
+  const [isYouth, setIsYouth] = useState(false);
+
   const [phone, setPhone] = useState('');
   const [state, setState] = useState('');
   const [lga, setLga] = useState('');
@@ -180,6 +186,12 @@ export default function Verification() {
       const ref = data.reference || payRef;
       if (!ref || !user) return;
       await supabase.from('farmer_verifications').update({
+          household_size: Number(householdSize) || 1,
+          literacy_level: literacyLevel,
+          education_level: educationLevel,
+          disability: disability || null,
+          youth: isYouth,
+
         payment_status: 'paid',
         payment_reference: ref,
         status: 'pending',
@@ -341,6 +353,51 @@ export default function Verification() {
         <UploadBox label="SELFIE" uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
 
         {message ? <Text style={styles.message}>{message}</Text> : null}
+
+        
+        <Text style={styles.label}>HOUSEHOLD SIZE</Text>
+        <TextInput value={householdSize} onChangeText={setHouseholdSize} keyboardType="number-pad" style={styles.input} placeholder="e.g. 5" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>LITERACY LEVEL</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+          {[
+            { val: 1, label: '1 - Illiterate' },
+            { val: 2, label: '2 - Semi' },
+            { val: 3, label: '3 - Literate' }
+          ].map(opt => (
+            <Pressable key={opt.val} onPress={() => setLiteracyLevel(opt.val as 1|2|3)} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: literacyLevel === opt.val ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: literacyLevel === opt.val ? '#000' : '#888' }}>{opt.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>EDUCATION LEVEL</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {[
+            { val: 0, label: '0 - None' },
+            { val: 1, label: '1 - Primary' },
+            { val: 2, label: '2 - Secondary' },
+            { val: 3, label: '3 - Tertiary' },
+            { val: 4, label: '4 - Other' }
+          ].map(opt => (
+            <Pressable key={opt.val} onPress={() => setEducationLevel(opt.val as 0|1|2|3|4)} style={{ width: '31%', padding: 12, borderRadius: 8, backgroundColor: educationLevel === opt.val ? '#00ff88' : '#222', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: educationLevel === opt.val ? '#000' : '#888' }}>{opt.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>DISABILITY (Optional)</Text>
+        <TextInput value={disability} onChangeText={setDisability} style={styles.input} placeholder="e.g. Visual impairment" placeholderTextColor="#888" />
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, marginBottom: 16 }}>
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>Youth (Under 35)</Text>
+            <Text style={{ fontSize: 11, color: '#888' }}>Check if the farmer is a youth.</Text>
+          </View>
+          <Pressable onPress={() => setIsYouth(!isYouth)} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: isYouth ? '#00ff88' : '#333', justifyContent: 'center', paddingHorizontal: 3 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: isYouth ? 'flex-end' : 'flex-start' }} />
+          </Pressable>
+        </View>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           <Text style={styles.ctaText}>
