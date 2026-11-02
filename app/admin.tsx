@@ -28,9 +28,11 @@ const SECTIONS: Section[] = [
       { label: 'Advanced Search',     route: '/admin-advanced-search' },
       { label: 'All Users',           route: '/admin-users' },
       { label: 'Verifications',       route: '/admin-verifications' },
+      { label: 'KYC Queue',             route: '/admin-kyc-queue' },
       { label: 'Farmer Database',     route: '/admin-farmers' },
       { label: 'Scan History',        route: '/admin-scans' },
       { label: 'Login History',       route: '/admin-logins' },
+      { label: 'Value Chain OS',          route: '/admin-value-chain' },
     ],
   },
   {
