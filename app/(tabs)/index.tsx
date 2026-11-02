@@ -60,6 +60,7 @@ export default function Home() {
       { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
       { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
       { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
+      { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },
       { key: 'batches', title: 'Harvest Batches', sub: 'Create crop passports', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-batches' },
       { key: 'eudr', title: 'EU Export Center', sub: 'EUDR compliance', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/eudr-dashboard' },
       { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
