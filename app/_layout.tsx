@@ -265,6 +265,7 @@ function RootNavigator() {
     <Stack.Screen name="admin-kyc-queue" options={{ headerShown: false }} />
       <Stack.Screen name="admin-user-360" options={{ headerShown: false }} />
       <Stack.Screen name="admin-farmer-filter" options={{ headerShown: false }} />
+    <Stack.Screen name="clinical-onboarding" options={{ headerShown: false }} />
     </Stack>
   );
 }
