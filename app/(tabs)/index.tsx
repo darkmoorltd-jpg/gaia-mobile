@@ -59,6 +59,7 @@ export default function Home() {
       { key: 'lease', title: 'Lease Farm Land', sub: 'For young farmers', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
       { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
       { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
+      { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
       { key: 'batches', title: 'Harvest Batches', sub: 'Create crop passports', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-batches' },
       { key: 'eudr', title: 'EU Export Center', sub: 'EUDR compliance', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/eudr-dashboard' },
       { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },

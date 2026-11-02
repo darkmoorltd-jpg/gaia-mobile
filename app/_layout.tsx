@@ -260,6 +260,7 @@ function RootNavigator() {
       <Stack.Screen name="video-session-report" options={{ headerShown: false }} />
     <Stack.Screen name="warehouse-network" options={{ headerShown: false }} />
     <Stack.Screen name="food-security" options={{ headerShown: false }} />
+    <Stack.Screen name="clinical-nutrition" options={{ headerShown: false }} />
     </Stack>
   );
 }
