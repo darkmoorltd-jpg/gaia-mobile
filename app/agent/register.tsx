@@ -96,6 +96,34 @@ export default function AgentRegister() {
   const [processingCapacity, setProcessingCapacity] = useState('');
   const [dealerInputTypes, setDealerInputTypes] = useState<string[]>([]);
 
+  // Assets & Water
+  const [assets, setAssets] = useState<string[]>([]);
+  const [waterSource, setWaterSource] = useState('Rain-fed Only');
+  const [storageType, setStorageType] = useState('None');
+
+  // Cooperative
+  const [isCoopMember, setIsCoopMember] = useState(false);
+  const [coopName, setCoopName] = useState('');
+  const [coopRole, setCoopRole] = useState('Member');
+  const [coopJoinedYear, setCoopJoinedYear] = useState('');
+
+  // Bank / Payment
+  const [bankName, setBankName] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [mobileMoneyProvider, setMobileMoneyProvider] = useState('');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+
+  // Vulnerability
+  const [vulnerability, setVulnerability] = useState<string[]>([]);
+
+  const toggleAsset = (a: string) => {
+    setAssets(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+  };
+  const toggleVulnerability = (v: string) => {
+    setVulnerability(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  };
+
   const toggleInputType = (v: string) => {
     setDealerInputTypes(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
   };
@@ -237,6 +265,19 @@ export default function AgentRegister() {
               business_address: businessAddress || null,
               dealer_input_types: dealerInputTypes.length > 0 ? dealerInputTypes : null,
               processing_capacity_tonnes: processingCapacity ? Number(processingCapacity) : null,
+              farm_assets: assets.length > 0 ? assets : null,
+              water_source: waterSource,
+              storage_type: storageType,
+              is_coop_member: isCoopMember,
+              coop_name: isCoopMember ? coopName || null : null,
+              coop_role: isCoopMember ? coopRole : null,
+              coop_joined_year: isCoopMember && coopJoinedYear ? Number(coopJoinedYear) : null,
+              bank_name: bankName || null,
+              bank_account_name: bankAccountName || null,
+              bank_account_number: bankAccountNumber || null,
+              mobile_money_provider: mobileMoneyProvider || null,
+              mobile_money_number: mobileMoneyNumber || null,
+              vulnerability_status: vulnerability.length > 0 ? vulnerability : null,
               asset_photo_url: photoUrl
             })
             .eq('user_id', data.farmer_id);
@@ -474,6 +515,97 @@ export default function AgentRegister() {
             ) : null}
           </>
         ) : null}
+
+        <Text style={styles.sectionLabel}>9. FARM ASSETS & WATER</Text>
+        <Text style={styles.label}>EQUIPMENT OWNED (Select all)</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Tractor','Plough','Harrow','Water Pump','Sprayer','Generator','Motorcycle','Truck','Irrigation Kit','Thresher','Hand Tools Only'].map(opt => (
+            <Pressable key={opt} onPress={() => toggleAsset(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: assets.includes(opt) ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: assets.includes(opt) ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>WATER SOURCE</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Rain-fed Only','Well','Borehole','River/Stream','Dam','Irrigation Scheme'].map(opt => (
+            <Pressable key={opt} onPress={() => setWaterSource(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: waterSource === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: waterSource === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>ON-FARM STORAGE</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['None','Local Granary','Warehouse','Cold Storage'].map(opt => (
+            <Pressable key={opt} onPress={() => setStorageType(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: storageType === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: storageType === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.sectionLabel}>10. COOPERATIVE MEMBERSHIP</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, marginBottom: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>Member of a cooperative?</Text>
+            <Text style={{ fontSize: 11, color: '#888' }}>Required for group loans & subsidies.</Text>
+          </View>
+          <Pressable onPress={() => setIsCoopMember(!isCoopMember)} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: isCoopMember ? '#00ff88' : '#333', justifyContent: 'center', paddingHorizontal: 3 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: isCoopMember ? 'flex-end' : 'flex-start' }} />
+          </Pressable>
+        </View>
+
+        {isCoopMember ? (
+          <>
+            <Text style={styles.label}>COOPERATIVE NAME</Text>
+            <TextInput value={coopName} onChangeText={setCoopName} style={styles.input} placeholder="e.g. Kaduna Maize Farmers Coop" placeholderTextColor="#888" />
+
+            <Text style={styles.label}>YOUR ROLE</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+              {['Member','Leader','Officer','Treasurer'].map(opt => (
+                <Pressable key={opt} onPress={() => setCoopRole(opt)} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: coopRole === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: coopRole === opt ? '#000' : '#888' }}>{opt}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.label}>YEAR JOINED</Text>
+            <TextInput value={coopJoinedYear} onChangeText={setCoopJoinedYear} keyboardType="number-pad" maxLength={4} style={styles.input} placeholder="e.g. 2019" placeholderTextColor="#888" />
+          </>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>11. PAYMENT & BANKING</Text>
+        <Text style={styles.label}>BANK NAME</Text>
+        <TextInput value={bankName} onChangeText={setBankName} style={styles.input} placeholder="e.g. GTBank, Access, Zenith" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>ACCOUNT NAME</Text>
+        <TextInput value={bankAccountName} onChangeText={setBankAccountName} style={styles.input} placeholder="e.g. Prosper Owei" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>ACCOUNT NUMBER</Text>
+        <TextInput value={bankAccountNumber} onChangeText={setBankAccountNumber} keyboardType="number-pad" maxLength={10} style={styles.input} placeholder="10-digit NUBAN" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>MOBILE MONEY (Optional)</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Opay','Palmpay','Moniepoint','Kuda','Paga','None'].map(opt => (
+            <Pressable key={opt} onPress={() => setMobileMoneyProvider(opt === 'None' ? '' : opt)} style={{ flex: 1, minWidth: '31%', padding: 12, borderRadius: 8, backgroundColor: mobileMoneyProvider === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: mobileMoneyProvider === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {mobileMoneyProvider ? (
+          <TextInput value={mobileMoneyNumber} onChangeText={setMobileMoneyNumber} keyboardType="phone-pad" style={styles.input} placeholder={mobileMoneyProvider + " number"} placeholderTextColor="#888" />
+        ) : null}
+
+        <Text style={styles.sectionLabel}>12. VULNERABILITY & SOCIAL PROTECTION</Text>
+        <Text style={styles.label}>SELECT ALL THAT APPLY</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['None','IDP (Displaced)','Refugee','Physically Challenged','Elderly (60+)','Single Mother','Orphan-headed Household','Chronically Ill','Extremely Poor'].map(opt => (
+            <Pressable key={opt} onPress={() => toggleVulnerability(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: vulnerability.includes(opt) ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: vulnerability.includes(opt) ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>REGISTER FARMER</Text>}
