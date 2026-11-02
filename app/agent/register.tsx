@@ -1,46 +1,48 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../../src/theme';
 import { supabase } from '../../src/api/supabase';
 
 const API_BASE = 'https://gaia-api-xuly.onrender.com';
 const STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
-const FARMER_CATEGORIES: Record<string, { icon: string; subs: string[]; countLabel?: string; countUnit?: string; group: string }> = {
+const FARMER_CATEGORIES: Record<string, { icon: string; subs: string[]; countLabel?: string; countUnit?: string; group: string; assetName: string }> = {
   // ============ CROPS ============
-  'Arable Crops':    { group: 'CROPS', icon: '🌾', subs: ['Maize','Rice','Sorghum','Millet','Cowpea','Soybean','Groundnut','Sesame','Wheat'] },
-  'Tree Crops':      { group: 'CROPS', icon: '🌴', subs: ['Cocoa','Oil Palm','Coconut','Cashew','Rubber','Coffee','Kola Nut','Shea'], countLabel: 'Number of Trees', countUnit: 'trees' },
-  'Horticulture':    { group: 'CROPS', icon: '🥬', subs: ['Tomato','Pepper','Onion','Cabbage','Lettuce','Carrot','Cucumber','Okra','Spinach','Watermelon'] },
-  'Roots & Tubers':  { group: 'CROPS', icon: '🥔', subs: ['Cassava','Yam','Potato','Sweet Potato','Cocoyam','Ginger','Turmeric'] },
-  'Cash Crops':      { group: 'CROPS', icon: '💵', subs: ['Cotton','Sugarcane','Tobacco','Jute','Kenaf'] },
-  'Agro-Forestry':   { group: 'CROPS', icon: '🌳', subs: ['Teak','Iroko','Mahogany','Bamboo','Eucalyptus','Gmelina','Pine'], countLabel: 'Number of Trees', countUnit: 'trees' },
-  'Floriculture':    { group: 'CROPS', icon: '🌺', subs: ['Roses','Lilies','Orchids','Ornamental Plants','Landscaping'] },
-  'Medicinal & Herbs': { group: 'CROPS', icon: '🌿', subs: ['Moringa','Bitter Leaf','Gongronema','Neem','Lemon Grass','Aloe Vera','Scent Leaf'] },
-  'Mushroom':        { group: 'CROPS', icon: '🍄', subs: ['Oyster Mushroom','Button Mushroom','Shiitake'], countLabel: 'Number of Bags', countUnit: 'bags' },
+  'Arable Crops':    { group: 'CROPS', icon: '🌾', subs: ['Maize','Rice','Sorghum','Millet','Cowpea','Soybean','Groundnut','Sesame','Wheat'], assetName: 'Crop Field' },
+  'Tree Crops':      { group: 'CROPS', icon: '🌴', subs: ['Cocoa','Oil Palm','Coconut','Cashew','Rubber','Coffee','Kola Nut','Shea'], countLabel: 'Number of Trees', countUnit: 'trees', assetName: 'Tree Plantation' },
+  'Horticulture':    { group: 'CROPS', icon: '🥬', subs: ['Tomato','Pepper','Onion','Cabbage','Lettuce','Carrot','Cucumber','Okra','Spinach','Watermelon'], assetName: 'Vegetable Garden' },
+  'Roots & Tubers':  { group: 'CROPS', icon: '🥔', subs: ['Cassava','Yam','Potato','Sweet Potato','Cocoyam','Ginger','Turmeric'], assetName: 'Roots Field' },
+  'Cash Crops':      { group: 'CROPS', icon: '💵', subs: ['Cotton','Sugarcane','Tobacco','Jute','Kenaf'], assetName: 'Cash Crop Field' },
+  'Agro-Forestry':   { group: 'CROPS', icon: '🌳', subs: ['Teak','Iroko','Mahogany','Bamboo','Eucalyptus','Gmelina','Pine'], countLabel: 'Number of Trees', countUnit: 'trees', assetName: 'Forest Plot' },
+  'Floriculture':    { group: 'CROPS', icon: '🌺', subs: ['Roses','Lilies','Orchids','Ornamental Plants','Landscaping'], assetName: 'Flower Garden' },
+  'Medicinal & Herbs': { group: 'CROPS', icon: '🌿', subs: ['Moringa','Bitter Leaf','Gongronema','Neem','Lemon Grass','Aloe Vera','Scent Leaf'], assetName: 'Herb Farm' },
+  'Mushroom':        { group: 'CROPS', icon: '🍄', subs: ['Oyster Mushroom','Button Mushroom','Shiitake'], countLabel: 'Number of Bags', countUnit: 'bags', assetName: 'Mushroom Farm' },
 
   // ============ LIVESTOCK ============
-  'Cattle':          { group: 'LIVESTOCK', icon: '🐄', subs: ['Beef Cattle','Dairy Cattle','Cattle Fattening','Breeding'], countLabel: 'Number of Cattle', countUnit: 'heads' },
-  'Sheep & Goats':   { group: 'LIVESTOCK', icon: '🐐', subs: ['Sheep','Goats','Both'], countLabel: 'Number of Animals', countUnit: 'animals' },
-  'Poultry':         { group: 'LIVESTOCK', icon: '🐔', subs: ['Broilers','Layers','Turkeys','Ducks','Guinea Fowl','Hatchery'], countLabel: 'Number of Birds', countUnit: 'birds' },
-  'Micro Livestock': { group: 'LIVESTOCK', icon: '🐇', subs: ['Rabbits','Guinea Pigs','Grasscutter'], countLabel: 'Number of Units', countUnit: 'units' },
-  'Snailery':        { group: 'LIVESTOCK', icon: '🐌', subs: ['Giant African Snail','Achatina','Archachatina'], countLabel: 'Number of Snails', countUnit: 'snails' },
-  'Beekeeping':      { group: 'LIVESTOCK', icon: '🐝', subs: ['Honey Production','Bee Products','Pollination Services'], countLabel: 'Number of Hives', countUnit: 'hives' },
-  'Leather/Hides':   { group: 'LIVESTOCK', icon: '🐂', subs: ['Hides','Skins','Processing'] },
+  'Cattle':          { group: 'LIVESTOCK', icon: '🐄', subs: ['Beef Cattle','Dairy Cattle','Cattle Fattening','Breeding'], countLabel: 'Number of Cattle', countUnit: 'heads', assetName: 'Cattle Ranch' },
+  'Sheep & Goats':   { group: 'LIVESTOCK', icon: '🐐', subs: ['Sheep','Goats','Both'], countLabel: 'Number of Animals', countUnit: 'animals', assetName: 'Sheep/Goat Pen' },
+  'Poultry':         { group: 'LIVESTOCK', icon: '🐔', subs: ['Broilers','Layers','Turkeys','Ducks','Guinea Fowl','Hatchery'], countLabel: 'Number of Birds', countUnit: 'birds', assetName: 'Poultry House' },
+  'Micro Livestock': { group: 'LIVESTOCK', icon: '🐇', subs: ['Rabbits','Guinea Pigs','Grasscutter'], countLabel: 'Number of Units', countUnit: 'units', assetName: 'Micro Livestock Pen' },
+  'Snailery':        { group: 'LIVESTOCK', icon: '🐌', subs: ['Giant African Snail','Achatina','Archachatina'], countLabel: 'Number of Snails', countUnit: 'snails', assetName: 'Snail Farm' },
+  'Beekeeping':      { group: 'LIVESTOCK', icon: '🐝', subs: ['Honey Production','Bee Products','Pollination Services'], countLabel: 'Number of Hives', countUnit: 'hives', assetName: 'Apiary (Beehives)' },
+  'Leather/Hides':   { group: 'LIVESTOCK', icon: '🐂', subs: ['Hides','Skins','Processing'], assetName: 'Leather Workshop' },
 
   // ============ WATER ============
-  'Aquaculture':     { group: 'WATER', icon: '🐟', subs: ['Catfish','Tilapia','Mixed Fish','Hatchery'], countLabel: 'Number of Ponds', countUnit: 'ponds' },
-  'Wild Fishery':    { group: 'WATER', icon: '🎣', subs: ['Freshwater','Coastal','Riverine'], countLabel: 'Number of Boats', countUnit: 'boats' },
-  'Ornamental Fish': { group: 'WATER', icon: '🐠', subs: ['Aquarium Fish','Koi','Goldfish'], countLabel: 'Number of Tanks', countUnit: 'tanks' },
+  'Aquaculture':     { group: 'WATER', icon: '🐟', subs: ['Catfish','Tilapia','Mixed Fish','Hatchery'], countLabel: 'Number of Ponds', countUnit: 'ponds', assetName: 'Fish Pond' },
+  'Wild Fishery':    { group: 'WATER', icon: '🎣', subs: ['Freshwater','Coastal','Riverine'], countLabel: 'Number of Boats', countUnit: 'boats', assetName: 'Fishing Site' },
+  'Ornamental Fish': { group: 'WATER', icon: '🐠', subs: ['Aquarium Fish','Koi','Goldfish'], countLabel: 'Number of Tanks', countUnit: 'tanks', assetName: 'Fish Tanks' },
 
   // ============ SERVICES ============
-  'Pasture':         { group: 'SERVICES', icon: '🌱', subs: ['Natural Pasture','Improved Pasture','Fodder Farm'] },
-  'Agro-Processing': { group: 'SERVICES', icon: '🏭', subs: ['Garri Processing','Palm Oil','Rice Milling','Feed Production','Cheese/Dairy','Fruit Juice','Packaging'] },
-  'Seed/Nursery':    { group: 'SERVICES', icon: '🌾', subs: ['Seed Production','Seedlings','Grafting','Tissue Culture'] },
-  'Hydroponics/Greenhouse': { group: 'SERVICES', icon: '🏠', subs: ['Hydroponics','Greenhouse','Vertical Farming','Aquaponics'] },
-  'Palm Wine/Beverage': { group: 'SERVICES', icon: '🍷', subs: ['Palm Wine Tapping','Kunu','Zobo','Local Brewing'] },
-  'Compost/Fertilizer': { group: 'SERVICES', icon: '♻️', subs: ['Compost Production','Organic Fertilizer','Biogas','Worm Farming'] },
+  'Pasture':         { group: 'SERVICES', icon: '🌱', subs: ['Natural Pasture','Improved Pasture','Fodder Farm'], assetName: 'Pasture Land' },
+  'Agro-Processing': { group: 'SERVICES', icon: '🏭', subs: ['Garri Processing','Palm Oil','Rice Milling','Feed Production','Cheese/Dairy','Fruit Juice','Packaging'], assetName: 'Processing Facility' },
+  'Seed/Nursery':    { group: 'SERVICES', icon: '🌾', subs: ['Seed Production','Seedlings','Grafting','Tissue Culture'], assetName: 'Nursery' },
+  'Hydroponics/Greenhouse': { group: 'SERVICES', icon: '🏠', subs: ['Hydroponics','Greenhouse','Vertical Farming','Aquaponics'], assetName: 'Greenhouse' },
+  'Palm Wine/Beverage': { group: 'SERVICES', icon: '🍷', subs: ['Palm Wine Tapping','Kunu','Zobo','Local Brewing'], assetName: 'Brewery/Tapping Site' },
+  'Compost/Fertilizer': { group: 'SERVICES', icon: '♻️', subs: ['Compost Production','Organic Fertilizer','Biogas','Worm Farming'], assetName: 'Compost Site' },
 };
 
 function computeFarmScale(hectares: number): string {
@@ -56,18 +58,14 @@ export default function AgentRegister() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
-  // ---- Basic Info ----
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // ---- Location ----
   const [state, setState] = useState('Kaduna');
   const [lga, setLga] = useState('');
   const [ward, setWard] = useState('');
   
-  // ---- Farm Details ----
   const [farmerCategory, setFarmerCategory] = useState('Arable Crops');
   const [crop, setCrop] = useState('Maize');
   const [enterpriseCount, setEnterpriseCount] = useState('');
@@ -77,14 +75,12 @@ export default function AgentRegister() {
   const [farmingSeason, setFarmingSeason] = useState('Rainy');
   const [farmingPractices, setFarmingPractices] = useState<string[]>([]);
 
-  // ---- NDFR Demographics ----
   const [householdSize, setHouseholdSize] = useState('1');
   const [literacyLevel, setLiteracyLevel] = useState<1|2|3>(3);
   const [educationLevel, setEducationLevel] = useState<0|1|2|3|4>(2);
   const [disability, setDisability] = useState('');
   const [isYouth, setIsYouth] = useState(false);
 
-  // ---- Financial Access ----
   const [hasCredit, setHasCredit] = useState(false);
   const [hasInsurance, setHasInsurance] = useState(false);
   const [receivedSubsidy, setReceivedSubsidy] = useState(false);
@@ -92,12 +88,11 @@ export default function AgentRegister() {
   const [isAgroDealer, setIsAgroDealer] = useState(false);
   const [processingCompany, setProcessingCompany] = useState('');
 
-  // ---- GPS ----
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsBusy, setGpsBusy] = useState(false);
+  const [assetPhoto, setAssetPhoto] = useState<string | null>(null);
 
-  // ---- UI ----
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -110,7 +105,7 @@ export default function AgentRegister() {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== 'granted') { Alert.alert('Permission denied'); return; }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setGpsLat(loc.coords.latitude);
       setGpsLng(loc.coords.longitude);
     } catch (e: any) {
@@ -120,15 +115,46 @@ export default function AgentRegister() {
     }
   };
 
+  const pickAssetPhoto = async () => {
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true });
+    if (!r.canceled) setAssetPhoto(r.assets[0].uri);
+  };
+
+  const uploadAssetPhoto = async (farmerId: string): Promise<string | null> => {
+    if (!assetPhoto) return null;
+    try {
+      const base64 = await FileSystem.readAsStringAsync(assetPhoto, { encoding: FileSystem.EncodingType.Base64 });
+      const path = farmerId + '/' + Date.now() + '.jpg';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      
+      const { error } = await supabase.storage.from('farmer-assets').upload(path, bytes.buffer, { contentType: 'image/jpeg' });
+      if (error) {
+        console.warn('[upload] failed', error);
+        return null;
+      }
+      return supabase.storage.from('farmer-assets').getPublicUrl(path).data.publicUrl;
+    } catch (e) {
+      console.warn('[upload] exception', e);
+      return null;
+    }
+  };
+
   const submit = async () => {
     if (!fullName.trim() || !phone.trim() || !state.trim()) {
       Alert.alert('Missing info', 'Name, phone, and state are required.');
       return;
     }
     if (!password || password.length < 6) {
-      Alert.alert('Password required', 'Set a password for the farmer (min 6 characters).');
+      Alert.alert('Password required', 'Min 6 characters.');
       return;
     }
+    if (!assetPhoto) {
+      Alert.alert('Asset Photo Required', 'Please take a photo of the ' + FARMER_CATEGORIES[farmerCategory].assetName);
+      return;
+    }
+
     setBusy(true);
     try {
       const sess = await supabase.auth.getSession();
@@ -159,11 +185,13 @@ export default function AgentRegister() {
         return;
       }
 
-      // Link farmer to agent + attach all NDFR fields
+      // Upload photo and link NDFR fields
       try {
         const { data: { user: me } } = await supabase.auth.getUser();
         if (me && data.farmer_id) {
-          await new Promise((r) => setTimeout(r, 400));
+          await new Promise((res) => setTimeout(res, 400));
+          const photoUrl = await uploadAssetPhoto(data.farmer_id);
+          
           const upd = await supabase
             .from('farmer_registry')
             .update({
@@ -188,7 +216,8 @@ export default function AgentRegister() {
               received_subsidy: receivedSubsidy,
               other_income_source: otherIncome || null,
               is_agro_dealer: isAgroDealer,
-              processing_company: processingCompany || null
+              processing_company: processingCompany || null,
+              asset_photo_url: photoUrl
             })
             .eq('user_id', data.farmer_id);
           if (upd.error) console.warn('[agent] link failed', upd.error.message);
@@ -215,10 +244,8 @@ export default function AgentRegister() {
             <Text style={styles.successVal}>{result.phone}</Text>
             <Text style={styles.successLbl}>TEMPORARY PASSWORD</Text>
             <Text style={styles.successVal}>{result.temp_password}</Text>
-            <Text style={styles.successLbl}>EMAIL</Text>
-            <Text style={styles.successVal}>{result.email}</Text>
           </View>
-          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setPassword(''); }} style={styles.cta}>
+          <Pressable onPress={() => { setResult(null); setFullName(''); setPhone(''); setEmail(''); setPassword(''); setAssetPhoto(null); setGpsLat(null); setGpsLng(null); }} style={styles.cta}>
             <Text style={styles.ctaText}>REGISTER ANOTHER FARMER</Text>
           </Pressable>
           <Pressable onPress={() => router.back()} style={[styles.cta, { backgroundColor: '#333', marginTop: 12 }]}>
@@ -228,6 +255,8 @@ export default function AgentRegister() {
       </View>
     );
   }
+
+  const assetName = FARMER_CATEGORIES[farmerCategory].assetName;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
@@ -277,17 +306,24 @@ export default function AgentRegister() {
           </>
         )}
 
-        <Text style={styles.sectionLabel}>5. FARM DETAILS</Text>
-        <Text style={styles.label}>FARM SIZE (ACRES)</Text>
+        {/* ============ DYNAMIC ASSET CAPTURE ============ */}
+        <Text style={styles.sectionLabel}>5. {assetName.toUpperCase()} DETAILS</Text>
+        <Text style={styles.label}>SIZE (ACRES)</Text>
         <TextInput value={farmSize} onChangeText={setFarmSize} keyboardType="numeric" style={styles.input} placeholderTextColor="#888" />
         <Text style={styles.label}>AUTO-SCALE</Text>
         <View style={{ backgroundColor: 'rgba(0,255,136,0.1)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#00ff88', marginBottom: 12 }}>
           <Text style={{ fontSize: 13, fontWeight: '900', color: '#00ff88' }}>{computeFarmScale(parseFloat(farmSize) * 0.4047)}</Text>
         </View>
 
-        <Pressable onPress={captureGps} disabled={gpsBusy} style={[styles.cta, { backgroundColor: gpsLat ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', marginTop: 0 }]}>
-          {gpsBusy ? <ActivityIndicator color="#00ff88" /> : <Text style={{ color: '#00ff88', fontWeight: '900' }}>{gpsLat ? '✅ GPS CAPTURED' : '📍 PIN GPS COORDINATES'}</Text>}
+        <Pressable onPress={captureGps} disabled={gpsBusy} style={[styles.cta, { backgroundColor: gpsLat ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', marginTop: 0, marginBottom: 10 }]}>
+          {gpsBusy ? <ActivityIndicator color="#00ff88" /> : <Text style={{ color: '#00ff88', fontWeight: '900' }}>{gpsLat ? '✅ GPS CAPTURED' : '📍 PIN ' + assetName.toUpperCase() + ' GPS'}</Text>}
         </Pressable>
+
+        <Pressable onPress={pickAssetPhoto} style={[styles.cta, { backgroundColor: assetPhoto ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', marginTop: 0, marginBottom: 12 }]}>
+          <Text style={{ color: '#00ff88', fontWeight: '900' }}>{assetPhoto ? '✅ PHOTO ATTACHED' : '📸 TAKE ' + assetName.toUpperCase() + ' PHOTO'}</Text>
+        </Pressable>
+
+        {assetPhoto ? <Image source={{ uri: assetPhoto }} style={{ width: '100%', height: 180, borderRadius: 12, marginBottom: 12 }} resizeMode="cover" /> : null}
 
         <Text style={styles.label}>LAND TENURE</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -298,7 +334,7 @@ export default function AgentRegister() {
           ))}
         </View>
 
-        <Text style={styles.label}>FARM ORIENTATION</Text>
+        <Text style={styles.label}>ORIENTATION</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {['Stand Alone', 'Isolated', 'Contiguous', 'Both'].map(opt => (
             <Pressable key={opt} onPress={() => setFarmOrientation(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: farmOrientation === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
@@ -307,7 +343,7 @@ export default function AgentRegister() {
           ))}
         </View>
 
-        <Text style={styles.label}>FARMING PRACTICES</Text>
+        <Text style={styles.label}>PRACTICES</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {['Crop rotation', 'Land rotation', 'Organic farming', 'Irrigation farming'].map(opt => (
             <Pressable key={opt} onPress={() => togglePractice(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: farmingPractices.includes(opt) ? '#00ff88' : '#222', alignItems: 'center' }}>
