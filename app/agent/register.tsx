@@ -86,6 +86,8 @@ export default function AgentRegister() {
   const [receivedSubsidy, setReceivedSubsidy] = useState(false);
   const [otherIncome, setOtherIncome] = useState('');
   const [isAgroDealer, setIsAgroDealer] = useState(false);
+  const [farmerCategory, setFarmerCategory] = useState('Arable Crops');
+  const [enterpriseCount, setEnterpriseCount] = useState('');
   const [processingCompany, setProcessingCompany] = useState('');
 
   const togglePractice = (p: string) => {
@@ -402,6 +404,46 @@ export default function AgentRegister() {
 
         <Text style={styles.label}>WARD (Sub-LGA)</Text>
         <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="e.g. Ward 3" />
+
+        <Text style={styles.label}>FARMER CATEGORY *</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {Object.keys(FARMER_CATEGORIES).map(cat => (
+            <Pressable
+              key={cat}
+              onPress={() => { setFarmerCategory(cat); setCrop(FARMER_CATEGORIES[cat].subs[0]); }}
+              style={{ width: '31%', padding: 12, borderRadius: 8, backgroundColor: farmerCategory === cat ? '#00ff88' : '#222', alignItems: 'center', marginBottom: 6 }}
+            >
+              <Text style={{ fontSize: 20 }}>{FARMER_CATEGORIES[cat].icon}</Text>
+              <Text style={{ fontSize: 10, fontWeight: '800', color: farmerCategory === cat ? '#000' : '#888', marginTop: 4, textAlign: 'center' }}>{cat}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>PRIMARY ENTERPRISE *</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {FARMER_CATEGORIES[farmerCategory].subs.map(sub => (
+            <Pressable
+              key={sub}
+              onPress={() => setCrop(sub)}
+              style={{ paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: crop === sub ? '#00ff88' : '#222' }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '800', color: crop === sub ? '#000' : '#888' }}>{sub}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {FARMER_CATEGORIES[farmerCategory].countLabel ? (
+          <>
+            <Text style={styles.label}>{FARMER_CATEGORIES[farmerCategory].countLabel!.toUpperCase()}</Text>
+            <TextInput
+              value={enterpriseCount}
+              onChangeText={setEnterpriseCount}
+              keyboardType="number-pad"
+              style={styles.input}
+              placeholder="e.g. 25"
+            />
+          </>
+        ) : null}
 
         <Text style={styles.label}>LAND TENURE</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
