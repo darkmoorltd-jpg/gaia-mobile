@@ -43,6 +43,8 @@ const FARMER_CATEGORIES: Record<string, { icon: string; subs: string[]; countLab
   'Hydroponics/Greenhouse': { group: 'SERVICES', icon: '🏠', subs: ['Hydroponics','Greenhouse','Vertical Farming','Aquaponics'], assetName: 'Greenhouse' },
   'Palm Wine/Beverage': { group: 'SERVICES', icon: '🍷', subs: ['Palm Wine Tapping','Kunu','Zobo','Local Brewing'], assetName: 'Brewery/Tapping Site' },
   'Compost/Fertilizer': { group: 'SERVICES', icon: '♻️', subs: ['Compost Production','Organic Fertilizer','Biogas','Worm Farming'], assetName: 'Compost Site' },
+  'Logistics/Transporter': { group: 'SERVICES', icon: '🚛', subs: ['Cold Truck','Dry Truck','Motorcycle (Keke)','Tricycle','Boat'], assetName: 'Vehicle' },
+  'Cooperative/Association': { group: 'SERVICES', icon: '🤝', subs: ['Crop Coop','Livestock Coop','Fisheries Coop','Mixed Coop'], countLabel: 'Number of Members', countUnit: 'members', assetName: 'Meeting Hall' },
 };
 
 function computeFarmScale(hectares: number): string {
@@ -87,6 +89,18 @@ export default function AgentRegister() {
   const [otherIncome, setOtherIncome] = useState('');
   const [isAgroDealer, setIsAgroDealer] = useState(false);
   const [processingCompany, setProcessingCompany] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [cacNumber, setCacNumber] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
+  const [processingCapacity, setProcessingCapacity] = useState('');
+  const [dealerInputTypes, setDealerInputTypes] = useState<string[]>([]);
+
+  const toggleInputType = (v: string) => {
+    setDealerInputTypes(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+  };
+
+  const isBusiness = ['Agro-Processing', 'Seed/Nursery', 'Compost/Fertilizer', 'Logistics/Transporter', 'Cooperative/Association'].includes(farmerCategory) || isAgroDealer;
 
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
@@ -217,6 +231,12 @@ export default function AgentRegister() {
               other_income_source: otherIncome || null,
               is_agro_dealer: isAgroDealer,
               processing_company: processingCompany || null,
+              business_name: businessName || null,
+              cac_number: cacNumber || null,
+              license_number: licenseNumber || null,
+              business_address: businessAddress || null,
+              dealer_input_types: dealerInputTypes.length > 0 ? dealerInputTypes : null,
+              processing_capacity_tonnes: processingCapacity ? Number(processingCapacity) : null,
               asset_photo_url: photoUrl
             })
             .eq('user_id', data.farmer_id);
@@ -417,6 +437,43 @@ export default function AgentRegister() {
 
         <Text style={styles.label}>PROCESSING COMPANY AFFILIATION (Optional)</Text>
         <TextInput value={processingCompany} onChangeText={setProcessingCompany} style={styles.input} placeholder="e.g. Olam, Flour Mills" placeholderTextColor="#888" />
+
+        {isBusiness ? (
+          <>
+            <Text style={styles.sectionLabel}>8. BUSINESS PROFILE</Text>
+            <Text style={styles.label}>BUSINESS NAME</Text>
+            <TextInput value={businessName} onChangeText={setBusinessName} style={styles.input} placeholder="e.g. Prosper Agro Ltd" placeholderTextColor="#888" />
+
+            <Text style={styles.label}>CAC REGISTRATION NUMBER (Optional)</Text>
+            <TextInput value={cacNumber} onChangeText={setCacNumber} style={styles.input} placeholder="e.g. RC-123456" placeholderTextColor="#888" />
+
+            <Text style={styles.label}>OPERATING LICENSE (NASC / NAFDAC / Dealer)</Text>
+            <TextInput value={licenseNumber} onChangeText={setLicenseNumber} style={styles.input} placeholder="e.g. NASC/2024/001" placeholderTextColor="#888" />
+
+            <Text style={styles.label}>BUSINESS ADDRESS (Shop / Factory)</Text>
+            <TextInput value={businessAddress} onChangeText={setBusinessAddress} style={styles.input} placeholder="e.g. Shop 4, Main Market, Kaduna" placeholderTextColor="#888" />
+
+            {farmerCategory === 'Agro-Processing' ? (
+              <>
+                <Text style={styles.label}>DAILY PROCESSING CAPACITY (TONNES)</Text>
+                <TextInput value={processingCapacity} onChangeText={setProcessingCapacity} keyboardType="numeric" style={styles.input} placeholder="e.g. 5" placeholderTextColor="#888" />
+              </>
+            ) : null}
+
+            {isAgroDealer ? (
+              <>
+                <Text style={styles.label}>WHAT DO YOU SELL? (Select all)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {['Fertilizer', 'Seeds', 'Pesticides', 'Herbicides', 'Equipment', 'Veterinary Drugs', 'Feed'].map(opt => (
+                    <Pressable key={opt} onPress={() => toggleInputType(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: dealerInputTypes.includes(opt) ? '#00ff88' : '#222', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: dealerInputTypes.includes(opt) ? '#000' : '#888' }}>{opt}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </>
+        ) : null}
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>REGISTER FARMER</Text>}
