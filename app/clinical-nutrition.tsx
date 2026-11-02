@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
@@ -12,6 +12,7 @@ export default function ClinicalNutrition() {
   const styles = createStyles(palette);
 
   const [loading, setLoading] = useState(true);
+  const [hasSub, setHasSub] = useState(false);
   const [health, setHealth] = useState<any>(null);
   const [plan, setPlan] = useState<any>(null);
   
@@ -20,18 +21,21 @@ export default function ClinicalNutrition() {
   const [dia, setDia] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      if (!user) return;
-      const [h, p] = await Promise.all([
-        supabase.from('client_health_profiles').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('meal_plans').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle()
-      ]);
-      setHealth(h.data);
-      setPlan(p.data);
-      setLoading(false);
-    })();
-  }, [user]);
+  const load = async () => {
+    if (!user) return;
+    setLoading(true);
+    const [sub, h, p] = await Promise.all([
+      supabase.from('care_subscriptions').select('status').eq('user_id', user.id).maybeSingle(),
+      supabase.from('client_health_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+      supabase.from('meal_plans').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle()
+    ]);
+    setHasSub(sub.data?.status === 'active');
+    setHealth(h.data);
+    setPlan(p.data);
+    setLoading(false);
+  };
+
+  useFocusEffect(React.useCallback(() => { load(); }, [user]));
 
   const logVitals = async () => {
     if (!sugar && !sys && !dia) { Alert.alert('Enter at least one vital sign'); return; }
@@ -52,12 +56,27 @@ export default function ClinicalNutrition() {
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>;
 
-  // If no health profile exists yet, prompt setup (in a real app, this goes to a form)
+  // 1. PAYWALL: No active subscription
+  if (!hasSub) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.title}>Access Restricted</Text>
+        <Text style={[styles.sub, { textAlign: 'center', marginBottom: 20 }]}>
+          You need an active care plan to access Dr. Vinc's Clinic.
+        </Text>
+        <Pressable onPress={() => router.push('/care-subscribe' as any)} style={styles.cta}>
+          <Text style={styles.ctaTxt}>VIEW CARE PLANS</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // 2. ONBOARDING: Subscribed but no health profile
   if (!health) {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>Setup Required</Text>
-        <Text style={styles.sub}>Consult with Dr. Vinc to set your diet plan.</Text>
+        <Text style={styles.sub}>Let Dr. Vinc know your condition to create your diet.</Text>
         <Pressable onPress={() => router.push('/clinical-onboarding' as any)} style={styles.cta}>
           <Text style={styles.ctaTxt}>START ONBOARDING</Text>
         </Pressable>
@@ -65,6 +84,7 @@ export default function ClinicalNutrition() {
     );
   }
 
+  // 3. DASHBOARD
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>

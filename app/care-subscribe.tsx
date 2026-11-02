@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import * as FileSystem from 'expo-file-system/legacy';
+
+const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 
 export default function CareSubscribe() {
   const router = useRouter();
@@ -14,7 +16,9 @@ export default function CareSubscribe() {
 
   const [plans, setPlans] = useState<any[]>([]);
   const [current, setCurrent] = useState<any>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [payRef, setPayRef] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -26,23 +30,68 @@ export default function CareSubscribe() {
     })();
   }, [user]);
 
-  const subscribe = async (plan: any) => {
-    setBusy(plan.id);
-    // In production: Use Paystack here to charge the card
-    const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + 30);
-
-    const { error } = await supabase.from('care_subscriptions').upsert({
-      user_id: user.id,
-      plan: plan.id,
-      price_ngn: plan.price_ngn,
-      next_billing_date: nextDate.toISOString().split('T')[0],
-      status: 'active'
-    }, { onConflict: 'user_id' });
-
-    setBusy(null);
-    if (error) Alert.alert('Failed', error.message);
-    else Alert.alert('Subscribed!', `You are now on ${plan.name}.`);
+  const initiatePayment = (plan: any) => {
+    setSelectedPlan(plan);
+    setPayRef('CARE_' + user.id.slice(0,6) + '_' + Date.now());
   };
+
+  const onPayMessage = async (event: any) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (msg.status === 'success') {
+        setBusy(true);
+        
+        // 1. Save Subscription
+        const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + 30);
+        await supabase.from('care_subscriptions').upsert({
+          user_id: user.id,
+          plan: selectedPlan.id,
+          price_ngn: selectedPlan.price_ngn,
+          next_billing_date: nextDate.toISOString().split('T')[0],
+          status: 'active',
+          payment_reference: msg.reference
+        }, { onConflict: 'user_id' });
+
+        // 2. Generate their first meal plan automatically
+        await supabase.from('meal_plans').upsert({
+          user_id: user.id,
+          plan_name: `${selectedPlan.name} Starter Plan`,
+          daily_calories: 1800,
+          foods: ['Brown Rice', 'Beans', 'Vegetables', 'Grilled Fish'],
+          ai_instructions: `Welcome to ${selectedPlan.name}. I am Dr. Vinc. This plan is designed to stabilize your health. We will monitor your vitals daily.`,
+          is_active: true
+        });
+
+        setBusy(false);
+        setSelectedPlan(null);
+        Alert.alert('Subscribed!', `You are now on ${selectedPlan.name}. Welcome to the clinic.`);
+        router.replace('/clinical-nutrition');
+      } else {
+        setSelectedPlan(null);
+      }
+    } catch (e) {
+      console.log('Pay error', e);
+    }
+  };
+
+  const payHtml = payRef && selectedPlan ? `
+    <html><body style="margin:0;background:#000;">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script>
+      PaystackPop.setup({
+        key: '${PAYSTACK_PUBLIC}',
+        email: '${user.email}',
+        amount: ${selectedPlan.price_ngn * 100},
+        currency: 'NGN',
+        ref: '${payRef}',
+        callback: function(response) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({status:'success', reference: response.reference}));
+        },
+        onClose: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({status:'closed'}));
+        }
+      }).openIframe();
+    </script></body></html>` : '';
 
   return (
     <View style={styles.container}>
@@ -56,6 +105,9 @@ export default function CareSubscribe() {
           <View style={styles.currentBox}>
             <Text style={styles.currentTitle}>Active Plan: {current.plan.toUpperCase()}</Text>
             <Text style={styles.currentSub}>Renews on {current.next_billing_date}</Text>
+            <Pressable onPress={() => router.push('/clinical-nutrition')} style={{ marginTop: 12, backgroundColor: '#000', padding: 10, borderRadius: 8, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 12 }}>GO TO CLINIC</Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -70,14 +122,23 @@ export default function CareSubscribe() {
                 <Text key={i} style={styles.featureItem}>✅ {f}</Text>
               ))}
             </View>
-            <Pressable onPress={() => subscribe(plan)} disabled={busy === plan.id || current?.plan === plan.id} style={[styles.cta, current?.plan === plan.id && { backgroundColor: p.textMuted }]}>
-              {busy === plan.id ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaTxt}>{current?.plan === plan.id ? 'CURRENT PLAN' : `SUBSCRIBE TO ${plan.name}`}</Text>}
+            <Pressable onPress={() => initiatePayment(plan)} disabled={busy || current?.plan === plan.id} style={[styles.cta, current?.plan === plan.id && { backgroundColor: palette.textMuted }]}>
+              {busy && selectedPlan?.id === plan.id ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaTxt}>{current?.plan === plan.id ? 'CURRENT PLAN' : `SUBSCRIBE TO ${plan.name}`}</Text>}
             </Pressable>
           </View>
         ))}
 
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      <Modal visible={!!selectedPlan && !busy} animationType="slide" onRequestClose={() => setSelectedPlan(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <Pressable onPress={() => setSelectedPlan(null)} style={{ padding: 20, marginTop: 40 }}>
+            <Text style={{ color: '#ff3b5c', fontWeight: '900', fontSize: 14 }}>CANCEL PAYMENT</Text>
+          </Pressable>
+          {payHtml ? <WebView source={{ html: payHtml }} onMessage={onPayMessage} style={{ flex: 1 }} javaScriptEnabled /> : null}
+        </View>
+      </Modal>
     </View>
   );
 }
