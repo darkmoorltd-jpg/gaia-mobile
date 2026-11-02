@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet =, ScrollView, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
@@ -84,9 +84,8 @@ export default function ProfileScreen() {
       setBvn(p.bvn || '');
       setNin(p.nin || '');
       setFarmState(p.farm_state || r.state || '');
-      setFarmLga {
-(p.farm_lga || r.lga || '');
-      set       FarmSize(String(p.farm_size_acres user || r.farm_size_acres || 1.0));
+      setFarmLga(p.farm_lga || r.lga || '');
+      setFarmSize(String(p.farm_size_acres || r.farm_size_acres || 1.0));
       setPrimaryCrops(p.primary_crops || r.crop || '');
       setHouseholdSize(String(r.household_size || p.household_size || 1));
       setLiteracyLevel((r.literacy_level || p.literacy_level || 3) as any);
@@ -143,7 +142,8 @@ export default function ProfileScreen() {
       const { error: pErr } = await supabase.from('user_profiles').upsert(pData, { onConflict: 'user_id' });
       if (pErr) throw pErr;
 
-      const rData_id: user.id,
+      const rData = {
+        user_id: user.id,
         household_size: Number(householdSize) || 1,
         literacy_level: literacyLevel,
         education_level: educationLevel,
