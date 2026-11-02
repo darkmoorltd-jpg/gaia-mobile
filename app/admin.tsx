@@ -26,10 +26,12 @@ const SECTIONS: Section[] = [
     icon: 'US',
     items: [
       { label: 'Advanced Search',     route: '/admin-advanced-search' },
+      { label: 'User 360 View',        route: '/admin-user-360' },
       { label: 'All Users',           route: '/admin-users' },
       { label: 'Verifications',       route: '/admin-verifications' },
       { label: 'KYC Queue',             route: '/admin-kyc-queue' },
       { label: 'Farmer Database',     route: '/admin-farmers' },
+      { label: 'Regional Filter',      route: '/admin-farmer-filter' },
       { label: 'Scan History',        route: '/admin-scans' },
       { label: 'Login History',       route: '/admin-logins' },
       { label: 'Value Chain OS',          route: '/admin-value-chain' },

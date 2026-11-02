@@ -263,6 +263,8 @@ function RootNavigator() {
     <Stack.Screen name="clinical-nutrition" options={{ headerShown: false }} />
     <Stack.Screen name="care-subscribe" options={{ headerShown: false }} />
     <Stack.Screen name="admin-kyc-queue" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-user-360" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-farmer-filter" options={{ headerShown: false }} />
     </Stack>
   );
 }
