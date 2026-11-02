@@ -76,6 +76,23 @@ export default function AgentRegister() {
   const [educationLevel, setEducationLevel] = useState<0|1|2|3|4>(2);
   const [disability, setDisability] = useState('');
   const [isYouth, setIsYouth] = useState(false);
+  const [ward, setWard] = useState('');
+  const [landTenure, setLandTenure] = useState('Owned');
+  const [farmOrientation, setFarmOrientation] = useState('Stand Alone');
+  const [farmingPractices, setFarmingPractices] = useState<string[]>([]);
+  const [farmingSeason, setFarmingSeason] = useState('Rainy');
+  const [hasCredit, setHasCredit] = useState(false);
+  const [hasInsurance, setHasInsurance] = useState(false);
+  const [receivedSubsidy, setReceivedSubsidy] = useState(false);
+  const [otherIncome, setOtherIncome] = useState('');
+  const [isAgroDealer, setIsAgroDealer] = useState(false);
+  const [processingCompany, setProcessingCompany] = useState('');
+
+  const togglePractice = (p: string) => {
+    setFarmingPractices(prev =>
+      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
+    );
+  };
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -382,6 +399,75 @@ export default function AgentRegister() {
             <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: isYouth ? 'flex-end' : 'flex-start' }} />
           </Pressable>
         </View>
+
+        <Text style={styles.label}>WARD (Sub-LGA)</Text>
+        <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="e.g. Ward 3" />
+
+        <Text style={styles.label}>LAND TENURE</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Owned', 'Leased', 'Communal', 'Cooperative'].map(opt => (
+            <Pressable key={opt} onPress={() => setLandTenure(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: landTenure === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: landTenure === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>FARM ORIENTATION</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Stand Alone', 'Isolated', 'Contiguous', 'Both'].map(opt => (
+            <Pressable key={opt} onPress={() => setFarmOrientation(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: farmOrientation === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: farmOrientation === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>FARM SIZE SCALE (auto)</Text>
+        <View style={{ backgroundColor: 'rgba(0,255,136,0.1)', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#00ff88', marginBottom: 12 }}>
+          <Text style={{ fontSize: 13, fontWeight: '900', color: '#00ff88' }}>
+            {computeFarmScale(parseFloat(farmSize) * 0.4047)}
+          </Text>
+        </View>
+
+        <Text style={styles.label}>FARMING PRACTICES</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {['Crop rotation', 'Land rotation', 'Organic farming', 'Irrigation farming'].map(opt => (
+            <Pressable key={opt} onPress={() => togglePractice(opt)} style={{ flex: 1, minWidth: '45%', padding: 12, borderRadius: 8, backgroundColor: farmingPractices.includes(opt) ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: farmingPractices.includes(opt) ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>FARMING SEASON</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+          {['Rainy', 'Dry', 'Both'].map(opt => (
+            <Pressable key={opt} onPress={() => setFarmingSeason(opt)} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: farmingSeason === opt ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: farmingSeason === opt ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>FINANCIAL ACCESS</Text>
+        <View style={{ gap: 6, marginBottom: 12 }}>
+          {[
+            { label: 'Has ever received agricultural credit', val: hasCredit, set: setHasCredit },
+            { label: 'Has agricultural insurance', val: hasInsurance, set: setHasInsurance },
+            { label: 'Has received government subsidy', val: receivedSubsidy, set: setReceivedSubsidy },
+            { label: 'Is an approved agro-dealer', val: isAgroDealer, set: setIsAgroDealer }
+          ].map((item, i) => (
+            <Pressable key={i} onPress={() => item.set(!item.val)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 8, backgroundColor: item.val ? 'rgba(0,255,136,0.1)' : '#222', borderWidth: 1, borderColor: item.val ? '#00ff88' : '#333' }}>
+              <View style={{ width: 20, height: 20, borderRadius: 4, backgroundColor: item.val ? '#00ff88' : 'transparent', borderWidth: 2, borderColor: item.val ? '#00ff88' : '#666', alignItems: 'center', justifyContent: 'center' }}>
+                {item.val ? <Text style={{ fontSize: 12, fontWeight: '900', color: '#000' }}>✓</Text> : null}
+              </View>
+              <Text style={{ fontSize: 13, color: '#fff', flex: 1 }}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>OTHER SOURCE OF INCOME (Aside farming)</Text>
+        <TextInput value={otherIncome} onChangeText={setOtherIncome} style={styles.input} placeholder="e.g. Trading, Teaching, None" />
+
+        <Text style={styles.label}>PROCESSING COMPANY AFFILIATION (Optional)</Text>
+        <TextInput value={processingCompany} onChangeText={setProcessingCompany} style={styles.input} placeholder="e.g. Olam, Flour Mills" />
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? (
