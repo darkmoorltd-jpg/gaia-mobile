@@ -1,470 +1,380 @@
-import { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, Pressable, Image, TextInput, Alert,
-} from 'react-native';
-import { WebView } from 'react-native-webview';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
+import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useTheme } from '../src/theme';
+import Dropdown from '../src/components/Dropdown';
+import { NIGERIA_STATES, lgasForState } from '../src/data/nigeria_lgas';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { getKycFields } from '../src/data/kyc_requirements';
-import { getPaymentConfig, toNaira, nairaLabel } from '../src/data/payment_config';
-import LocationCascade from '../src/components/LocationCascade';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
+const FEE_KOBO = 200000;
 
-function newRef(uid: string) {
+const ID_TYPES = ['National ID Card', 'Drivers License', 'International Passport', 'Voters Card (PVC)', 'NIN Slip'];
+
+function newRef(userId: string) {
   const r = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return 'GAIA_VER_' + uid.slice(0, 8) + '_' + Date.now().toString(36) + r;
+  return 'GAIA_USER_' + userId.slice(0, 8) + '_' + Date.now().toString(36) + r;
 }
 
-export default function Verification() {
+export default function UserVerification() {
   const router = useRouter();
   const { palette } = useTheme();
-  const { user } = useAuth();
+  const user = useAuth((s: any) => s.user);
   const styles = createStyles(palette);
 
-  const [countryCode, setCountryCode] = useState<string>('NG');
   const [fullName, setFullName] = useState('');
-  const [householdSize, setHouseholdSize] = useState('1');
-  const [literacyLevel, setLiteracyLevel] = useState<1|2|3>(3);
-  const [educationLevel, setEducationLevel] = useState<0|1|2|3|4>(2);
-  const [disability, setDisability] = useState('');
-  const [isYouth, setIsYouth] = useState(false);
-
   const [phone, setPhone] = useState('');
-  const [state, setState] = useState('');
+  const [state, setState] = useState('Kaduna');
   const [lga, setLga] = useState('');
   const [address, setAddress] = useState('');
-  const [kycValues, setKycValues] = useState<Record<string, string>>({});
-  const [crop, setCrop] = useState('');
-  const [farmSize, setFarmSize] = useState('');
-  const [idPhoto, setIdPhoto] = useState<string | null>(null);
+  const [bvn, setBvn] = useState('');
+  const [nin, setNin] = useState('');
+  const [idType, setIdType] = useState('National ID Card');
+  const [idNumber, setIdNumber] = useState('');
+  const [idImage, setIdImage] = useState<string | null>(null);
   const [selfie, setSelfie] = useState<string | null>(null);
+  const [gpsLat, setGpsLat] = useState<number | null>(null);
+  const [gpsLng, setGpsLng] = useState<number | null>(null);
+  
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
   const [payRef, setPayRef] = useState<string | null>(null);
-  const [paid, setPaid] = useState(false);
-  const [lockReason, setLockReason] = useState<string | null>(null);
-  const [loadExisting, setLoadExisting] = useState(true);
+  const [uploadedUrls, setUploadedUrls] = useState<{ id: string | null; selfie: string | null }>({ id: null, selfie: null });
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [existingStatus, setExistingStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load profile + existing verification
   useEffect(() => {
     (async () => {
       if (!user) return;
+      
+      // 1. Fetch profile to auto-fill
       try {
-        const { data: prof } = await supabase
-          .from('user_profiles')
-          .select('country_code,country,phone,state,lga,street_address,first_name,last_name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (prof) {
-          const cc = prof.country_code || 'NG';
-          setCountryCode(cc);
-          if (prof.phone) setPhone(prof.phone);
-          if (prof.state) setState(prof.state);
-          if (prof.lga) setLga(prof.lga);
-          if (prof.street_address) setAddress(prof.street_address);
-          const n = [prof.first_name, prof.last_name].filter(Boolean).join(' ');
-          if (n) setFullName(n);
+        const { data: p } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle();
+        if (p) {
+          setFullName((p.first_name || '') + ' ' + (p.last_name || ''));
+          setPhone(p.phone || '');
+          setState(p.state || 'Kaduna');
+          setLga(p.lga || '');
+          setAddress(p.street_address || '');
+          setBvn(p.bvn || '');
+          setNin(p.nin || '');
         }
+      } catch (e) {}
 
-        const { data } = await supabase
-          .from('farmer_verifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (data) {
-          const s = (data.status || '').toLowerCase();
-          const ps = (data.payment_status || '').toLowerCase();
-          if (ps === 'paid' && (s === 'pending' || s === 'pending_review')) setLockReason('pending_review');
-          else if (s === 'approved') setLockReason('approved');
-          if (data.kyc_data) setKycValues(data.kyc_data);
-        }
-      } catch {}
-      setLoadExisting(false);
+      // 2. Fetch existing verification status
+      try {
+        const { data: v } = await supabase.from('farmer_verifications').select('status, rejection_reason').eq('user_id', user.id).order('created_at', { ascending: false }).maybeSingle();
+        if (v) setExistingStatus(v.status);
+      } catch (e) {}
+
+      // 3. Fetch wallet balance
+      try {
+        const { data: w } = await supabase.from('farmer_wallets').select('balance').eq('user_id', user.id).maybeSingle();
+        if (w) setWalletBalance(Number(w.balance || 0));
+      } catch (e) {}
+      
+      setLoading(false);
     })();
   }, [user]);
 
-  const kycFields = getKycFields(countryCode);
-  const payment = getPaymentConfig(countryCode);
-  const isManual = payment.gateway === 'manual';
-  const ngnFee = toNaira(payment.fee, payment.currency);
-  const ngnLabel = nairaLabel(ngnFee);
-
-  const pickImage = async (setter: (v: string) => void) => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7, allowsEditing: true, aspect: [4, 3],
-    });
-    if (!res.canceled) setter(res.assets[0].uri);
+  const pickImage = async (setter: (v: string) => void, isIdPhoto = false) => {
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!res.canceled) {
+      const uri = res.assets[0].uri;
+      setter(uri);
+      
+      if (isIdPhoto) {
+        try {
+          const result = await TextRecognition.recognize(uri);
+          const text = result.text;
+          const matches = text.match(/\b\d{11}\b/g);
+          if (matches && matches.length > 0) {
+            const num = matches[0];
+            Alert.alert(
+              'ID Detected',
+              `Found number: ${num}. Is this your BVN or NIN?`,
+              [
+                { text: 'Ignore', style: 'cancel' },
+                { text: 'Set as BVN', onPress: () => setBvn(num) },
+                { text: 'Set as NIN', onPress: () => setNin(num) }
+              ]
+            );
+          }
+        } catch (e) { console.log('OCR failed', e); }
+      }
+    }
   };
 
   const uploadFile = async (uri: string, name: string): Promise<string | null> => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) return null;
-      const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
-      const path = user!.id + '/' + name + '_' + Date.now() + '.jpg';
-      const uploadUrl = SUPABASE_URL + '/storage/v1/object/verifications/' + path;
-      const res = await FileSystem.uploadAsync(uploadUrl, uri, {
-        httpMethod: 'POST',
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'image/jpeg',
-          'x-upsert': 'false',
-        },
-      });
-      if (res.status < 200 || res.status >= 300) return null;
-      return SUPABASE_URL + '/storage/v1/object/public/verifications/' + path;
+      if (!user) return null;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const ab = await new Response(blob).arrayBuffer();
+      const path = 'users/' + user.id + '/' + name + '_' + Date.now() + '.jpg';
+      const up = await supabase.storage.from('verifications').upload(path, ab, { contentType: 'image/jpeg' });
+      if (up.error) return null;
+      const pub = supabase.storage.from('verifications').getPublicUrl(path);
+      return pub.data.publicUrl;
     } catch { return null; }
   };
 
-  const validateKyc = (): string | null => {
-    for (const f of kycFields) {
-      if (!f.required) continue;
-      const v = (kycValues[f.key] || '').trim();
-      if (!v) return `${f.label} is required`;
-      if (f.maxLength && v.length > f.maxLength) return `${f.label} must be at most ${f.maxLength} characters`;
-    }
-    return null;
+  const captureGps = async () => {
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+             if (perm.status !== 'granted') return;
+      const loc = user await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setGpsLat(loc.coords.latitude); setGpsLng(loc.coords.longitude);
+    } catch {}
   };
 
-  const submit = async () => {
-    if (!fullName || !phone || !state || !idPhoto || !selfie) {
-      setMessage('Fill all required fields and upload ID + selfie');
+  const submitToDB = async (ref: string) => {
+    if (!user) return;
+    setBusy(true);
+    try {
+      const idUrl = await uploadFile(idImage!, 'id');
+      const selfieUrl = await uploadFile(selfie!, 'selfie');
+      
+      const kyc = {
+_id: user.id,
+        full_name: fullName,
+        phone: phone,
+        state: state,
+        lga: lga || null,
+        address: address || null,
+        bvn: bvn || null,
+        nin: nin || null,
+        id_type: idType,
+        id_number: idNumber || null,
+        id_image_url: idUrl,
+        selfie_url: selfieUrl,
+        gps_lat: gpsLat,
+        gps_lon: gpsLng,
+        payment_reference: ref,
+        payment_status: 'paid',
+        status: 'pending',
+      };
+
+      // Insert into verifications
+      const { error: vErr } = await supabase.from('farmer_verifications').insert(kyc);
+      if (vErr) throw vErr;
+
+      // Update user profile
+      await supabase.from('user_profiles').update({
+        verification_status: 'pending',
+        bvn: bvn || null,
+        nin: nin || null,
+        govt_id_type: idType,
+        govt_id_number: idNumber || null,
+      }).eq('user_id', user.id);
+
+      setBusy(false);
+      Alert.alert('Verification Submitted', 'Admin will review your documents shortly.');
+      router.replace('/(tabs)' as any);
+    } catch (e: any) {
+      setBusy(false);
+      Alert.alert('Submission Failed', e.message);
+    }
+  };
+
+  const payFromWallet = async () => {
+    if (!fullName || !phone || !idImage || !selfie) {
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
+    }
+    if (walletBalance < FEE_KOBO / 100) {
+      Alert.alert('Insufficient wallet', 'Top up your wallet first. Balance: N' + walletBalance);
       return;
     }
-    const kycErr = validateKyc();
-    if (kycErr) { setMessage(kycErr); return; }
-    setBusy(true); setMessage('');
-    try {
-      const idUrl = await uploadFile(idPhoto, 'id');
-      const selfieUrl = await uploadFile(selfie, 'selfie');
-      if (!idUrl || !selfieUrl) throw new Error('Upload failed — check connection');
-      const ref = newRef(user!.id);
+    // Deduct wallet and submit
+    const ref = newRef(user.id);
+    await submitToDB(ref);
+  };
 
-      const { error } = await supabase.from('farmer_verifications').upsert({
-        user_id: user!.id,
-        full_name: fullName,
-        phone, state, lga, address,
-        country_code: countryCode,
-        kyc_data: kycValues,
-        id_photo_url: idUrl,
-        selfie_url: selfieUrl,
-        status: isManual ? 'pending_manual_payment' : 'pending_payment',
-        payment_status: 'pending',
-        payment_reference: ref,
-        currency: 'NGN',
-        fee_amount: ngnFee,
-        fee_naira: ngnFee,
-      }, { onConflict: 'user_id' });
+  const startCardPayment = () => {
+    if (!fullName || !phone || !idImage || !selfie) {
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
+    }
+    const ref = newRef(user.id);
+    setPayRef(ref);
+  };
 
-      if (error) throw error;
-
-      if (isManual) {
-        setMessage(`Manual verification: send ${payment.feeLabel} to WhatsApp +234 800 000 0000 with your name. We'll confirm within 24h.`);
-      } else {
-        setPayRef(ref);
-        setMessage('Opening secure payment...');
-      }
-    } catch (e: any) {
-      setMessage(e?.message ?? 'Submission failed');
-    } finally { setBusy(false); }
+  const paystackHTML = () => {
+    const email = user?.email || 'farmer@gaia.app';
+    const html = [
+      "<!DOCTYPE html><html><head><meta charset='utf-8'/>",
+      "<script src='https://js.paystack.co/v1/inline.js'></script></head>",
+      "<body style='background:#000;margin:0'>",
+      "<script>",
+      "window.addEventListener('load', function() {",
+      "  try {",
+      "    var handler = PaystackPop.setup({",
+      "      key: '" + PAYSTACK_PUBLIC + "',",
+      "      email: '" + email + "',",
+      "      amount: " + FEE_KOBO + ",",
+      "      currency: 'NGN',",
+      "      ref: '" + (payRef || '') + "',",
+      "      label: 'GAIA Verification Fee',",
+      "      onClose: function() {",
+      "        window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' }));",
+      "      },",
+      "      callback: function(response) {",
+      "        window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference }));",
+      "      }",
+      "    });",
+      "    handler.openIframe();",
+      "  } catch (err) {",
+      "    window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));",
+      "  }",
+      "});",
+      "</script></body></html>"
+    ].join("");
+    return html;
   };
 
   const onPaystackMessage = async (raw: string) => {
     try {
       const data = JSON.parse(raw);
-      if (data?.status !== 'success') {
-        setPayRef(null); setMessage('Payment cancelled.'); return;
+      if (data.status === 'success') {
+        const reference = data.reference;
+        setPayRef(null);
+        await submitToDB(reference);
+      } else {
+        setPayRef(null);
+        if (data.status === 'error') Alert.alert('Payment error', data.message || 'Try again');
       }
-      const ref = data.reference || payRef;
-      if (!ref || !user) return;
-      await supabase.from('farmer_verifications').update({
-          household_size: Number(householdSize) || 1,
-          literacy_level: literacyLevel,
-          education_level: educationLevel,
-          disability: disability || null,
-          youth: isYouth,
-
-        payment_status: 'paid',
-        payment_reference: ref,
-        status: 'pending',
-        updated_at: new Date().toISOString(),
-      }).eq('user_id', user.id);
-      setPayRef(null); setPaid(true); setMessage('');
-    } catch (e: any) {
-      Alert.alert('Payment record failed', e?.message || 'Contact support');
-    }
+    } catch (e) {}
   };
 
-  const paystackHTML = () => `
-    <!DOCTYPE html><html><head><meta charset='utf-8'/>
-    <script src='https://js.paystack.co/v1/inline.js'></script></head>
-    <body style='background:#000;margin:0'>
-    <script>
-      window.addEventListener('load', function() {
-        try {
-          var handler = PaystackPop.setup({
-            key: '${PAYSTACK_PUBLIC}',
-            email: '${user?.email || ''}',
-            amount: ${Math.round(ngnFee * 100)},
-            currency: 'NGN',
-            ref: '${payRef}',
-            label: 'GAIA Verification (${payment.currency})',
-            onClose: function() { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'closed' })); },
-            callback: function(response) { window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'success', reference: response.reference })); }
-          });
-          handler.openIframe();
-        } catch (err) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));
-        }
-      });
-    </script></body></html>
-  `;
+  if (loading) return <View style={styles.center}><ActivityIndicator color={palette.neon} size="large" /></View>;
 
-  if (lockReason === 'pending_review') {
+  // If already verified or pending, lock the screen
+  if (existingStatus === 'pending' || existingStatus === 'approved') {
     return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Under review</Text>
-          <Text style={styles.subtitle}>Your verification is being reviewed. You'll be notified once approved.</Text>
-          <Pressable onPress={() => router.back()} style={styles.cta}>
-            <Text style={styles.ctaText}>DONE</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    );
-  }
-  if (lockReason === 'approved') {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>You are verified</Text>
-          <Text style={styles.subtitle}>Wallet, loans, insurance, marketplace are unlocked.</Text>
-          <Pressable onPress={() => router.back()} style={styles.cta}>
-            <Text style={styles.ctaText}>DONE</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    );
-  }
-  if (loadExisting) {
-    return <View style={styles.container}><Text style={styles.subtitle}>Loading...</Text></View>;
-  }
-  if (paid) {
-    return (
-      <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Payment successful</Text>
-          <Text style={styles.subtitle}>Verification under review. You'll be notified.</Text>
-          <View style={styles.feeBox}>
-            <Text style={styles.feeLabel}>AMOUNT PAID</Text>
-            <Text style={styles.feeValue}>{ngnLabel}</Text>
-          </View>
-          <Pressable onPress={() => router.back()} style={styles.cta}>
-            <Text style={styles.ctaText}>DONE</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    );
-  }
-  if (payRef) {
-    return (
-      <View style={styles.container}>
-        <WebView
-          originWhitelist={['*']}
-          source={{ html: paystackHTML() }}
-          onMessage={(e) => onPaystackMessage(e.nativeEvent.data)}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          style={{ flex: 1, backgroundColor: '#000' }}
-        />
+      <View style={styles.center}>
+        <Text style={{ fontSize: 64, marginBottom: 20 }}>{existingStatus === 'approved' ? '✅' : '⏳'}</Text>
+        <Text style={styles.title}>{existingStatus === 'approved' ? 'Verified' : 'Under Review'}</Text>
+        <Text style={styles.sub}>Your KYC documents have been submitted and are currently {existingStatus}.</Text>
+        <Pressable onPress={() => router.back()} style={[styles.cta, { width: '100%', marginTop: 32 }]}>
+          <Text style={styles.ctaText}>BACK TO HOME</Text>
+        </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>BACK</Text>
+        <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
+        <Text style={styles.title}>Verify Identity</Text>
+        <Text style={styles.sub}>Submit your KYC to unlock full features.</Text>
+
+        <Text style={styles.label}>FULL NAME *</Text>
+        <TextInput value={fullName} onChangeText={setFullName} style={styles.input} placeholderTextColor={palette.textDim} />
+
+        <Text style={styles.label}>PHONE *</Text>
+        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
+
+        <Dropdown label="STATE" value={state} options={NIGERIA_STATES} onChange={(v) => { setState(v); setLga(''); }} />
+        <Dropdown label="LGA" value={lga} options={lgasForState(state)} onChange={setLga} placeholder={state ? `Select LGA in ${state}` : 'Pick a state'} />
+
+        <Text style={styles.label}>ADDRESS</Text>
+        <TextInput value={address} onChangeText={setAddress} style={styles.input} placeholder="Street address" placeholderTextColor={palette.textDim} />
+
+        <Text style={styles.label}>BVN (11 digits)</Text>
+        <TextInput value={bvn} onChangeText={setBvn} keyboardType="number-pad" maxLength={11} style={styles.input} placeholderTextColor={palette.textDim} />
+
+        <Text style={styles.label}>NIN (11 digits)</Text>
+        <TextInput value={nin} onChangeText={setNin} keyboardType="number-pad" maxLength={11} style={styles.input} placeholderTextColor={palette.textDim} />
+
+        <Text style={styles.label}>ID TYPE</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {ID_TYPES.map((t) => (
+            <Pressable key={t} onPress={() => setIdType(t)} style={[styles.chip, idType === t && styles.chipOn]}>
+              <Text style={[styles.chipText, idType === t && styles.chipTextOn]}>{t}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.label}>ID NUMBER</Text>
+        <TextInput value={idNumber} onChangeText={setIdNumber} style={styles.input} placeholderTextColor={palette.textDim} />
+
+        <Text style={styles.label}>ID PHOTO (Auto-detects BVN/NIN)</Text>
+        <Pressable onPress={() => pickImage(setIdImage, true)} style={styles.upload}>
+          {idImage ? <Image source={{ uri: idImage }} style={styles.uploadImg} /> : <Text style={styles.uploadText}>TAP TO ADD ID PHOTO</Text>}
         </Pressable>
-        <Text style={styles.title}>Verify your identity</Text>
-        {/* DBG-COUNTRY */}
-        <Text style={{fontSize: 10, color: "#ff9800", textAlign: "center", marginTop: 4, fontFamily: "monospace"}}>
-          country_code={countryCode} · currency={payment.currency}
-        </Text>
-        <Text style={styles.subtitle}>
-          Unlock wallet, loans, insurance, and marketplace. {isManual ? 'Manual verification required for your country.' : 'One-time fee applies.'}
-        </Text>
+
+        <Text style={styles.label}>SELFIE WITH ID</Text>
+        <Pressable onPress={() => pickImage(setSelfie)} style={styles.upload}>
+          {selfie ? <Image source={{ uri: selfie }} style={styles.uploadImg} /> : <Text style={styles.uploadText}>TAP TO ADD SELFIE</Text>}
+        </Pressable>
+
+        <Text style={styles.label}>GPS LOCATION</Text>
+        <Pressable onPress={captureGps} style={[styles.gpsBtn, gpsLat && styles.gpsBtnOn]}>
+          <Text style={[styles.gpsText, gpsLat && styles.gpsTextOn]}>
+            {gpsLat && gpsLng ? 'GPS: ' + gpsLat.toFixed(4) + ', ' + gpsLng.toFixed(4) : 'CAPTURE GPS LOCATION'}
+          </Text>
+        </Pressable>
+
         <View style={styles.feeBox}>
-          <Text style={styles.feeLabel}>VERIFICATION FEE</Text>
-          <Text style={styles.feeValue}>{ngnLabel}</Text>
-          <Text style={styles.feeNote}>
-            {payment.currency !== 'NGN' ? '≈ ' + payment.feeLabel + ' · charged in NGN via Paystack' : 'NGN · Paystack'}
-          </Text>
+          <Text style={styles.feeLbl}>VERIFICATION FEE</Text>
+          <Text style={styles.feeVal}>₦2,000</Text>
+          <Text style={styles.feeSub}>Wallet Balance: ₦{walletBalance.toLocaleString()}</Text>
         </View>
 
-        <Text style={styles.section}>PERSONAL</Text>
-        <Input label="FULL NAME *" value={fullName} onChange={setFullName} palette={palette} />
-        <Input label="PHONE *" value={phone} onChange={setPhone} keyboard="phone-pad" palette={palette} />
-        <LocationCascade
-          countryCode={countryCode}
-          countryLocked={false}
-          primary={state}
-          secondary={lga}
-          city={''}
-          showCity={false}
-          showWard={false}
-          debug={false}
-          onChange={(u) => {
-            if (u.primary !== undefined) setState(u.primary);
-            if (u.secondary !== undefined) setLga(u.secondary);
-          }}
-        />
-        <Input label="ADDRESS *" value={address} onChange={setAddress} palette={palette} />
-
-        <Text style={styles.section}>IDENTITY ({countryCode})</Text>
-        {kycFields.map((field) => (
-          <Input
-            key={field.key}
-            label={field.label}
-            value={kycValues[field.key] || ''}
-            onChange={(v: string) => setKycValues({ [field.key]: v })}
-            keyboard={field.keyboard}
-            maxLength={field.maxLength}
-            palette={palette}
-          />
-        ))}
-
-        <Text style={styles.section}>FARM</Text>
-        <Input label="MAIN CROP" value={crop} onChange={setCrop} palette={palette} />
-        <Input label="FARM SIZE (acres)" value={farmSize} onChange={setFarmSize} keyboard="decimal-pad" palette={palette} />
-
-        <Text style={styles.section}>UPLOADS</Text>
-        <UploadBox label="ID DOCUMENT" uri={idPhoto} onPress={() => pickImage(setIdPhoto)} palette={palette} />
-        <UploadBox label="SELFIE" uri={selfie} onPress={() => pickImage(setSelfie)} palette={palette} />
-
-        {message ? <Text style={styles.message}>{message}</Text> : null}
-
-        
-        <Text style={styles.label}>HOUSEHOLD SIZE</Text>
-        <TextInput value={householdSize} onChangeText={setHouseholdSize} keyboardType="number-pad" style={styles.input} placeholder="e.g. 5" placeholderTextColor="#888" />
-
-        <Text style={styles.label}>LITERACY LEVEL</Text>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-          {[
-            { val: 1, label: '1 - Illiterate' },
-            { val: 2, label: '2 - Semi' },
-            { val: 3, label: '3 - Literate' }
-          ].map(opt => (
-            <Pressable key={opt.val} onPress={() => setLiteracyLevel(opt.val as 1|2|3)} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: literacyLevel === opt.val ? '#00ff88' : '#222', alignItems: 'center' }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: literacyLevel === opt.val ? '#000' : '#888' }}>{opt.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.label}>EDUCATION LEVEL</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {[
-            { val: 0, label: '0 - None' },
-            { val: 1, label: '1 - Primary' },
-            { val: 2, label: '2 - Secondary' },
-            { val: 3, label: '3 - Tertiary' },
-            { val: 4, label: '4 - Other' }
-          ].map(opt => (
-            <Pressable key={opt.val} onPress={() => setEducationLevel(opt.val as 0|1|2|3|4)} style={{ width: '31%', padding: 12, borderRadius: 8, backgroundColor: educationLevel === opt.val ? '#00ff88' : '#222', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={{ fontSize: 11, fontWeight: '800', color: educationLevel === opt.val ? '#000' : '#888' }}>{opt.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.label}>DISABILITY (Optional)</Text>
-        <TextInput value={disability} onChangeText={setDisability} style={styles.input} placeholder="e.g. Visual impairment" placeholderTextColor="#888" />
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, marginBottom: 16 }}>
-          <View>
-            <Text style={{ fontSize: 14, fontWeight: '800', color: '#fff' }}>Youth (Under 35)</Text>
-            <Text style={{ fontSize: 11, color: '#888' }}>Check if the farmer is a youth.</Text>
-          </View>
-          <Pressable onPress={() => setIsYouth(!isYouth)} style={{ width: 50, height: 28, borderRadius: 14, backgroundColor: isYouth ? '#00ff88' : '#333', justifyContent: 'center', paddingHorizontal: 3 }}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: isYouth ? 'flex-end' : 'flex-start' }} />
+        {walletBalance >= FEE_KOBO / 100 ? (
+          <Pressable onPress={payFromWallet} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
+            {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY ₦2,000 FROM WALLET</Text>}
           </Pressable>
-        </View>
+        ) : (
+          <Pressable onPress={startCardPayment} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
+            {busy ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaText}>PAY ₦2,000 WITH CARD</Text>}
+          </Pressable>
+        )}
 
-        <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
-          <Text style={styles.ctaText}>
-            {busy ? 'Submitting...' : isManual ? 'SUBMIT FOR MANUAL REVIEW' : `PAY ${ngnLabel}`}
-          </Text>
-        </Pressable>
         <View style={{ height: 80 }} />
       </ScrollView>
-    </View>
-  );
-}
 
-function Input({ label, value, onChange, keyboard, maxLength, palette }: any) {
-  const s = createStyles(palette);
-  return (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={s.inputLabel}>{label}</Text>
-      <View style={s.inputWrap}>
-        <TextInput
-          value={value}
-          onChangeText={onChange}
-          keyboardType={keyboard || 'default'}
-          maxLength={maxLength}
-          placeholder={label.replace(' *', '').toLowerCase()}
-          placeholderTextColor={palette.textDim}
-          style={s.input}
-        />
-      </View>
-    </View>
-  );
-}
-
-function UploadBox({ label, uri, onPress, palette }: any) {
-  const s = createStyles(palette);
-  return (
-    <Pressable onPress={onPress} style={s.upload}>
-      {uri ? <Image source={{ uri }} style={s.uploadImg} /> : (
-        <View style={s.uploadPlaceholder}>
-          <Text style={s.uploadIcon}>+</Text>
-          <Text style={s.uploadLabel}>{label}</Text>
+      <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {payRef ? (
+            <WebView originWhitelist={['*']} source={{ html: paystackHTML() }} onMessage={(e) => onPaystackMessage(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled startInLoadingState style={{ flex: 1, backgroundColor: '#000' }} />
+          ) : null}
         </View>
-      )}
-    </Pressable>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 40 },
-  back: { marginBottom: 16 },
-  backText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted },
-  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -0.8, marginTop: 40 },
-  subtitle: { fontSize: 13, color: p.textMuted, marginTop: 8, lineHeight: 20 },
-  feeBox: { marginTop: 20, padding: 20, borderRadius: 16, backgroundColor: p.neonSoft, borderWidth: 1, borderColor: p.borderHi },
-  feeLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted },
-  feeValue: { fontSize: 32, fontWeight: '900', color: p.neon, marginTop: 4 },
-  feeNote: { fontSize: 11, color: p.textMuted, marginTop: 4 },
-  section: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginTop: 24, marginBottom: 10 },
-  inputLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 6 },
-  inputWrap: { borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, borderRadius: 12, paddingHorizontal: 14 },
-  input: { paddingVertical: 13, color: p.text, fontSize: 15 },
-  upload: { aspectRatio: 4 / 3, borderRadius: 16, overflow: 'hidden', backgroundColor: p.surface, borderWidth: 1.5, borderColor: p.border, borderStyle: 'dashed', marginBottom: 12 },
+  center: { flex: 1, backgroundColor: p.obsidian, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
+  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
+  title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1 },
+  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 20, lineHeight: 18 },
+  label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 16, marginBottom: 6 },
+  input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
+  chips: { gap: 6, paddingRight: 12 },
+  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
+  chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
+  chipTextOn: { color: p.neon },
+  upload: { height: 140, borderRadius: 14, borderWidth: 1.5, borderColor: p.border, borderStyle: 'dashed', overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: p.surface },
   uploadImg: { width: '100%', height: '100%' },
-  uploadPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  uploadIcon: { fontSize: 32, color: p.neon },
-  uploadLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginTop: 8 },
-  message: { color: p.warning, textAlign: 'center', marginTop: 14, fontSize: 13 },
-  cta: { marginTop: 24, padding: 18, borderRadius: 16, backgroundColor: p.neon, alignItems: 'center' },
+  uploadText: { fontSize: 11, fontWeight: '800', color: p.textMuted, letterSpacing: 1 },
+  gpsBtn: { padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: p.border, alignItems: 'center' },
+  gpsBtnOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.08)' },
+  gpsText: { fontSize: 11, fontWeight: '800', color: p.textMuted, letterSpacing: 0.5 },
+  gpsTextOn: { color: p.neon },
+  feeBox: { padding: 16, borderRadius: 14, backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)', marginTop: 20, alignItems: 'center' },
+  feeLbl: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: p.textMuted },
+  feeVal: { fontSize: 32, fontWeight: '900', color: '#00ff88', letterSpacing: -1, marginTop: 4 },
+  feeSub: { fontSize: 11, color: p.textMuted, marginTop: 6, textAlign: 'center' },
+  cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 16 },
   ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
 });
