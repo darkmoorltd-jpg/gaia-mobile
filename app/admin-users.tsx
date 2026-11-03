@@ -22,7 +22,7 @@ function fmtDate(iso?: string) {
   try { return new Date(iso).toLocaleString(); } catch { return '—'; }
 }
 
-type Tab = 'profile' | 'market' | 'kyc' | 'badges' | 'memory' | 'support' | 'payments' | 'chats';
+type Tab = 'profile' | 'farm' | 'market' | 'kyc' | 'badges' | 'memory' | 'support' | 'payments' | 'chats';
 
 
 // ── Region classification (for filters) ──
@@ -422,6 +422,7 @@ export default function AdminUsers() {
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'profile',  label: 'Profile' },
+    { key: 'farm',     label: 'NDFR Farm' },
     { key: 'market',   label: 'Market' },
     { key: 'kyc',      label: 'KYC' },
     { key: 'badges',   label: 'Badges' },
@@ -848,7 +849,87 @@ export default function AdminUsers() {
                   </>
                 ) : null}
 
-                {/* ============ KYC ============ */}
+                {/* ============ FARM (NDFR) ============ */}
+                {tab === 'farm' && detail?.farmer_registry ? (
+                  <>
+                    <Text style={styles.sectionLabel}>FARM PROFILE (NDFR)</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Category: </Text>{detail.farmer_registry.farmer_category || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Primary Enterprise: </Text>{detail.farmer_registry.farmer_subcategory || detail.farmer_registry.crop || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Enterprise Count: </Text>{detail.farmer_registry.enterprise_count ? detail.farmer_registry.enterprise_count + ' ' + (detail.farmer_registry.enterprise_unit || '') : '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>LAND & FARM</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farm Size: </Text>{detail.farmer_registry.farm_size_acres ? detail.farmer_registry.farm_size_acres + ' acres' : '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Scale: </Text>{detail.farmer_registry.farm_size_scale || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Land Tenure: </Text>{detail.farmer_registry.land_tenure || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Title Type: </Text>{detail.farmer_registry.title_type || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Title Number: </Text>{detail.farmer_registry.title_number || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Hectares: </Text>{detail.farmer_registry.land_area_hectares || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Orientation: </Text>{detail.farmer_registry.farm_orientation || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>HOUSEHOLD</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Household Size: </Text>{detail.farmer_registry.household_size || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Youth: </Text>{detail.farmer_registry.youth ? 'Yes' : 'No'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Literacy (1-3): </Text>{detail.farmer_registry.literacy_level ?? '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Education (0-4): </Text>{detail.farmer_registry.education_level ?? '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Disability: </Text>{detail.farmer_registry.disability || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Vulnerability: </Text>{(detail.farmer_registry.vulnerability_status || []).join(', ') || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>PRACTICES</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Farming Practices: </Text>{(detail.farmer_registry.farming_practices || []).join(', ') || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Season: </Text>{detail.farmer_registry.farming_season || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Start Year: </Text>{detail.farmer_registry.farming_start_year || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Water Source: </Text>{detail.farmer_registry.water_source || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Storage: </Text>{detail.farmer_registry.storage_type || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Assets: </Text>{(detail.farmer_registry.farm_assets || []).join(', ') || '—'}</Text>
+
+                    {detail.farmer_registry.livestock_breed ? (
+                      <>
+                        <Text style={styles.sectionLabel}>LIVESTOCK</Text>
+                        <Text style={styles.kv}><Text style={styles.k}>Breed: </Text>{detail.farmer_registry.livestock_breed}</Text>
+                        <Text style={styles.kv}><Text style={styles.k}>Vaccination: </Text>{detail.farmer_registry.vaccination_status || '—'}</Text>
+                        <Text style={styles.kv}><Text style={styles.k}>Vet Contact: </Text>{detail.farmer_registry.vet_contact || '—'}</Text>
+                        <Text style={styles.kv}><Text style={styles.k}>Mortality: </Text>{detail.farmer_registry.mortality_last_cycle || '—'}</Text>
+                      </>
+                    ) : null}
+
+                    <Text style={styles.sectionLabel}>PRODUCTION</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Current Season: </Text>{detail.farmer_registry.current_season || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Expected Yield: </Text>{detail.farmer_registry.expected_yield_kg ? detail.farmer_registry.expected_yield_kg + ' kg' : '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Last Yield: </Text>{detail.farmer_registry.last_harvest_yield_kg ? detail.farmer_registry.last_harvest_yield_kg + ' kg' : '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Sells To: </Text>{(detail.farmer_registry.sells_to || []).join(', ') || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Contract Farming: </Text>{detail.farmer_registry.has_contract_farming ? 'Yes' : 'No'}</Text>
+
+                    <Text style={styles.sectionLabel}>FINANCIAL</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Bank: </Text>{detail.farmer_registry.bank_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Account: </Text>{detail.farmer_registry.bank_account_number || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Account Name: </Text>{detail.farmer_registry.bank_account_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Credit Access: </Text>{detail.farmer_registry.has_credit_access ? 'Yes' : 'No'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Insurance: </Text>{detail.farmer_registry.has_insurance ? 'Yes (' + (detail.farmer_registry.insurance_provider || '') + ')' : 'No'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Subsidy Received: </Text>{detail.farmer_registry.received_subsidy ? 'Yes' : 'No'}</Text>
+
+                    <Text style={styles.sectionLabel}>COOPERATIVE</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Member: </Text>{detail.farmer_registry.is_coop_member ? 'Yes' : 'No'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Coop Name: </Text>{detail.farmer_registry.coop_name || '—'}</Text>
+                    <Text style={styles.kv}><Text style={styles.k}>Role: </Text>{detail.farmer_registry.coop_role || '—'}</Text>
+
+                    <Text style={styles.sectionLabel}>PHOTOS</Text>
+                    {detail.farmer_registry.asset_photo_url ? (
+                      <Image source={{ uri: detail.farmer_registry.asset_photo_url }} style={{ width: '100%', height: 150, borderRadius: 10, marginBottom: 10 }} />
+                    ) : <Text style={styles.kv}>Asset photo: not uploaded</Text>}
+                    {detail.farmer_registry.farmer_portrait_url ? (
+                      <Image source={{ uri: detail.farmer_registry.farmer_portrait_url }} style={{ width: '100%', height: 150, borderRadius: 10, marginBottom: 10 }} />
+                    ) : <Text style={styles.kv}>Portrait: not uploaded</Text>}
+                    {detail.farmer_registry.id_document_url ? (
+                      <Image source={{ uri: detail.farmer_registry.id_document_url }} style={{ width: '100%', height: 150, borderRadius: 10, marginBottom: 10 }} />
+                    ) : <Text style={styles.kv}>ID document: not uploaded</Text>}
+                  </>
+                ) : null}
+
+                {tab === 'farm' && !detail?.farmer_registry ? (
+                  <Text style={styles.kv}>No NDFR farm profile submitted yet.</Text>
+                ) : null}
+
+                                {/* ============ KYC ============ */}
                 {tab === 'kyc' ? (
                   <>
                     {!detail.verification ? (
