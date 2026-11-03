@@ -128,7 +128,7 @@ export default function UserVerification() {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
              if (perm.status !== 'granted') return;
-      const loc = user await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setGpsLat(loc.coords.latitude); setGpsLng(loc.coords.longitude);
     } catch {}
   };
