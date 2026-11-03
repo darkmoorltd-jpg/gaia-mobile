@@ -13,7 +13,6 @@ import { supabase } from '../src/api/supabase';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const FEE_KOBO = 200000;
-
 const ID_TYPES = ['National ID Card', 'Drivers License', 'International Passport', 'Voters Card (PVC)', 'NIN Slip'];
 
 function newRef(userId: string) {
@@ -40,19 +39,19 @@ export default function UserVerification() {
   const [selfie, setSelfie] = useState<string | null>(null);
   const [gpsLat, setGpsLat] = useState<number | null>(null);
   const [gpsLng, setGpsLng] = useState<number | null>(null);
-  
+
   const [busy, setBusy] = useState(false);
   const [payRef, setPayRef] = useState<string | null>(null);
   const [uploadedUrls, setUploadedUrls] = useState<{ id: string | null; selfie: string | null }>({ id: null, selfie: null });
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [existingStatus, setExistingStatus] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       if (!user) return;
-      
-      // 1. Fetch profile to auto-fill
+
       try {
         const { data: p } = await supabase.from('user_profiles').select('*').eq('user_id', user.id).maybeSingle();
         if (p) {
@@ -66,18 +65,26 @@ export default function UserVerification() {
         }
       } catch (e) {}
 
-      // 2. Fetch existing verification status
       try {
-        const { data: v } = await supabase.from('farmer_verifications').select('status, rejection_reason').eq('user_id', user.id).order('created_at', { ascending: false }).maybeSingle();
-        if (v) setExistingStatus(v.status);
+        const { data: v } = await supabase
+          .from('farmer_verifications')
+          .select('status, rejection_reason')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .maybeSingle();
+        if (v) {
+          setExistingStatus(v.status);
+          if (v.status === 'rejected' && v.rejection_reason) {
+            setRejectionReason(v.rejection_reason);
+          }
+        }
       } catch (e) {}
 
-      // 3. Fetch wallet balance
       try {
         const { data: w } = await supabase.from('farmer_wallets').select('balance').eq('user_id', user.id).maybeSingle();
         if (w) setWalletBalance(Number(w.balance || 0));
       } catch (e) {}
-      
+
       setLoading(false);
     })();
   }, [user]);
@@ -87,7 +94,6 @@ export default function UserVerification() {
     if (!res.canceled) {
       const uri = res.assets[0].uri;
       setter(uri);
-      
       if (isIdPhoto) {
         try {
           const result = await TextRecognition.recognize(uri);
@@ -95,15 +101,11 @@ export default function UserVerification() {
           const matches = text.match(/\b\d{11}\b/g);
           if (matches && matches.length > 0) {
             const num = matches[0];
-            Alert.alert(
-              'ID Detected',
-              `Found number: ${num}. Is this your BVN or NIN?`,
-              [
-                { text: 'Ignore', style: 'cancel' },
-                { text: 'Set as BVN', onPress: () => setBvn(num) },
-                { text: 'Set as NIN', onPress: () => setNin(num) }
-              ]
-            );
+            Alert.alert('ID Detected', `Found number: ${num}. Is this your BVN or NIN?`, [
+              { text: 'Ignore', style: 'cancel' },
+              { text: 'Set as BVN', onPress: () => setBvn(num) },
+              { text: 'Set as NIN', onPress: () => setNin(num) },
+            ]);
           }
         } catch (e) { console.log('OCR failed', e); }
       }
@@ -127,24 +129,26 @@ export default function UserVerification() {
   const captureGps = async () => {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
-             if (perm.status !== 'granted') return;
+      if (perm.status !== 'granted') return;
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setGpsLat(loc.coords.latitude); setGpsLng(loc.coords.longitude);
+      setGpsLat(loc.coords.latitude);
+      setGpsLng(loc.coords.longitude);
     } catch {}
   };
 
-  const submitToDB = async (ref: string) => {
+  // ---- CARD PAYMENT PATH (direct insert) ----
+  const submitToDBWithCard = async (ref: string) => {
     if (!user) return;
     setBusy(true);
     try {
       const idUrl = await uploadFile(idImage!, 'id');
       const selfieUrl = await uploadFile(selfie!, 'selfie');
-      
-      const kyc = {
-_id: user.id,
+
+      const { error: vErr } = await supabase.from('farmer_verifications').insert({
+        user_id: user.id,                                  // ✅ FIXED
         full_name: fullName,
-        phone: phone,
-        state: state,
+        phone,
+        state,
         lga: lga || null,
         address: address || null,
         bvn: bvn || null,
@@ -158,13 +162,9 @@ _id: user.id,
         payment_reference: ref,
         payment_status: 'paid',
         status: 'pending',
-      };
-
-      // Insert into verifications
-      const { error: vErr } = await supabase.from('farmer_verifications').insert(kyc);
+      });
       if (vErr) throw vErr;
 
-      // Update user profile
       await supabase.from('user_profiles').update({
         verification_status: 'pending',
         bvn: bvn || null,
@@ -182,22 +182,59 @@ _id: user.id,
     }
   };
 
+  // ---- WALLET PAYMENT PATH (atomic RPC, deducts + inserts) ----
   const payFromWallet = async () => {
+    if (!user) return;
     if (!fullName || !phone || !idImage || !selfie) {
-      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
-    }
-    if (walletBalance < FEE_KOBO / 100) {
-      Alert.alert('Insufficient wallet', 'Top up your wallet first. Balance: N' + walletBalance);
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.');
       return;
     }
-    // Deduct wallet and submit
-    const ref = newRef(user.id);
-    await submitToDB(ref);
+    if (walletBalance < FEE_KOBO / 100) {
+      Alert.alert('Insufficient wallet', `Top up your wallet first. Balance: ₦${walletBalance.toLocaleString()}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const idUrl = await uploadFile(idImage, 'id');
+      const selfieUrl = await uploadFile(selfie, 'selfie');
+      const ref = newRef(user.id);
+
+      const { data, error } = await supabase.rpc('user_wallet_pay_verification', {
+        p_amount: FEE_KOBO / 100,
+        p_kyc: {
+          full_name: fullName, phone, state, lga: lga || null, address: address || null,
+          bvn: bvn || null, nin: nin || null,
+          id_type: idType, id_number: idNumber || null,
+          id_image_url: idUrl, selfie_url: selfieUrl,
+          gps_lat: gpsLat, gps_lon: gpsLng,
+          payment_reference: ref,
+        },
+      });
+
+      setBusy(false);
+      if (error) { Alert.alert('Failed', error.message); return; }
+      const d: any = data || {};
+      if (d.ok === false) {
+        if (d.error === 'insufficient_balance') {
+          Alert.alert('Insufficient wallet', `Balance: ₦${Number(d.balance || 0).toLocaleString()}`);
+        } else {
+          Alert.alert('Failed', d.error || 'Try again');
+        }
+        return;
+      }
+      setWalletBalance(Number(d.new_balance || 0));
+      Alert.alert('Paid from wallet', `₦2,000 deducted. Admin will review shortly.`);
+      router.replace('/(tabs)' as any);
+    } catch (e: any) {
+      setBusy(false);
+      Alert.alert('Failed', e.message);
+    }
   };
 
   const startCardPayment = () => {
     if (!fullName || !phone || !idImage || !selfie) {
-      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.'); return;
+      Alert.alert('Missing', 'Name, phone, ID image, and selfie are required.');
+      return;
     }
     const ref = newRef(user.id);
     setPayRef(ref);
@@ -205,7 +242,7 @@ _id: user.id,
 
   const paystackHTML = () => {
     const email = user?.email || 'farmer@gaia.app';
-    const html = [
+    return [
       "<!DOCTYPE html><html><head><meta charset='utf-8'/>",
       "<script src='https://js.paystack.co/v1/inline.js'></script></head>",
       "<body style='background:#000;margin:0'>",
@@ -231,9 +268,8 @@ _id: user.id,
       "    window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'error', message: String(err) }));",
       "  }",
       "});",
-      "</script></body></html>"
-    ].join("");
-    return html;
+      "</script></body></html>",
+    ].join('');
   };
 
   const onPaystackMessage = async (raw: string) => {
@@ -242,7 +278,7 @@ _id: user.id,
       if (data.status === 'success') {
         const reference = data.reference;
         setPayRef(null);
-        await submitToDB(reference);
+        await submitToDBWithCard(reference);
       } else {
         setPayRef(null);
         if (data.status === 'error') Alert.alert('Payment error', data.message || 'Try again');
@@ -252,7 +288,6 @@ _id: user.id,
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={palette.neon} size="large" /></View>;
 
-  // If already verified or pending, lock the screen
   if (existingStatus === 'pending' || existingStatus === 'approved') {
     return (
       <View style={styles.center}>
@@ -272,6 +307,14 @@ _id: user.id,
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Verify Identity</Text>
         <Text style={styles.sub}>Submit your KYC to unlock full features.</Text>
+
+        {rejectionReason ? (
+          <View style={styles.rejectBanner}>
+            <Text style={styles.rejectTitle}>PREVIOUS SUBMISSION REJECTED</Text>
+            <Text style={styles.rejectReason}>{rejectionReason}</Text>
+            <Text style={styles.rejectHint}>Fix the issue above and resubmit with new payment.</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.label}>FULL NAME *</Text>
         <TextInput value={fullName} onChangeText={setFullName} style={styles.input} placeholderTextColor={palette.textDim} />
@@ -342,7 +385,15 @@ _id: user.id,
       <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           {payRef ? (
-            <WebView originWhitelist={['*']} source={{ html: paystackHTML() }} onMessage={(e) => onPaystackMessage(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled startInLoadingState style={{ flex: 1, backgroundColor: '#000' }} />
+            <WebView
+              originWhitelist={['*']}
+              source={{ html: paystackHTML() }}
+              onMessage={(e) => onPaystackMessage(e.nativeEvent.data)}
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState
+              style={{ flex: 1, backgroundColor: '#000' }}
+            />
           ) : null}
         </View>
       </Modal>
@@ -377,4 +428,8 @@ const createStyles = (p: any) => StyleSheet.create({
   feeSub: { fontSize: 11, color: p.textMuted, marginTop: 6, textAlign: 'center' },
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 16 },
   ctaText: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
+  rejectBanner: { padding: 16, borderRadius: 14, backgroundColor: 'rgba(255,59,92,0.08)', borderWidth: 1, borderColor: '#ff3b5c', marginBottom: 20 },
+  rejectTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: '#ff3b5c' },
+  rejectReason: { fontSize: 14, fontWeight: '800', color: p.text, marginTop: 6 },
+  rejectHint: { fontSize: 11, color: p.textMuted, marginTop: 8, fontStyle: 'italic' },
 });
