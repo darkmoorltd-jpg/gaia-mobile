@@ -268,6 +268,8 @@ function RootNavigator() {
     <Stack.Screen name="clinical-onboarding" options={{ headerShown: false }} />
     <Stack.Screen name="farm-profile" options={{ headerShown: false }} />
     <Stack.Screen name="warehouse-manager" options={{ headerShown: false }} />
+    <Stack.Screen name="driver-app" options={ headerShown: false } />
+    <Stack.Screen name="exporter-dashboard" options={ headerShown: false } />
     </Stack>
   );
 }
