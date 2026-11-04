@@ -78,6 +78,8 @@ function getSections(t: any): Section[] {
     { label: t('profile.items.badges'), route: '/badges', flag: 'badges' },
     { label: t('profile.items.farmingCalendar'), route: '/calendar', flag: 'calendar' },
     { label: t('profile.items.blockedUsers'), route: '/blocked-users' },
+    { label: 'My Data (NDPA)',     route: '/my-data' },
+    { label: 'File a Grievance',    route: '/grievance' },
   ]},
   { title: t('profile.sections.support'), icon: 'SP', items: [
     { label: t('profile.items.helpSupport'), route: '/help' },

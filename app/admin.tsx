@@ -18,6 +18,7 @@ const SECTIONS: Section[] = [
     icon: 'OV',
     items: [
       { label: 'KPI Dashboard',       route: '/admin-dashboard' },
+      { label: 'NDFR Ministry View',  route: '/admin-ndfr-dashboard' },
       { label: 'Analytics',           route: '/admin-analytics' },
     ],
   },
