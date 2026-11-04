@@ -272,6 +272,9 @@ function RootNavigator() {
     <Stack.Screen name="exporter-dashboard" options={{ headerShown: false }} />
     <Stack.Screen name="container-tracking" options={{ headerShown: false }} />
     <Stack.Screen name="eudr-pdf" options={{ headerShown: false }} />
+      <Stack.Screen name="my-data" options={{ headerShown: false }} />
+      <Stack.Screen name="grievance" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-ndfr-dashboard" options={{ headerShown: false }} />
     </Stack>
   );
 }
