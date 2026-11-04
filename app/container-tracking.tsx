@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import DriverRouteMap from '../src/components/DriverRouteMap';
 
 const STATUS_FLOW = ['loading', 'shipped', 'arrived'];
 const STATUS_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -135,6 +136,13 @@ export default function ContainerTracking() {
                 </View>
               ) : null}
 
+              {batches.length > 0 ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.sectionMini}>LIVE DRIVER ROUTE</Text>
+                  <DriverRouteMap batchId={batches[0].id || ''} height={220} />
+                </View>
+              ) : null}
+
               {nextStep ? (
                 <Pressable onPress={() => advance(c)} style={styles.advanceBtn}>
                   <Text style={styles.advanceTxt}>MARK AS {nextStep.toUpperCase()} {STATUS_META[nextStep].icon}</Text>
@@ -182,4 +190,5 @@ const createStyles = (p: any) => StyleSheet.create({
   advanceBtn: { marginTop: 12, padding: 14, borderRadius: 10, backgroundColor: '#3b82f6', alignItems: 'center' },
   advanceTxt: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 1 },
   arrivedText: { marginTop: 12, fontSize: 12, fontWeight: '800', color: p.neon, textAlign: 'center' },
+  sectionMini: { fontSize: 9, fontWeight: '800', color: p.textMuted, letterSpacing: 1.5, marginBottom: 6 },
 });

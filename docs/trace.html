@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAIA Verified Batch</title>
+    <meta name="description" content="Scan or open to verify the origin, chain of custody, and export status of this agricultural batch." />
+    <meta property="og:title" content="GAIA Verified Batch" />
+    <meta property="og:description" content="Verify the full journey of this crop — farm to container to destination." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GAIA" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .pulse { animation: pulse 1.6s ease-in-out infinite; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans min-h-screen flex items-center justify-center p-4">
+
+<div id="app" class="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
+
+    <div id="loading" class="p-10 text-center flex flex-col items-center">
+        <svg class="animate-spin h-10 w-10 text-green-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-gray-400">Verifying batch on GAIA...</p>
+    </div>
+
+    <div id="error" class="hidden p-8 text-center">
+        <div class="text-5xl mb-4">⚠️</div>
+        <h2 class="text-xl font-bold text-red-400">Batch not found</h2>
+        <p class="text-gray-400 text-sm mt-2">The code may be invalid or expired.</p>
+    </div>
+
+    <div id="result" class="hidden">
+        <div class="bg-gradient-to-br from-green-600 to-green-800 p-6 text-center relative">
+            <div class="text-5xl mb-2">✅</div>
+            <h1 class="text-2xl font-bold">Verified Origin</h1>
+            <p class="text-green-100 text-xs mt-1 tracking-widest">POWERED BY GAIA · DARKMOOR LTD</p>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                <div>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-widest">Crop</p>
+                    <p id="res-crop" class="font-bold text-lg text-white">—</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400 uppercase tracking-widest">Weight</p>
+                    <p id="res-weight" class="font-bold text-lg text-white">—</p>
+                </div>
+            </div>
+
+            <div class="bg-gray-700 rounded-lg p-4">
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Origin Farm</p>
+                <p id="res-farmer" class="font-bold text-white">—</p>
+                <p id="res-location" class="text-sm text-gray-300 mt-0.5">—</p>
+            </div>
+
+            <div id="container-box" class="bg-blue-900/40 border border-blue-500/40 rounded-lg p-4 hidden">
+                <p class="text-[10px] text-blue-300 uppercase tracking-widest mb-2">Export Container</p>
+                <p id="res-container" class="font-bold text-white font-mono">—</p>
+                <p id="res-route" class="text-sm text-blue-200 mt-1">—</p>
+                <p id="res-container-status" class="text-xs mt-2 inline-block px-2 py-0.5 rounded bg-blue-600/50">—</p>
+            </div>
+
+            <div class="bg-gray-700 rounded-lg p-4">
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-3">Chain of Custody</p>
+                <div id="res-timeline" class="space-y-3"></div>
+            </div>
+
+            <div class="bg-gray-700 rounded-lg p-4 hidden" id="movements-box">
+                <p class="text-[10px] text-gray-400 uppercase tracking-widest mb-3">Logistics</p>
+                <div id="res-movements" class="space-y-2"></div>
+            </div>
+
+            <div class="text-center text-[10px] text-gray-500 pt-2 border-t border-gray-700">
+                Batch: <span id="res-code" class="font-mono text-gray-300"></span>
+                <br>GAIA Traceability · Verified on <span id="res-now">—</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://pxvtvuwlpzwlkdoxjrep.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4dnR2dXdscHp3bGtkb3hqcmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMTA0NTcsImV4cCI6MjA5OTc4NjQ1N30.gZH1uepXwrCrxC6ElRzkzvGEyGlp-Ep-o4CHXgBMXiY';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const urlParams = new URLSearchParams(window.location.search);
+    const batchCode = urlParams.get('batch');
+    const batchCodeAlt = urlParams.get('code');
+    const finalCode = batchCode || batchCodeAlt;
+
+    const eventIcons = {
+        harvest: '🌾', dispatch: '🚚', warehouse_receive: '📦', delivered: '✅',
+        export: '🚢', shipped: '🚢', arrived: '🎯'
+    };
+
+    async function loadData() {
+        if (!finalCode) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('batches')
+            .select('*, batch_events(*), batch_movements(*), container_batches(*, containers(*))')
+            .eq('batch_code', finalCode)
+            .maybeSingle();
+
+        if (error || !data) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error').classList.remove('hidden');
+            return;
+        }
+
+        document.getElementById('res-crop').innerText = data.crop_name || '—';
+        document.getElementById('res-weight').innerText = (data.quantity_kg || 0) + ' kg';
+        document.getElementById('res-location').innerText = data.location || 'Unknown Farm';
+        document.getElementById('res-code').innerText = data.batch_code;
+        document.getElementById('res-now').innerText = new Date().toLocaleString();
+
+        try {
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('first_name, last_name')
+                .eq('user_id', data.farmer_id)
+                .maybeSingle();
+            if (profile) {
+                document.getElementById('res-farmer').innerText =
+                    ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim() || 'Farmer';
+            }
+        } catch (e) {}
+
+        const links = data.container_batches || [];
+        if (links.length > 0 && links[0].containers) {
+            const c = links[0].containers;
+            document.getElementById('container-box').classList.remove('hidden');
+            document.getElementById('res-container').innerText = c.container_number || '—';
+            document.getElementById('res-route').innerText =
+                (c.departure_port || 'Apapa') + ' → ' + (c.destination_country || '—');
+            const statusLabels = { loading: '📦 LOADING', shipped: '🚢 SHIPPED', arrived: '✅ ARRIVED' };
+            document.getElementById('res-container-status').innerText =
+                statusLabels[c.status] || (c.status || '—').toUpperCase();
+        }
+
+        const timeline = document.getElementById('res-timeline');
+        const events = (data.batch_events || []).slice().sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        events.forEach(e => {
+            const icon = eventIcons[e.event_type] || '•';
+            const date = new Date(e.created_at).toLocaleString();
+            const div = document.createElement('div');
+            div.className = 'flex items-start gap-2';
+            div.innerHTML =
+                '<div class="text-lg shrink-0">' + icon + '</div>' +
+                '<div class="flex-1"><p class="text-[11px] font-bold text-white tracking-wide">' +
+                (e.event_type || '').toUpperCase() + '</p>' +
+                '<p class="text-xs text-gray-300 mt-0.5">' + (e.notes || '') + '</p>' +
+                '<p class="text-[10px] text-gray-500 mt-1">' + date + '</p></div>';
+            timeline.appendChild(div);
+        });
+
+        const movements = data.batch_movements || [];
+        if (movements.length > 0) {
+            document.getElementById('movements-box').classList.remove('hidden');
+            const mv = document.getElementById('res-movements');
+            movements.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'text-xs text-gray-300';
+                let line = (m.from_location || '?') + ' → ' + (m.to_location || '?');
+                if (m.loss_kg > 0) line += ' · loss ' + m.loss_kg + 'kg';
+                div.innerText = line;
+                mv.appendChild(div);
+            });
+        }
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('result').classList.remove('hidden');
+    }
+
+    loadData();
+</script>
+</body>
+</html>
