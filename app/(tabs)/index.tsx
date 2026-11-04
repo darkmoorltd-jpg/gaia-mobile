@@ -62,6 +62,8 @@ export default function Home() {
       { key: 'wh-manager', title: 'Warehouse Manager', sub: 'Receive & log batches', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-manager' },
       { key: 'driver', title: 'Driver Logistics', sub: 'Accept & deliver cargo', img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800', route: '/driver-app' },
       { key: 'exporter', title: 'Exporter Portal', sub: 'EUDR containers & docs', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/exporter-dashboard' },
+      { key: 'container-track', title: 'Container Tracking', sub: 'Live shipment status', img: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800', route: '/container-tracking' },
+      { key: 'eudr-pdf', title: 'EUDR Document', sub: 'Generate compliance PDF', img: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800', route: '/eudr-pdf' },
       { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
       { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
       { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },

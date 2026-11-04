@@ -270,6 +270,8 @@ function RootNavigator() {
     <Stack.Screen name="warehouse-manager" options={{ headerShown: false }} />
     <Stack.Screen name="driver-app" options={{ headerShown: false }} />
     <Stack.Screen name="exporter-dashboard" options={{ headerShown: false }} />
+    <Stack.Screen name="container-tracking" options={{ headerShown: false }} />
+    <Stack.Screen name="eudr-pdf" options={{ headerShown: false }} />
     </Stack>
   );
 }
