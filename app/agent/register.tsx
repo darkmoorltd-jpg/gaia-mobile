@@ -156,6 +156,7 @@ export default function AgentRegister() {
   // UI
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [ndpaConsent, setNdpaConsent] = useState(false);
 
   const toggleAsset = (a: string) => setAssets(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a]);
   const togglePractice = (p: string) => setFarmingPractices(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -200,6 +201,7 @@ export default function AgentRegister() {
     if (!fullName.trim() || !phone.trim()) { Alert.alert('Missing', 'Name and phone required.'); return; }
     if (!password || password.length < 6) { Alert.alert('Password', 'Min 6 characters.'); return; }
     if (!assetPhoto) { Alert.alert('Asset Photo Required', 'Take a photo of the ' + FARMER_CATEGORIES[farmerCategory].assetName); return; }
+    if (!ndpaConsent) { Alert.alert('Consent Required', 'You must check the NDPA consent box to proceed.'); return; }
 
     setBusy(true);
     try {
@@ -296,6 +298,8 @@ export default function AgentRegister() {
             asset_photo_url: assetUrl,
             farmer_portrait_url: portraitUrl,
             id_document_url: idUrl,
+            ndpa_consent: true,
+            ndpa_consent_at: new Date().toISOString(),
           }).eq('user_id', data.farmer_id);
 
           // ---- MIRROR TO user_profiles (so admin + Dr. Vinc + marketplace see it) ----
@@ -374,6 +378,8 @@ export default function AgentRegister() {
             farmer_portrait_url: portraitUrl,
             id_document_url: idUrl,
             ndfr_complete: true,
+            ndpa_consent: true,
+            ndpa_consent_at: new Date().toISOString(),
           }).eq('user_id', data.farmer_id);
         }
       } catch (e) { console.warn('link failed', e); }
@@ -749,6 +755,18 @@ export default function AgentRegister() {
             )}
           </>
         )}
+
+        <View style={{ marginTop: 30, padding: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: '#333' }}>
+          <Text style={{ fontSize: 11, fontWeight: '900', color: '#00ff88', letterSpacing: 1.5, marginBottom: 10 }}>DATA PROTECTION & CONSENT (NDPA 2023)</Text>
+          <Pressable onPress={() => setNdpaConsent(!ndpaConsent)} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: ndpaConsent ? '#00ff88' : '#888', backgroundColor: ndpaConsent ? '#00ff88' : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+              {ndpaConsent ? <Text style={{ fontSize: 14, fontWeight: '900', color: '#000' }}>✓</Text> : null}
+            </View>
+            <Text style={{ fontSize: 12, color: '#ccc', lineHeight: 18, flex: 1 }}>
+              I confirm that the farmer has given explicit consent to GAIA and its partners (Ministry of Agriculture, Banks, Insurers) to collect, process, and share their farm data, GPS location, and NIN for the purpose of agricultural credit, extension services, and market access, in accordance with the Nigeria Data Protection Act (NDPA) 2023.
+            </Text>
+          </Pressable>
+        </View>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>REGISTER FARMER</Text>}
