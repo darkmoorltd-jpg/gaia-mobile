@@ -59,6 +59,7 @@ export default function Home() {
       { key: 'farm-profile', title: 'My Farm Data', sub: 'NDFR Farm Profile', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-profile' },
       { key: 'lease', title: 'Lease Farm Land', sub: 'For young farmers', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
       { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
+      { key: 'wh-manager', title: 'Warehouse Manager', sub: 'Receive & log batches', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-manager' },
       { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
       { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
       { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },
