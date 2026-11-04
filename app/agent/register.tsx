@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueScan } from '../../src/utils/offlineQueue';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../../src/theme';
@@ -157,6 +159,9 @@ export default function AgentRegister() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [ndpaConsent, setNdpaConsent] = useState(false);
+  const [nin, setNin] = useState('');
+  const [ninVerified, setNinVerified] = useState(false);
+  const [verifyingNin, setVerifyingNin] = useState(false);
 
   const toggleAsset = (a: string) => setAssets(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a]);
   const togglePractice = (p: string) => setFarmingPractices(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -197,6 +202,31 @@ export default function AgentRegister() {
     } catch { return null; }
   };
 
+  const verifyNIN = async () => {
+    if (!nin || nin.length < 11) { Alert.alert('Invalid NIN', 'NIN must be 11 digits'); return; }
+    setVerifyingNin(true);
+    try {
+      const sess = await supabase.auth.getSession();
+      const token = sess.data.session?.access_token;
+      const res = await fetch(API_BASE + '/verify-nin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ nin, first_name: fullName.split(' ')[0], last_name: fullName.split(' ')[1] || '' })
+      });
+      const data = await res.json();
+      if (data.verified) {
+        setNinVerified(true);
+        Alert.alert('Success', 'NIN Verified against NIMC records.');
+      } else {
+        Alert.alert('Failed', 'Could not verify NIN');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setVerifyingNin(false);
+    }
+  };
+
   const submit = async () => {
     if (!fullName.trim() || !phone.trim()) { Alert.alert('Missing', 'Name and phone required.'); return; }
     if (!password || password.length < 6) { Alert.alert('Password', 'Min 6 characters.'); return; }
@@ -204,6 +234,13 @@ export default function AgentRegister() {
     if (!ndpaConsent) { Alert.alert('Consent Required', 'You must check the NDPA consent box to proceed.'); return; }
 
     setBusy(true);
+    const net = await NetInfo.fetch();
+    if (!net.isConnected) {
+      await enqueueScan({ type: 'farmer_registration', payload: { fullName, phone, nin, stateName, lga, crop, farmSize, gpsLat, gpsLng, ndpaConsent } });
+      Alert.alert('Saved Offline', 'No network. Farmer data saved locally and will sync automatically.');
+      setBusy(false);
+      return;
+    }
     try {
       const sess = await supabase.auth.getSession();
       const token = sess.data.session?.access_token;
@@ -299,6 +336,8 @@ export default function AgentRegister() {
             farmer_portrait_url: portraitUrl,
             id_document_url: idUrl,
             ndpa_consent: true,
+            nin: nin,
+            nin_verified: ninVerified,
             ndpa_consent_at: new Date().toISOString(),
           }).eq('user_id', data.farmer_id);
 
@@ -429,7 +468,15 @@ export default function AgentRegister() {
         <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholder="LGA *" placeholderTextColor="#888" />
         <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="Ward (Sub-LGA)" placeholderTextColor="#888" />
 
-        <Text style={styles.sectionLabel}>2. CATEGORY</Text>
+        <Text style={styles.sectionLabel}>1B. IDENTITY & NIN</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+          <TextInput value={nin} onChangeText={setNin} keyboardType="number-pad" maxLength={11} style={[styles.input, { flex: 1, marginBottom: 0 }]} placeholder="11-digit NIN" placeholderTextColor="#888" />
+          <Pressable onPress={verifyNIN} disabled={verifyingNin || ninVerified} style={{ backgroundColor: ninVerified ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', paddingHorizontal: 16, justifyContent: 'center', borderRadius: 12 }}>
+            {verifyingNin ? <ActivityIndicator color="#00ff88" /> : <Text style={{ color: '#00ff88', fontWeight: '900' }}>{ninVerified ? '✅ VERIFIED' : 'VERIFY'}</Text>}
+          </Pressable>
+        </View>
+
+<Text style={styles.sectionLabel}>2. CATEGORY</Text>
         {['CROPS','LIVESTOCK','WATER','SERVICES'].map((group) => (
           <View key={group} style={{ marginBottom: 10 }}>
             <Text style={{ fontSize: 10, fontWeight: '900', color: '#666', letterSpacing: 1.5, marginBottom: 6 }}>{group}</Text>
@@ -489,6 +536,10 @@ export default function AgentRegister() {
         <Text style={styles.sectionLabel}>4. {assetName.toUpperCase()} LOCATION & PHOTO</Text>
         <Pressable onPress={captureGps} disabled={gpsBusy} style={[styles.cta, { backgroundColor: gpsLat ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', marginTop: 0, marginBottom: 10 }]}>
           {gpsBusy ? <ActivityIndicator color="#00ff88" /> : <Text style={{ color: '#00ff88', fontWeight: '900' }}>{gpsLat ? '✅ GPS CAPTURED' : '📍 PIN ' + assetName.toUpperCase() + ' GPS'}</Text>}
+        </Pressable>
+
+        <Pressable onPress={() => router.push('/farm-mapping' as any)} style={[styles.cta, { backgroundColor: '#222', borderWidth: 1, borderColor: '#b388ff', marginTop: 0, marginBottom: 10 }]}>
+          <Text style={{ color: '#b388ff', fontWeight: '900' }}>🗺️ DRAW FARM POLYGON (NDFR)</Text>
         </Pressable>
 
         <Pressable onPress={() => pickPhoto(setAssetPhoto)} style={[styles.cta, { backgroundColor: assetPhoto ? 'rgba(0,255,136,0.2)' : '#222', borderWidth: 1, borderColor: '#00ff88', marginTop: 0, marginBottom: 10 }]}>
