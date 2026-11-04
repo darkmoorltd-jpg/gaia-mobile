@@ -150,7 +150,7 @@ export default function FarmBatches() {
         gps_lat: coords?.lat || null,
         gps_lon: coords?.lon || null,
         harvest_date: new Date().toISOString().split('T')[0],
-        qr_url: `https://darkmoorltd-jpg.github.io/gaia-mobile/trace.html?batch=${batchCode}`,
+        qr_url: `https://gaia-mobile-docs.vercel.app/trace.html?batch=${batchCode}`,
         status: 'active',
       }).select().single();
 
