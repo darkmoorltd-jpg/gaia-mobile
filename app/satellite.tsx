@@ -50,6 +50,7 @@ export default function Satellite() {
   const [pickedFarmId, setPickedFarmId] = useState<string | null>(null);
   const [farmBoundary, setFarmBoundary] = useState<any[]>([]);
   const [layer, setLayer] = useState<Layer>('NDVI');
+  const [timeMode, setTimeMode] = useState<'latest' | 'peak' | '30d'>('latest');
   const [token, setToken] = useState<string | null>(null);
   const [ref, setRef] = useState(false);
   const [summary, setSummary] = useState<any>(null);
@@ -192,8 +193,19 @@ export default function Satellite() {
   const col = statusColor(summary?.status || 'unknown', palette);
 
   // 6. Build WMTS URL
+  // Calculate dynamic TIME parameter based on timeMode
+  let timeParam = '2023-01-01/2026-12-31'; // 'latest' default
+  if (timeMode === 'peak') {
+    timeParam = '2024-07-01/2024-09-30'; // Peak rainy season
+  } else if (timeMode === '30d') {
+    const now = new Date();
+    const past = new Date();
+    past.setDate(now.getDate() - 30);
+    timeParam = `${past.toISOString().split('T')[0]}/${now.toISOString().split('T')[0]}`;
+  }
+
   const tileUrl = token
-    ? `${WMTS_BASE}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=default&TILEMATRIXSET=PopularWebMercator256&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png&TIME=2023-01-01/2026-12-31&access_token=${token}`
+    ? `${WMTS_BASE}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=default&TILEMATRIXSET=PopularWebMercator256&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png&TIME=${timeParam}&access_token=${token}`
     : null;
 
   const mapRegion = coords ? {
@@ -313,6 +325,23 @@ export default function Satellite() {
               style={[styles.chip, layer === l && styles.chipActive]}
             >
               <Text style={[styles.chipTxt, layer === l && styles.chipTxtActive]}>{l.replace('_', ' ')}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Time Slider */}
+        <View style={[styles.chips, { marginTop: 8 }]}>
+          {[
+            { id: 'latest', label: 'Latest' },
+            { id: '30d', label: 'Last 30 Days' },
+            { id: 'peak', label: 'Peak Season (Aug)' }
+          ].map((tm: any) => (
+            <Pressable
+              key={tm.id}
+              onPress={() => setTimeMode(tm.id)}
+              style={[styles.chip, timeMode === tm.id && { borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.15)' }]}
+            >
+              <Text style={[styles.chipTxt, timeMode === tm.id && { color: '#00ff88', fontWeight: '900' }]}>{tm.label}</Text>
             </Pressable>
           ))}
         </View>
