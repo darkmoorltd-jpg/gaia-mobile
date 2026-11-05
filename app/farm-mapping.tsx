@@ -1,18 +1,16 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Alert, TextInput, Pressable, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, Alert, TextInput, Pressable, ActivityIndicator, Switch,
 } from 'react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Screen, GlassCard, NeonButton, Pill } from '../src/components';
 import { GoogleMap } from '../src/components/GoogleMap';
 import {
   saveFarm, haversine, pathLength, enclosedArea,
   filterByAccuracy, simplifyPath,
   type FarmPoint,
 } from '../src/utils/farms';
-import { useTheme, spacing } from '../src/theme';
 
 const MAX_ACCURACY_M = 15;
 const GOOD_ACCURACY_M = 8;
@@ -22,54 +20,37 @@ const CLOSE_LOOP_M = 15;
 type ViewMode = 'standard' | 'satellite' | 'hybrid' | 'terrain';
 type DisplayMode = 'line' | 'points';
 type Phase = 'idle' | 'mapping' | 'closed';
-type GeoStatus = 'idle' | 'loading' | 'ok' | 'failed';
 
 interface DetectedLocation {
-  state: string;
-  lga: string;
-  community: string;
-  ward: string;
-  country: string;
+  state: string; lga: string; community: string; ward: string; country: string;
 }
 
 const VIEWS: { key: ViewMode; label: string }[] = [
-  { key: 'standard', label: 'Dark' },
   { key: 'satellite', label: 'Satellite' },
+  { key: 'standard', label: 'Street' },
   { key: 'terrain', label: 'Terrain' },
-  { key: 'hybrid', label: 'Hybrid' },
 ];
 
-const DISPLAYS: { key: DisplayMode; label: string }[] = [
-  { key: 'line', label: 'Line' },
-  { key: 'points', label: 'Points' },
-];
-
-// Reverse geocode via BigDataCloud (free, no API key, 30k req/month)
 async function reverseGeocode(lat: number, lng: number): Promise<DetectedLocation | null> {
   try {
     const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d: any = await res.json();
-
-    // Extract administrative hierarchy
-    // d.localityInfo.administrative is an array ordered from country down to ward
     const admin: any[] = d.localityInfo?.administrative || [];
-
-    const findAdmin = (level: number | string, name: string) => {
-      const byLevel = admin.find((a) => a.adminLevel === level);
-      if (byLevel) return byLevel.name;
-      const byName = admin.find((a) => a.description === name);
-      if (byName) return byName.name;
-      return '';
-    };
+    
+    // Attempt to find admin data, with fallbacks for different localities
+    const state = d.principalSubdivision || admin.find((a) => a.adminLevel === 4)?.name || '';
+    const lga = d.city || admin.find((a) => a.adminLevel === 6)?.name || admin.find((a) => a.adminLevel === 7)?.name || '';
+    const community = d.locality || admin.find((a) => a.adminLevel === 8)?.name || '';
+    const ward = admin.find((a) => a.adminLevel === 9)?.name || admin.find((a) => a.adminLevel === 10)?.name || '';
 
     return {
       country: d.countryName || 'Nigeria',
-      state: d.principalSubdivision || findAdmin(4, 'state') || '',
-      lga: d.city || findAdmin(6, 'local government area') || findAdmin(7, 'lga') || '',
-      community: d.locality || findAdmin(8, 'town') || '',
-      ward: findAdmin(9, 'ward') || findAdmin(10, 'ward') || '',
+      state,
+      lga,
+      community,
+      ward,
     };
   } catch (e) {
     console.warn('reverse geocode failed', e);
@@ -79,8 +60,8 @@ async function reverseGeocode(lat: number, lng: number): Promise<DetectedLocatio
 
 export default function FarmMapping() {
   const router = useRouter();
-  const { palette } = useTheme();
-  const styles = createStyles(palette);
+  const [isLight, setIsLight] = useState(false);
+  const styles = createStyles(isLight);
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [pinnedPoints, setPinnedPoints] = useState<FarmPoint[]>([]);
@@ -96,9 +77,6 @@ export default function FarmMapping() {
   const [ward, setWard] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
-  const [detected, setDetected] = useState<DetectedLocation | null>(null);
-
   const [viewMode, setViewMode] = useState<ViewMode>('satellite');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('line');
 
@@ -108,114 +86,72 @@ export default function FarmMapping() {
   // ===== Permission + GPS tracking =====
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       const perm = await Location.requestForegroundPermissionsAsync();
-      if (perm.status !== 'granted') {
-        Alert.alert('Permission needed', 'GAIA needs location access to map your farm.');
-        return;
-      }
+      if (perm.status !== 'granted') return;
       if (mounted) setPermission(true);
 
       try {
-        await Location.enableNetworkProviderAsync().catch(() => {});
-        const initial = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.BestForNavigation,
-        });
+        const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
         if (mounted) {
-          const p: FarmPoint = {
-            latitude: initial.coords.latitude,
-            longitude: initial.coords.longitude,
-            accuracy: initial.coords.accuracy ?? 999,
-            timestamp: initial.timestamp,
-          };
-          setCurrentGPS(p);
+          setCurrentGPS({ latitude: initial.coords.latitude, longitude: initial.coords.longitude, accuracy: initial.coords.accuracy ?? 999, timestamp: initial.timestamp });
           setCurrentAccuracy(initial.coords.accuracy ?? null);
         }
-      } catch (e) {
-        console.log('initial location failed', e);
-      }
+      } catch (e) {}
 
       watcher.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          distanceInterval: 2,
-          timeInterval: 2000,
-        },
+        { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 2, timeInterval: 2000 },
         (loc) => {
-          const p: FarmPoint = {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            accuracy: loc.coords.accuracy ?? 999,
-            timestamp: loc.timestamp,
-          };
-          setCurrentGPS(p);
-          setCurrentAccuracy(loc.coords.accuracy ?? null);
+          if (mounted) {
+            setCurrentGPS({ latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? 999, timestamp: loc.timestamp });
+            setCurrentAccuracy(loc.coords.accuracy ?? null);
+          }
         },
       );
     })();
-
-    return () => {
-      mounted = false;
-      watcher.current?.remove();
-    };
+    return () => { mounted = false; watcher.current?.remove(); };
   }, []);
 
   // ===== Auto reverse geocode on first GPS fix =====
   useEffect(() => {
     if (!currentGPS || geocodeAttempted.current) return;
     geocodeAttempted.current = true;
-
     (async () => {
-      setGeoStatus('loading');
       const loc = await reverseGeocode(currentGPS.latitude, currentGPS.longitude);
       if (loc) {
         setDetected(loc);
-        setGeoStatus('ok');
-        // Pre-fill only if user hasn't typed manually
         if (!stateName && loc.state) setStateName(loc.state);
         if (!lga && loc.lga) setLga(loc.lga);
         if (!community && loc.community) setCommunity(loc.community);
         if (!ward && loc.ward) setWard(loc.ward);
-      } else {
-        setGeoStatus('failed');
       }
     })();
   }, [currentGPS, stateName, lga, community, ward]);
 
+  const [detected, setDetected] = useState<DetectedLocation | null>(null);
+
   // ===== Pin actions =====
-  const canPin = () => {
-    if (!currentGPS) return false;
-    if (currentAccuracy && currentAccuracy > MAX_ACCURACY_M) return false;
-    return true;
-  };
+  const canPin = () => currentGPS && (!currentAccuracy || currentAccuracy <= MAX_ACCURACY_M);
 
   const pinStart = () => {
-    if (!currentGPS) { Alert.alert('No GPS', 'Waiting for your location…'); return; }
-    if (currentAccuracy && currentAccuracy > MAX_ACCURACY_M) {
-      Alert.alert('GPS too weak', `Accuracy ±${currentAccuracy.toFixed(0)}m. Move to open sky.`);
-      return;
-    }
+    if (!canPin()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPinnedPoints([currentGPS]);
+    setPinnedPoints([currentGPS!]);
     setPhase('mapping');
   };
 
   const pinCorner = () => {
-    if (!currentGPS) { Alert.alert('No GPS', 'Waiting for your location…'); return; }
-    if (currentAccuracy && currentAccuracy > MAX_ACCURACY_M) {
-      Alert.alert('GPS too weak', `Accuracy ±${currentAccuracy.toFixed(0)}m.`); return;
-    }
+    if (!canPin()) return;
     if (pinnedPoints.length > 0) {
       const last = pinnedPoints[pinnedPoints.length - 1];
-      const dist = haversine(last, currentGPS);
+      const dist = haversine(last, currentGPS!);
       if (dist < MIN_DISTANCE_M) {
         Alert.alert('Too close', `Only ${dist.toFixed(0)}m from last pin. Walk further.`);
         return;
       }
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPinnedPoints([...pinnedPoints, currentGPS]);
+    setPinnedPoints([...pinnedPoints, currentGPS!]);
   };
 
   const undoLast = () => {
@@ -228,18 +164,15 @@ export default function FarmMapping() {
   };
 
   const closeLoop = () => {
-    if (pinnedPoints.length < 3) { Alert.alert('Need 3+ corners'); return; }
+    if (pinnedPoints.length < 3) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setPhase('closed');
   };
-
-  const reopenLoop = () => { setPhase('mapping'); };
 
   const resetAll = () => {
     Alert.alert('Clear this farm?', 'All pinned corners will be removed.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         setPinnedPoints([]); setPhase('idle');
       }},
     ]);
@@ -250,197 +183,105 @@ export default function FarmMapping() {
   const simplified = simplifyPath(cleaned, 2.5);
   const meters = pathLength(simplified);
   const sqm = enclosedArea(simplified);
-  const acres = sqm / 4046.86;
   const hectares = sqm / 10000;
+  const acres = sqm / 4046.86;
   const closed = phase === 'closed';
-  const distFromStart = currentGPS && pinnedPoints.length > 0
-    ? haversine(currentGPS, pinnedPoints[0])
-    : null;
+  
+  const distFromStart = currentGPS && pinnedPoints.length > 0 ? haversine(currentGPS, pinnedPoints[0]) : null;
+  const distFromLast = currentGPS && pinnedPoints.length > 0 ? haversine(currentGPS, pinnedPoints[pinnedPoints.length - 1]) : null;
   const nearStart = distFromStart != null && distFromStart <= CLOSE_LOOP_M;
 
-  // Centroid of the boundary (used by satellite monitor)
-  const centroid = cleaned.length > 0
-    ? {
-        lat: cleaned.reduce((s, p) => s + p.latitude, 0) / cleaned.length,
-        lng: cleaned.reduce((s, p) => s + p.longitude, 0) / cleaned.length,
-      }
-    : null;
+  const centroid = cleaned.length > 0 ? {
+    lat: cleaned.reduce((s, p) => s + p.latitude, 0) / cleaned.length,
+    lng: cleaned.reduce((s, p) => s + p.longitude, 0) / cleaned.length,
+  } : null;
 
   // ===== Save =====
   const save = async () => {
-    if (!farmName.trim()) { Alert.alert('Name required'); return; }
-    if (pinnedPoints.length < 3) { Alert.alert('Need 3+ corners'); return; }
-    if (!stateName.trim()) {
-      Alert.alert('State required', 'Wait for GPS detection or type manually.');
+    if (!farmName.trim() || pinnedPoints.length < 3 || !stateName.trim()) {
+      Alert.alert('Missing info', 'Farm Name, State, and 3+ pins are required.');
       return;
     }
     setSaving(true);
     try {
       const res = await saveFarm({
-        name: farmName.trim(),
-        crop: crop.trim() || undefined,
-        state: stateName.trim(),
-        lga: lga.trim() || undefined,
-        community: community.trim() || undefined,
-        ward: ward.trim() || undefined,
-        centroid_lat: centroid?.lat,
-        centroid_lng: centroid?.lng,
+        name: farmName.trim(), crop: crop.trim() || undefined,
+        state: stateName.trim(), lga: lga.trim() || undefined,
+        community: community.trim() || undefined, ward: ward.trim() || undefined,
+        centroid_lat: centroid?.lat, centroid_lng: centroid?.lng,
         boundary: pinnedPoints,
       } as any);
       setSaving(false);
       if (res.error) { Alert.alert('Save failed', res.error); return; }
-      Alert.alert('Saved!',
-        `"${farmName.trim()}" — ${hectares.toFixed(2)} ha in ${stateName.trim()}${lga ? ', ' + lga : ''}`,
-        [{ text: 'OK', onPress: () => router.replace('/farms') }]);
+      Alert.alert('Saved!', `"${farmName.trim()}" — ${hectares.toFixed(2)} ha`, [
+        { text: 'OK', onPress: () => router.replace('/farms') }
+      ]);
     } catch (e: any) {
       setSaving(false);
       Alert.alert('Save failed', e?.message || 'Unknown error');
     }
   };
 
-  // ===== Accuracy =====
-  const accuracyLabel =
-    currentAccuracy == null ? 'Searching…'
-    : currentAccuracy <= GOOD_ACCURACY_M ? 'Excellent'
-    : currentAccuracy <= MAX_ACCURACY_M ? 'Good'
-    : 'Weak';
-  const accuracyColor =
-    currentAccuracy == null ? palette.textMuted
-    : currentAccuracy <= GOOD_ACCURACY_M ? '#00ff88'
-    : currentAccuracy <= MAX_ACCURACY_M ? '#ffb300'
-    : '#ff3b5c';
-
-  const geoBadgeColor =
-    geoStatus === 'ok' ? '#00ff88' :
-    geoStatus === 'loading' ? '#ffb300' :
-    geoStatus === 'failed' ? '#ff3b5c' : palette.textMuted;
-
-  const geoBadgeLabel =
-    geoStatus === 'ok' ? '✓ Auto-detected from GPS' :
-    geoStatus === 'loading' ? 'Detecting location…' :
-    geoStatus === 'failed' ? '⚠ Could not detect — type manually' :
-    'Waiting for GPS…';
+  const accuracyColor = currentAccuracy == null ? '#888' : currentAccuracy <= GOOD_ACCURACY_M ? '#00c853' : currentAccuracy <= MAX_ACCURACY_M ? '#ffb300' : '#ff3b5c';
 
   return (
-    <Screen glow="crops">
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>BACK</Text>
-        </Pressable>
+        
+        {/* Header */}
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backText}>‹ BACK</Text>
+          </Pressable>
+          <View style={styles.toggleWrap}>
+            <Text style={styles.toggleLabel}>LIGHT</Text>
+            <Switch value={isLight} onValueChange={setIsLight} trackColor={{ false: '#333', true: '#ddd' }} thumbColor={isLight ? '#fff' : '#888'} />
+          </View>
+        </View>
 
-        <Pill label="GPS MAPPING" />
         <Text style={styles.title}>Map Your Farm</Text>
-        <Text style={styles.subtitle}>
-          Walk to each corner and tap PIN. Return to start to close the loop.
-        </Text>
+        <Text style={styles.subtitle}>Walk to each corner and tap PIN. Return to start to close the loop.</Text>
 
-        {/* ===== LIVE STATUS ===== */}
-        <GlassCard style={{ marginTop: spacing.lg }}>
-          <View style={styles.statusRow}>
-            <View style={styles.statusItem}>
+        {/* Live Stats */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
               <View style={[styles.dot, { backgroundColor: accuracyColor }]} />
-              <Text style={styles.statusValue}>
-                {currentAccuracy != null ? `±${currentAccuracy.toFixed(0)}m` : '—'}
-              </Text>
-              <Text style={styles.statusLabel}>GPS {accuracyLabel}</Text>
+              <Text style={[styles.statVal, { color: accuracyColor }]}>{currentAccuracy != null ? `±${currentAccuracy.toFixed(0)}m` : '—'}</Text>
+              <Text style={styles.statLbl}>GPS</Text>
             </View>
-            <View style={styles.statusDivider} />
-            <View style={styles.statusItem}>
-              <Text style={styles.statusValue}>{pinnedPoints.length}</Text>
-              <Text style={styles.statusLabel}>CORNERS</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statVal}>{pinnedPoints.length}</Text>
+              <Text style={styles.statLbl}>PINS</Text>
             </View>
-            <View style={styles.statusDivider} />
-            <View style={styles.statusItem}>
-              <Text style={styles.statusValue}>
-                {distFromStart != null ? `${distFromStart.toFixed(0)}m` : '—'}
-              </Text>
-              <Text style={styles.statusLabel}>TO START</Text>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statVal}>{distFromLast != null ? `${distFromLast.toFixed(0)}m` : '—'}</Text>
+              <Text style={styles.statLbl}>LAST PIN</Text>
             </View>
           </View>
-
+          
           {pinnedPoints.length >= 3 && (
-            <View style={[styles.statsRow, { marginTop: 14 }]}>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{hectares.toFixed(3)}</Text>
-                <Text style={styles.statLbl}>HECTARES</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{acres.toFixed(3)}</Text>
-                <Text style={styles.statLbl}>ACRES</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statVal}>{meters.toFixed(0)}</Text>
-                <Text style={styles.statLbl}>PERIMETER m</Text>
-              </View>
-            </View>
-          )}
-        </GlassCard>
-
-        {/* ===== DETECTED LOCATION ===== */}
-        <View style={styles.geoCard}>
-          <View style={styles.geoHeader}>
-            <Text style={styles.geoHeaderLabel}>📍 DETECTED LOCATION</Text>
-            <Text style={[styles.geoBadge, { color: geoBadgeColor }]}>{geoBadgeLabel}</Text>
-          </View>
-          {geoStatus === 'loading' && (
-            <View style={styles.geoLoading}>
-              <ActivityIndicator color={palette.neon} size="small" />
-              <Text style={styles.geoLoadingText}>Querying BigDataCloud…</Text>
-            </View>
-          )}
-          {detected && (
-            <View style={styles.geoGrid}>
-              <GeoRow
-                icon="🏛️" label="State" value={stateName || detected.state}
-                editing={!stateName} onChange={setStateName}
-              />
-              <GeoRow
-                icon="🏙️" label="LGA" value={lga || detected.lga}
-                editing={!lga} onChange={setLga}
-              />
-              <GeoRow
-                icon="🏘️" label="Community" value={community || detected.community}
-                editing={!community} onChange={setCommunity}
-              />
-              <GeoRow
-                icon="🚏" label="Ward" value={ward || detected.ward}
-                editing={!ward} onChange={setWard}
-              />
+            <View style={styles.areaRow}>
+              <View style={styles.statItem}><Text style={styles.areaVal}>{hectares.toFixed(3)}</Text><Text style={styles.statLbl}>HECTARES</Text></View>
+              <View style={styles.statItem}><Text style={styles.areaVal}>{acres.toFixed(3)}</Text><Text style={styles.statLbl}>ACRES</Text></View>
             </View>
           )}
         </View>
 
-        {/* ===== HINTS ===== */}
-        {phase === 'idle' && (
-          <View style={styles.hintBar}>
-            <Text style={styles.hintText}>📍 Walk to the first corner, then tap PIN START</Text>
-          </View>
-        )}
-        {phase === 'mapping' && !nearStart && (
-          <View style={styles.hintBar}>
-            <Text style={styles.hintText}>🚶 Walk to next corner, tap PIN CORNER</Text>
-          </View>
-        )}
-        {phase === 'mapping' && nearStart && pinnedPoints.length >= 3 && (
-          <View style={[styles.hintBar, { backgroundColor: 'rgba(0,255,136,0.15)', borderColor: '#00ff88' }]}>
-            <Text style={[styles.hintText, { color: '#00ff88' }]}>✅ Near start — tap CLOSE LOOP</Text>
-          </View>
-        )}
-        {phase === 'closed' && (
-          <View style={[styles.hintBar, { backgroundColor: 'rgba(0,255,136,0.15)', borderColor: '#00ff88' }]}>
-            <Text style={[styles.hintText, { color: '#00ff88' }]}>
-              🎉 Boundary complete — {hectares.toFixed(2)} ha. Fill details and save.
-            </Text>
+        {/* Geocode Card */}
+        {detected && (
+          <View style={styles.geoCard}>
+            <Text style={styles.geoLabel}>📍 AUTO-DETECTED LOCATION</Text>
+            <Text style={styles.geoText}>{detected.community}, {detected.lga}, {detected.state}</Text>
           </View>
         )}
 
-        {/* ===== MAP ===== */}
+        {/* Map */}
         <View style={styles.mapBox}>
           {!permission ? (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator color={palette.neon} />
-              <Text style={styles.mapLoadingText}>Requesting location…</Text>
-            </View>
+            <View style={styles.center}><ActivityIndicator color="#00c853" /><Text style={styles.dim}>Locating…</Text></View>
           ) : (
             <GoogleMap
               points={pinnedPoints}
@@ -453,217 +294,161 @@ export default function FarmMapping() {
           )}
         </View>
 
+        {/* Layer Chips */}
         <View style={styles.chipRow}>
           {VIEWS.map((v) => (
-            <Pressable key={v.key} onPress={() => setViewMode(v.key)}
-              style={[styles.chip, viewMode === v.key && styles.chipOn]}>
-              <Text style={[styles.chipText, viewMode === v.key && styles.chipTextOn]}>{v.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={styles.chipRow}>
-          {DISPLAYS.map((d) => (
-            <Pressable key={d.key} onPress={() => setDisplayMode(d.key)}
-              style={[styles.chip, displayMode === d.key && styles.chipOn]}>
-              <Text style={[styles.chipText, displayMode === d.key && styles.chipTextOn]}>{d.label}</Text>
+            <Pressable key={v.key} onPress={() => setViewMode(v.key)} style={[styles.chip, viewMode === v.key && styles.chipOn]}>
+              <Text style={[styles.chipTxt, viewMode === v.key && styles.chipTxtOn]}>{v.label}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* ===== ACTION BUTTONS ===== */}
-        <View style={{ marginTop: spacing.lg }}>
+        {/* Points List */}
+        {pinnedPoints.length > 0 && (
+          <View style={styles.pointsCard}>
+            <Text style={styles.pointsTitle}>PINNED POINTS ({pinnedPoints.length})</Text>
+            {pinnedPoints.map((p, i) => (
+              <View key={i} style={styles.pointRow}>
+                <Text style={styles.pointIdx}>{i === 0 ? 'START' : `PIN ${i}`}</Text>
+                <Text style={styles.pointCoord}>{p.latitude.toFixed(5)}, {p.longitude.toFixed(5)}</Text>
+                <Text style={styles.pointAcc}>±{p.accuracy?.toFixed(0)}m</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={{ marginTop: 20 }}>
           {phase === 'idle' && (
-            <Pressable onPress={pinStart} disabled={!canPin()}
-              style={[styles.bigBtn, !canPin() && { opacity: 0.5 }]}>
-              <Text style={styles.bigBtnEmoji}>📍</Text>
-              <Text style={styles.bigBtnLabel}>PIN START LOCATION</Text>
+            <Pressable onPress={pinStart} disabled={!canPin()} style={[styles.bigBtn, !canPin() && { opacity: 0.5 }]}>
+              <Text style={styles.bigBtnLabel}>📍 PIN START</Text>
             </Pressable>
           )}
           {phase === 'mapping' && (
             <>
-              <Pressable onPress={pinCorner} disabled={!canPin()}
-                style={[styles.bigBtn, !canPin() && { opacity: 0.5 }]}>
-                <Text style={styles.bigBtnEmoji}>📌</Text>
-                <Text style={styles.bigBtnLabel}>PIN CORNER ({pinnedPoints.length})</Text>
+              <Pressable onPress={pinCorner} disabled={!canPin()} style={[styles.bigBtn, !canPin() && { opacity: 0.5 }]}>
+                <Text style={styles.bigBtnLabel}>📌 ADD CORNER ({pinnedPoints.length})</Text>
               </Pressable>
               {pinnedPoints.length >= 3 && (
-                <Pressable onPress={closeLoop}
-                  style={[styles.bigBtn, styles.bigBtnSecondary,
-                    nearStart && { borderColor: '#00ff88', backgroundColor: 'rgba(0,255,136,0.15)' }]}>
-                  <Text style={styles.bigBtnEmoji}>✅</Text>
-                  <Text style={[styles.bigBtnLabel, { color: '#00ff88' }]}>CLOSE LOOP & FINISH</Text>
+                <Pressable onPress={closeLoop} style={[styles.bigBtn, styles.bigBtnSecondary, nearStart && { borderColor: '#00c853', backgroundColor: 'rgba(0,200,83,0.1)' }]}>
+                  <Text style={[styles.bigBtnLabel, { color: '#00c853' }]}>✅ CLOSE LOOP</Text>
                 </Pressable>
               )}
               {pinnedPoints.length > 0 && (
                 <Pressable onPress={undoLast} style={styles.smallBtn}>
-                  <Text style={styles.smallBtnText}>↶ UNDO LAST PIN</Text>
+                  <Text style={styles.smallBtnText}>↶ UNDO LAST</Text>
                 </Pressable>
               )}
             </>
           )}
           {phase === 'closed' && (
-            <Pressable onPress={reopenLoop} style={styles.smallBtn}>
+            <Pressable onPress={() => setPhase('mapping')} style={styles.smallBtn}>
               <Text style={styles.smallBtnText}>✏️ EDIT BOUNDARY</Text>
             </Pressable>
           )}
         </View>
 
-        {/* ===== FARM DETAILS ===== */}
+        {/* Save Form */}
         {pinnedPoints.length >= 3 && (
           <>
             <Text style={styles.label}>FARM NAME *</Text>
-            <TextInput value={farmName} onChangeText={setFarmName}
-              placeholder="e.g. North Field" placeholderTextColor={palette.textDim}
-              style={styles.input} />
-
+            <TextInput value={farmName} onChangeText={setFarmName} placeholder="e.g. North Field" placeholderTextColor="#999" style={styles.input} />
+            
             <Text style={styles.label}>CROP (OPTIONAL)</Text>
-            <TextInput value={crop} onChangeText={setCrop}
-              placeholder="e.g. Maize" placeholderTextColor={palette.textDim}
-              style={styles.input} />
+            <TextInput value={crop} onChangeText={setCrop} placeholder="e.g. Maize" placeholderTextColor="#999" style={styles.input} />
 
-            <Text style={styles.label}>LOCATION (EDITABLE)</Text>
-            <View style={styles.twoCol}>
+            <View style={styles.row}>
               <View style={styles.col}>
-                <Text style={styles.miniLabel}>STATE</Text>
-                <TextInput value={stateName} onChangeText={setStateName}
-                  placeholder="e.g. Kaduna" placeholderTextColor={palette.textDim}
-                  style={styles.input} />
+                <Text style={styles.label}>STATE *</Text>
+                <TextInput value={stateName} onChangeText={setStateName} placeholder="State" placeholderTextColor="#999" style={styles.input} />
               </View>
               <View style={styles.col}>
-                <Text style={styles.miniLabel}>LGA</Text>
-                <TextInput value={lga} onChangeText={setLga}
-                  placeholder="e.g. Zaria" placeholderTextColor={palette.textDim}
-                  style={styles.input} />
-              </View>
-            </View>
-            <View style={styles.twoCol}>
-              <View style={styles.col}>
-                <Text style={styles.miniLabel}>COMMUNITY</Text>
-                <TextInput value={community} onChangeText={setCommunity}
-                  placeholder="e.g. Sabon Gari" placeholderTextColor={palette.textDim}
-                  style={styles.input} />
-              </View>
-              <View style={styles.col}>
-                <Text style={styles.miniLabel}>WARD</Text>
-                <TextInput value={ward} onChangeText={setWard}
-                  placeholder="e.g. Ward 3" placeholderTextColor={palette.textDim}
-                  style={styles.input} />
+                <Text style={styles.label}>LGA</Text>
+                <TextInput value={lga} onChangeText={setLga} placeholder="LGA" placeholderTextColor="#999" style={styles.input} />
               </View>
             </View>
 
-            <View style={{ marginTop: spacing.lg }}>
-              <NeonButton
-                label={saving ? 'SAVING…' : closed ? 'SAVE FARM ✅' : 'SAVE FARM'}
-                onPress={save} loading={saving}
-                disabled={saving || !farmName.trim() || !stateName.trim()}
-              />
-            </View>
-            <View style={{ marginTop: spacing.sm }}>
-              <NeonButton label="CLEAR ALL PINS" variant="ghost" onPress={resetAll} />
-            </View>
+            <Pressable onPress={save} disabled={saving} style={[styles.saveBtn, saving && { opacity: 0.5 }]}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>SAVE FARM</Text>}
+            </Pressable>
+            
+            <Pressable onPress={resetAll} style={styles.clearBtn}>
+              <Text style={styles.clearBtnText}>CLEAR ALL PINS</Text>
+            </Pressable>
           </>
         )}
-        <View style={{ height: 120 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
-    </Screen>
-  );
-}
-
-function GeoRow({ icon, label, value, editing, onChange }: any) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
-      <Text style={{ fontSize: 16, width: 24 }}>{icon}</Text>
-      <Text style={{ fontSize: 11, color: '#888', width: 80 }}>{label}</Text>
-      {editing ? (
-        <TextInput
-          value={value || ''}
-          onChangeText={onChange}
-          placeholder={`Enter ${label}`}
-          placeholderTextColor="#555"
-          style={{ flex: 1, color: '#fff', fontSize: 13, paddingVertical: 4 }}
-        />
-      ) : (
-        <Text style={{ flex: 1, color: '#fff', fontSize: 13, fontWeight: '700' }}>
-          {value || '—'}
-        </Text>
-      )}
     </View>
   );
 }
 
-const createStyles = (p: any) => StyleSheet.create({
-  scroll: { paddingHorizontal: 20, paddingTop: 56 },
-  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 32, fontWeight: '900', color: p.text, letterSpacing: -1, marginTop: 8 },
-  subtitle: { fontSize: 13, color: p.textMuted, marginTop: 6, lineHeight: 18 },
+const createStyles = (isLight: boolean) => {
+  const bg = isLight ? '#f5f7fa' : '#0a0e0c';
+  const cardBg = isLight ? '#ffffff' : '#151d18';
+  const text = isLight ? '#111827' : '#ffffff';
+  const textMuted = isLight ? '#6b7280' : '#8899a6';
+  const border = isLight ? '#e5e7eb' : '#2e3a34';
+  
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: bg },
+    scroll: { padding: 20, paddingTop: 60 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    backBtn: { paddingVertical: 8, paddingRight: 16 },
+    backText: { fontSize: 14, fontWeight: '700', color: textMuted },
+    toggleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    toggleLabel: { fontSize: 10, fontWeight: '800', color: textMuted, letterSpacing: 1 },
+    
+    title: { fontSize: 30, fontWeight: '900', color: text, letterSpacing: -1 },
+    subtitle: { fontSize: 13, color: textMuted, marginTop: 4, marginBottom: 20, lineHeight: 18 },
+    
+    statsCard: { backgroundColor: cardBg, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: border, marginBottom: 16 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    statItem: { flex: 1, alignItems: 'center', gap: 4 },
+    statDivider: { width: 1, height: 40, backgroundColor: border },
+    statVal: { fontSize: 20, fontWeight: '900', color: text },
+    statLbl: { fontSize: 9, fontWeight: '700', color: textMuted, letterSpacing: 1.2 },
+    dot: { width: 10, height: 10, borderRadius: 5, marginBottom: 4 },
+    
+    areaRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: border, paddingTop: 16, marginTop: 16 },
+    areaVal: { fontSize: 22, fontWeight: '900', color: '#00c853' },
 
-  statusRow: { flexDirection: 'row', alignItems: 'center' },
-  statusItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statusDivider: { width: 1, height: 40, backgroundColor: p.border },
-  statusValue: { fontSize: 18, fontWeight: '900', color: p.neon },
-  statusLabel: { fontSize: 9, color: p.textMuted, fontWeight: '700', letterSpacing: 1.2 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 14, borderTopWidth: 1, borderTopColor: p.border },
-  stat: { alignItems: 'center' },
-  statVal: { fontSize: 16, fontWeight: '900', color: p.text },
-  statLbl: { fontSize: 9, color: p.textMuted, fontWeight: '700', letterSpacing: 1.2, marginTop: 2 },
-
-  geoCard: {
-    marginTop: 14, padding: 14, borderRadius: 14,
-    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
-  },
-  geoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  geoHeaderLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, color: p.neon },
-  geoBadge: { fontSize: 10, fontWeight: '700' },
-  geoLoading: { flexDirection: 'row', gap: 8, alignItems: 'center', paddingVertical: 8 },
-  geoLoadingText: { fontSize: 11, color: p.textMuted },
-  geoGrid: {},
-
-  hintBar: {
-    marginTop: 12, padding: 12, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: p.border,
-  },
-  hintText: { fontSize: 12, color: p.text, textAlign: 'center', lineHeight: 18 },
-
-  mapBox: {
-    borderRadius: 20, overflow: 'hidden', marginTop: 14,
-    borderWidth: 1, borderColor: p.borderHi,
-    shadowColor: p.neon, shadowOpacity: 0.35, shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 }, elevation: 12,
-    minHeight: 340, backgroundColor: p.abyss,
-  },
-  mapLoading: { flex: 1, minHeight: 340, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  mapLoadingText: { fontSize: 12, color: p.textMuted },
-
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
-  chipOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
-  chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
-  chipTextOn: { color: p.neon },
-
-  bigBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    paddingVertical: 20, borderRadius: 16, marginBottom: 10,
-    backgroundColor: p.neon,
-    shadowColor: p.neon, shadowOpacity: 0.4, shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 }, elevation: 6,
-  },
-  bigBtnSecondary: { backgroundColor: 'rgba(0,255,136,0.12)', borderWidth: 2, borderColor: 'rgba(0,255,136,0.4)' },
-  bigBtnEmoji: { fontSize: 22 },
-  bigBtnLabel: { fontSize: 14, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
-
-  smallBtn: { paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: p.borderHi, alignItems: 'center', marginTop: 4 },
-  smallBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: p.text },
-
-  label: { fontSize: 10, color: p.textMuted, marginTop: 16, marginBottom: 6, fontWeight: '800', letterSpacing: 1.5 },
-  miniLabel: { fontSize: 9, color: p.textDim, marginBottom: 4, fontWeight: '700', letterSpacing: 1 },
-  input: {
-    backgroundColor: p.surface, borderWidth: 1, borderColor: p.border,
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    color: p.text, fontSize: 15,
-  },
-  twoCol: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  col: { flex: 1 },
-});
+    geoCard: { backgroundColor: cardBg, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: border, marginBottom: 16 },
+    geoLabel: { fontSize: 10, fontWeight: '900', color: '#00c853', letterSpacing: 1, marginBottom: 4 },
+    geoText: { fontSize: 14, fontWeight: '600', color: text },
+    
+    mapBox: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: border, height: 340, backgroundColor: isLight ? '#e5e7eb' : '#111' },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    dim: { color: textMuted, fontSize: 13 },
+    
+    chipRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    chip: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: cardBg, borderWidth: 1, borderColor: border, alignItems: 'center' },
+    chipOn: { borderColor: '#00c853', backgroundColor: isLight ? '#e8f5e9' : 'rgba(0,200,83,0.15)' },
+    chipTxt: { fontSize: 11, fontWeight: '700', color: textMuted },
+    chipTxtOn: { color: '#00c853' },
+    
+    pointsCard: { backgroundColor: cardBg, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: border, marginTop: 16 },
+    pointsTitle: { fontSize: 10, fontWeight: '900', color: textMuted, letterSpacing: 1, marginBottom: 8 },
+    pointRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: border },
+    pointIdx: { fontSize: 11, fontWeight: '800', color: '#00c853', width: 60 },
+    pointCoord: { fontSize: 12, color: text, fontFamily: 'monospace', flex: 1 },
+    pointAcc: { fontSize: 11, color: textMuted },
+    
+    bigBtn: { backgroundColor: '#00c853', paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginBottom: 10 },
+    bigBtnSecondary: { backgroundColor: 'transparent', borderWidth: 2, borderColor: '#00c853' },
+    bigBtnLabel: { fontSize: 14, fontWeight: '900', color: isLight ? '#fff' : '#000', letterSpacing: 1 },
+    
+    smallBtn: { paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: border, alignItems: 'center', marginTop: 4, backgroundColor: cardBg },
+    smallBtnText: { fontSize: 12, fontWeight: '800', color: textMuted, letterSpacing: 1 },
+    
+    label: { fontSize: 10, fontWeight: '800', color: textMuted, marginTop: 16, marginBottom: 6, letterSpacing: 1 },
+    input: { backgroundColor: cardBg, borderWidth: 1, borderColor: border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: text, fontSize: 15 },
+    row: { flexDirection: 'row', gap: 12 },
+    col: { flex: 1 },
+    
+    saveBtn: { backgroundColor: '#00c853', paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginTop: 20 },
+    saveBtnText: { fontSize: 15, fontWeight: '900', color: isLight ? '#fff' : '#000', letterSpacing: 1 },
+    clearBtn: { paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: '#ff3b5c' },
+    clearBtnText: { fontSize: 12, fontWeight: '900', color: '#ff3b5c', letterSpacing: 1 },
+  });
+};
