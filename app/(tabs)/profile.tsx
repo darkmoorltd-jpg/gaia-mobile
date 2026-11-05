@@ -80,6 +80,7 @@ function getSections(t: any): Section[] {
     { label: t('profile.items.blockedUsers'), route: '/blocked-users' },
     { label: 'My Data (NDPA)',     route: '/my-data' },
     { label: 'File a Grievance',    route: '/grievance' },
+    { label: 'Claim Farm Record',   route: '/claim-record' },
   ]},
   { title: t('profile.sections.support'), icon: 'SP', items: [
     { label: t('profile.items.helpSupport'), route: '/help' },
