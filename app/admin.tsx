@@ -32,6 +32,7 @@ const SECTIONS: Section[] = [
       { label: 'Verifications',       route: '/admin-verifications' },
       { label: 'KYC Queue',             route: '/admin-kyc-queue' },
       { label: 'Farmer Database',     route: '/admin-farmers' },
+      { label: 'State Sync',          route: '/admin-state-sync' },
       { label: 'Regional Filter',      route: '/admin-farmer-filter' },
       { label: 'Scan History',        route: '/admin-scans' },
       { label: 'Login History',       route: '/admin-logins' },
@@ -55,6 +56,7 @@ const SECTIONS: Section[] = [
       { label: 'Loans',               route: '/admin-loans' },
       { label: 'Loan Management',     route: '/admin-loans-mobile' },
       { label: 'Withdrawals & Disputes', route: '/admin-ops' },
+      { label: 'Partner API Metering', route: '/admin-partner-usage' },
     ],
   },
   {
