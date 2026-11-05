@@ -6,6 +6,7 @@ import {
 import MapView, { UrlTile, Marker, Polygon } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import { useTheme, typography, spacing, radius } from '../src/theme';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useLocation } from '../src/store/location';
@@ -130,36 +131,73 @@ export default function Satellite() {
     }
   }, [pickedFarmId, userLoc, coords]);
 
-  // 5. Fetch NDVI Summary (from backend for WoW change)
+  // 5. Compute NDVI directly from Copernicus tile (no backend needed)
   const fetchNdvi = useCallback(async () => {
-    if (!coords || !user) return;
+    if (!coords || !token) return;
     try {
-      const sess = await supabase.auth.getSession();
-      const authToken = sess.data.session?.access_token ?? '';
-      const url = `https://gaia-api-xuly.onrender.com/satellite/ndvi?lat=${coords.lat}&lon=${coords.lon}&days=90`;
-      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + authToken } });
-      if (!res.ok) return;
-      const data = await res.json();
-      const series = data.series || [];
-      const latest = data.latest;
+      const zoom = 14;
+      const lat = coords.lat;
+      const lon = coords.lon;
+      const n = Math.pow(2, zoom);
+      const latRad = (lat * Math.PI) / 180;
+      const x = Math.floor(((lon + 180) / 360) * n);
+      const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
 
-      let wow: number | null = null;
-      if (series.length >= 2) {
-        const cur = series[series.length - 1].ndvi;
-        const prev = series[series.length - 2].ndvi;
-        if (prev > 0) wow = Math.round(((cur - prev) / prev) * 1000) / 10;
+      const timeParam = timeMode === 'peak'
+        ? '2024-07-01/2024-09-30'
+        : timeMode === '30d'
+          ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + '/' + new Date().toISOString().split('T')[0]
+          : '2023-01-01/2026-12-31';
+
+      // Try JPEG (jpeg-js can decode it)
+      const url = `${WMTS_BASE}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=NDVI&STYLE=default&TILEMATRIXSET=PopularWebMercator256&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}&FORMAT=image/jpeg&TIME=${timeParam}&access_token=${token}`;
+
+      const tempFile = (FileSystem.cacheDirectory || '') + 'ndvi_' + Date.now() + '.jpg';
+      const res = await FileSystem.downloadAsync(url, tempFile);
+      if (res.status !== 200) {
+        console.warn('Tile download failed:', res.status);
+        return;
       }
 
+      const base64 = await FileSystem.readAsStringAsync(tempFile, { encoding: 'base64' as any });
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+      // Decode JPEG
+      const { decode } = await import('jpeg-js');
+      const raw: any = decode(bytes, { useTArray: true });
+      const data = raw.data;
+
+      // Count pixels by evalscript color buckets
+      // RED   ~ [1, 0, 0]      → NDVI ~0.1
+      // ORANGE~ [1, 0.7, 0]    → NDVI ~0.3
+      // LGREEN~ [0.6, 0.8, 0.2]→ NDVI ~0.5
+      // BGREEN~ [0, 1, 0]      → NDVI ~0.8
+      let red = 0, orange = 0, lgreen = 0, bgreen = 0, total = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        total++;
+        if (r > 180 && g < 100 && b < 100) red++;
+        else if (r > 180 && g > 130 && g < 220 && b < 100) orange++;
+        else if (r > 120 && r < 200 && g > 180 && b < 120) lgreen++;
+        else if (r < 100 && g > 180 && b < 100) bgreen++;
+      }
+
+      const weighted = red * 0.1 + orange * 0.3 + lgreen * 0.5 + bgreen * 0.8;
+      const avgNdvi = total > 0 ? weighted / total : 0;
+
       setSummary({
-        latest: latest?.ndvi ?? null,
-        series,
-        change_wow_pct: wow,
-        status: latest?.ndvi >= 0.6 ? 'healthy' : latest?.ndvi >= 0.4 ? 'moderate' : latest?.ndvi >= 0.2 ? 'stressed' : 'bare',
+        latest: avgNdvi,
+        series: [],
+        change_wow_pct: null,
+        status: avgNdvi >= 0.6 ? 'healthy' : avgNdvi >= 0.4 ? 'moderate' : avgNdvi >= 0.2 ? 'stressed' : 'bare',
       });
+
+      // cleanup
+      FileSystem.deleteAsync(tempFile, { idempotent: true }).catch(() => {});
     } catch (e) {
-      console.log('ndvi fetch failed', e);
+      console.warn('NDVI compute failed:', e);
     }
-  }, [coords, user]);
+  }, [coords, token, timeMode]);
 
   useEffect(() => {
     if (coords) fetchNdvi();
