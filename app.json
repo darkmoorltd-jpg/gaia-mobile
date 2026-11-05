@@ -87,13 +87,13 @@
       "expo-router",
       "expo-updates",
       "expo-document-picker",
-      "@maplibre/maplibre-react-native",
       "onnxruntime-react-native",
       "expo-font",
       "expo-secure-store",
       "expo-sharing",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@maplibre/maplibre-react-native"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,6 +1,15 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Pressable, Text } from 'react-native';
-import MapView, { Polyline, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import {
+  MapView,
+  Camera,
+  ShapeSource,
+  FillLayer,
+  LineLayer,
+  CircleLayer,
+  MarkerView,
+} from '@maplibre/maplibre-react-native';
 import { useLocation } from '../store/location';
 
 interface P { latitude: number; longitude: number; }
@@ -17,174 +26,216 @@ interface Props {
   display?: DisplayMode;
 }
 
-const DARK_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#0a0e0c' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#4a5350' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#000000' }] },
-  { featureType: 'administrative', elementType: 'geometry', stylers: [{ color: '#1a2820' }] },
-  { featureType: 'administrative.country', elementType: 'labels.text.fill', stylers: [{ color: '#7a8884' }] },
-  { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#00ff88' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#4a5350' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#0d1a12' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1a1a' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0a0e0c' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#4a5350' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#1f2823' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#000000' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#101612' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#000814' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1a3a2a' }] },
-];
+const TILE_URLS = {
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  standard:  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  terrain:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+};
+
+const mapStyle: any = {
+  version: 8,
+  sources: {
+    'esri-satellite': {
+      type: 'raster',
+      tiles: [TILE_URLS.satellite],
+      tileSize: 256,
+    },
+    'osm-standard': {
+      type: 'raster',
+      tiles: [TILE_URLS.standard],
+      tileSize: 256,
+    },
+    'esri-terrain': {
+      type: 'raster',
+      tiles: [TILE_URLS.terrain],
+      tileSize: 256,
+    },
+  },
+  layers: [
+    {
+      id: 'esri-satellite-layer',
+      type: 'raster',
+      source: 'esri-satellite',
+      layout: { visibility: 'none' }, // hidden by default, toggled by prop
+    },
+    {
+      id: 'osm-standard-layer',
+      type: 'raster',
+      source: 'osm-standard',
+      layout: { visibility: 'none' },
+    },
+    {
+      id: 'esri-terrain-layer',
+      type: 'raster',
+      source: 'esri-terrain',
+      layout: { visibility: 'none' },
+    },
+  ],
+};
 
 export function GoogleMap({
   points,
   center,
   height = 340,
   closed = false,
-  mapType = 'standard',
+  mapType = 'satellite',
   display = 'line',
 }: Props) {
-  const mapRef = useRef<MapView | null>(null);
+  const cameraRef = useRef<any>(null);
   const userLocation = useLocation((s) => s.coords);
 
-  const initial: P = center || points[0] || userLocation || { latitude: 9.082, longitude: 8.6753 };
-
-  const region: Region = {
-    latitude: initial.latitude,
-    longitude: initial.longitude,
-    latitudeDelta: 0.002,
-    longitudeDelta: 0.002,
-  };
-
-  // Auto-fit to drawn points when there are 2+
+  // Center on points when they change
   useEffect(() => {
-    if (!mapRef.current || points.length < 2) return;
-    const timeout = setTimeout(() => {
-      mapRef.current?.fitToCoordinates(points, {
-        edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
-        animated: true,
+    if (!cameraRef.current) return;
+    if (points.length === 0) return;
+
+    const coords = points.map(p => [p.longitude, p.latitude]);
+    if (points.length === 1) {
+      cameraRef.current.setCamera({
+        centerCoordinate: coords[0],
+        zoomLevel: 17,
+        animationDuration: 500,
       });
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [points.length]);
-
-  // Center on user the first time we get coords (and no points yet)
-  useEffect(() => {
-    if (!mapRef.current || !userLocation || points.length >= 2) return;
-    mapRef.current.animateToRegion(
-      {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.002,
-        longitudeDelta: 0.002,
-      },
-      500,
-    );
-  }, [userLocation?.latitude, userLocation?.longitude]);
-
-  const start = points[0];
-  const current = points[points.length - 1];
-  const useDarkStyle = mapType === 'standard';
-
-  const recenter = () => {
-    if (!mapRef.current) return;
-    if (userLocation) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          latitudeDelta: 0.002,
-          longitudeDelta: 0.002,
-        },
-        500,
+    } else {
+      cameraRef.current.fitBounds(
+        [Math.min(...points.map(p => p.longitude)), Math.max(...points.map(p => p.longitude)), Math.max(...points.map(p => p.latitude)), Math.min(...points.map(p => p.latitude))],
+        { padding: { top: 60, right: 60, bottom: 60, left: 60 }, animationDuration: 500 }
       );
     }
-  };
+  }, [points.length]);
+
+  // Center on user first time
+  useEffect(() => {
+    if (!cameraRef.current || !userLocation || points.length > 0) return;
+    cameraRef.current.setCamera({
+      centerCoordinate: [userLocation.longitude, userLocation.latitude],
+      zoomLevel: 17,
+      animationDuration: 500,
+    });
+  }, [userLocation?.latitude, userLocation?.longitude]);
+
+  const initialCenter: [number, number] = center
+    ? [center.longitude, center.latitude]
+    : points[0]
+      ? [points[0].longitude, points[0].latitude]
+      : userLocation
+        ? [userLocation.longitude, userLocation.latitude]
+        : [8.6753, 9.082];
+
+  const lineCoords = points.map(p => [p.longitude, p.latitude]);
 
   return (
     <View style={[styles.wrap, { height }]}>
       <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={styles.map}
-        initialRegion={region}
-        mapType={mapType}
-        customMapStyle={useDarkStyle ? DARK_STYLE : undefined}
-        showsUserLocation={true}
-        showsMyLocationButton={false}
-        showsCompass={true}
-        showsScale={true}
-        toolbarEnabled={false}
-        pitchEnabled={false}
+        mapStyle={mapStyle}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={true}
         rotateEnabled={false}
-        loadingEnabled
-        loadingBackgroundColor="#0a0e0c"
-        loadingIndicatorColor="#00ff88"
+        pitchEnabled={false}
       >
-        {/* User pin — explicit, always visible when we have coords */}
-        {userLocation ? (
-          <Marker
-            coordinate={{
-              latitude: userLocation.latitude,
-              longitude: userLocation.longitude,
-            }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            zIndex={999}
-          >
-            <View style={styles.userRing}>
-              <View style={styles.userDot} />
-            </View>
-          </Marker>
-        ) : null}
+        <Camera
+          ref={cameraRef}
+          defaultSettings={{
+            centerCoordinate: initialCenter,
+            zoomLevel: 17,
+          }}
+        />
 
+        {/* Toggle tile layers based on mapType */}
+        <FillLayer
+          id="satellite-fill"
+          source="esri-satellite"
+          style={{ visibility: mapType === 'satellite' ? 'visible' : 'none' }}
+        />
+        <FillLayer
+          id="standard-fill"
+          source="osm-standard"
+          style={{ visibility: mapType === 'standard' ? 'visible' : 'none' }}
+        />
+        <FillLayer
+          id="terrain-fill"
+          source="esri-terrain"
+          style={{ visibility: mapType === 'terrain' ? 'visible' : 'none' }}
+        />
+
+        {/* Boundary line */}
         {display === 'line' && points.length > 1 && (
-          <Polyline
-            coordinates={points}
-            strokeColor="#00ff88"
-            strokeWidth={5}
-            lineCap="round"
-            lineJoin="round"
-            geodesic
-          />
+          <ShapeSource
+            id="boundary-line"
+            shape={{
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: lineCoords,
+              },
+              properties: {},
+            }}
+          >
+            <LineLayer
+              id="line-layer"
+              style={{
+                lineColor: '#00ff88',
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
         )}
 
+        {/* Closed loop line (last to first) */}
         {display === 'line' && closed && points.length > 2 && (
-          <Polyline
-            coordinates={[current, start]}
-            strokeColor="#00ff88"
-            strokeWidth={5}
-            lineCap="round"
-            lineJoin="round"
-          />
+          <ShapeSource
+            id="closed-line"
+            shape={{
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: [lineCoords[lineCoords.length - 1], lineCoords[0]],
+              },
+              properties: {},
+            }}
+          >
+            <LineLayer
+              id="closed-line-layer"
+              style={{
+                lineColor: '#00ff88',
+                lineWidth: 4,
+                lineDasharray: [8, 8],
+              }}
+            />
+          </ShapeSource>
         )}
 
-        {display === 'line' && !closed && points.length > 3 && (
-          <Polyline
-            coordinates={[current, start]}
-            strokeColor="#00ff88"
-            strokeWidth={2}
-            lineDashPattern={[10, 10]}
-          />
-        )}
-
-        {display === 'points' && points.map((pt, idx) => (
-          <Marker key={String(idx)} coordinate={pt} anchor={{ x: 0.5, y: 0.5 }}>
-            <View style={styles.dot} />
-          </Marker>
+        {/* Corner pins */}
+        {points.map((p, idx) => (
+          <MarkerView
+            key={`pin-${idx}`}
+            coordinate={[p.longitude, p.latitude]}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View
+              style={
+                idx === 0
+                  ? styles.startPin
+                  : styles.cornerPin
+              }
+            />
+          </MarkerView>
         ))}
 
-        {start && (
-          <Marker coordinate={start} title="START" pinColor="#00ff88" anchor={{ x: 0.5, y: 0.5 }} />
-        )}
-
-        {current && points.length > 1 && (
-          <Marker coordinate={current} title="You" pinColor="#ffffff" anchor={{ x: 0.5, y: 0.5 }} />
+        {/* User location pin */}
+        {userLocation && (
+          <MarkerView
+            coordinate={[userLocation.longitude, userLocation.latitude]}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.userPin} />
+          </MarkerView>
         )}
       </MapView>
-
-      <Pressable onPress={recenter} style={styles.recenterBtn}>
-        <Text style={styles.recenterIcon}>◎</Text>
-      </Pressable>
     </View>
   );
 }
@@ -194,54 +245,41 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     borderRadius: 20,
+    backgroundColor: '#0a0e0c',
   },
-  map: { width: '100%', height: '100%' },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#00ff88',
-    borderWidth: 1,
-    borderColor: '#ffffff',
-  },
-  userRing: {
+  map: { flex: 1 },
+  startPin: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: 'rgba(0,255,136,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0,255,136,0.35)',
     borderWidth: 2,
     borderColor: '#00ff88',
-  },
-  userDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#00ff88',
-  },
-  recenterBtn: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#0a0e0c',
-    borderWidth: 1,
-    borderColor: '#00ff88',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
     shadowColor: '#00ff88',
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+  cornerPin: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#00ff88',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#00ff88',
+    shadowOpacity: 0.8,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
-  recenterIcon: {
-    fontSize: 22,
-    color: '#00ff88',
-    fontWeight: '900',
-    lineHeight: 24,
+  userPin: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
 });
