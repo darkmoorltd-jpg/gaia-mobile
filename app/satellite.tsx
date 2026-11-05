@@ -208,6 +208,26 @@ export default function Satellite() {
     longitudeDelta: 2,
   };
 
+  const hasActiveFarming = summary?.latest >= 0.4;
+  const isSparse = summary?.latest >= 0.2 && summary?.latest < 0.4;
+  const isBare = summary?.latest != null && summary?.latest < 0.2;
+  
+  const farmingStatusLabel = hasActiveFarming
+    ? '✅ ACTIVE FARMING DETECTED'
+    : isSparse
+      ? '⚠️ SPARSE VEGETATION (EARLY STAGE)'
+      : isBare
+        ? '❌ NO SIGNIFICANT VEGETATION'
+        : '⏳ AWAITING DATA';
+        
+  const farmingStatusColor = hasActiveFarming
+    ? '#00ff88'
+    : isSparse
+      ? '#ffb300'
+      : isBare
+        ? '#ff3b5c'
+        : palette.textMuted;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -240,6 +260,17 @@ export default function Satellite() {
             </ScrollView>
           </>
         ) : null}
+
+        {summary?.latest != null && (
+          <View style={[styles.verificationCard, { borderColor: farmingStatusColor }]}>
+            <Text style={[styles.verificationText, { color: farmingStatusColor }]}>
+              {farmingStatusLabel}
+            </Text>
+            <Text style={styles.verificationSub}>
+              Based on Copernicus Sentinel-2 NDVI data for this exact field boundary.
+            </Text>
+          </View>
+        )}
 
         <View style={styles.mapBox}>
           {!token ? (
@@ -339,6 +370,12 @@ const createStyles = (p: any) => StyleSheet.create({
   farmChipText: { fontSize: 12, fontWeight: '800', color: p.text },
   farmChipTextOn: { color: p.neon },
   farmChipMeta: { fontSize: 10, color: p.textMuted, marginTop: 2 },
+  verificationCard: {
+    marginTop: 16, padding: 16, borderRadius: 12, borderWidth: 2,
+    backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center'
+  },
+  verificationText: { fontSize: 16, fontWeight: '900', letterSpacing: 1, marginBottom: 6, textAlign: 'center' },
+  verificationSub: { fontSize: 11, color: '#888', textAlign: 'center', lineHeight: 16 },
   mapBox: {
     aspectRatio: 1, marginTop: 18, borderRadius: 20, overflow: 'hidden',
     backgroundColor: p.abyss, borderWidth: 1, borderColor: p.border, position: 'relative',
