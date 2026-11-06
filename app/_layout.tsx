@@ -249,6 +249,7 @@ function RootNavigator() {
       <Stack.Screen name="organic-certification" options={{ headerShown: false }} />
       <Stack.Screen name="verify-certificate" options={{ headerShown: false }} />
       <Stack.Screen name="eudr" options={{ headerShown: false }} />
+      <Stack.Screen name="input-provider-dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
       <Stack.Screen name="organic-market" options={{ headerShown: false }} />
       <Stack.Screen name="eudr-dashboard" options={{ headerShown: false }} />

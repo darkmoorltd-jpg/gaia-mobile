@@ -11,9 +11,6 @@ export default function InputProviderApply() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [businessReg, setBusinessReg] = useState('');
   const [phone, setPhone] = useState('');
@@ -36,22 +33,16 @@ export default function InputProviderApply() {
   };
 
   const submit = async () => {
-    if (!email || !password || !businessName || !phone) {
-      Alert.alert('Missing', 'Email, password, business name, and phone are required.'); return;
+    if (!businessName || !phone) {
+      Alert.alert('Missing', 'Business name and phone are required.'); return;
     }
-    if (password.length < 6) { Alert.alert('Password', 'Min 6 characters'); return; }
-    if (password !== confirm) { Alert.alert('Mismatch', 'Passwords do not match'); return; }
     if (categories.length === 0) { Alert.alert('Pick categories', 'Select at least one input category'); return; }
+    
     setBusy(true);
     try {
-      const { data: signUp, error: signErr } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: { data: { role: 'provider', business_name: businessName } },
-      });
-      if (signErr && !signErr.message.toLowerCase().includes('already')) {
-        Alert.alert('Signup failed', signErr.message); setBusy(false); return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Please log in first');
+
       const { error } = await supabase.rpc('input_provider_apply', {
         p_business_name: businessName.trim(),
         p_address: address || '',
@@ -61,7 +52,7 @@ export default function InputProviderApply() {
         p_country_code: countryCode,
         p_phone: phone,
         p_whatsapp: whatsapp || phone,
-        p_email: email.trim().toLowerCase(),
+        p_email: user.email,
         p_description: description || '',
         p_categories: categories,
         p_bank_name: bankName || '',
@@ -70,7 +61,6 @@ export default function InputProviderApply() {
         p_business_reg_number: businessReg || null,
       });
       if (error) { Alert.alert('Failed', error.message); setBusy(false); return; }
-      await supabase.auth.signOut();
       setDone(true);
     } catch (e: any) { Alert.alert('Failed', e.message); }
     finally { setBusy(false); }
@@ -84,11 +74,11 @@ export default function InputProviderApply() {
             <Text style={styles.doneIcon}>✓</Text>
             <Text style={styles.doneTitle}>Application received</Text>
             <Text style={styles.doneBody}>
-              Your input provider application is pending admin approval. You'll be notified once approved.
-              Log in as a normal user in the meantime.
+              Your input provider application is pending admin approval. 
+              You'll be notified once approved. You can continue using the app as a normal user.
             </Text>
-            <Pressable onPress={() => router.replace('/(auth)/login')} style={styles.cta}>
-              <Text style={styles.ctaText}>BACK TO LOGIN</Text>
+            <Pressable onPress={() => router.replace('/(tabs)')} style={styles.cta}>
+              <Text style={styles.ctaText}>BACK TO DASHBOARD</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -102,14 +92,6 @@ export default function InputProviderApply() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Sell Farm Inputs on GAIA</Text>
         <Text style={styles.sub}>Join as an input provider. Free to apply — admin reviews your business.</Text>
-
-        <Text style={styles.section}>ACCOUNT</Text>
-        <Text style={styles.label}>EMAIL *</Text>
-        <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} placeholderTextColor={palette.textDim} />
-        <Text style={styles.label}>PASSWORD * (min 6)</Text>
-        <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholderTextColor={palette.textDim} />
-        <Text style={styles.label}>CONFIRM PASSWORD *</Text>
-        <TextInput value={confirm} onChangeText={setConfirm} secureTextEntry style={styles.input} placeholderTextColor={palette.textDim} />
 
         <Text style={styles.section}>BUSINESS</Text>
         <Text style={styles.label}>BUSINESS NAME *</Text>
@@ -163,7 +145,6 @@ export default function InputProviderApply() {
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SUBMIT APPLICATION</Text>}
         </Pressable>
-
         <View style={{ height: 60 }} />
       </ScrollView>
     </KeyboardAvoidingView>
