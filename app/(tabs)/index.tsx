@@ -58,21 +58,27 @@ export default function Home() {
       { key: 'pension', title: 'Legacy & Pension', sub: 'Manage retirement', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/pension-dashboard' },
       { key: 'farm-profile', title: 'My Farm Data', sub: 'NDFR Farm Profile', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-profile' },
       { key: 'lease', title: 'Lease Farm Land', sub: 'For young farmers', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
-      { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
       { key: 'warehouse-register', title: 'Become Warehouse Partner', sub: 'List your facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
       { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units & bookings', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' },
+      { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
+      { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
+      { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },
+      { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' }
+    ]},
+  {
+    id: 'logistics', label: 'LOGISTICS & EXPORT', tiles: [
+      { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
       { key: 'wh-manager', title: 'Warehouse Manager', sub: 'Receive & log batches', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-manager' },
       { key: 'driver', title: 'Driver Logistics', sub: 'Accept & deliver cargo', img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800', route: '/driver-app' },
       { key: 'exporter', title: 'Exporter Portal', sub: 'EUDR containers & docs', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/exporter-dashboard' },
       { key: 'container-track', title: 'Container Tracking', sub: 'Live shipment status', img: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800', route: '/container-tracking' },
       { key: 'eudr-pdf', title: 'EUDR Document', sub: 'Generate compliance PDF', img: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800', route: '/eudr-pdf' },
-      { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
-      { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
-      { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },
       { key: 'batches', title: 'Harvest Batches', sub: 'Create crop passports', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-batches' },
       { key: 'eudr', title: 'EU Export Center', sub: 'EUDR compliance', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/eudr-dashboard' },
-      { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
-    ]},
+      { key: 'warehouse-register', title: 'Become Warehouse Partner', sub: 'List your facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
+      { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units & bookings', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' }
+    ]
+  },
     { id: 'ai_tools', label: t('dashboard.sections.aiTools'), tiles: [
       { key: 'agro',      title: t('dashboard.tiles.agro'),      sub: t('dashboard.tiles.agroSub'),      img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
       { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
@@ -483,6 +489,7 @@ export default function Home() {
       case 'section:my_farm':  return renderSection(SECTIONS[1]);
       case 'section:ai_tools': return renderSection(SECTIONS[2]);
       case 'section:market':   return renderSection(SECTIONS[3]);
+      case 'section:logistics': return renderSection(SECTIONS[4]);
 
       case 'admin':
         if (!isAdmin) return null;
