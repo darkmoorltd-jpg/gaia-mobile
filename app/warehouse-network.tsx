@@ -34,6 +34,7 @@ export default function WarehouseNetwork() {
   });
 
   const bookStorage = async () => {
+    if (!user) return;
     if (!tonnes || isNaN(Number(tonnes))) { Alert.alert('Enter tonnes'); return; }
     setBooking(true);
     const total = Number(tonnes) * Number(days) * selected.daily_rate_per_tonne;

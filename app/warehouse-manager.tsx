@@ -18,6 +18,14 @@ export default function WarehouseManager() {
   const [processing, setProcessing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
     setBusy(true);
     // Fetch all batches that are NOT yet in storage (in transit to us)
     const { data } = await supabase
@@ -43,6 +51,7 @@ export default function WarehouseManager() {
   };
 
   const confirmReceive = async () => {
+    if (!user) return;
     if (!receivedKg || isNaN(Number(receivedKg))) { Alert.alert('Enter valid kg'); return; }
     setProcessing(true);
 

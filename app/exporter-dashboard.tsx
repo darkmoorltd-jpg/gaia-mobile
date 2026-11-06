@@ -19,6 +19,14 @@ export default function ExporterDashboard() {
   const [port, setPort] = useState('Apapa, Lagos');
 
   const load = useCallback(async () => {
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
+    if (!user) return;
     setBusy(true);
     // Fetch batches available in storage
     const { data } = await supabase.from('batches').select('*').eq('status', 'in_storage').order('created_at', { ascending: false });
@@ -33,6 +41,7 @@ export default function ExporterDashboard() {
   };
 
   const createContainer = async () => {
+    if (!user) return;
     if (!containerNum.trim()) { Alert.alert('Enter container number'); return; }
     if (selectedIds.length === 0) { Alert.alert('Select at least 1 batch'); return; }
     setBusy(true);

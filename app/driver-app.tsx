@@ -30,6 +30,7 @@ export default function DriverApp() {
   }, []);
 
   const findBatch = async () => {
+    if (!user) return;
     if (!scanCode.trim()) return;
     setBusy(true);
     const { data } = await supabase.from('batches').select('*').eq('batch_code', scanCode.trim().toUpperCase()).maybeSingle();
@@ -75,6 +76,7 @@ export default function DriverApp() {
   };
 
   const acceptCargo = async () => {
+    if (!user) return;
     setBusy(true);
     await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batch.id);
     await supabase.from('batch_movements').insert({
@@ -96,6 +98,7 @@ export default function DriverApp() {
   };
 
   const deliverCargo = async () => {
+    if (!user) return;
     if (!batch) return;
     setBusy(true);
     stopTracking();

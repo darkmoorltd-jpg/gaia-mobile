@@ -31,6 +31,7 @@ export default function OrganicMarket() {
   }, []);
 
   const processGift = async () => {
+    if (!user) return;
     if (!giftName || !giftPhone || !giftAddress) {
       Alert.alert('Missing Info', 'Please fill in the recipient details.');
       return;
