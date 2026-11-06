@@ -83,7 +83,9 @@ export default function Home() {
       { key: 'agro',      title: t('dashboard.tiles.agro'),      sub: t('dashboard.tiles.agroSub'),      img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
       { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
     ]},
-    { id: 'market', label: t('dashboard.sections.market'), tiles: [
+    { key: 'organic-market-v2', title: 'Organic Market', sub: 'Certified sellers', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-storefront' },
+      { key: 'diaspora-box', title: 'Diaspora Box', sub: 'Send food home monthly', img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=800', route: '/diaspora-box' },
+      { id: 'market', label: t('dashboard.sections.market'), tiles: [
       { key: 'org-seller-dash', title: 'My Organic Store', sub: 'Manage products & orders', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-seller-dashboard' },
       { key: 'org-seller-reg', title: 'Become Organic Seller', sub: 'Reach diaspora & B2B buyers', img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=800', route: '/organic-seller-register' },
       { key: 'marketplace', title: t('dashboard.tiles.marketplace'), sub: t('dashboard.tiles.marketplaceSub'), img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
