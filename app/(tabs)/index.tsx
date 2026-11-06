@@ -43,73 +43,90 @@ const BLOCK_FLAGS: Record<string, string | undefined> = {
 export default function Home() {
   const { t } = useTranslation();
 
+  
   const SECTIONS = [
-    { id: 'diagnose', label: t('dashboard.sections.diagnose'), tiles: [
-      { key: 'crops',     title: t('dashboard.tiles.crops'),     sub: t('dashboard.tiles.cropsSub'),     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/(tabs)/crops',     flag: 'crops' },
-      { key: 'pests',     title: t('dashboard.tiles.pests'),     sub: t('dashboard.tiles.pestsSub'),     img: 'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800', route: '/(tabs)/pests',     flag: 'pests' },
-      { key: 'soil',      title: t('dashboard.tiles.soil'),      sub: t('dashboard.tiles.soilSub'),      img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/(tabs)/soil',      flag: 'soil' },
-      { key: 'livestock', title: t('dashboard.tiles.livestock'), sub: t('dashboard.tiles.livestockSub'), img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock', flag: 'livestock' },
+    { id: 'diagnose', label: 'DIAGNOSE & AI', tiles: [
+      { key: 'crops',     title: 'Crops',     sub: 'Disease detection',     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/(tabs)/crops', flag: 'crops' },
+      { key: 'pests',     title: 'Pests',     sub: 'Identify pests',        img: 'https://images.unsplash.com/photo-1590691566903-692bf5ca7493?w=800', route: '/(tabs)/pests', flag: 'pests' },
+      { key: 'soil',      title: 'Soil',      sub: 'Type analysis',         img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/(tabs)/soil', flag: 'soil' },
+      { key: 'livestock', title: 'Livestock', sub: 'Animal health',         img: 'https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800', route: '/(tabs)/livestock', flag: 'livestock' },
+      { key: 'agro',      title: 'Agro Tools',sub: 'Calculators',           img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
+      { key: 'satellite', title: 'Satellite', sub: 'Farm monitoring',       img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
+      { key: 'video-scan',title: 'Video Scan',sub: 'Walk & scan',           img: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800', route: '/video-scan' },
     ]},
-    { id: 'my_farm', label: t('dashboard.sections.myFarm'), tiles: [
-      { key: 'seller',   title: t('dashboard.tiles.seller'),   sub: t('dashboard.tiles.sellerSub'),   img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/marketplace-store', flag: 'marketplace' },
-      { key: 'mapping',  title: t('dashboard.tiles.mapping'),  sub: t('dashboard.tiles.mappingSub'),  img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
-      { key: 'soil-data', title: 'Soil by GPS', sub: 'Real soil chemistry', img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/soil-data' },
-      { key: 'journal',  title: t('dashboard.tiles.journal'),  sub: t('dashboard.tiles.journalSub'),  img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
-      { key: 'pension', title: 'Legacy & Pension', sub: 'Manage retirement', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/pension-dashboard' },
-      { key: 'farm-profile', title: 'My Farm Data', sub: 'NDFR Farm Profile', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-profile' },
-      { key: 'lease', title: 'Lease Farm Land', sub: 'For young farmers', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
-      { key: 'warehouse-register', title: 'Become Warehouse Partner', sub: 'List your facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
-      { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units & bookings', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' },
-      { key: 'food-sec', title: 'Food Security', sub: 'National surplus map', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800', route: '/food-security' },
-      { key: 'clinic', title: "Dr. Vinc's Clinic", sub: 'Diet & Health tracking', img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', route: '/clinical-nutrition' },
-      { key: 'care-sub', title: 'Care Plans', sub: 'Subscribe to Dr. Vinc', img: 'https://images.unsplash.com/photo-1511174511562-5f7f18b874f8?w=800', route: '/care-subscribe' },
-      { key: 'calendar', title: t('dashboard.tiles.calendar'), sub: t('dashboard.tiles.calendarSub'), img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' }
+    { id: 'my_farm', label: 'MY FARM', tiles: [
+      { key: 'mapping',   title: 'Farm Mapping', sub: 'Draw boundaries',    img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-mapping' },
+      { key: 'soil-data', title: 'Soil by GPS',  sub: 'Real soil chemistry',img: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=800', route: '/soil-data' },
+      { key: 'journal',   title: 'Journal',      sub: 'Log activities',     img: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800', route: '/journal' },
+      { key: 'calendar',  title: 'Calendar',     sub: 'Planting schedule',  img: 'https://images.unsplash.com/photo-1506784390229-73e0b7c9c8e9?w=800', route: '/calendar', flag: 'calendar' },
+      { key: 'farm-profile', title: 'Farm Profile', sub: 'Manage details',  img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-profile' },
+      { key: 'pension',   title: 'Pension',      sub: 'Retirement plan',    img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/pension-dashboard' },
+      { key: 'lease',     title: 'Lease Market', sub: 'Rent farmland',      img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
+      { key: 'food-sec',  title: 'Food Security',sub: 'Nutrition tracking', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/food-security' },
+      { key: 'clinic',    title: 'Clinic',       sub: 'Health advice',      img: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800', route: '/clinical-nutrition' },
     ]},
-  {
-    id: 'logistics', label: 'LOGISTICS & EXPORT', tiles: [
-      { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
-      { key: 'wh-manager', title: 'Warehouse Manager', sub: 'Receive & log batches', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-manager' },
-      { key: 'driver', title: 'Driver Logistics', sub: 'Accept & deliver cargo', img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800', route: '/driver-app' },
-      { key: 'exporter', title: 'Exporter Portal', sub: 'EUDR containers & docs', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/exporter-dashboard' },
-      { key: 'container-track', title: 'Container Tracking', sub: 'Live shipment status', img: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800', route: '/container-tracking' },
-      { key: 'eudr-pdf', title: 'EUDR Document', sub: 'Generate compliance PDF', img: 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=800', route: '/eudr-pdf' },
-      { key: 'batches', title: 'Harvest Batches', sub: 'Create crop passports', img: 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?w=800', route: '/farm-batches' },
-      { key: 'eudr', title: 'EU Export Center', sub: 'EUDR compliance', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/eudr-dashboard' },
-      { key: 'warehouse-register', title: 'Become Warehouse Partner', sub: 'List your facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
-      { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units & bookings', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' }
-    ]
-  },
-    { id: 'ai_tools', label: t('dashboard.sections.aiTools'), tiles: [
-      { key: 'agro',      title: t('dashboard.tiles.agro'),      sub: t('dashboard.tiles.agroSub'),      img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
-      { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
+    { id: 'marketplace', label: 'MARKETPLACE & ORGANIC', tiles: [
+      { key: 'marketplace', title: 'Marketplace',   sub: 'Buy & sell',          img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
+      { key: 'store-map',   title: 'Store Map',     sub: 'Find physical stores', img: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800', route: '/store-map' },
+      { key: 'rent-store',  title: 'Rent Store',    sub: 'Commercial space',    img: 'https://images.unsplash.com/photo-1582284540020-8acbe03f4924?w=800', route: '/marketplace-rent-store' },
+      { key: 'organic',     title: 'Organic Market',sub: 'Certified produce',   img: 'https://images.unsplash.com/photo-1595856619767-ab951e2f6b38?w=800', route: '/organic-storefront' },
+      { key: 'diaspora-box',title: 'Diaspora Box',  sub: 'Send food home',      img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=800', route: '/diaspora-box' },
+      { key: 'org-seller-reg', title: 'Become Seller', sub: 'Sell organic',     img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=800', route: '/organic-seller-register' },
+      { key: 'org-seller-dash',title: 'My Organic Store', sub: 'Manage listings',img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-seller-dashboard' },
+      { key: 'escrow-chat', title: 'Escrow Chat',   sub: 'Order messaging',     img: 'https://images.unsplash.com/photo-1577563908411-5077b6dc7624?w=800', route: '/escrow-chat' },
+      { key: 'buy-scans',   title: 'Buy Scans',     sub: 'Top up AI quota',     img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
     ]},
-    { key: 'verify-cert', title: 'Verify Certificate', sub: 'Check organic claims', img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/verify-certificate' },
-      { key: 'organic-market-v2', title: 'Organic Market', sub: 'Certified sellers', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-storefront' },
-      { key: 'diaspora-box', title: 'Diaspora Box', sub: 'Send food home monthly', img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=800', route: '/diaspora-box' },
-      { id: 'market', label: t('dashboard.sections.market'), tiles: [
-      { key: 'org-seller-dash', title: 'My Organic Store', sub: 'Manage products & orders', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-seller-dashboard' },
-      { key: 'org-seller-reg', title: 'Become Organic Seller', sub: 'Reach diaspora & B2B buyers', img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=800', route: '/organic-seller-register' },
-      { key: 'marketplace', title: t('dashboard.tiles.marketplace'), sub: t('dashboard.tiles.marketplaceSub'), img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
-      { key: 'organic', title: 'GAIA Organic', sub: 'Certified chemical-free', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-market' },
-      { key: 'buy-scans',   title: t('dashboard.tiles.buyScans'),    sub: t('dashboard.tiles.buyScansSub'),    img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },
+    { id: 'inputs', label: 'INPUTS & SUPPLIES', tiles: [
+      { key: 'inputs',      title: 'Inputs Catalog', sub: 'Seeds & fertilizer', img: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800', route: '/inputs' },
+      { key: 'input-provider-apply', title: 'Become Provider', sub: 'Sell inputs', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/input-provider-apply' },
+      { key: 'input-product', title: 'My Products',  sub: 'Manage inventory',   img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/input-product' },
+      { key: 'input-orders',title: 'Input Orders',   sub: 'Fulfill orders',     img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800', route: '/input-orders' },
+    ]},
+    { id: 'logistics', label: 'LOGISTICS & EXPORT', tiles: [
+      { key: 'warehouse',   title: 'Warehouse Network', sub: 'Find storage',    img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-network' },
+      { key: 'warehouse-register', title: 'Become Partner', sub: 'List facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
+      { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' },
+      { key: 'wh-manager',  title: 'Warehouse Manager', sub: 'Receive batches', img: 'https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=800', route: '/warehouse-manager' },
+      { key: 'driver',      title: 'Driver App',        sub: 'Deliver cargo',   img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800', route: '/driver-app' },
+      { key: 'exporter',    title: 'Exporter Dashboard',sub: 'Create containers',img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/exporter-dashboard' },
+      { key: 'container-track', title: 'Container Tracking', sub: 'Live export', img: 'https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=800', route: '/container-tracking' },
+      { key: 'batches',     title: 'Batches',           sub: 'Track harvest',   img: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800', route: '/farm-batches' },
+      { key: 'trace-batch', title: 'Trace Batch',       sub: 'Scan QR code',    img: 'https://images.unsplash.com/photo-1595079676339-1534801ad6cf?w=800', route: '/trace-batch' },
+      { key: 'eudr',        title: 'EUDR',              sub: 'Compliance',      img: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800', route: '/eudr' },
+      { key: 'eudr-pdf',    title: 'EUDR PDF',          sub: 'Generate report', img: 'https://images.unsplash.com/photo-1568667256549-094345857637?w=800', route: '/eudr-pdf' },
+    ]},
+    { id: 'finance', label: 'FINANCE & SUPPORT', tiles: [
+      { key: 'loans',       title: 'Loans',           sub: 'Agri-financing',  img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/loans' },
+      { key: 'alerts',      title: 'Alerts',          sub: 'Weather & market',img: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=800', route: '/alerts' },
+      { key: 'briefing',    title: 'Briefing',        sub: 'Policy news',     img: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800', route: '/briefing' },
+      { key: 'photo-timeline',title: 'Photo Timeline',sub: 'Crop growth',     img: 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=800', route: '/photo-timeline' },
+      { key: 'kyc-verify',  title: 'KYC Verify',      sub: 'Identity check',  img: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800', route: '/kyc-verify' },
+      { key: 'verify-cert', title: 'Verify Cert',     sub: 'Check organic',   img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/verify-certificate' },
+      { key: 'my-data',     title: 'My Data',         sub: 'Privacy & export',img: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800', route: '/my-data' },
+      { key: 'grievance',   title: 'Grievance',       sub: 'Report issues',   img: 'https://images.unsplash.com/photo-1577563908411-5077b6dc7624?w=800', route: '/grievance' },
     ]},
   ];
 
+
+  
   const BLOCKS = [
-    { id: 'header',            label: t('dashboard.blocks.header') },
-    { id: 'weather',           label: t('dashboard.blocks.weather') },
-    { id: 'streak',            label: t('dashboard.blocks.streak') },
-    { id: 'plan',              label: t('dashboard.blocks.plan') },
-    { id: 'wallet',            label: t('dashboard.blocks.wallet') },
-    { id: 'season',            label: t('dashboard.blocks.season') },
-    { id: 'community',         label: t('dashboard.blocks.community') },
-    { id: 'agronomist',        label: t('dashboard.blocks.agronomist') },
-    { id: 'section:diagnose',  label: t('dashboard.blocks.secDiagnose') },
-    { id: 'section:my_farm',   label: t('dashboard.blocks.secMyFarm') },
-    { id: 'section:ai_tools',  label: t('dashboard.blocks.secAiTools') },
-    { id: 'section:market',    label: t('dashboard.blocks.secMarket') },
-    { id: 'admin',             label: t('dashboard.blocks.admin') },
+    { id: 'header',            label: 'Header' },
+    { id: 'weather',           label: 'Weather' },
+    { id: 'streak',            label: 'Streak' },
+    { id: 'plan',              label: 'Plan' },
+    { id: 'wallet',            label: 'Wallet' },
+    { id: 'season',            label: 'Season' },
+    { id: 'community',         label: 'Community' },
+    { id: 'agronomist',        label: 'Agronomist' },
+    { id: 'section:diagnose',  label: 'Diagnose & AI' },
+    { id: 'section:my_farm',   label: 'My Farm' },
+    { id: 'section:marketplace', label: 'Marketplace' },
+    { id: 'section:inputs',    label: 'Inputs' },
+    { id: 'section:logistics', label: 'Logistics & Export' },
+    { id: 'section:finance',   label: 'Finance & Support' },
+    { id: 'admin',             label: 'Admin' },
   ];
+
 
   const DEFAULT_BLOCK_ORDER = BLOCKS.map((b) => b.id);
 
@@ -490,12 +507,18 @@ export default function Home() {
           </Animated.View>
         );
 
+      
+      case 'section:my_farm':  return renderSection(SECTIONS[1]);
+      
+      case 'section:market':   return renderSection(SECTIONS[3]);
+      
+
       case 'section:diagnose': return renderSection(SECTIONS[0]);
       case 'section:my_farm':  return renderSection(SECTIONS[1]);
-      case 'section:ai_tools': return renderSection(SECTIONS[2]);
-      case 'section:market':   return renderSection(SECTIONS[3]);
+      case 'section:marketplace': return renderSection(SECTIONS[2]);
+      case 'section:inputs':   return renderSection(SECTIONS[3]);
       case 'section:logistics': return renderSection(SECTIONS[4]);
-
+      case 'section:finance':  return renderSection(SECTIONS[5]);
       case 'admin':
         if (!isAdmin) return null;
         return (
