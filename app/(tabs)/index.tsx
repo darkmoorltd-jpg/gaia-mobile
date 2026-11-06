@@ -84,6 +84,8 @@ export default function Home() {
       { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
     ]},
     { id: 'market', label: t('dashboard.sections.market'), tiles: [
+      { key: 'org-seller-dash', title: 'My Organic Store', sub: 'Manage products & orders', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-seller-dashboard' },
+      { key: 'org-seller-reg', title: 'Become Organic Seller', sub: 'Reach diaspora & B2B buyers', img: 'https://images.unsplash.com/photo-1590779033100-9f60a05a013d?w=800', route: '/organic-seller-register' },
       { key: 'marketplace', title: t('dashboard.tiles.marketplace'), sub: t('dashboard.tiles.marketplaceSub'), img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
       { key: 'organic', title: 'GAIA Organic', sub: 'Certified chemical-free', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-market' },
       { key: 'buy-scans',   title: t('dashboard.tiles.buyScans'),    sub: t('dashboard.tiles.buyScansSub'),    img: 'https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800', route: '/buy-scans' },

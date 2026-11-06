@@ -241,6 +241,8 @@ function RootNavigator() {
       <Stack.Screen name="warehouse-register" options={{ headerShown: false }} />
       <Stack.Screen name="warehouse-dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="admin-warehouses" options={{ headerShown: false }} />
+      <Stack.Screen name="organic-seller-register" options={{ headerShown: false }} />
+      <Stack.Screen name="organic-seller-dashboard" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
       <Stack.Screen name="organic-market" options={{ headerShown: false }} />
       <Stack.Screen name="eudr-dashboard" options={{ headerShown: false }} />
