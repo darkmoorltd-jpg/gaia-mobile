@@ -64,6 +64,9 @@ const SECTIONS: Section[] = [
     icon: 'MK',
     items: [
       { label: 'Marketplace Moderation', route: '/admin-marketplace' },
+      { label: 'Warehouse Companies', route: '/admin-warehouses' },
+      { label: 'Organic Sellers', route: '/admin-organic' },
+      { label: 'Certify Organic Seller', route: '/organic-certification' },
     ],
   },
   {
