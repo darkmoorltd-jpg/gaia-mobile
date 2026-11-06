@@ -59,6 +59,8 @@ export default function Home() {
       { key: 'farm-profile', title: 'My Farm Data', sub: 'NDFR Farm Profile', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/farm-profile' },
       { key: 'lease', title: 'Lease Farm Land', sub: 'For young farmers', img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
       { key: 'warehouse', title: 'Warehouse Network', sub: 'Storage & cold chain', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-network' },
+      { key: 'warehouse-register', title: 'Become Warehouse Partner', sub: 'List your facility', img: 'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800', route: '/warehouse-register' },
+      { key: 'warehouse-dashboard', title: 'My Warehouse', sub: 'Manage units & bookings', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-dashboard' },
       { key: 'wh-manager', title: 'Warehouse Manager', sub: 'Receive & log batches', img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-manager' },
       { key: 'driver', title: 'Driver Logistics', sub: 'Accept & deliver cargo', img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800', route: '/driver-app' },
       { key: 'exporter', title: 'Exporter Portal', sub: 'EUDR containers & docs', img: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800', route: '/exporter-dashboard' },
