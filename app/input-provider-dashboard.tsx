@@ -1,10 +1,17 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { INPUT_CATEGORIES, categoryEmoji } from '../src/data/input_categories';
 
+const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
+const TIERS = {
+  starter: { name: 'Starter', price: 10000 },
+  growth: { name: 'Growth', price: 30000 },
+  enterprise: { name: 'Enterprise', price: 75000 },
+};
 const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
 export default function InputProviderDashboard() {
@@ -12,13 +19,15 @@ export default function InputProviderDashboard() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
+  const [provider, setProvider] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [payRef, setPayRef] = useState<string | null>(null);
 
-  // Add product form state
+  // Add product form
   const [name, setName] = useState('');
   const [category, setCategory] = useState(INPUT_CATEGORIES[0]?.key || '');
   const [price, setPrice] = useState('');
@@ -29,27 +38,55 @@ export default function InputProviderDashboard() {
 
   const load = useCallback(async () => {
     setBusy(true);
-    const [p, o] = await Promise.all([
-      supabase.rpc('input_my_products'),
-      supabase.rpc('input_provider_orders'),
-    ]);
-    setProducts(Array.isArray(p.data) ? p.data : []);
-    setOrders(Array.isArray(o.data) ? o.data : []);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: prov } = await supabase.from('input_providers').select('*').eq('user_id', user.id).maybeSingle();
+      setProvider(prov);
+      
+      if (prov) {
+        const [p, o] = await Promise.all([
+          supabase.rpc('input_my_products'),
+          supabase.rpc('input_provider_orders'),
+        ]);
+        setProducts(Array.isArray(p.data) ? p.data : []);
+        setOrders(Array.isArray(o.data) ? o.data : []);
+      }
+    }
     setBusy(false); setRef(false);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const startPayment = () => {
+    if (!provider) return;
+    const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
+    const ref = 'GAIA_INPUT_' + Date.now().toString(36).toUpperCase();
+    setPayRef(ref);
+  };
+
+  const onPayMsg = async (raw: string) => {
+    try {
+      const d = JSON.parse(raw);
+      if (d.status === 'success' && provider) {
+        await supabase.rpc('input_mark_paid', { 
+          p_provider_id: provider.id, 
+          p_tier_id: provider.tier_id,
+          p_payment_ref: d.reference 
+        });
+        setPayRef(null);
+        load();
+      } else if (d.status === 'closed') {
+        setPayRef(null);
+      }
+    } catch {}
+  };
+
   const addProduct = async () => {
     if (!name || !price || !stock) { Alert.alert('Missing fields'); return; }
     setAdding(true);
     const { error } = await supabase.rpc('input_add_product', {
-      p_name: name.trim(),
-      p_category: category,
-      p_price_ngn: parseFloat(price),
-      p_unit: unit,
-      p_quantity_available: parseFloat(stock),
-      p_description: desc.trim() || null,
+      p_name: name.trim(), p_category: category, p_price_ngn: parseFloat(price),
+      p_unit: unit, p_quantity_available: parseFloat(stock), p_description: desc.trim() || null,
     });
     setAdding(false);
     if (error) { Alert.alert('Failed', error.message); return; }
@@ -57,13 +94,57 @@ export default function InputProviderDashboard() {
     load();
   };
 
+  if (busy) return <View style={styles.container}><ActivityIndicator color="#b388ff" style={{ marginTop: 100 }} /></View>;
+
+  if (!provider) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ color: '#fff', padding: 20 }}>You are not an input provider yet.</Text>
+      </View>
+    );
+  }
+
+  // PAYWALL STATE
+  if (!provider.onboarding_fee_paid) {
+    const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
+    const payHtml = payRef ? '<html><body style="background:#000;margin:0"><script src="https://js.paystack.co/v1/inline.js"></script><script>PaystackPop.setup({key:"' + PAYSTACK_PUBLIC + '",email:"' + provider.email + '",amount:' + (tierData.price * 100) + ',currency:"NGN",ref:"' + payRef + '",callback:function(r){window.ReactNativeWebView.postMessage(JSON.stringify({status:"success",reference:r.reference}));},onClose:function(){window.ReactNativeWebView.postMessage(JSON.stringify({status:"closed"}));}}).openIframe();</script></body></html>' : '';
+
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Activate Your Store</Text>
+          <Text style={styles.sub}>Your application was approved! Pay your yearly subscription to start listing products.</Text>
+          
+          <View style={styles.payCard}>
+            <Text style={styles.payTier}>{tierData.name} Plan</Text>
+            <Text style={styles.payPrice}>₦{tierData.price.toLocaleString()}</Text>
+            <Text style={styles.paySub}>per year</Text>
+            <Pressable onPress={startPayment} style={styles.cta}>
+              <Text style={styles.ctaText}>PAY SUBSCRIPTION</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
+          <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <Pressable onPress={() => setPayRef(null)} style={{ padding: 16 }}>
+              <Text style={{ color: '#b388ff', fontWeight: '900' }}>CANCEL</Text>
+            </Pressable>
+            {payRef ? <WebView source={{ html: payHtml }} onMessage={(e) => onPayMsg(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled style={{ flex: 1 }} /> : null}
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+
+  // ACTIVE STATE (Can add products)
+  const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor="#b388ff" />}>
-        <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>My Input Store</Text>
-        <Text style={styles.sub}>Manage your products and orders</Text>
+        <Text style={styles.title}>{provider.business_name}</Text>
+        <Text style={styles.sub}>Status: Active · Plan: {tierData.name}</Text>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 12 }}>
           <Text style={styles.sectionLabel}>MY PRODUCTS</Text>
@@ -72,9 +153,7 @@ export default function InputProviderDashboard() {
           </Pressable>
         </View>
 
-        {busy ? <ActivityIndicator color="#b388ff" /> : null}
-        {!busy && products.length === 0 ? <Text style={styles.empty}>No products listed yet.</Text> : null}
-
+        {products.length === 0 ? <Text style={styles.empty}>No products listed yet.</Text> : null}
         {products.map(p => (
           <View key={p.id} style={styles.card}>
             <Text style={{ fontSize: 24 }}>{categoryEmoji(p.category)}</Text>
@@ -86,21 +165,16 @@ export default function InputProviderDashboard() {
         ))}
 
         <Text style={[styles.sectionLabel, { marginTop: 24 }]}>RECENT ORDERS</Text>
-        {busy ? null : orders.length === 0 ? <Text style={styles.empty}>No orders yet.</Text> : null}
-        
+        {orders.length === 0 ? <Text style={styles.empty}>No orders yet.</Text> : null}
         {orders.map(o => (
           <View key={o.id} style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{o.product_name} × {o.quantity}</Text>
               <Text style={styles.meta}>Buyer: {o.buyer_email}</Text>
-              <Text style={[styles.meta, { color: o.status === 'pending' ? '#ffb300' : '#00ff88' }]}>
-                Status: {o.status.toUpperCase()}
-              </Text>
               <Text style={styles.total}>{money(o.total_ngn)}</Text>
             </View>
           </View>
         ))}
-
         <View style={{ height: 80 }} />
       </ScrollView>
 
@@ -109,36 +183,24 @@ export default function InputProviderDashboard() {
           <ScrollView style={styles.modalSheet}>
             <Text style={styles.title}>Add New Product</Text>
             <Text style={styles.label}>PRODUCT NAME</Text>
-            <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="e.g. NPK 15-15-15" placeholderTextColor={palette.textDim} />
-            
+            <TextInput value={name} onChangeText={setName} style={styles.input} placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>CATEGORY</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            <ScrollView horizontal contentContainerStyle={{ gap: 6 }}>
               {INPUT_CATEGORIES.map(c => (
                 <Pressable key={c.key} onPress={() => setCategory(c.key)} style={[styles.chip, category === c.key && styles.chipOn]}>
                   <Text style={[styles.chipText, category === c.key && styles.chipTextOn]}>{c.emoji} {c.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
-
             <Text style={styles.label}>PRICE (₦)</Text>
             <TextInput value={price} onChangeText={setPrice} keyboardType="numeric" style={styles.input} placeholderTextColor={palette.textDim} />
-
-            <Text style={styles.label}>UNIT (e.g. kg, bag, litre)</Text>
+            <Text style={styles.label}>UNIT</Text>
             <TextInput value={unit} onChangeText={setUnit} style={styles.input} placeholderTextColor={palette.textDim} />
-
-            <Text style={styles.label}>QUANTITY IN STOCK</Text>
+            <Text style={styles.label}>QUANTITY</Text>
             <TextInput value={stock} onChangeText={setStock} keyboardType="numeric" style={styles.input} placeholderTextColor={palette.textDim} />
-
-            <Text style={styles.label}>DESCRIPTION</Text>
-            <TextInput value={desc} onChangeText={setDesc} multiline style={[styles.input, { minHeight: 80 }]} placeholderTextColor={palette.textDim} />
-
             <Pressable onPress={addProduct} disabled={adding} style={styles.cta}>
               {adding ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SAVE PRODUCT</Text>}
             </Pressable>
-            <Pressable onPress={() => setShowAdd(false)} style={{ marginTop: 16, alignItems: 'center' }}>
-              <Text style={{ color: palette.textMuted }}>Cancel</Text>
-            </Pressable>
-            <View style={{ height: 40 }} />
           </ScrollView>
         </View>
       </Modal>
@@ -148,10 +210,9 @@ export default function InputProviderDashboard() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
-  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 },
+  scroll: { padding: 20, paddingTop: 60 },
+  title: { fontSize: 26, fontWeight: '900', color: p.text },
+  sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
   sectionLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#b388ff' },
   addBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#b388ff', borderRadius: 8 },
   addBtnText: { fontSize: 10, fontWeight: '900', color: '#000', letterSpacing: 1 },
@@ -160,14 +221,18 @@ const createStyles = (p: any) => StyleSheet.create({
   name: { fontSize: 15, fontWeight: '800', color: p.text },
   meta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
   total: { fontSize: 16, fontWeight: '900', color: '#b388ff', marginTop: 4 },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
-  modalSheet: { backgroundColor: p.abyss, marginTop: 60, padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 14, marginBottom: 6 },
-  input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
+  payCard: { backgroundColor: p.surface, padding: 30, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#b388ff', marginTop: 20 },
+  payTier: { fontSize: 16, fontWeight: '800', color: p.text },
+  payPrice: { fontSize: 40, fontWeight: '900', color: '#b388ff', marginTop: 10 },
+  paySub: { fontSize: 12, color: p.textMuted },
+  cta: { padding: 16, borderRadius: 12, backgroundColor: '#b388ff', alignItems: 'center', marginTop: 24, width: '100%' },
+  ctaText: { fontSize: 14, fontWeight: '900', color: '#000', letterSpacing: 1 },
+  label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginTop: 14, marginBottom: 6 },
+  input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
   chipOn: { borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.12)' },
   chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
   chipTextOn: { color: '#b388ff' },
-  cta: { padding: 16, borderRadius: 12, backgroundColor: '#b388ff', alignItems: 'center', marginTop: 20 },
-  ctaText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)' },
+  modalSheet: { backgroundColor: p.abyss, marginTop: 60, padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
 });

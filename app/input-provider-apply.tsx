@@ -6,16 +6,21 @@ import { supabase } from '../src/api/supabase';
 import LocationCascade from '../src/components/LocationCascade';
 import { INPUT_CATEGORIES } from '../src/data/input_categories';
 
+const TIERS = [
+  { id: 'starter', name: 'Starter', price: 10000, limit: '5 products' },
+  { id: 'growth', name: 'Growth', price: 30000, limit: '20 products' },
+  { id: 'enterprise', name: 'Enterprise', price: 75000, limit: 'Unlimited' },
+];
+
 export default function InputProviderApply() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
+  const [tier, setTier] = useState(TIERS[0]);
   const [businessName, setBusinessName] = useState('');
   const [businessReg, setBusinessReg] = useState('');
   const [phone, setPhone] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [description, setDescription] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
   const [countryCode, setCountryCode] = useState('NG');
   const [state, setState] = useState('');
@@ -33,10 +38,9 @@ export default function InputProviderApply() {
   };
 
   const submit = async () => {
-    if (!businessName || !phone) {
-      Alert.alert('Missing', 'Business name and phone are required.'); return;
+    if (!businessName || !phone || categories.length === 0) {
+      Alert.alert('Missing', 'Business name, phone, and at least 1 category are required.'); return;
     }
-    if (categories.length === 0) { Alert.alert('Pick categories', 'Select at least one input category'); return; }
     
     setBusy(true);
     try {
@@ -46,22 +50,27 @@ export default function InputProviderApply() {
       const { error } = await supabase.rpc('input_provider_apply', {
         p_business_name: businessName.trim(),
         p_address: address || '',
-        p_state: state,
-        p_lga: lga,
-        p_city: city,
-        p_country_code: countryCode,
-        p_phone: phone,
-        p_whatsapp: whatsapp || phone,
+        p_state: state, p_lga: lga, p_city: city, p_country_code: countryCode,
+        p_phone: phone, p_whatsapp: phone,
         p_email: user.email,
-        p_description: description || '',
+        p_description: '',
         p_categories: categories,
         p_bank_name: bankName || '',
         p_bank_account_number: bankAccountNumber || '',
         p_bank_account_name: bankAccountName || '',
         p_business_reg_number: businessReg || null,
       });
-      if (error) { Alert.alert('Failed', error.message); setBusy(false); return; }
-      setDone(true);
+      
+      // Update tier and note it's pending payment
+      if (!error) {
+        await supabase.from('input_providers').update({ 
+          tier_id: tier.id,
+          onboarding_fee_paid: false 
+        }).eq('user_id', user.id);
+        setDone(true);
+      } else {
+        Alert.alert('Failed', error.message);
+      }
     } catch (e: any) { Alert.alert('Failed', e.message); }
     finally { setBusy(false); }
   };
@@ -74,8 +83,7 @@ export default function InputProviderApply() {
             <Text style={styles.doneIcon}>✓</Text>
             <Text style={styles.doneTitle}>Application received</Text>
             <Text style={styles.doneBody}>
-              Your input provider application is pending admin approval. 
-              You'll be notified once approved. You can continue using the app as a normal user.
+              Wait for Admin approval. Once approved, log in and go to "My Input Store" to pay your subscription and start listing products.
             </Text>
             <Pressable onPress={() => router.replace('/(tabs)')} style={styles.cta}>
               <Text style={styles.ctaText}>BACK TO DASHBOARD</Text>
@@ -90,14 +98,29 @@ export default function InputProviderApply() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>Sell Farm Inputs on GAIA</Text>
-        <Text style={styles.sub}>Join as an input provider. Free to apply — admin reviews your business.</Text>
+        <Text style={styles.title}>Sell Farm Inputs</Text>
+        
+        <Text style={styles.section}>CHOOSE PLAN</Text>
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {TIERS.map(t => (
+            <Pressable key={t.id} onPress={() => setTier(t)} style={[styles.tierCard, tier.id === t.id && styles.tierCardOn]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.tierName}>{t.name}</Text>
+                <Text style={styles.tierLimit}>{t.limit}</Text>
+              </View>
+              <Text style={styles.tierPrice}>₦{t.price.toLocaleString()}/yr</Text>
+            </Pressable>
+          ))}
+        </View>
 
-        <Text style={styles.section}>BUSINESS</Text>
+        <Text style={styles.section}>BUSINESS DETAILS</Text>
         <Text style={styles.label}>BUSINESS NAME *</Text>
         <TextInput value={businessName} onChangeText={setBusinessName} style={styles.input} placeholder="e.g. Notore Agro Ltd" placeholderTextColor={palette.textDim} />
-        <Text style={styles.label}>CAC REG. NUMBER (optional)</Text>
+        <Text style={styles.label}>CAC REG. NUMBER</Text>
         <TextInput value={businessReg} onChangeText={setBusinessReg} style={styles.input} placeholder="RC-1234567" placeholderTextColor={palette.textDim} />
+        <Text style={styles.label}>PHONE *</Text>
+        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
+        
         <Text style={styles.label}>WHAT DO YOU SELL? *</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
           {INPUT_CATEGORIES.map(c => (
@@ -107,34 +130,8 @@ export default function InputProviderApply() {
             </Pressable>
           ))}
         </View>
-        <Text style={styles.label}>ABOUT YOUR BUSINESS</Text>
-        <TextInput value={description} onChangeText={setDescription} multiline style={[styles.input, { minHeight: 80 }]} placeholderTextColor={palette.textDim} />
 
-        <Text style={styles.section}>CONTACT</Text>
-        <Text style={styles.label}>PHONE *</Text>
-        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
-        <Text style={styles.label}>WHATSAPP</Text>
-        <TextInput value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
-
-        <Text style={styles.section}>LOCATION</Text>
-        <LocationCascade
-          countryCode={countryCode}
-          countryLocked={false}
-          primary={state}
-          secondary={lga}
-          city={city}
-          showCity={true}
-          debug={false}
-          onChange={(u) => {
-            if (u.primary !== undefined) setState(u.primary);
-            if (u.secondary !== undefined) setLga(u.secondary);
-            if (u.city !== undefined) setCity(u.city);
-          }}
-        />
-        <Text style={styles.label}>STREET ADDRESS</Text>
-        <TextInput value={address} onChangeText={setAddress} style={styles.input} placeholderTextColor={palette.textDim} />
-
-        <Text style={styles.section}>BANK (for payouts)</Text>
+        <Text style={styles.section}>BANK & LOCATION</Text>
         <Text style={styles.label}>BANK NAME</Text>
         <TextInput value={bankName} onChangeText={setBankName} style={styles.input} placeholder="GTBank" placeholderTextColor={palette.textDim} />
         <Text style={styles.label}>ACCOUNT NUMBER</Text>
@@ -156,7 +153,6 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16, lineHeight: 18 },
   section: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#b388ff', marginTop: 22, marginBottom: 4 },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginTop: 14, marginBottom: 6 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
@@ -164,6 +160,11 @@ const createStyles = (p: any) => StyleSheet.create({
   chipOn: { borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.12)' },
   chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
   chipTextOn: { color: '#b388ff' },
+  tierCard: { flexDirection: 'row', padding: 16, borderRadius: 12, borderWidth: 2, borderColor: p.border, alignItems: 'center' },
+  tierCardOn: { borderColor: '#b388ff', backgroundColor: 'rgba(179,136,255,0.1)' },
+  tierName: { fontSize: 16, fontWeight: '900', color: p.text },
+  tierLimit: { fontSize: 11, color: p.textMuted, marginTop: 4 },
+  tierPrice: { fontSize: 16, fontWeight: '900', color: '#b388ff' },
   cta: { padding: 18, borderRadius: 14, backgroundColor: '#b388ff', alignItems: 'center', marginTop: 24 },
   ctaText: { fontSize: 14, fontWeight: '900', color: '#000', letterSpacing: 1 },
   doneBox: { padding: 30, borderRadius: 20, backgroundColor: p.surface, borderWidth: 1, borderColor: '#b388ff', alignItems: 'center', marginTop: 60 },
