@@ -238,6 +238,9 @@ function RootNavigator() {
       <Stack.Screen name="help" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="kyc-verify" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-register" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-warehouses" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
       <Stack.Screen name="organic-market" options={{ headerShown: false }} />
       <Stack.Screen name="eudr-dashboard" options={{ headerShown: false }} />
