@@ -50,13 +50,11 @@ export default function OrganicSellerDashboard() {
     if (!pTitle.trim() || !pPrice || !pStock) { Alert.alert('Missing fields'); return; }
     setAdding(true);
 
-    const { error } = await supabase.from('organic_products').insert({
-      seller_id: seller.id,
-      title: pTitle.trim(),
-      price: parseFloat(pPrice),
-      stock_quantity: parseFloat(pStock),
-      unit: pUnit,
-      is_organic: true,
+    const { error } = await supabase.rpc('create_organic_product', {
+      p_title: pTitle.trim(),
+      p_price: parseFloat(pPrice),
+      p_stock: parseFloat(pStock),
+      p_unit: pUnit,
     });
 
     setAdding(false);
