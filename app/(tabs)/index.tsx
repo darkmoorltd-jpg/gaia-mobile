@@ -83,7 +83,8 @@ export default function Home() {
       { key: 'agro',      title: t('dashboard.tiles.agro'),      sub: t('dashboard.tiles.agroSub'),      img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/agro-tools' },
       { key: 'satellite', title: t('dashboard.tiles.satellite'), sub: t('dashboard.tiles.satelliteSub'), img: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800', route: '/satellite', flag: 'satellite' },
     ]},
-    { key: 'organic-market-v2', title: 'Organic Market', sub: 'Certified sellers', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-storefront' },
+    { key: 'verify-cert', title: 'Verify Certificate', sub: 'Check organic claims', img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/verify-certificate' },
+      { key: 'organic-market-v2', title: 'Organic Market', sub: 'Certified sellers', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-storefront' },
       { key: 'diaspora-box', title: 'Diaspora Box', sub: 'Send food home monthly', img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=800', route: '/diaspora-box' },
       { id: 'market', label: t('dashboard.sections.market'), tiles: [
       { key: 'org-seller-dash', title: 'My Organic Store', sub: 'Manage products & orders', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/organic-seller-dashboard' },

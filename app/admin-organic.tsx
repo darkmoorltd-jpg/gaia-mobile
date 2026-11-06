@@ -28,27 +28,21 @@ export default function AdminOrganic() {
     ]);
     setSellers(s || []);
     setOrders(o || []);
+    try { await supabase.rpc('release_expired_escrow'); } catch {}
     setBusy(false);
   }, [isAdmin]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const toggleCert = async (seller: any) => {
-    const newVal = !seller.is_certified;
-    Alert.alert(
-      newVal ? 'Grant Certification?' : 'Revoke Certification?',
-      seller.business_name,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: newVal ? 'Certify' : 'Revoke', onPress: async () => {
-          await supabase.from('organic_sellers').update({
-            is_certified: newVal,
-            certification_expires_at: newVal ? new Date(Date.now() + 365*86400000).toISOString() : null,
-          }).eq('id', seller.id);
-          load();
-        }},
-      ],
-    );
+  const openCertify = (seller: any) => {
+    router.push(('/organic-certification?sellerId=' + seller.id) as any);
+  };
+
+  const releaseEscrow = async () => {
+    const { data, error } = await supabase.rpc('release_expired_escrow');
+    if (error) { Alert.alert('Failed', error.message); return; }
+    Alert.alert('Escrow Released', String(data) + ' order(s) released');
+    load();
   };
 
   const suspend = async (seller: any) => {
@@ -81,6 +75,10 @@ export default function AdminOrganic() {
           <View style={styles.kpi}><Text style={styles.kpiVal}>{activeSellers}</Text><Text style={styles.kpiLbl}>SELLERS</Text></View>
         </View>
 
+        <Pressable onPress={releaseEscrow} style={{ padding: 14, backgroundColor: 'rgba(255,179,0,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,179,0,0.4)', alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: '900', color: '#ffb300', letterSpacing: 1 }}>⏳ RELEASE EXPIRED ESCROW</Text>
+        </Pressable>
+
         <View style={styles.tabRow}>
           {(['sellers','orders'] as const).map(t => (
             <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabActive]}>
@@ -103,8 +101,8 @@ export default function AdminOrganic() {
             <Text style={styles.meta}>Certified: {s.is_certified ? '✅ Yes' : '❌ No'}</Text>
             <Text style={styles.meta}>Expires: {s.subscription_expires_at ? new Date(s.subscription_expires_at).toLocaleDateString() : '—'}</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-              <Pressable onPress={() => toggleCert(s)} style={[styles.smallBtn, { borderColor: s.is_certified ? '#ffb300' : palette.neon, flex: 1 }]}>
-                <Text style={[styles.smallTxt, { color: s.is_certified ? '#ffb300' : palette.neon }]}>{s.is_certified ? 'REVOKE CERT' : 'CERTIFY'}</Text>
+              <Pressable onPress={() => openCertify(s)} style={[styles.smallBtn, { borderColor: palette.neon, flex: 1 }]}>
+                <Text style={[styles.smallTxt, { color: palette.neon }]}>{s.is_certified ? 'RECERTIFY' : 'CERTIFY'}</Text>
               </Pressable>
               <Pressable onPress={() => suspend(s)} style={[styles.smallBtn, { borderColor: '#ff3b5c', flex: 1 }]}>
                 <Text style={[styles.smallTxt, { color: '#ff3b5c' }]}>SUSPEND</Text>
