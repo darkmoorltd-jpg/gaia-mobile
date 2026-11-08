@@ -230,6 +230,7 @@ function RootNavigator() {
       <Stack.Screen name="input-provider-apply" options={{ headerShown: false }} />
       <Stack.Screen name="input-orders" options={{ headerShown: false }} />
       <Stack.Screen name="input-store" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-inputs" options={{ headerShown: false }} />
       <Stack.Screen name="input-product" options={{ headerShown: false }} />
       <Stack.Screen name="inputs" options={{ headerShown: false }} />
       <Stack.Screen name="photo-timeline" options={{ headerShown: false }} />
