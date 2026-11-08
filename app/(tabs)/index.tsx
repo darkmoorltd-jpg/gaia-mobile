@@ -63,7 +63,7 @@ export default function Home() {
       { key: 'pension',   title: 'Pension',      sub: 'Retirement plan',    img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800', route: '/pension-dashboard' },
       { key: 'lease',     title: 'Lease Market', sub: 'Rent farmland',      img: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800', route: '/lease-market' },
       { key: 'food-sec',  title: 'Food Security',sub: 'Nutrition tracking', img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/food-security' },
-      { key: 'clinic',    title: 'Clinic',       sub: 'Health advice',      img: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800', route: '/clinical-nutrition' },
+      { key: 'clinic',    title: "Dr. Vinc Clinic", sub: 'Health & nutrition',  img: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800', route: '/clinical-nutrition' },
     ]},
     { id: 'marketplace', label: 'MARKETPLACE & ORGANIC', tiles: [
       { key: 'marketplace', title: 'Marketplace',   sub: 'Buy & sell',          img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', route: '/marketplace', flag: 'marketplace' },
@@ -79,8 +79,8 @@ export default function Home() {
     { id: 'inputs', label: 'INPUTS & SUPPLIES', tiles: [
       { key: 'inputs',      title: 'Inputs Catalog', sub: 'Seeds & fertilizer', img: 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800', route: '/inputs' },
       { key: 'input-provider-apply', title: 'Become Provider', sub: 'Sell inputs', img: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800', route: '/input-provider-apply' },
-      { key: 'input-product', title: 'My Products',  sub: 'Manage inventory',   img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/input-product' },
-      { key: 'input-orders',title: 'Input Orders',   sub: 'Fulfill orders',     img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800', route: '/input-orders' },
+      { key: 'provider-dash', title: 'My Store',    sub: 'Manage products',    img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', route: '/input-provider-dashboard' },
+      { key: 'input-orders',title: 'My Input Orders',sub: 'Track my purchases', img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800', route: '/input-orders' },
     ]},
     { id: 'logistics', label: 'LOGISTICS & EXPORT', tiles: [
       { key: 'warehouse',   title: 'Warehouse Network', sub: 'Find storage',    img: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800', route: '/warehouse-network' },
