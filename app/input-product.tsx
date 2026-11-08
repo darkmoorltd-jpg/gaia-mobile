@@ -5,6 +5,8 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { categoryEmoji, categoryLabel } from '../src/data/input_categories';
+import NetInfo from '@react-native-community/netinfo';
+import { queueOrder } from '../src/utils/offlineInputs';
 import ReviewModal from '../src/components/ReviewModal';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
@@ -55,7 +57,28 @@ export default function InputProductDetail() {
     const q = parseFloat(qty) || 0;
     if (q <= 0) { Alert.alert('Quantity must be > 0'); return; }
     if (delivery === 'delivery' && !deliveryAddr.trim()) { Alert.alert('Delivery address required'); return; }
+    
     setBuyBusy(true);
+    const net = await NetInfo.fetch();
+
+    // OFFLINE QUEUE LOGIC
+    if (!net.isConnected) {
+      const saved = await queueOrder({
+        product_id: product.id, quantity: q,
+        delivery_method: delivery,
+        delivery_address: delivery === 'delivery' ? deliveryAddr.trim() : null,
+      });
+      setBuyBusy(false);
+      if (saved) {
+        Alert.alert('Order Queued!', 'You are offline. This order has been saved and will automatically process the next time you have internet.');
+        router.replace('/input-orders' as any);
+      } else {
+        Alert.alert('Error', 'Could not save order offline.');
+      }
+      return;
+    }
+
+    // ONLINE LOGIC (Wallet Escrow)
     try {
       const { data, error } = await supabase.rpc('input_buy_with_wallet', {
         p_product_id: product.id, p_quantity: q,

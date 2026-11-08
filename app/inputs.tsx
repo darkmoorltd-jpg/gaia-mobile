@@ -4,6 +4,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { INPUT_CATEGORIES, categoryEmoji } from '../src/data/input_categories';
+import NetInfo from '@react-native-community/netinfo';
+import { cacheCatalog, getCachedCatalog } from '../src/utils/offlineInputs';
 
 const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
@@ -17,13 +19,38 @@ export default function InputsBrowse() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
-    const { data } = await supabase.rpc('input_browse', {
-      p_category: category, p_country: null, p_search: search || null, p_limit: 100,
-    });
-    setProducts(Array.isArray(data) ? data : []);
+    const net = await NetInfo.fetch();
+    
+    if (!net.isConnected) {
+      setIsOffline(true);
+      const cached = await getCachedCatalog();
+      // Filter cached results by category/search
+      let filtered = cached;
+      if (category) filtered = filtered.filter(p => p.category === category);
+      if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+      setProducts(filtered);
+      setBusy(false); setRef(false);
+      return;
+    }
+
+    setIsOffline(false);
+    try {
+      const { data, error } = await supabase.rpc('input_browse', {
+        p_category: category, p_country: null, p_search: search || null, p_limit: 100,
+      });
+      if (!error && data) {
+        setProducts(data);
+        if (!search && !category) cacheCatalog(data); // Only cache the full catalog
+      }
+    } catch {
+      setIsOffline(true);
+      const cached = await getCachedCatalog();
+      setProducts(cached);
+    }
     setBusy(false); setRef(false);
   }, [category, search]);
 
@@ -36,6 +63,13 @@ export default function InputsBrowse() {
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Farm Inputs</Text>
         <Text style={styles.sub}>{products.length} product(s) available</Text>
+        {isOffline ? (
+          <View style={{ padding: 10, backgroundColor: 'rgba(255,179,0,0.15)', borderRadius: 8, marginBottom: 12 }}>
+            <Text style={{ fontSize: 11, color: '#ffb300', textAlign: 'center', fontWeight: '700' }}>
+              📶 Offline Mode: Showing saved catalog. Orders will queue and sync later.
+            </Text>
+          </View>
+        ) : null}
 
         <TextInput value={search} onChangeText={setSearch}
           placeholder="Search fertilizer, seeds, tools..."

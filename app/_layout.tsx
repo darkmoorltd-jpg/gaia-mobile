@@ -6,6 +6,8 @@ import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
+import NetInfo from '@react-native-community/netinfo';
+import { syncPendingOrders } from '../src/utils/offlineInputs';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
 import { useLocale } from '../src/store/locale';
