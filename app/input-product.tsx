@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Modal } from 'react-native';
+import { Linking, View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
@@ -114,8 +114,28 @@ export default function InputProductDetail() {
             <Text style={styles.providerName}>{provider?.business_name}</Text>
             <Text style={styles.providerMeta}>{provider?.city || provider?.lga}, {provider?.state}</Text>
             {provider?.phone ? <Text style={styles.providerMeta}>📞 {provider.phone}</Text> : null}
+            
+            {provider?.gps_lat && provider?.gps_lon ? (
+              <Pressable 
+                onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${provider.gps_lat},${provider.gps_lon}`)}
+                style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(179,136,255,0.15)', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+              >
+                <Text style={{ color: '#b388ff', fontSize: 11, fontWeight: '700' }}>📍 View Exact Location</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
+
+        {provider?.store_images && provider.store_images.length > 0 ? (
+          <>
+            <Text style={styles.section}>STORE PHOTOS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+              {provider.store_images.map((img: string, i: number) => (
+                <Image key={i} source={{ uri: img }} style={{ width: 200, height: 140, borderRadius: 12 }} />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
 
         <Text style={styles.section}>QUANTITY</Text>
         <TextInput value={qty} onChangeText={setQty} keyboardType="decimal-pad" style={styles.input} placeholderTextColor={palette.textDim} />

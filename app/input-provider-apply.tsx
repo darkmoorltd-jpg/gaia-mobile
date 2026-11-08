@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import LocationCascade from '../src/components/LocationCascade';
@@ -32,9 +35,53 @@ export default function InputProviderApply() {
   const [bankAccountName, setBankAccountName] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [gps, setGps] = useState<{lat: number, lon: number} | null>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const toggleCategory = (key: string) => {
     setCategories(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+
+
+  const captureGPS = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') { Alert.alert('Location permission required'); return; }
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    setGps({ lat: loc.coords.latitude, lon: loc.coords.longitude });
+    Alert.alert('GPS Captured', `${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`);
+  };
+
+  const pickImages = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: 3,
+      quality: 0.7,
+    });
+    if (!res.canceled) {
+      setImages(res.assets.map(a => a.uri));
+    }
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const uri of images) {
+      try {
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+        const path = `store_${Date.now()}_${Math.random().toString(36).slice(2,6)}.jpg`;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        
+        const { error } = await supabase.storage.from('input-store-images').upload(path, bytes.buffer, { contentType: 'image/jpeg' });
+        if (!error) {
+          const { data } = supabase.storage.from('input-store-images').getPublicUrl(path);
+          urls.push(data.publicUrl);
+        }
+      } catch (e) { console.log('Upload failed', e); }
+    }
+    return urls;
   };
 
   const submit = async () => {
@@ -44,6 +91,9 @@ export default function InputProviderApply() {
     
     setBusy(true);
     try {
+      setUploading(true);
+      const imageUrls = await uploadImages();
+      setUploading(false);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Please log in first');
 
@@ -59,6 +109,9 @@ export default function InputProviderApply() {
         p_bank_account_number: bankAccountNumber || '',
         p_bank_account_name: bankAccountName || '',
         p_business_reg_number: businessReg || null,
+        p_gps_lat: gps?.lat || null,
+        p_gps_lon: gps?.lon || null,
+        p_store_images: imageUrls,
       });
       
       // Update tier and note it's pending payment
@@ -138,6 +191,23 @@ export default function InputProviderApply() {
         <TextInput value={bankAccountNumber} onChangeText={setBankAccountNumber} keyboardType="number-pad" maxLength={10} style={styles.input} placeholderTextColor={palette.textDim} />
         <Text style={styles.label}>ACCOUNT NAME</Text>
         <TextInput value={bankAccountName} onChangeText={setBankAccountName} style={styles.input} placeholderTextColor={palette.textDim} />
+
+
+        <Text style={styles.section}>STORE LOCATION & PHOTOS</Text>
+        
+        <Pressable onPress={captureGPS} style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+          <Text style={{ color: gps ? palette.neon : palette.textDim }}>
+            {gps ? `📍 ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : 'Capture Store GPS Location'}
+          </Text>
+          <Text style={{ fontSize: 18 }}>📍</Text>
+        </Pressable>
+
+        <Pressable onPress={pickImages} style={[styles.input, { marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+          <Text style={{ color: images.length > 0 ? palette.neon : palette.textDim }}>
+            {images.length > 0 ? `📸 ${images.length} Photo(s) attached` : 'Upload Store Photos (Max 3)'}
+          </Text>
+          <Text style={{ fontSize: 18 }}>📸</Text>
+        </Pressable>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SUBMIT APPLICATION</Text>}
