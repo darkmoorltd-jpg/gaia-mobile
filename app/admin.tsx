@@ -91,6 +91,14 @@ const SECTIONS: Section[] = [
       { label: 'Export CSV',          route: '/admin-export' },
     ],
   },
+
+  {
+    title: 'HEALTH',
+    icon: 'HC',
+    items: [
+      { label: 'Dr. Vinc Clinic', route: '/admin-dr-vinc' },
+    ],
+  },
 ];
 
 const BOA_SECTIONS: Section[] = [

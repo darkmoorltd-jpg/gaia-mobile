@@ -92,6 +92,13 @@ export default function ClinicalNutrition() {
       if (upload.status !== 200) throw new Error(`HTTP ${upload.status}`);
       const data = JSON.parse(upload.body);
       setMealAnalysis(data.analysis);
+
+      // Save to DB for Admin panel
+      await supabase.from('meal_scans').insert({
+        user_id: user.id,
+        condition: health.condition,
+        analysis: data.analysis
+      });
     } catch (e: any) {
       Alert.alert('Scan Failed', e.message || 'Check internet');
     } finally {
