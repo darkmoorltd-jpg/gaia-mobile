@@ -10,6 +10,7 @@ interface Section { title: string; icon: string; items: Item[]; color?: string }
 
 const SECTIONS: Section[] = [
     { title: 'Input Providers', items: [
+        { label: 'Input Marketplace Overview', route: '/admin-inputs' },
         { label: 'Provider Applications', route: '/admin-input-providers' },
         { label: 'Provider Payouts',      route: '/admin-provider-payouts' },
     ]},
