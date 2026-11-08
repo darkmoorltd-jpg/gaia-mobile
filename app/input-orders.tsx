@@ -26,6 +26,25 @@ export default function InputMyOrders() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const cancelOrder = (id: string) => {
+    Alert.prompt(
+      'Cancel this order?',
+      'Your money will be refunded to your escrow wallet immediately. Tell us why (optional):',
+      async (reason?: string) => {
+        const { data, error } = await supabase.rpc('input_cancel_order', {
+          p_order_id: id,
+          p_reason: reason || null,
+        });
+        if (error) { Alert.alert('Cannot cancel', error.message); return; }
+        const refunded = Number(data?.refunded_ngn || 0);
+        Alert.alert('Order cancelled', `₦${refunded.toLocaleString()} refunded to your wallet.`);
+        load();
+      },
+      'plain-text',
+      '',
+    );
+  };
+
   const confirmReceived = (id: string) => {
     Alert.alert('Confirm Delivery?', 'This releases your money from escrow to the seller.', [
       { text: 'Cancel', style: 'cancel' },
@@ -60,8 +79,11 @@ export default function InputMyOrders() {
             <View key={o.id} style={styles.card}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={styles.name}>{o.product_name}</Text>
-                <Text style={[styles.chip, { color: isReleased ? '#00ff88' : '#ffb300', borderColor: isReleased ? '#00ff88' : '#ffb300' }]}>
-                  {isReleased ? 'DELIVERED' : 'IN ESCROW'}
+                <Text style={[styles.chip, {
+                  color: isReleased ? '#00ff88' : (o.status === 'shipped' ? '#4fc3f7' : (o.status === 'cancelled' ? '#ff3b5c' : '#ffb300')),
+                  borderColor: isReleased ? '#00ff88' : (o.status === 'shipped' ? '#4fc3f7' : (o.status === 'cancelled' ? '#ff3b5c' : '#ffb300')),
+                }]}>
+                  {isReleased ? 'DELIVERED' : (o.status === 'shipped' ? 'SHIPPED' : (o.status === 'cancelled' ? 'CANCELLED' : 'IN ESCROW'))}
                 </Text>
               </View>
               <Text style={styles.meta}>{o.quantity} {o.product_unit} · {money(o.unit_price_ngn)} each</Text>
@@ -78,13 +100,40 @@ export default function InputMyOrders() {
               </View>
               <Text style={styles.meta}>Delivery: {o.delivery_method} · {fmt(o.created_at)}</Text>
               
-              {isPaid && o.status !== 'delivered' ? (
+              {/* PENDING (paid, not shipped yet) → CANCEL possible */}
+              {isPaid && o.status === 'pending' ? (
                 <View style={{ marginTop: 12 }}>
-                  <Text style={{ fontSize: 10, color: '#ffb300', marginBottom: 6, textAlign: 'center' }}>🔒 Money is safely held in Escrow until you confirm.</Text>
+                  <Text style={{ fontSize: 10, color: '#ffb300', marginBottom: 6, textAlign: 'center' }}>
+                    🔒 Paid · Awaiting seller to ship. You can still cancel for a full refund.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable onPress={() => cancelOrder(o.id)} style={[styles.btn, { flex: 1, backgroundColor: '#ff3b5c' }]}>
+                      <Text style={styles.btnText}>CANCEL ORDER</Text>
+                    </Pressable>
+                    <Pressable onPress={() => confirmReceived(o.id)} style={[styles.btn, { flex: 1 }]}>
+                      <Text style={styles.btnText}>I GOT IT</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* SHIPPED → CONFIRM DELIVERY */}
+              {isPaid && o.status === 'shipped' ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontSize: 10, color: '#4fc3f7', marginBottom: 6, textAlign: 'center' }}>
+                    🚚 Seller has shipped. Confirm receipt to release payment.
+                  </Text>
                   <Pressable onPress={() => confirmReceived(o.id)} style={styles.btn}>
                     <Text style={styles.btnText}>CONFIRM DELIVERY & RELEASE PAYMENT</Text>
                   </Pressable>
                 </View>
+              ) : null}
+
+              {/* CANCELLED */}
+              {o.status === 'cancelled' ? (
+                <Text style={{ color: '#ff3b5c', fontSize: 12, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>
+                  ❌ Order cancelled · ₦{Number(o.total_ngn || 0).toLocaleString()} refunded
+                </Text>
               ) : null}
               {isReleased ? (
                 <Text style={{ color: '#00ff88', fontSize: 12, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>✅ Payment Released to Seller</Text>

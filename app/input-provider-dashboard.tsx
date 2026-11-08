@@ -57,6 +57,22 @@ export default function InputProviderDashboard() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const markShipped = (id: string, productName: string) => {
+    Alert.alert(
+      'Mark as shipped?',
+      `Buyer will be notified that "${productName}" is on the way.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'SHIP IT', onPress: async () => {
+          const { error } = await supabase.rpc('input_mark_shipped', { p_order_id: id });
+          if (error) { Alert.alert('Failed', error.message); return; }
+          Alert.alert('Shipped ✅', 'Buyer has been notified.');
+          load();
+        }},
+      ],
+    );
+  };
+
   const payWithWallet = async () => {
     const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
     const { error } = await supabase.rpc('input_pay_subscription_wallet', {
@@ -218,6 +234,43 @@ export default function InputProviderDashboard() {
               </View>
               <Text style={[styles.total, { marginTop: 10 }]}>{money(o.total_ngn)}</Text>
               <Text style={styles.meta}>Ordered: {new Date(o.created_at).toLocaleDateString()}</Text>
+
+              {/* STATUS CHIP */}
+              <View style={{
+                marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+                borderWidth: 1, borderColor:
+                  o.status === 'shipped' ? '#4fc3f7' :
+                  o.status === 'delivered' ? '#00ff88' :
+                  o.status === 'cancelled' ? '#ff3b5c' : '#ffb300',
+              }}>
+                <Text style={{
+                  fontSize: 9, fontWeight: '900', letterSpacing: 1,
+                  color:
+                    o.status === 'shipped' ? '#4fc3f7' :
+                    o.status === 'delivered' ? '#00ff88' :
+                    o.status === 'cancelled' ? '#ff3b5c' : '#ffb300',
+                }}>
+                  {String(o.status || 'pending').toUpperCase()}
+                </Text>
+              </View>
+
+              {/* SHIP BUTTON (only when pending + escrow) */}
+              {o.status === 'pending' && o.payment_status === 'held_in_escrow' ? (
+                <Pressable
+                  onPress={() => markShipped(o.id, o.product_name)}
+                  style={{ marginTop: 10, paddingVertical: 12, borderRadius: 10, backgroundColor: '#4fc3f7', alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
+                    🚚 MARK AS SHIPPED
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {o.status === 'shipped' ? (
+                <Text style={{ color: '#4fc3f7', fontSize: 11, fontWeight: '800', textAlign: 'center', marginTop: 10 }}>
+                  ⏳ Waiting for buyer to confirm delivery
+                </Text>
+              ) : null}
             </View>
           );
         })}
