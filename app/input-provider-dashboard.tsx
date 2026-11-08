@@ -57,6 +57,15 @@ export default function InputProviderDashboard() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  const payWithWallet = async () => {
+    const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
+    const { error } = await supabase.rpc('input_pay_subscription_wallet', {
+      p_tier: provider.tier_id, p_amount: tierData.price
+    });
+    if (error) Alert.alert('Failed', error.message);
+    else { Alert.alert('Subscribed!', 'Your store is now active.'); load(); }
+  };
+
   const startPayment = () => {
     if (!provider) return;
     const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
@@ -120,7 +129,10 @@ export default function InputProviderDashboard() {
             <Text style={styles.payPrice}>₦{tierData.price.toLocaleString()}</Text>
             <Text style={styles.paySub}>per year</Text>
             <Pressable onPress={startPayment} style={styles.cta}>
-              <Text style={styles.ctaText}>PAY SUBSCRIPTION</Text>
+              <Text style={styles.ctaText}>PAY WITH CARD (PAYSTACK)</Text>
+            </Pressable>
+            <Pressable onPress={payWithWallet} style={[styles.cta, { backgroundColor: p.neon, marginTop: 10 }]}>
+              <Text style={[styles.ctaText, { color: '#000' }]}>PAY WITH WALLET</Text>
             </Pressable>
           </View>
         </ScrollView>

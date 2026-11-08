@@ -57,15 +57,16 @@ export default function InputProductDetail() {
     if (delivery === 'delivery' && !deliveryAddr.trim()) { Alert.alert('Delivery address required'); return; }
     setBuyBusy(true);
     try {
-      const { data, error } = await supabase.rpc('input_create_order', {
+      const { data, error } = await supabase.rpc('input_buy_with_wallet', {
         p_product_id: product.id, p_quantity: q,
         p_delivery_method: delivery,
         p_delivery_address: delivery === 'delivery' ? deliveryAddr.trim() : null,
       });
       if (error) { Alert.alert('Failed', error.message); setBuyBusy(false); return; }
-      setOrderId(data.order_id);
-      setPayRef(data.reference);
-      setTotalNgn(Number(data.total_ngn));
+      
+      Alert.alert('Order Placed!', `₦${Number(data.total_ngn).toLocaleString()} has been held in Escrow. It will be released to the seller once you confirm delivery.`);
+      router.replace('/input-orders' as any);
+      
     } catch (e: any) { Alert.alert('Failed', e.message); }
     finally { setBuyBusy(false); }
   };
@@ -88,6 +89,7 @@ export default function InputProductDetail() {
   if (!product) return <View style={styles.container}><Text style={{ color: palette.text, padding: 20 }}>Product not found.</Text></View>;
 
   const total = computeTotal();
+  // Escrow note
   const payHtml = payRef ? '<html><body style="background:#000;margin:0"><script src="https://js.paystack.co/v1/inline.js"></script><script>PaystackPop.setup({key:"' + PAYSTACK_PUBLIC + '",email:"' + userEmail + '",amount:' + Math.round(totalNgn * 100) + ',currency:"NGN",ref:"' + payRef + '",callback:function(r){window.ReactNativeWebView.postMessage(JSON.stringify({status:"success",reference:r.reference}));},onClose:function(){window.ReactNativeWebView.postMessage(JSON.stringify({status:"closed"}));}}).openIframe();</script></body></html>' : '';
 
   return (
@@ -183,8 +185,14 @@ export default function InputProductDetail() {
           <Text style={styles.totalVal}>{money(total)}</Text>
         </View>
 
+        <View style={{ padding: 12, backgroundColor: 'rgba(179,136,255,0.08)', borderRadius: 8, marginTop: 16 }}>
+          <Text style={{ fontSize: 11, color: '#b388ff', textAlign: 'center' }}>
+            🔒 Secure Escrow: Your money is held safely. The seller only gets paid after you confirm delivery.
+          </Text>
+        </View>
+
         <Pressable onPress={startBuy} disabled={buyBusy} style={[styles.cta, buyBusy && { opacity: 0.5 }]}>
-          {buyBusy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>BUY NOW · {money(total)}</Text>}
+          {buyBusy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>PLACE ORDER · {money(total)}</Text>}
         </Pressable>
 
         <View style={{ height: 60 }} />

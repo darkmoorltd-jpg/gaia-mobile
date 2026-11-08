@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert, TextInput, Modal, Image, Linking } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
@@ -25,7 +25,7 @@ export default function AdminInputProviders() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const approve = (id: string) => {
-    Alert.alert('Approve provider?', '', [
+    Alert.alert('Approve provider?', 'This will activate their store.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Approve', onPress: async () => {
         const { error } = await supabase.rpc('admin_approve_input_provider', { p_user_id: id });
@@ -47,7 +47,7 @@ export default function AdminInputProviders() {
         refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor={palette.neon} />}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Input Providers</Text>
-        <Text style={styles.sub}>{rows.length} total</Text>
+        <Text style={styles.sub}>{rows.length} total · God Mode</Text>
 
         {busy && rows.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
 
@@ -55,19 +55,34 @@ export default function AdminInputProviders() {
           const c = r.status === 'active' ? '#00ff88' : r.status === 'rejected' ? '#ff3b5c' : '#ffb300';
           return (
             <View key={r.user_id} style={styles.card}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <Text style={styles.name}>{r.business_name}</Text>
                 <Text style={[styles.chip, { color: c, borderColor: c }]}>{String(r.status || '').toUpperCase()}</Text>
               </View>
-              <Text style={styles.meta}>{r.account_email}</Text>
-              <Text style={styles.meta}>{r.state} · {r.lga} · {r.city}</Text>
-              <Text style={styles.meta}>Categories: {(r.categories || []).map(categoryLabel).join(', ')}</Text>
-              <Text style={styles.meta}>Phone: {r.phone} · WA: {r.whatsapp}</Text>
-              {r.business_reg_number ? <Text style={styles.meta}>CAC: {r.business_reg_number}</Text> : null}
-              {r.description ? <Text style={styles.meta} numberOfLines={3}>"{r.description}"</Text> : null}
+              
+              <Text style={styles.meta}><Text style={styles.k}>Email:</Text> {r.account_email}</Text>
+              <Text style={styles.meta}><Text style={styles.k}>Location:</Text> {r.city}, {r.lga}, {r.state}</Text>
+              <Text style={styles.meta}><Text style={styles.k}>Phone:</Text> {r.phone} · WA: {r.whatsapp}</Text>
+              <Text style={styles.meta}><Text style={styles.k}>Categories:</Text> {(r.categories || []).map(categoryLabel).join(', ')}</Text>
+              {r.business_reg_number ? <Text style={styles.meta}><Text style={styles.k}>CAC:</Text> {r.business_reg_number}</Text> : null}
+              <Text style={styles.meta}><Text style={styles.k}>Bank:</Text> {r.bank_name} · {r.bank_account_number} ({r.bank_account_name})</Text>
+              
+              {r.gps_lat && r.gps_lon ? (
+                <Pressable onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${r.gps_lat},${r.gps_lon}`)} style={styles.mapBtn}>
+                  <Text style={styles.mapBtnText}>📍 Open GPS Location</Text>
+                </Pressable>
+              ) : null}
+
+              {r.store_images && r.store_images.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginBottom: 12 }}>
+                  {r.store_images.map((img: string, i: number) => (
+                    <Image key={i} source={{ uri: img }} style={{ width: 120, height: 80, borderRadius: 8, marginRight: 8 }} />
+                  ))}
+                </ScrollView>
+              ) : null}
 
               {r.status === 'pending' && (
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
                   <Pressable onPress={() => approve(r.user_id)} style={[styles.btn, { borderColor: '#00ff88' }]}>
                     <Text style={[styles.btnText, { color: '#00ff88' }]}>APPROVE</Text>
                   </Pressable>
@@ -79,7 +94,6 @@ export default function AdminInputProviders() {
             </View>
           );
         })}
-
         <View style={{ height: 60 }} />
       </ScrollView>
 
@@ -90,12 +104,8 @@ export default function AdminInputProviders() {
             <Text style={styles.meta}>{rejectModal?.business_name}</Text>
             <Text style={styles.label}>REASON</Text>
             <TextInput value={rejectReason} onChangeText={setRejectReason} multiline style={[styles.input, { minHeight: 80 }]} placeholderTextColor={palette.textDim} placeholder="e.g. CAC number invalid" />
-            <Pressable onPress={doReject} style={styles.cta}>
-              <Text style={styles.ctaText}>REJECT APPLICATION</Text>
-            </Pressable>
-            <Pressable onPress={() => setRejectModal(null)} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.border }]}>
-              <Text style={[styles.ctaText, { color: palette.text }]}>CANCEL</Text>
-            </Pressable>
+            <Pressable onPress={doReject} style={styles.cta}><Text style={styles.ctaText}>REJECT APPLICATION</Text></Pressable>
+            <Pressable onPress={() => setRejectModal(null)} style={[styles.cta, { backgroundColor: 'transparent', borderWidth: 1, borderColor: palette.border }]}><Text style={[styles.ctaText, { color: palette.text }]}>CANCEL</Text></Pressable>
           </View>
         </View>
       </Modal>
@@ -109,10 +119,13 @@ const createStyles = (p: any) => StyleSheet.create({
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 28, fontWeight: '900', color: p.text },
   sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 },
-  card: { padding: 14, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
-  name: { fontSize: 15, fontWeight: '800', color: p.text, flex: 1 },
+  card: { padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
+  name: { fontSize: 16, fontWeight: '900', color: p.text, flex: 1 },
   chip: { fontSize: 9, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, letterSpacing: 0.5 },
-  meta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
+  meta: { fontSize: 12, color: p.text, marginTop: 4 },
+  k: { color: p.textMuted, fontWeight: '700' },
+  mapBtn: { marginTop: 10, paddingVertical: 8, backgroundColor: 'rgba(179,136,255,0.15)', borderRadius: 8, alignItems: 'center' },
+  mapBtnText: { color: '#b388ff', fontSize: 11, fontWeight: '800' },
   btn: { flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1.5, alignItems: 'center' },
   btnText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
