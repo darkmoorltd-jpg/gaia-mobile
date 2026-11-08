@@ -8,6 +8,7 @@ import { categoryEmoji, categoryLabel } from '../src/data/input_categories';
 import NetInfo from '@react-native-community/netinfo';
 import { queueOrder } from '../src/utils/offlineInputs';
 import ReviewModal from '../src/components/ReviewModal';
+import { walletMe } from '../src/utils/wallet';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
@@ -30,6 +31,8 @@ export default function InputProductDetail() {
   const [totalNgn, setTotalNgn] = useState(0);
   const [buyBusy, setBuyBusy] = useState(false);
   const [reviews, setReviews] = useState<any>({ average: 0, count: 0, reviews: [] });
+  const [walletBal, setWalletBal] = useState<number>(0);
+  const [walletLoading, setWalletLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -44,6 +47,14 @@ export default function InputProductDetail() {
       if (!params.id) return;
       const { data: rv } = await supabase.rpc('input_reviews_for_product', { p_product_id: params.id });
       if (rv) setReviews(rv);
+    })();
+
+    (async () => {
+      try {
+        const res = await walletMe();
+        setWalletBal(Number(res?.wallet?.balance || 0));
+      } catch {}
+      setWalletLoading(false);
     })();
   }, [params.id]);
 
@@ -85,7 +96,15 @@ export default function InputProductDetail() {
         p_delivery_method: delivery,
         p_delivery_address: delivery === 'delivery' ? deliveryAddr.trim() : null,
       });
-      if (error) { Alert.alert('Failed', error.message); setBuyBusy(false); return; }
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('INSUFFICIENT_WALLET')) {
+          Alert.alert('Insufficient Balance', 'Please top up your wallet from the Home screen, then try again.');
+        } else {
+          Alert.alert('Failed', msg);
+        }
+        setBuyBusy(false); return;
+      }
       
       Alert.alert('Order Placed!', `₦${Number(data.total_ngn).toLocaleString()} has been held in Escrow. It will be released to the seller once you confirm delivery.`);
       router.replace('/input-orders' as any);
@@ -133,23 +152,18 @@ export default function InputProductDetail() {
         ) : null}
 
         <Text style={styles.section}>SELLER</Text>
-        <View style={styles.providerCard}>
+        <Pressable
+          onPress={() => router.push(('/input-store?id=' + provider.user_id) as any)}
+          style={styles.providerCard}
+        >
           <View style={styles.providerAvatar}><Text style={styles.providerAvatarText}>{(provider?.business_name || 'P').charAt(0)}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.providerName}>{provider?.business_name}</Text>
             <Text style={styles.providerMeta}>{provider?.city || provider?.lga}, {provider?.state}</Text>
             {provider?.phone ? <Text style={styles.providerMeta}>📞 {provider.phone}</Text> : null}
-            
-            {provider?.gps_lat && provider?.gps_lon ? (
-              <Pressable 
-                onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${provider.gps_lat},${provider.gps_lon}`)}
-                style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(179,136,255,0.15)', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
-              >
-                <Text style={{ color: '#b388ff', fontSize: 11, fontWeight: '700' }}>📍 View Exact Location</Text>
-              </Pressable>
-            ) : null}
+            <Text style={{ color: '#b388ff', fontSize: 11, fontWeight: '800', marginTop: 6 }}>Tap to view full store →</Text>
           </View>
-        </View>
+        </Pressable>
 
         {provider?.store_images && provider.store_images.length > 0 ? (
           <>
@@ -214,9 +228,23 @@ export default function InputProductDetail() {
           </Text>
         </View>
 
-        <Pressable onPress={startBuy} disabled={buyBusy} style={[styles.cta, buyBusy && { opacity: 0.5 }]}>
-          {buyBusy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>PLACE ORDER · {money(total)}</Text>}
-        </Pressable>
+        {!walletLoading && walletBal < total ? (
+          <View style={{ padding: 14, backgroundColor: 'rgba(255,59,92,0.1)', borderRadius: 10, borderWidth: 1, borderColor: '#ff3b5c', marginTop: 8 }}>
+            <Text style={{ color: '#ff3b5c', fontSize: 12, fontWeight: '800', textAlign: 'center' }}>
+              Insufficient wallet balance
+            </Text>
+            <Text style={{ color: p.textMuted, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
+              Need {money(total)} · You have {money(walletBal)}
+            </Text>
+            <Pressable onPress={() => router.push('/wallet' as any)} style={{ marginTop: 12, paddingVertical: 14, borderRadius: 10, backgroundColor: '#00ff88', alignItems: 'center' }}>
+              <Text style={{ color: '#000', fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>TOP UP WALLET</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable onPress={startBuy} disabled={buyBusy || walletLoading} style={[styles.cta, (buyBusy || walletLoading) && { opacity: 0.5 }]}>
+            {buyBusy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>PLACE ORDER · {money(total)}</Text>}
+          </Pressable>
+        )}
 
         <View style={{ height: 60 }} />
       </ScrollView>
