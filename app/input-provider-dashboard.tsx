@@ -113,6 +113,27 @@ export default function InputProviderDashboard() {
     );
   }
 
+  // REJECTED STATE
+  if (provider.status === 'rejected') {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Application Rejected</Text>
+          <View style={styles.payCard}>
+            <Text style={{ fontSize: 40, marginBottom: 10 }}>❌</Text>
+            <Text style={[styles.payTier, { color: '#ff3b5c' }]}>Needs Attention</Text>
+            <Text style={{ fontSize: 14, color: p.text, marginTop: 16, textAlign: 'center' }}>
+              Reason: {provider.rejection_reason || 'No reason provided'}
+            </Text>
+            <Pressable onPress={() => router.replace('/input-provider-apply')} style={[styles.cta, { backgroundColor: '#ff3b5c', marginTop: 24 }]}>
+              <Text style={styles.ctaText}>RE-APPLY NOW</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   // PAYWALL STATE
   if (!provider.onboarding_fee_paid) {
     const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;

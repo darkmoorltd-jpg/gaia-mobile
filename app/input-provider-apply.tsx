@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -33,16 +33,14 @@ export default function InputProviderApply() {
   const [bankName, setBankName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
   const [gps, setGps] = useState<{lat: number, lon: number} | null>(null);
   const [images, setImages] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
 
   const toggleCategory = (key: string) => {
     setCategories(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
-
 
   const captureGPS = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -56,8 +54,8 @@ export default function InputProviderApply() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      selectionLimit: 3,
-      quality: 0.7,
+      selectionLimit: 5,
+      quality: 0.6,
     });
     if (!res.canceled) {
       setImages(res.assets.map(a => a.uri));
@@ -88,14 +86,16 @@ export default function InputProviderApply() {
     if (!businessName || !phone || categories.length === 0) {
       Alert.alert('Missing', 'Business name, phone, and at least 1 category are required.'); return;
     }
+    if (images.length < 3) {
+      Alert.alert('Photos Required', 'Please upload at least 3 photos of your shop so admin can verify it.'); return;
+    }
     
     setBusy(true);
     try {
-      setUploading(true);
-      const imageUrls = await uploadImages();
-      setUploading(false);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Please log in first');
+
+      const imageUrls = await uploadImages();
 
       const { error } = await supabase.rpc('input_provider_apply', {
         p_business_name: businessName.trim(),
@@ -114,7 +114,6 @@ export default function InputProviderApply() {
         p_store_images: imageUrls,
       });
       
-      // Update tier and note it's pending payment
       if (!error) {
         await supabase.from('input_providers').update({ 
           tier_id: tier.id,
@@ -192,8 +191,7 @@ export default function InputProviderApply() {
         <Text style={styles.label}>ACCOUNT NAME</Text>
         <TextInput value={bankAccountName} onChangeText={setBankAccountName} style={styles.input} placeholderTextColor={palette.textDim} />
 
-
-        <Text style={styles.section}>STORE LOCATION & PHOTOS</Text>
+        <Text style={styles.section}>STORE LOCATION & PHOTOS (MIN 3)</Text>
         
         <Pressable onPress={captureGPS} style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={{ color: gps ? palette.neon : palette.textDim }}>
@@ -203,11 +201,19 @@ export default function InputProviderApply() {
         </Pressable>
 
         <Pressable onPress={pickImages} style={[styles.input, { marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-          <Text style={{ color: images.length > 0 ? palette.neon : palette.textDim }}>
-            {images.length > 0 ? `📸 ${images.length} Photo(s) attached` : 'Upload Store Photos (Max 3)'}
+          <Text style={{ color: images.length >= 3 ? palette.neon : palette.textDim }}>
+            {images.length > 0 ? `📸 ${images.length} Photo(s) attached` : 'Upload Store Photos (Min 3)'}
           </Text>
           <Text style={{ fontSize: 18 }}>📸</Text>
         </Pressable>
+        
+        {images.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+             {images.map((img, i) => (
+               <Image key={i} source={{ uri: img }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8 }} />
+             ))}
+          </ScrollView>
+        ) : null}
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SUBMIT APPLICATION</Text>}
