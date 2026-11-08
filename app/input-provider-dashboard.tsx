@@ -197,17 +197,30 @@ export default function InputProviderDashboard() {
           </View>
         ))}
 
-        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>RECENT ORDERS</Text>
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>ORDERS FROM BUYERS ({orders.length})</Text>
         {orders.length === 0 ? <Text style={styles.empty}>No orders yet.</Text> : null}
-        {orders.map(o => (
-          <View key={o.id} style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{o.product_name} × {o.quantity}</Text>
-              <Text style={styles.meta}>Buyer: {o.buyer_email}</Text>
-              <Text style={styles.total}>{money(o.total_ngn)}</Text>
+        {orders.map(o => {
+          const isEscrow = o.payment_status === 'held_in_escrow';
+          const isReleased = o.payment_status === 'released';
+          return (
+            <View key={o.id} style={[styles.card, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={styles.name}>{o.product_name} × {o.quantity}</Text>
+                <Text style={{ fontSize: 10, fontWeight: '900', color: isReleased ? '#00ff88' : '#ffb300' }}>
+                  {isReleased ? 'PAID OUT' : 'IN ESCROW'}
+                </Text>
+              </View>
+              <View style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+                <Text style={{ fontSize: 10, color: '#b388ff', fontWeight: '900' }}>BUYER DETAILS</Text>
+                <Text style={{ fontSize: 12, color: '#fff', marginTop: 2 }}>{o.buyer_email}</Text>
+                {o.buyer_phone ? <Text style={{ fontSize: 12, color: '#fff' }}>📞 {o.buyer_phone}</Text> : null}
+                {o.delivery_address ? <Text style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>📍 {o.delivery_address}</Text> : null}
+              </View>
+              <Text style={[styles.total, { marginTop: 10 }]}>{money(o.total_ngn)}</Text>
+              <Text style={styles.meta}>Ordered: {new Date(o.created_at).toLocaleDateString()}</Text>
             </View>
-          </View>
-        ))}
+          );
+        })}
         <View style={{ height: 80 }} />
       </ScrollView>
 
