@@ -140,7 +140,7 @@ export default function AdminInputProviders() {
 
             {detailBusy ? <ActivityIndicator color={palette.neon} style={{ marginTop: 40 }} /> : null}
 
-            {detail?.data ? <DetailView detail={detail.data} styles={styles} palette={palette} /> : null}
+            {detail?.data ? <DetailView detail={detail.data} styles={styles} palette={palette} onRefresh={() => openDetail(detail.provider_row)} /> : null}
           </ScrollView>
         </View>
       </Modal>
@@ -148,7 +148,7 @@ export default function AdminInputProviders() {
   );
 }
 
-function DetailView({ detail, styles, palette }: any) {
+function DetailView({ detail, styles, palette, onRefresh }: any) {
   const p = detail.provider || {};
   const w = detail.wallet || {};
   const t = detail.totals || {};
@@ -297,6 +297,41 @@ function DetailView({ detail, styles, palette }: any) {
               <Text style={{ color: palette.textMuted, fontSize: 10 }}>
                 Ref: {(o.payment_reference || '').slice(0, 20)} · {fmt(o.created_at)}
               </Text>
+              
+              {o.payment_status === 'held_in_escrow' ? (
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <Pressable 
+                    onPress={() => {
+                      Alert.alert('Refund Buyer?', 'This will return the money to the buyer and cancel the order.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Refund', style: 'destructive', onPress: async () => {
+                          const { error } = await supabase.rpc('admin_refund_input_order', { p_order_id: o.id });
+                          if (error) Alert.alert('Failed', error.message);
+                          else { Alert.alert('Refunded', 'Buyer wallet has been credited.'); onRefresh(); }
+                        }}
+                      ]);
+                    }} 
+                    style={{ flex: 1, paddingVertical: 8, backgroundColor: 'rgba(255,59,92,0.1)', borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: '#ff3b5c' }}
+                  >
+                    <Text style={{ color: '#ff3b5c', fontSize: 10, fontWeight: '900' }}>REFUND BUYER</Text>
+                  </Pressable>
+                  <Pressable 
+                    onPress={() => {
+                      Alert.alert('Force Pay Seller?', 'This bypasses buyer confirmation and pays the seller immediately.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Pay Seller', onPress: async () => {
+                          const { error } = await supabase.rpc('admin_force_release_input_order', { p_order_id: o.id });
+                          if (error) Alert.alert('Failed', error.message);
+                          else { Alert.alert('Paid', 'Seller wallet has been credited.'); onRefresh(); }
+                        }}
+                      ]);
+                    }} 
+                    style={{ flex: 1, paddingVertical: 8, backgroundColor: 'rgba(0,255,136,0.1)', borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: '#00ff88' }}
+                  >
+                    <Text style={{ color: '#00ff88', fontSize: 10, fontWeight: '900' }}>FORCE PAY SELLER</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           );
         })
