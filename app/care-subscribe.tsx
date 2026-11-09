@@ -5,6 +5,7 @@ import { WebView } from 'react-native-webview';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { walletMe } from '../src/utils/wallet';
 
 const PAYSTACK_PUBLIC = 'pk_live_3af5d245e74f86f0517d214b6872f4ac8236e057';
 
@@ -19,6 +20,7 @@ export default function CareSubscribe() {
   const [busy, setBusy] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [payRef, setPayRef] = useState<string | null>(null);
+  const [gaiaBalance, setGaiaBalance] = useState<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -28,6 +30,11 @@ export default function CareSubscribe() {
       if (user?.id) {
         const { data: subData } = await supabase.from('care_subscriptions').select('*').eq('user_id', user.id).maybeSingle();
         setCurrent(subData);
+        
+        try {
+          const w = await walletMe();
+          if (w?.wallet?.balance) setGaiaBalance(Number(w.wallet.balance));
+        } catch {}
       }
     })();
   }, [user]);
@@ -37,6 +44,54 @@ export default function CareSubscribe() {
       Alert.alert('Error', 'User email not found. Please try again.');
       return;
     }
+
+    Alert.alert(
+      'Choose Payment Method',
+      `Pay ₦${Number(plan.price_ngn).toLocaleString()} for ${plan.name}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: `GAIA Wallet (₦${gaiaBalance.toLocaleString()})`, 
+          onPress: () => payWithWallet(plan) 
+        },
+        { 
+          text: 'Debit Card (Paystack)', 
+          onPress: () => payWithCard(plan) 
+        },
+      ]
+    );
+  };
+
+  const payWithWallet = async (plan: any) => {
+    if (gaiaBalance < Number(plan.price_ngn)) {
+      Alert.alert('Insufficient Funds', `Your GAIA wallet balance is ₦${gaiaBalance.toLocaleString()}. Please top up.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('purchase_care_plan_with_wallet', { p_plan_id: plan.id });
+      if (error) throw error;
+      
+      await supabase.from('meal_plans').upsert({
+        user_id: user.id,
+        plan_name: `${plan.name} Starter Plan`,
+        daily_calories: 1800,
+        foods: ['Brown Rice', 'Beans', 'Vegetables', 'Grilled Fish'],
+        ai_instructions: `Welcome to ${plan.name}. I am Dr. Vinc. This plan is designed to stabilize your health.`,
+        is_active: true
+      });
+
+      setGaiaBalance(data.new_balance);
+      Alert.alert('Subscribed!', `You are now on ${plan.name}.`);
+      router.replace('/clinical-nutrition');
+    } catch (e: any) {
+      Alert.alert('Payment Failed', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const payWithCard = (plan: any) => {
     setSelectedPlan(plan);
     setPayRef('CARE_' + user.id.slice(0,6) + '_' + Date.now());
   };
@@ -104,6 +159,11 @@ export default function CareSubscribe() {
         
         <Text style={styles.title}>Dr. Vinc Care Plans</Text>
         <Text style={styles.subtitle}>Choose a plan to manage your diet and health.</Text>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(0,255,136,0.08)', padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(0,255,136,0.2)' }}>
+          <Text style={{ fontSize: 13, color: palette.neon, fontWeight: '700' }}>GAIA Wallet Balance</Text>
+          <Text style={{ fontSize: 18, color: palette.text, fontWeight: '900' }}>₦{gaiaBalance.toLocaleString()}</Text>
+        </View>
 
         {current ? (
           <View style={styles.currentBox}>
