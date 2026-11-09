@@ -52,17 +52,29 @@ export default function ClinicalNutrition() {
   const logVitals = async () => {
     if (!sugar && !sys && !dia) { Alert.alert('Enter at least one vital sign'); return; }
     setSaving(true);
-    const { error } = await supabase.from('daily_checkins').insert({
-      user_id: user.id,
-      blood_sugar_mgdl: Number(sugar) || null,
-      systolic_bp: Number(sys) || null,
-      diastolic_bp: Number(dia) || null,
-    });
-    setSaving(false);
-    if (error) Alert.alert('Failed', error.message);
-    else {
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      const res = await fetch(API_BASE + '/clinical/log-vitals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          user_id: user.id,
+          blood_sugar_mgdl: Number(sugar) || null,
+          systolic_bp: Number(sys) || null,
+          diastolic_bp: Number(dia) || null
+        })
+      });
+
+      if (!res.ok) throw new Error('Failed to log vitals');
+
       Alert.alert('Vitals Logged', 'Dr. Vinc is analyzing your data...');
       setSugar(''); setSys(''); setDia('');
+    } catch (e: any) {
+      Alert.alert('Failed', e.message || 'Check internet');
+    } finally {
+      setSaving(false);
     }
   };
 
