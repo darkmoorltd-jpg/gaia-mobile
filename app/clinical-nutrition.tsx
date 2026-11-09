@@ -180,7 +180,7 @@ export default function ClinicalNutrition() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <Text style={styles.sectionLabel}>📷 AI MEAL SCANNER</Text>
             <Text style={{ fontSize: 11, color: palette.neon, fontWeight: '700' }}>
-              {scanCredits !== null ? (scanCredits > 9000 ? 'Unlimited' : `${scanCredits} scans left`) : ''}
+              {scanCredits !== null ? `${scanCredits} scans left` : ''}
             </Text>
           </View>
           <Text style={{ fontSize: 12, color: palette.textMuted, marginBottom: 12 }}>
