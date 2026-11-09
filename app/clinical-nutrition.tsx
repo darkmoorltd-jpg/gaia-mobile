@@ -30,6 +30,7 @@ export default function ClinicalNutrition() {
   const [mealImage, setMealImage] = useState<string | null>(null);
   const [mealAnalysis, setMealAnalysis] = useState<string | null>(null);
   const [scanningMeal, setScanningMeal] = useState(false);
+  const [scanCredits, setScanCredits] = useState<number | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -40,6 +41,7 @@ export default function ClinicalNutrition() {
       supabase.from('meal_plans').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle()
     ]);
     setHasSub(sub.data?.status === 'active');
+    if (sub.data) setScanCredits(sub.data.scan_credits);
     setHealth(h.data);
     setPlan(p.data);
     setLoading(false);
@@ -65,6 +67,24 @@ export default function ClinicalNutrition() {
   };
 
   const scanMeal = async () => {
+    // 1. Check & consume scan credit in DB
+    try {
+      const { data, error } = await supabase.rpc('consume_scan_credit');
+      if (error) throw error;
+      setScanCredits(data.remaining_scans);
+    } catch (e: any) {
+      Alert.alert(
+        'No Scans Left',
+        'You have used all your meal scans for this month. Upgrade your plan to keep scanning.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => router.push('/care-subscribe' as any) }
+        ]
+      );
+      return;
+    }
+
+    // 2. Open Camera
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Camera permission required'); return; }
 
@@ -145,7 +165,12 @@ export default function ClinicalNutrition() {
 
         {/* MEAL SCANNER */}
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>📷 AI MEAL SCANNER</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.sectionLabel}>📷 AI MEAL SCANNER</Text>
+            <Text style={{ fontSize: 11, color: palette.neon, fontWeight: '700' }}>
+              {scanCredits !== null ? (scanCredits > 9000 ? 'Unlimited' : `${scanCredits} scans left`) : ''}
+            </Text>
+          </View>
           <Text style={{ fontSize: 12, color: palette.textMuted, marginBottom: 12 }}>
             Snap your food. Dr. Vinc will evaluate the portion and give advice for your {health.condition}.
           </Text>
