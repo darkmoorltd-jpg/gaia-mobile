@@ -275,9 +275,31 @@ export default function AdminInputProviders() {
                   </Pressable>
                 </>
               ) : selected?.status === 'rejected' ? (
-                <Pressable disabled={acting} onPress={() => approve(selected)} style={[styles.approveBtn, acting && { opacity: 0.5 }, { marginTop: 16 }]}>
-                  <Text style={styles.approveTxt}>✅ RE-APPROVE</Text>
-                </Pressable>
+                <>
+                  {selected?.resubmission_requested ? (
+                    <Pressable
+                      disabled={acting}
+                      onPress={async () => {
+                        setActing(true);
+                        await supabase.from('input_providers').update({
+                          status: 'needs_resubmission',
+                          resubmission_requested: false
+                        }).eq('id', selected.id);
+                        setActing(false);
+                        setSelected(null);
+                        load();
+                        Alert.alert('Allowed', 'Provider can now edit and resubmit.');
+                      }}
+                      style={[styles.approveBtn, acting && { opacity: 0.5 }, { marginTop: 16, backgroundColor: '#3b82f6' }]}
+                    >
+                      <Text style={[styles.approveTxt, { color: '#fff' }]}>🔄 ALLOW RESUBMISSION</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable disabled={acting} onPress={() => approve(selected)} style={[styles.approveBtn, acting && { opacity: 0.5 }, { marginTop: 16 }]}>
+                      <Text style={styles.approveTxt}>✅ RE-APPROVE</Text>
+                    </Pressable>
+                  )}
+                </>
               ) : null}
 
               <View style={{ height: 60 }} />
