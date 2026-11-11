@@ -254,6 +254,11 @@ function RootNavigator() {
       <Stack.Screen name="verify-certificate" options={{ headerShown: false }} />
       <Stack.Screen name="eudr" options={{ headerShown: false }} />
       <Stack.Screen name="input-provider-dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="boa-portal" options={{ headerShown: false }} />
+      <Stack.Screen name="boa-onboard" options={{ headerShown: false }} />
+      <Stack.Screen name="boa-customer-edit" options={{ headerShown: false }} />
+      <Stack.Screen name="boa-visit" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-access" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
       <Stack.Screen name="organic-market" options={{ headerShown: false }} />
       <Stack.Screen name="eudr-dashboard" options={{ headerShown: false }} />
