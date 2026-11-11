@@ -6,7 +6,6 @@ import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
-const money = (n: any) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmt = (s?: string) => s ? new Date(s).toLocaleString() : '—';
 
 type Tab = 'pending' | 'approved' | 'rejected' | 'all';
@@ -36,6 +35,17 @@ export default function AdminInputProviders() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const approve = (p: any) => {
+    const missing: string[] = [];
+    if (!p.cac_certificate_url) missing.push('CAC Certificate');
+    if (!p.owner_id_url) missing.push('Owner ID');
+    if (!p.bank_statement_url) missing.push('Bank Statement');
+    if (!p.consent_form_url) missing.push('Consent Form');
+
+    if (missing.length > 0) {
+      Alert.alert('Cannot approve', 'Missing documents: ' + missing.join(', ') + '. Ask the provider to re-upload.');
+      return;
+    }
+
     Alert.alert(
       'Approve provider?',
       `${p.business_name} will be able to accept orders.`,
@@ -100,6 +110,8 @@ export default function AdminInputProviders() {
 
         {providers.map(p => {
           const statusColor = p.status === 'approved' ? '#00ff88' : (p.status === 'rejected' ? '#ff3b5c' : '#ffb300');
+          const docsCount = [p.cac_certificate_url, p.owner_id_url, p.bank_statement_url, p.consent_form_url].filter(Boolean).length;
+          const docsColor = docsCount === 4 ? '#00ff88' : docsCount > 0 ? '#ffb300' : '#ff3b5c';
           return (
             <Pressable key={p.id} onPress={() => setSelected(p)} style={styles.card}>
               <View style={{ flex: 1 }}>
@@ -110,14 +122,12 @@ export default function AdminInputProviders() {
                   <View style={[styles.chip, { borderColor: statusColor }]}>
                     <Text style={[styles.chipText, { color: statusColor }]}>{p.status.toUpperCase()}</Text>
                   </View>
+                  <View style={[styles.chip, { borderColor: docsColor }]}>
+                    <Text style={[styles.chipText, { color: docsColor }]}>DOCS {docsCount}/4</Text>
+                  </View>
                   <View style={styles.chip}>
                     <Text style={styles.chipText}>{(p.tier_id || 'starter').toUpperCase()}</Text>
                   </View>
-                  {p.onboarding_fee_paid ? (
-                    <View style={styles.chip}><Text style={[styles.chipText, { color: '#00ff88' }]}>PAID</Text></View>
-                  ) : (
-                    <View style={styles.chip}><Text style={[styles.chipText, { color: '#ffb300' }]}>UNPAID</Text></View>
-                  )}
                 </View>
               </View>
               <Text style={styles.chevron}>›</Text>
@@ -140,7 +150,6 @@ export default function AdminInputProviders() {
 
               <Text style={styles.sectionLabel}>BUSINESS</Text>
               <Text style={styles.kv}><Text style={styles.k}>CAC: </Text>{selected?.business_reg_number || '—'}</Text>
-              <Text style={styles.kv}><Text style={styles.k}>Description: </Text>{selected?.description || '—'}</Text>
               <Text style={styles.kv}><Text style={styles.k}>Categories: </Text>{(selected?.categories || []).join(', ') || '—'}</Text>
 
               <Text style={styles.sectionLabel}>LOCATION</Text>
@@ -148,12 +157,17 @@ export default function AdminInputProviders() {
               <Text style={styles.kv}><Text style={styles.k}>City: </Text>{selected?.city || '—'}</Text>
               <Text style={styles.kv}><Text style={styles.k}>LGA: </Text>{selected?.lga || '—'}</Text>
               <Text style={styles.kv}><Text style={styles.k}>State: </Text>{selected?.state || '—'}</Text>
-              <Text style={styles.kv}><Text style={styles.k}>Country: </Text>{selected?.country_code || '—'}</Text>
+
               {selected?.gps_lat && selected?.gps_lon ? (
-                <Pressable onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${selected.gps_lat},${selected.gps_lon}`)} style={{ marginTop: 6 }}>
-                  <Text style={{ color: '#b388ff', fontSize: 12, fontWeight: '800' }}>📍 View GPS on Map →</Text>
+                <Pressable
+                  onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${selected.gps_lat},${selected.gps_lon}`)}
+                  style={styles.mapBtn}
+                >
+                  <Text style={styles.mapBtnText}>🗺️ View Store on Google Maps ({selected.gps_lat.toFixed(4)}, {selected.gps_lon.toFixed(4)})</Text>
                 </Pressable>
-              ) : null}
+              ) : (
+                <Text style={[styles.kv, { color: '#ff3b5c' }]}>⚠️ No GPS location captured</Text>
+              )}
 
               <Text style={styles.sectionLabel}>CONTACT</Text>
               <Text style={styles.kv}><Text style={styles.k}>Phone: </Text>{selected?.phone || '—'}</Text>
@@ -164,29 +178,90 @@ export default function AdminInputProviders() {
               <Text style={styles.kv}><Text style={styles.k}>Account #: </Text>{selected?.bank_account_number || '—'}</Text>
               <Text style={styles.kv}><Text style={styles.k}>Account Name: </Text>{selected?.bank_account_name || '—'}</Text>
 
+              <Text style={styles.sectionLabel}>KYC DOCUMENTS — CHECKLIST</Text>
+              <View style={styles.checklist}>
+                <View style={styles.checkRow}>
+                  <Text style={selected?.cac_certificate_url ? styles.checkOn : styles.checkOff}>{selected?.cac_certificate_url ? '✓' : '✗'}</Text>
+                  <Text style={styles.checkLabel}>CAC Certificate</Text>
+                </View>
+                <View style={styles.checkRow}>
+                  <Text style={selected?.owner_id_url ? styles.checkOn : styles.checkOff}>{selected?.owner_id_url ? '✓' : '✗'}</Text>
+                  <Text style={styles.checkLabel}>Owner ID</Text>
+                </View>
+                <View style={styles.checkRow}>
+                  <Text style={selected?.bank_statement_url ? styles.checkOn : styles.checkOff}>{selected?.bank_statement_url ? '✓' : '✗'}</Text>
+                  <Text style={styles.checkLabel}>Bank Statement</Text>
+                </View>
+                <View style={styles.checkRow}>
+                  <Text style={selected?.consent_form_url ? styles.checkOn : styles.checkOff}>{selected?.consent_form_url ? '✓' : '✗'}</Text>
+                  <Text style={styles.checkLabel}>Signed Consent Form</Text>
+                </View>
+              </View>
+              {selected?.consent_agreed_at ? (
+                <Text style={[styles.kv, { marginTop: 8, fontSize: 11, color: '#00ff88' }]}>
+                  ✅ Consent recorded: {fmt(selected.consent_agreed_at)}
+                </Text>
+              ) : null}
+
+              <Text style={styles.sectionLabel}>UPLOADED DOCUMENTS</Text>
+              {selected?.cac_certificate_url ? (
+                <View style={styles.docBlock}>
+                  <Text style={styles.docTitle}>CAC Certificate</Text>
+                  <Pressable onPress={() => Linking.openURL(selected.cac_certificate_url)}>
+                    <Image source={{ uri: selected.cac_certificate_url }} style={styles.docImage} resizeMode="cover" />
+                  </Pressable>
+                  <Text style={styles.docLink}>Tap image to enlarge →</Text>
+                </View>
+              ) : null}
+              {selected?.owner_id_url ? (
+                <View style={styles.docBlock}>
+                  <Text style={styles.docTitle}>Owner ID</Text>
+                  <Pressable onPress={() => Linking.openURL(selected.owner_id_url)}>
+                    <Image source={{ uri: selected.owner_id_url }} style={styles.docImage} resizeMode="cover" />
+                  </Pressable>
+                  <Text style={styles.docLink}>Tap image to enlarge →</Text>
+                </View>
+              ) : null}
+              {selected?.bank_statement_url ? (
+                <View style={styles.docBlock}>
+                  <Text style={styles.docTitle}>Bank Statement</Text>
+                  <Pressable onPress={() => Linking.openURL(selected.bank_statement_url)}>
+                    <Image source={{ uri: selected.bank_statement_url }} style={styles.docImage} resizeMode="cover" />
+                  </Pressable>
+                  <Text style={styles.docLink}>Tap image to enlarge →</Text>
+                </View>
+              ) : null}
+              {selected?.consent_form_url ? (
+                <View style={styles.docBlock}>
+                  <Text style={styles.docTitle}>Signed Consent Form</Text>
+                  <Pressable onPress={() => Linking.openURL(selected.consent_form_url)}>
+                    <Image source={{ uri: selected.consent_form_url }} style={styles.docImage} resizeMode="cover" />
+                  </Pressable>
+                  <Text style={styles.docLink}>Tap image to enlarge →</Text>
+                </View>
+              ) : null}
+
+              <Text style={styles.sectionLabel}>STORE PHOTOS</Text>
+              {(selected?.store_images || []).length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {(selected?.store_images || []).map((img: string, i: number) => (
+                    <Pressable key={i} onPress={() => Linking.openURL(img)}>
+                      <Image source={{ uri: img }} style={styles.storeImage} />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              ) : (
+                <Text style={styles.noImages}>No store photos uploaded.</Text>
+              )}
+
               <Text style={styles.sectionLabel}>STATUS</Text>
               <Text style={styles.kv}><Text style={styles.k}>Status: </Text>{(selected?.status || '').toUpperCase()}</Text>
               <Text style={styles.kv}><Text style={styles.k}>Tier: </Text>{(selected?.tier_id || 'starter').toUpperCase()}</Text>
               <Text style={styles.kv}><Text style={styles.k}>Fee Paid: </Text>{selected?.onboarding_fee_paid ? 'YES' : 'NO'}</Text>
+              <Text style={styles.kv}><Text style={styles.k}>Applied: </Text>{fmt(selected?.created_at)}</Text>
               {selected?.rejection_reason ? (
                 <Text style={styles.kv}><Text style={styles.k}>Rejection: </Text>{selected.rejection_reason}</Text>
               ) : null}
-              <Text style={styles.kv}><Text style={styles.k}>Applied: </Text>{fmt(selected?.created_at)}</Text>
-
-              {(selected?.store_images || []).length > 0 ? (
-                <>
-                  <Text style={styles.sectionLabel}>STORE PHOTOS</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {(selected?.store_images || []).map((img: string, i: number) => (
-                      <Pressable key={i} onPress={() => Linking.openURL(img)}>
-                        <Image source={{ uri: img }} style={{ width: 140, height: 100, borderRadius: 10, marginRight: 8 }} />
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </>
-              ) : (
-                <Text style={styles.noImages}>No store photos uploaded.</Text>
-              )}
 
               {selected?.status === 'pending' ? (
                 <>
@@ -237,11 +312,23 @@ const createStyles = (p: any) => StyleSheet.create({
   sectionLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 2, color: '#b388ff', marginTop: 20, marginBottom: 8 },
   kv: { fontSize: 13, color: p.text, marginBottom: 6 },
   k: { color: p.textMuted, fontWeight: '700' },
+  mapBtn: { marginTop: 8, padding: 12, borderRadius: 10, backgroundColor: 'rgba(179,136,255,0.1)', borderWidth: 1, borderColor: '#b388ff', alignItems: 'center' },
+  mapBtnText: { fontSize: 12, fontWeight: '800', color: '#b388ff' },
+  checklist: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.2)', borderWidth: 1, borderColor: p.border },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  checkOn: { fontSize: 16, fontWeight: '900', color: '#00ff88', width: 24 },
+  checkOff: { fontSize: 16, fontWeight: '900', color: '#ff3b5c', width: 24 },
+  checkLabel: { fontSize: 13, color: p.text },
+  docBlock: { marginTop: 12 },
+  docTitle: { fontSize: 12, fontWeight: '800', color: p.text, marginBottom: 6 },
+  docImage: { width: '100%', height: 200, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.2)' },
+  docLink: { fontSize: 11, color: '#b388ff', fontWeight: '700', marginTop: 6 },
+  storeImage: { width: 140, height: 100, borderRadius: 10, marginRight: 8 },
+  noImages: { fontSize: 12, color: p.textMuted, fontStyle: 'italic', marginTop: 6 },
   approveBtn: { padding: 16, borderRadius: 12, backgroundColor: '#00ff88', alignItems: 'center', marginTop: 10 },
   approveTxt: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 },
   rejectBtn: { padding: 16, borderRadius: 12, borderWidth: 1.5, borderColor: '#ff3b5c', alignItems: 'center', marginTop: 8 },
   rejectTxt: { fontSize: 13, fontWeight: '900', color: '#ff3b5c', letterSpacing: 1 },
-  noImages: { fontSize: 12, color: p.textMuted, fontStyle: 'italic', marginTop: 6 },
   blocked: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   blockedText: { fontSize: 20, fontWeight: '900', color: p.danger },
 });

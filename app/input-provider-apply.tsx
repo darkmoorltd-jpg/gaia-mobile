@@ -6,7 +6,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
-import LocationCascade from '../src/components/LocationCascade';
 import { INPUT_CATEGORIES } from '../src/data/input_categories';
 
 const TIERS = [
@@ -25,7 +24,6 @@ export default function InputProviderApply() {
   const [businessReg, setBusinessReg] = useState('');
   const [phone, setPhone] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
-  const [countryCode, setCountryCode] = useState('NG');
   const [state, setState] = useState('');
   const [lga, setLga] = useState('');
   const [city, setCity] = useState('');
@@ -35,6 +33,14 @@ export default function InputProviderApply() {
   const [bankAccountName, setBankAccountName] = useState('');
   const [gps, setGps] = useState<{lat: number, lon: number} | null>(null);
   const [images, setImages] = useState<string[]>([]);
+
+  // KYC docs
+  const [cacImage, setCacImage] = useState<string | null>(null);
+  const [idImage, setIdImage] = useState<string | null>(null);
+  const [bankStatement, setBankStatement] = useState<string | null>(null);
+  const [consentForm, setConsentForm] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -57,27 +63,37 @@ export default function InputProviderApply() {
       selectionLimit: 5,
       quality: 0.6,
     });
-    if (!res.canceled) {
-      setImages(res.assets.map(a => a.uri));
-    }
+    if (!res.canceled) setImages(res.assets.map(a => a.uri));
+  };
+
+  const pickDoc = async (setter: (uri: string | null) => void) => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: false,
+      quality: 0.7,
+    });
+    if (!res.canceled) setter(res.assets[0].uri);
+  };
+
+  const uploadToBucket = async (uri: string, folder: string, bucket: string): Promise<string | null> => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+      const path = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.jpg';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const { error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, { contentType: 'image/jpeg' });
+      if (error) { console.warn('upload fail', bucket, error); return null; }
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      return data.publicUrl;
+    } catch (e) { console.warn('upload ex', e); return null; }
   };
 
   const uploadImages = async (): Promise<string[]> => {
     const urls: string[] = [];
     for (const uri of images) {
-      try {
-        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
-        const path = `store_${Date.now()}_${Math.random().toString(36).slice(2,6)}.jpg`;
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        
-        const { error } = await supabase.storage.from('input-store-images').upload(path, bytes.buffer, { contentType: 'image/jpeg' });
-        if (!error) {
-          const { data } = supabase.storage.from('input-store-images').getPublicUrl(path);
-          urls.push(data.publicUrl);
-        }
-      } catch (e) { console.log('Upload failed', e); }
+      const u = await uploadToBucket(uri, 'stores', 'input-store-images');
+      if (u) urls.push(u);
     }
     return urls;
   };
@@ -87,20 +103,36 @@ export default function InputProviderApply() {
       Alert.alert('Missing', 'Business name, phone, and at least 1 category are required.'); return;
     }
     if (images.length < 3) {
-      Alert.alert('Photos Required', 'Please upload at least 3 photos of your shop so admin can verify it.'); return;
+      Alert.alert('Photos Required', 'Please upload at least 3 photos of your shop.'); return;
     }
-    
+    if (!cacImage || !idImage || !bankStatement || !consentForm) {
+      Alert.alert('KYC Documents Required', 'Please upload all 4 KYC documents: CAC, Owner ID, Bank Statement, Signed Consent Form.'); return;
+    }
+    if (!agreed) {
+      Alert.alert('Consent Required', 'Please check the consent checkbox to continue.'); return;
+    }
+
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Please log in first');
 
-      const imageUrls = await uploadImages();
+      const storeUrls = await uploadImages();
+      const [cacUrl, idUrl, bankUrl, consentUrl] = await Promise.all([
+        uploadToBucket(cacImage, 'cac', 'input-provider-docs'),
+        uploadToBucket(idImage, 'ids', 'input-provider-docs'),
+        uploadToBucket(bankStatement, 'bank', 'input-provider-docs'),
+        uploadToBucket(consentForm, 'consent', 'input-provider-docs'),
+      ]);
+      if (!cacUrl || !idUrl || !bankUrl || !consentUrl) {
+        Alert.alert('Upload Failed', 'One or more documents failed to upload. Try again.');
+        setBusy(false); return;
+      }
 
       const { error } = await supabase.rpc('input_provider_apply', {
         p_business_name: businessName.trim(),
         p_address: address || '',
-        p_state: state, p_lga: lga, p_city: city, p_country_code: countryCode,
+        p_state: state, p_lga: lga, p_city: city, p_country_code: 'NG',
         p_phone: phone, p_whatsapp: phone,
         p_email: user.email,
         p_description: '',
@@ -111,14 +143,15 @@ export default function InputProviderApply() {
         p_business_reg_number: businessReg || null,
         p_gps_lat: gps?.lat || null,
         p_gps_lon: gps?.lon || null,
-        p_store_images: imageUrls,
+        p_store_images: storeUrls,
+        p_cac_certificate_url: cacUrl,
+        p_owner_id_url: idUrl,
+        p_bank_statement_url: bankUrl,
+        p_consent_form_url: consentUrl,
       });
-      
+
       if (!error) {
-        await supabase.from('input_providers').update({ 
-          tier_id: tier.id,
-          onboarding_fee_paid: false 
-        }).eq('user_id', user.id);
+        await supabase.from('input_providers').update({ tier_id: tier.id, onboarding_fee_paid: false }).eq('user_id', user.id);
         setDone(true);
       } else {
         Alert.alert('Failed', error.message);
@@ -135,7 +168,7 @@ export default function InputProviderApply() {
             <Text style={styles.doneIcon}>✓</Text>
             <Text style={styles.doneTitle}>Application received</Text>
             <Text style={styles.doneBody}>
-              Wait for Admin approval. Once approved, log in and go to "My Input Store" to pay your subscription and start listing products.
+              Your KYC documents are under review. Once admin approves, log in and go to "My Input Store" to pay your subscription.
             </Text>
             <Pressable onPress={() => router.replace('/(tabs)')} style={styles.cta}>
               <Text style={styles.ctaText}>BACK TO DASHBOARD</Text>
@@ -151,7 +184,7 @@ export default function InputProviderApply() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Sell Farm Inputs</Text>
-        
+
         <Text style={styles.section}>CHOOSE PLAN</Text>
         <View style={{ gap: 8, marginTop: 8 }}>
           {TIERS.map(t => (
@@ -172,12 +205,11 @@ export default function InputProviderApply() {
         <TextInput value={businessReg} onChangeText={setBusinessReg} style={styles.input} placeholder="RC-1234567" placeholderTextColor={palette.textDim} />
         <Text style={styles.label}>PHONE *</Text>
         <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
-        
+
         <Text style={styles.label}>WHAT DO YOU SELL? *</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
           {INPUT_CATEGORIES.map(c => (
-            <Pressable key={c.key} onPress={() => toggleCategory(c.key)}
-              style={[styles.chip, categories.includes(c.key) && styles.chipOn]}>
+            <Pressable key={c.key} onPress={() => toggleCategory(c.key)} style={[styles.chip, categories.includes(c.key) && styles.chipOn]}>
               <Text style={[styles.chipText, categories.includes(c.key) && styles.chipTextOn]}>{c.emoji} {c.label}</Text>
             </Pressable>
           ))}
@@ -192,28 +224,78 @@ export default function InputProviderApply() {
         <TextInput value={bankAccountName} onChangeText={setBankAccountName} style={styles.input} placeholderTextColor={palette.textDim} />
 
         <Text style={styles.section}>STORE LOCATION & PHOTOS (MIN 3)</Text>
-        
         <Pressable onPress={captureGPS} style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={{ color: gps ? palette.neon : palette.textDim }}>
             {gps ? `📍 ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : 'Capture Store GPS Location'}
           </Text>
           <Text style={{ fontSize: 18 }}>📍</Text>
         </Pressable>
-
         <Pressable onPress={pickImages} style={[styles.input, { marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={{ color: images.length >= 3 ? palette.neon : palette.textDim }}>
             {images.length > 0 ? `📸 ${images.length} Photo(s) attached` : 'Upload Store Photos (Min 3)'}
           </Text>
           <Text style={{ fontSize: 18 }}>📸</Text>
         </Pressable>
-        
         {images.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-             {images.map((img, i) => (
-               <Image key={i} source={{ uri: img }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8 }} />
-             ))}
+            {images.map((img, i) => (
+              <Image key={i} source={{ uri: img }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8 }} />
+            ))}
           </ScrollView>
         ) : null}
+
+        <Text style={styles.section}>KYC DOCUMENTS (REQUIRED)</Text>
+        <Text style={{ fontSize: 11, color: palette.textMuted, marginBottom: 8, lineHeight: 16 }}>
+          These are stored privately for admin verification only. Take clear photos of each document.
+        </Text>
+
+        <Text style={styles.label}>📄 CAC CERTIFICATE *</Text>
+        <Pressable onPress={() => pickDoc(setCacImage)} style={styles.uploadBox}>
+          {cacImage ? (
+            <Image source={{ uri: cacImage }} style ?={styles.uploadPreview} />
+ (
+          ) :            < (
+            <ImageText style={ sourcestyles.uploadPlaceholder}>Tap to upload CAC certificate photo</Text>
+          )}
+        </Pressable>
+
+        <Text style={styles.label}>🪪 OWNER ID (NIN / BVN CARD / DRIVER'S LICENSE) *</Text>
+        <Pressable onPress={() => pickDoc(setIdImage)} style={styles.uploadBox}>
+          {idImage={{ uri: idImage }} style={styles.uploadPreview} />
+          ) : (
+            <Text style={styles.uploadPlaceholder}>Tap to upload owner ID photo</Text>
+          )}
+        </Pressable>
+
+        <Text style={styles.label}>🏦 BANK STATEMENT (LAST 3 MONTHS) *</Text>
+        <Pressable onPress={() => pickDoc(setBankStatement)} style={styles.uploadBox}>
+          {bankStatement ? (
+            <Image source={{ uri: bankStatement }} style={styles.uploadPreview} />
+          ) : (
+            <Text style={styles.uploadPlaceholder}>Tap to upload bank statement photo</Text>
+          )}
+        </Pressable>
+
+        <Text style={styles.label}>✍️ SIGNED CONSENT FORM *</Text>
+        <Text style={{ fontSize: 10, color: palette.textDim, marginBottom: 6 }}>
+          Print, sign, and photograph a consent form confirming you agree to GAIA's terms.
+        </Text>
+        <Pressable onPress={() => pickDoc(setConsentForm)} style={styles.uploadBox}>
+          {consentForm ? (
+            <Image source={{ uri: consentForm }} style={styles.uploadPreview} />
+          ) : (
+            <Text style={styles.uploadPlaceholder}>Tap to upload signed consent form photo</Text>
+          )}
+        </Pressable>
+
+        <Pressable onPress={() => setAgreed(!agreed)} style={styles.consentRow}>
+          <View style={[styles.checkbox, agreed && styles.checkboxOn]}>
+            {agreed ? <Text style={styles.checkMark}>✓</Text> : null}
+          </View>
+          <Text style={styles.consentText}>
+            I confirm all uploaded documents are authentic and consent to GAIA processing my business data for verification.
+          </Text>
+        </Pressable>
 
         <Pressable onPress={submit} disabled={busy} style={[styles.cta, busy && { opacity: 0.5 }]}>
           {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SUBMIT APPLICATION</Text>}
@@ -247,4 +329,20 @@ const createStyles = (p: any) => StyleSheet.create({
   doneIcon: { fontSize: 40, fontWeight: '900', color: '#b388ff' },
   doneTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginTop: 12 },
   doneBody: { fontSize: 13, color: p.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  uploadBox: {
+    padding: 14, borderRadius: 12, backgroundColor: p.surface,
+    borderWidth: 1.5, borderColor: p.border, borderStyle: 'dashed',
+    minHeight: 100, alignItems: 'center', justifyContent: 'center',
+  },
+  uploadPreview: { width: '100%', height: 160, borderRadius: 8 },
+  uploadPlaceholder: { fontSize: 12, color: p.textMuted, textAlign: 'center' },
+  consentRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    marginTop: 24, padding: 14, borderRadius: 12,
+    backgroundColor: 'rgba(179,136,255,0.06)', borderWidth: 1, borderColor: 'rgba(179,136,255,0.2)',
+  },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#b388ff', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  checkboxOn: { backgroundColor: '#b388ff' },
+  checkMark: { fontSize: 14, fontWeight: '900', color: '#000' },
+  consentText: { flex: 1, fontSize: 12, color: p.text, lineHeight: 18 },
 });
