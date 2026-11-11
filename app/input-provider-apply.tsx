@@ -208,6 +208,10 @@ City: ${p.city || p.district || '?'}`);
   if (loading) return <View style={styles.container}><ActivityIndicator color="#b388ff" style={{ marginTop: 100 }} /></View>;
 
   // PENDING VIEW
+
+  if (loading) return <View style={styles.container}><ActivityIndicator color="#b388ff" style={{ marginTop: 100 }} /></View>;
+
+  // 1. PENDING VIEW
   if (existingApp?.status === 'pending') {
     return (
       <View style={styles.container}>
@@ -221,7 +225,39 @@ City: ${p.city || p.district || '?'}`);
     );
   }
 
-  // REJECTED VIEW
+  // 2. APPROVED BUT UNPAID VIEW
+  if (existingApp?.status === 'approved' && !existingApp?.onboarding_fee_paid) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.doneBox, { borderColor: '#00ff88' }]}>
+          <Text style={{ fontSize: 60, marginBottom: 10 }}>✅</Text>
+          <Text style={[styles.doneTitle, { color: '#00ff88' }]}>You're Approved!</Text>
+          <Text style={styles.doneBody}>Your store is verified. Pay your yearly subscription to activate your storefront and start listing products.</Text>
+          <Pressable onPress={() => router.replace('/input-provider-dashboard' as any)} style={[styles.cta, { backgroundColor: '#00ff88' }]}>
+            <Text style={[styles.ctaText, { color: '#000' }]}>PAY & ACTIVATE STORE</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // 3. APPROVED AND PAID VIEW
+  if (existingApp?.status === 'approved' && existingApp?.onboarding_fee_paid) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.doneBox}>
+          <Text style={{ fontSize: 60, marginBottom: 10 }}>🚀</Text>
+          <Text style={styles.doneTitle}>Store is Live</Text>
+          <Text style={styles.doneBody}>Your store is active. Manage your products and orders from your dashboard.</Text>
+          <Pressable onPress={() => router.replace('/input-provider-dashboard' as any)} style={styles.cta}>
+            <Text style={styles.ctaText}>GO TO MY STORE</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // 4. REJECTED VIEW (if not resubmitting)
   if (existingApp?.status === 'rejected' && !isResubmitting) {
     return (
       <View style={styles.container}>
@@ -239,7 +275,6 @@ City: ${p.city || p.district || '?'}`);
                 ))}
               </View>
             )}
-
             <Pressable onPress={() => setIsResubmitting(true)} style={[styles.cta, { backgroundColor: '#ff3b5c', marginTop: 24 }]}>
               <Text style={[styles.ctaText, { color: '#fff' }]}>FIX & RESUBMIT</Text>
             </Pressable>
@@ -249,7 +284,7 @@ City: ${p.city || p.district || '?'}`);
     );
   }
 
-  // DONE VIEW
+  // 5. DONE VIEW (after submit)
   if (done) {
     return (
       <View style={styles.container}>
@@ -263,8 +298,9 @@ City: ${p.city || p.district || '?'}`);
     );
   }
 
-  // FORM VIEW
+  // 6. FORM VIEW (Only shows if no application exists, or resubmitting)
   return (
+
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
