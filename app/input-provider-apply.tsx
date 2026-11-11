@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -97,7 +98,9 @@ export default function InputProviderApply() {
         if (p.subregion) setLga(p.subregion);
         if (p.city) setCity(p.city);
         else if (p.district) setCity(p.district);
-        Alert.alert('Location Auto-Filled', `State: ${p.region || '?'}\nLGA: ${p.subregion || '?'}\nCity: ${p.city || p.district || '?'}`);
+        Alert.alert('Location Auto-Filled', `State: ${p.region || '?'}
+LGA: ${p.subregion || '?'}
+City: ${p.city || p.district || '?'}`);
       } else {
         Alert.alert('GPS Captured', 'Coordinates saved, but we could not resolve the address automatically.');
       }
@@ -129,13 +132,20 @@ export default function InputProviderApply() {
 
   const uploadToBucket = async (uri: string, folder: string, bucket: string): Promise<string | null> => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
-      const path = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.jpg';
+      // The path must start with the user ID to satisfy our RLS policy!
+      const path = user.id + '/' + folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2,8) + '.jpg';
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const { error } = await supabase.storage.from(bucket).upload(path, bytes.buffer, { contentType: 'image/jpeg' });
-      if (error) return null;
+      if (error) {
+        console.log('Upload err:', error.message);
+        return null;
+      }
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       return data.publicUrl;
     } catch (e) { return null; }
