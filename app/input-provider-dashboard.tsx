@@ -84,6 +84,9 @@ export default function InputProviderDashboard() {
 
   const payWithWallet = () => {
     setPinAction('subscribe');
+    setPin('');
+    setShowPin(true);
+    setPin('');
     setShowPin(true);
   };
 
