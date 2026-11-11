@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -27,22 +28,12 @@ export default function InputMyOrders() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const cancelOrder = (id: string) => {
-    Alert.prompt(
-      'Cancel this order?',
-      'Your money will be refunded to your escrow wallet immediately. Tell us why (optional):',
-      async (reason?: string) => {
-        const { data, error } = await supabase.rpc('input_cancel_order', {
-          p_order_id: id,
-          p_reason: reason || null,
-        });
+    Alert.prompt('Cancel this order?', 'Your money will be refunded to your escrow wallet immediately.', async (reason?: string) => {
+        const { data, error } = await supabase.rpc('input_cancel_order', { p_order_id: id, p_reason: reason || null });
         if (error) { Alert.alert('Cannot cancel', error.message); return; }
-        const refunded = Number(data?.refunded_ngn || 0);
-        Alert.alert('Order cancelled', `₦${refunded.toLocaleString()} refunded to your wallet.`);
+        Alert.alert('Order cancelled', 'Refunded to wallet.');
         load();
-      },
-      'plain-text',
-      '',
-    );
+      });
   };
 
   const confirmReceived = (id: string) => {
@@ -60,117 +51,52 @@ export default function InputMyOrders() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor="#b388ff" />}>
+      <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor="#b388ff" />}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>My Input Orders</Text>
         <Text style={styles.sub}>{orders.length} order(s)</Text>
 
         {busy && orders.length === 0 ? <ActivityIndicator color="#b388ff" /> : null}
-        {!busy && orders.length === 0 ? (
-          <View style={styles.empty}><Text style={styles.emptyText}>No orders yet. Browse farm inputs to buy fertilizer, seeds, or tools.</Text></View>
-        ) : null}
+        {!busy && orders.length === 0 ? <View style={styles.empty}><Text style={styles.emptyText}>No orders yet.</Text></View> : null}
 
-        {orders.map((o) => {
-          const isPaid = o.payment_status === 'held_in_escrow';
-          const isReleased = o.payment_status === 'released';
-          
-          return (
+        {orders.map((o) => (
             <View key={o.id} style={styles.card}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={styles.name}>{o.product_name}</Text>
-                <Text style={[styles.chip, {
-                  color: isReleased ? '#00ff88' : (o.status === 'shipped' ? '#4fc3f7' : (o.status === 'cancelled' ? '#ff3b5c' : '#ffb300')),
-                  borderColor: isReleased ? '#00ff88' : (o.status === 'shipped' ? '#4fc3f7' : (o.status === 'cancelled' ? '#ff3b5c' : '#ffb300')),
-                }]}>
-                  {isReleased ? 'DELIVERED' : (o.status === 'shipped' ? 'SHIPPED' : (o.status === 'cancelled' ? 'CANCELLED' : 'IN ESCROW'))}
-                </Text>
+                <Text style={styles.chip}>{o.status.toUpperCase()}</Text>
               </View>
               <Text style={styles.meta}>{o.quantity} {o.product_unit} · {money(o.unit_price_ngn)} each</Text>
-              
               <View style={styles.sellerBox}>
                 <Text style={styles.sellerLabel}>SELLER</Text>
                 <Text style={styles.sellerName}>{o.seller_name || 'Unknown Store'}</Text>
-                {o.seller_phone ? <Text style={styles.meta}>📞 {o.seller_phone}</Text> : null}
               </View>
-
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
                 <Text style={styles.total}>{money(o.total_ngn)}</Text>
-                <Text style={styles.meta}>Status: {o.status.toUpperCase()}</Text>
               </View>
-              <Text style={styles.meta}>Delivery: {o.delivery_method} · {fmt(o.created_at)}</Text>
               
-              {/* PENDING (paid, not shipped yet) → CANCEL possible */}
-              {isPaid && o.status === 'pending' ? (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={{ fontSize: 10, color: '#ffb300', marginBottom: 6, textAlign: 'center' }}>
-                    🔒 Paid · Awaiting seller to ship. You can still cancel for a full refund.
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable onPress={() => cancelOrder(o.id)} style={[styles.btn, { flex: 1, backgroundColor: '#ff3b5c' }]}>
-                      <Text style={styles.btnText}>CANCEL ORDER</Text>
-                    </Pressable>
-                    <Pressable onPress={() => confirmReceived(o.id)} style={[styles.btn, { flex: 1 }]}>
-                      <Text style={styles.btnText}>I GOT IT</Text>
-                    </Pressable>
-                  </View>
+              {o.payment_status === 'held_in_escrow' && o.status === 'pending' ? (
+                <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
+                    <Pressable onPress={() => cancelOrder(o.id)} style={[styles.btn, { backgroundColor: '#ff3b5c' }]}><Text style={styles.btnText}>CANCEL</Text></Pressable>
+                    <Pressable onPress={() => confirmReceived(o.id)} style={[styles.btn, { backgroundColor: '#00ff88' }]}><Text style={[styles.btnText, { color: '#000' }]}>I GOT IT</Text></Pressable>
                 </View>
-              ) : null}
-
-              {/* SHIPPED → CONFIRM DELIVERY */}
-              {isPaid && o.status === 'shipped' ? (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={{ fontSize: 10, color: '#4fc3f7', marginBottom: 6, textAlign: 'center' }}>
-                    🚚 Seller has shipped. Confirm receipt to release payment.
-                  </Text>
-                  <Pressable onPress={() => confirmReceived(o.id)} style={styles.btn}>
-                    <Text style={styles.btnText}>CONFIRM DELIVERY & RELEASE PAYMENT</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              {/* CANCELLED */}
-              {o.status === 'cancelled' ? (
-                <Text style={{ color: '#ff3b5c', fontSize: 12, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>
-                  ❌ Order cancelled · ₦{Number(o.total_ngn || 0).toLocaleString()} refunded
-                </Text>
-              ) : null}
-              {isReleased ? (
-                <Text style={{ color: '#00ff88', fontSize: 12, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>✅ Payment Released to Seller</Text>
               ) : null}
             </View>
-          );
-        })}
-
+        ))}
         <View style={{ height: 60 }} />
       </ScrollView>
-      <ReviewModal
-        visible={!!reviewOrder}
-        orderId={reviewOrder?.id || null}
-        productName={reviewOrder?.product_name}
-        onClose={() => setReviewOrder(null)}
-        onSubmitted={() => { setReviewOrder(null); load(); }}
-      />
+      <ReviewModal visible={!!reviewOrder} orderId={reviewOrder?.id || null} productName={reviewOrder?.product_name} onClose={() => setReviewOrder(null)} onSubmitted={() => { setReviewOrder(null); load(); }} />
     </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
-  back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 28, fontWeight: '900', color: p.text, letterSpacing: -1 },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 },
-  empty: { padding: 24, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
-  emptyText: { fontSize: 12, color: p.textMuted, textAlign: 'center', lineHeight: 18 },
-  card: { padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
-  name: { fontSize: 15, fontWeight: '800', color: p.text },
-  chip: { fontSize: 9, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, letterSpacing: 0.5 },
-  meta: { fontSize: 11, color: p.textMuted, marginTop: 3 },
-  sellerBox: { marginTop: 10, padding: 10, backgroundColor: 'rgba(179,136,255,0.08)', borderRadius: 8 },
-  sellerLabel: { fontSize: 9, fontWeight: '900', color: '#b388ff', letterSpacing: 1 },
-  sellerName: { fontSize: 13, fontWeight: '800', color: p.text, marginTop: 2 },
-  total: { fontSize: 18, fontWeight: '900', color: '#b388ff' },
-  btn: { paddingVertical: 12, borderRadius: 10, backgroundColor: '#00ff88', alignItems: 'center' },
-  btnText: { fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 },
+  container: { flex: 1, backgroundColor: p.obsidian }, scroll: { padding: 20, paddingTop: 60, paddingBottom: 80 },
+  back: { fontSize: 11, fontWeight: '800', color: p.textMuted, marginBottom: 12 }, title: { fontSize: 28, fontWeight: '900', color: p.text },
+  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 16 }, card: { padding: 16, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
+  name: { fontSize: 15, fontWeight: '800', color: p.text }, chip: { fontSize: 9, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#ffb300', color: '#ffb300' },
+  meta: { fontSize: 11, color: p.textMuted, marginTop: 3 }, sellerBox: { marginTop: 10, padding: 10, backgroundColor: 'rgba(179,136,255,0.08)', borderRadius: 8 },
+  sellerLabel: { fontSize: 9, fontWeight: '900', color: '#b388ff' }, sellerName: { fontSize: 13, fontWeight: '800', color: p.text, marginTop: 2 },
+  total: { fontSize: 18, fontWeight: '900', color: '#b388ff' }, btn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  btnText: { fontSize: 11, fontWeight: '900', color: '#fff' }, empty: { padding: 24, borderRadius: 14, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
+  emptyText: { fontSize: 12, color: p.textMuted }
 });
