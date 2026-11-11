@@ -33,6 +33,8 @@ export default function InputProductDetail() {
   const [reviews, setReviews] = useState<any>({ average: 0, count: 0, reviews: [] });
   const [walletBal, setWalletBal] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState(true);
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -89,16 +91,26 @@ export default function InputProductDetail() {
       return;
     }
 
-    // ONLINE LOGIC (Wallet Escrow)
+    setBuyBusy(false);
+    setShowPin(true); // Show PIN modal instead of immediately buying
+  };
+
+  const confirmPinAndBuy = async () => {
+    if (!pin || pin.length < 4) { Alert.alert('Enter your 4-digit PIN'); return; }
+    const q = parseFloat(qty) || 0;
+    setBuyBusy(true);
     try {
-      const { data, error } = await supabase.rpc('input_buy_with_wallet', {
+      const { data, error } = await supabase.rpc('input_buy_with_wallet_pin', {
         p_product_id: product.id, p_quantity: q,
         p_delivery_method: delivery,
         p_delivery_address: delivery === 'delivery' ? deliveryAddr.trim() : null,
+        p_pin: pin
       });
       if (error) {
         const msg = error.message || '';
-        if (msg.includes('INSUFFICIENT_WALLET')) {
+        if (msg.includes('INVALID_PIN')) {
+          Alert.alert('Incorrect PIN', 'Please try again.');
+        } else if (msg.includes('INSUFFICIENT_WALLET')) {
           Alert.alert('Insufficient Balance', 'Please top up your wallet from the Home screen, then try again.');
         } else {
           Alert.alert('Failed', msg);
@@ -148,6 +160,31 @@ export default function InputProductDetail() {
           <>
             <Text style={styles.section}>ABOUT</Text>
             <Text style={styles.body}>{product.description}</Text>
+          </>
+        ) : null}
+
+        
+        {product?.images && product.images.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16 }}>
+            {product.images.map((img: string, i: number) => (
+              <Image key={i} source={{ uri: img }} style={{ width: 200, height: 200, borderRadius: 12, marginRight: 10 }} />
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {product?.video_url ? (
+          <View style={{ marginTop: 16 }}>
+            <Text style={styles.section}>VIDEO DEMO</Text>
+            <WebView source={{ uri: product.video_url }} style={{ height: 220, borderRadius: 12 }} allowsFullscreenVideo />
+          </View>
+        ) : null}
+
+        {product?.application ? (
+          <>
+            <Text style={styles.section}>APPLICATION / RECOMMENDATION</Text>
+            <View style={{ backgroundColor: 'rgba(179,136,255,0.06)', padding: 16, borderRadius: 12 }}>
+              <Text style={styles.body}>{product.application}</Text>
+            </View>
           </>
         ) : null}
 
@@ -257,6 +294,32 @@ export default function InputProductDetail() {
           {payRef ? <WebView source={{ html: payHtml }} onMessage={(e) => onPayMsg(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled style={{ flex: 1 }} /> : null}
         </View>
       </Modal>
+
+      <Modal visible={showPin} animationType="slide" transparent onRequestClose={() => setShowPin(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: palette.surface, padding: 24, borderRadius: 20, alignItems: 'center' }}>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: palette.text }}>Enter Wallet PIN</Text>
+            <Text style={{ fontSize: 12, color: palette.textMuted, marginTop: 4 }}>To authorize {money(total)}</Text>
+            <TextInput
+              value={pin}
+              onChangeText={setPin}
+              secureTextEntry
+              keyboardType="number-pad"
+              maxLength={4}
+              style={{ width: '100%', textAlign: 'center', fontSize: 24, letterSpacing: 10, backgroundColor: palette.obsidian, color: palette.text, padding: 16, borderRadius: 12, marginTop: 20 }}
+              placeholder="••••"
+              placeholderTextColor={palette.textDim}
+            />
+            <Pressable onPress={confirmPinAndBuy} style={[styles.cta, { width: '100%', marginTop: 20 }]}>
+              <Text style={styles.ctaText}>AUTHORIZE PAYMENT</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowPin(false)} style={{ marginTop: 16 }}>
+              <Text style={{ color: palette.textMuted }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

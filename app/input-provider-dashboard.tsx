@@ -3,6 +3,8 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { WebView } from 'react-native-webview';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
 import { INPUT_CATEGORIES, categoryEmoji } from '../src/data/input_categories';
@@ -35,6 +37,12 @@ export default function InputProviderDashboard() {
   const [unit, setUnit] = useState('kg');
   const [stock, setStock] = useState('');
   const [desc, setDesc] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [video, setVideo] = useState<string | null>(null);
+  const [application, setApplication] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [pinAction, setPinAction] = useState<'subscribe'|null>(null);
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
@@ -74,13 +82,21 @@ export default function InputProviderDashboard() {
     );
   };
 
-  const payWithWallet = async () => {
-    const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
-    const { error } = await supabase.rpc('input_pay_subscription_wallet', {
-      p_tier: provider.tier_id, p_amount: tierData.price
-    });
-    if (error) Alert.alert('Failed', error.message);
-    else { Alert.alert('Subscribed!', 'Your store is now active.'); load(); }
+  const payWithWallet = () => {
+    setPinAction('subscribe');
+    setShowPin(true);
+  };
+
+  const confirmPin = async () => {
+    if (!pin || pin.length < 4) { Alert.alert('Enter your 4-digit PIN'); return; }
+    if (pinAction === 'subscribe') {
+      const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
+      const { error } = await supabase.rpc('input_pay_subscription_wallet_pin', {
+        p_tier: provider.tier_id, p_amount: tierData.price, p_pin: pin
+      });
+      if (error) Alert.alert('Failed', error.message.includes('INVALID_PIN') ? 'Incorrect PIN' : error.message);
+      else { Alert.alert('Subscribed!', 'Your store is now active.'); setShowPin(false); load(); }
+    }
   };
 
   const startPayment = () => {
@@ -107,12 +123,54 @@ export default function InputProviderDashboard() {
     } catch {}
   };
 
+  const uploadMedia = async (uri: string, folder: string, isVideo: boolean) => {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+      const ext = isVideo ? 'mp4' : 'jpg';
+      const path = `${provider.user_id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const { error } = await supabase.storage.from('input-product-media').upload(path, bytes.buffer, { contentType: isVideo ? 'video/mp4' : 'image/jpeg' });
+      if (error) return null;
+      const { data } = supabase.storage.from('input-product-media').getPublicUrl(path);
+      return data.publicUrl;
+    } catch { return null; }
+  };
+
+  const pickMedia = async () => {
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsMultipleSelection: true,
+      selectionLimit: 20,
+      quality: 0.7,
+    });
+    if (!res.canceled) {
+      const uris = res.assets.map(a => a.uri);
+      setImages(prev => [...prev, ...uris.filter(u => u.match(/\.(jpg|jpeg|png|webp)$/i))]);
+      const vid = uris.find(u => u.match(/\.(mp4|mov)$/i));
+      if (vid) setVideo(vid);
+    }
+  };
+
   const addProduct = async () => {
     if (!name || !price || !stock) { Alert.alert('Missing fields'); return; }
     setAdding(true);
+    
+    // Upload images
+    const uploadedImages = [];
+    for (const uri of images) {
+      const url = await uploadMedia(uri, 'images', false);
+      if (url) uploadedImages.push(url);
+    }
+    // Upload video
+    let videoUrl = null;
+    if (video) videoUrl = await uploadMedia(video, 'videos', true);
+
     const { error } = await supabase.rpc('input_add_product', {
       p_name: name.trim(), p_category: category, p_price_ngn: parseFloat(price),
       p_unit: unit, p_quantity_available: parseFloat(stock), p_description: desc.trim() || null,
+      p_images: uploadedImages, p_video_url: videoUrl, p_application: application.trim() || null
     });
     setAdding(false);
     if (error) { Alert.alert('Failed', error.message); return; }
@@ -245,12 +303,50 @@ export default function InputProviderDashboard() {
             <TextInput value={unit} onChangeText={setUnit} style={styles.input} placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>QUANTITY</Text>
             <TextInput value={stock} onChangeText={setStock} keyboardType="numeric" style={styles.input} placeholderTextColor={palette.textDim} />
+            
+            <Text style={styles.label}>APPLICATION / RECOMMENDATIONS</Text>
+            <TextInput value={application} onChangeText={setApplication} multiline style={[styles.input, { height: 80 }]} placeholder="How to use this product (e.g., 2 bags per hectare)" placeholderTextColor={palette.textDim} />
+
+            <Text style={styles.label}>PRODUCT MEDIA (UP TO 20 IMAGES + 1 VIDEO)</Text>
+            <Pressable onPress={pickMedia} style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between' }]}>
+              <Text style={{ color: images.length > 0 || video ? '#b388ff' : palette.textDim }}>
+                {images.length} Image(s) · {video ? '1 Video' : 'No Video'}
+              </Text>
+              <Text>📸</Text>
+            </Pressable>
+
             <Pressable onPress={addProduct} disabled={adding} style={styles.cta}>
               {adding ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>SAVE PRODUCT</Text>}
             </Pressable>
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal visible={showPin} animationType="slide" transparent onRequestClose={() => setShowPin(false)}>
+        <View style={styles.modalBg}>
+          <View style={[styles.modalSheet, { alignItems: 'center' }]}>
+            <Text style={styles.title}>Enter Wallet PIN</Text>
+            <Text style={styles.sub}>To authorize this payment</Text>
+            <TextInput
+              value={pin}
+              onChangeText={setPin}
+              secureTextEntry
+              keyboardType="number-pad"
+              maxLength={4}
+              style={[styles.input, { textAlign: 'center', fontSize: 24, letterSpacing: 10, width: '100%', marginTop: 20 }]}
+              placeholder="••••"
+              placeholderTextColor={palette.textDim}
+            />
+            <Pressable onPress={confirmPin} style={[styles.cta, { width: '100%', marginTop: 20 }]}>
+              <Text style={styles.ctaText}>AUTHORIZE</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowPin(false)} style={{ marginTop: 16 }}>
+              <Text style={{ color: palette.textMuted }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
