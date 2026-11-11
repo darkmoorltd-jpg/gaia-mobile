@@ -9,7 +9,7 @@ import { supabase } from '../src/api/supabase';
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const fmt = (s?: string) => s ? new Date(s).toLocaleString() : '—';
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'all';
+type Tab = 'pending' | 'approved' | 'rejected' | 'resubmit' | 'all';
 
 export default function AdminInputProviders() {
   const router = useRouter();
@@ -28,7 +28,7 @@ export default function AdminInputProviders() {
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setBusy(true);
-    const { data } = await supabase.rpc('admin_list_input_providers', { p_status: tab });
+    const { data } = await supabase.rpc('admin_list_input_providers', { p_status: tab === 'resubmit' ? 'needs_resubmission' : tab });
     setProviders(Array.isArray(data) ? data : []);
     setBusy(false); setRef(false);
   }, [isAdmin, tab]);
@@ -86,7 +86,7 @@ export default function AdminInputProviders() {
 
   if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
 
-  const TAB_LABELS: Record<Tab, string> = { pending: 'PENDING', approved: 'APPROVED', rejected: 'REJECTED', all: 'ALL' };
+  const TAB_LABELS: Record<Tab, string> = { pending: 'PENDING', approved: 'APPROVED', rejected: 'REJECTED', resubmit: 'RESUBMIT', all: 'ALL' };
 
   return (
     <View style={styles.container}>
@@ -97,7 +97,7 @@ export default function AdminInputProviders() {
         <Text style={styles.sub}>{providers.length} provider(s)</Text>
 
         <View style={styles.tabBar}>
-          {(['pending','approved','rejected','all'] as Tab[]).map(t => (
+          {(['pending','approved','rejected','resubmit','all'] as Tab[]).map(t => (
             <Pressable key={t} onPress={() => setTab(t)} style={[styles.tabBtn, tab === t && styles.tabBtnOn]}>
               <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{TAB_LABELS[t]}</Text>
             </Pressable>
