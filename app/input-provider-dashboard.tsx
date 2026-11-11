@@ -86,8 +86,6 @@ export default function InputProviderDashboard() {
     setPinAction('subscribe');
     setPin('');
     setShowPin(true);
-    setPin('');
-    setShowPin(true);
   };
 
   const confirmPin = async () => {
@@ -221,6 +219,31 @@ export default function InputProviderDashboard() {
               <Text style={{ color: '#b388ff', fontWeight: '900' }}>CANCEL</Text>
             </Pressable>
             {payRef ? <WebView source={{ html: payHtml }} onMessage={(e) => onPayMsg(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled style={{ flex: 1 }} /> : null}
+          </View>
+        </Modal>
+
+        <Modal visible={showPin} animationType="slide" transparent onRequestClose={() => setShowPin(false)}>
+          <View style={styles.modalBg}>
+            <View style={[styles.modalSheet, { alignItems: 'center' }]}>
+              <Text style={styles.title}>Enter Wallet PIN</Text>
+              <Text style={styles.sub}>To authorize this payment</Text>
+              <TextInput
+                value={pin}
+                onChangeText={setPin}
+                secureTextEntry
+                keyboardType="number-pad"
+                maxLength={4}
+                style={[styles.input, { textAlign: 'center', fontSize: 24, letterSpacing: 10, width: '100%', marginTop: 20 }]}
+                placeholder="••••"
+                placeholderTextColor={palette.textDim}
+              />
+              <Pressable onPress={confirmPin} style={[styles.cta, { width: '100%', marginTop: 20 }]}>
+                <Text style={styles.ctaText}>AUTHORIZE</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowPin(false)} style={{ marginTop: 16 }}>
+                <Text style={{ color: palette.textMuted }}>Cancel</Text>
+              </Pressable>
+            </View>
           </View>
         </Modal>
       </View>
