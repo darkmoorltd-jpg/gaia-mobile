@@ -43,7 +43,7 @@ export default function InputProviderDashboard() {
       const { data: prov } = await supabase.from('input_providers').select('*').eq('user_id', user.id).maybeSingle();
       setProvider(prov);
       
-      if (prov) {
+      if (prov && prov.status === 'approved' && prov.onboarding_fee_paid) {
         const [p, o] = await Promise.all([
           supabase.rpc('input_my_products'),
           supabase.rpc('input_provider_orders'),
@@ -58,26 +58,20 @@ export default function InputProviderDashboard() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const markShipped = (id: string, productName: string) => {
-    Alert.alert(
-      'Mark as shipped?',
-      `Buyer will be notified that "${productName}" is on the way.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'SHIP IT', onPress: async () => {
-          const { error } = await supabase.rpc('input_mark_shipped', { p_order_id: id });
-          if (error) { Alert.alert('Failed', error.message); return; }
-          Alert.alert('Shipped ✅', 'Buyer has been notified.');
-          load();
-        }},
-      ],
-    );
+    Alert.alert('Mark as shipped?', `Buyer will be notified that "${productName}" is on the way.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'SHIP IT', onPress: async () => {
+        const { error } = await supabase.rpc('input_mark_shipped', { p_order_id: id });
+        if (error) { Alert.alert('Failed', error.message); return; }
+        Alert.alert('Shipped ✅', 'Buyer has been notified.');
+        load();
+      }},
+    ]);
   };
 
   const payWithWallet = async () => {
     const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
-    const { error } = await supabase.rpc('input_pay_subscription_wallet', {
-      p_tier: provider.tier_id, p_amount: tierData.price
-    });
+    const { error } = await supabase.rpc('input_pay_subscription_wallet', { p_tier: provider.tier_id, p_amount: tierData.price });
     if (error) Alert.alert('Failed', error.message);
     else { Alert.alert('Subscribed!', 'Your store is now active.'); load(); }
   };
@@ -93,16 +87,10 @@ export default function InputProviderDashboard() {
     try {
       const d = JSON.parse(raw);
       if (d.status === 'success' && provider) {
-        await supabase.rpc('input_mark_paid', { 
-          p_provider_id: provider.id, 
-          p_tier_id: provider.tier_id,
-          p_payment_ref: d.reference 
-        });
+        await supabase.rpc('input_mark_paid', { p_provider_id: provider.id, p_tier_id: provider.tier_id, p_payment_ref: d.reference });
         setPayRef(null);
         load();
-      } else if (d.status === 'closed') {
-        setPayRef(null);
-      }
+      } else if (d.status === 'closed') { setPayRef(null); }
     } catch {}
   };
 
@@ -125,41 +113,40 @@ export default function InputProviderDashboard() {
     return (
       <View style={styles.container}>
         <Text style={{ color: '#fff', padding: 20 }}>You are not an input provider yet.</Text>
+        <Pressable onPress={() => router.push('/input-provider-apply' as any)} style={{ margin: 20, padding: 16, backgroundColor: '#b388ff', borderRadius: 12, alignItems: 'center' }}>
+          <Text style={{ fontWeight: '900', color: '#000' }}>APPLY NOW</Text>
+        </Pressable>
       </View>
     );
   }
 
-  // REJECTED STATE
-  if (provider.status === 'rejected') {
+  // PENDING / REJECTED STATE
+  if (provider.status === 'pending' || provider.status === 'rejected') {
     return (
       <View style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Application Rejected</Text>
-          <View style={styles.payCard}>
-            <Text style={{ fontSize: 40, marginBottom: 10 }}>❌</Text>
-            <Text style={[styles.payTier, { color: '#ff3b5c' }]}>Needs Attention</Text>
-            <Text style={{ fontSize: 14, color: p.text, marginTop: 16, textAlign: 'center' }}>
-              Reason: {provider.rejection_reason || 'No reason provided'}
-            </Text>
-            <Pressable onPress={() => router.replace('/input-provider-apply')} style={[styles.cta, { backgroundColor: '#ff3b5c', marginTop: 24 }]}>
-              <Text style={styles.ctaText}>RE-APPLY NOW</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
+        <View style={{ padding: 20, marginTop: 60 }}>
+          <Text style={styles.title}>Status: {provider.status.toUpperCase()}</Text>
+          <Text style={styles.sub}>
+            {provider.status === 'pending' ? 'Your application is being reviewed.' : `Rejected: ${provider.rejection_reason || 'Please review documents.'}`}
+          </Text>
+          <Pressable onPress={() => router.push('/input-provider-apply' as any)} style={{ marginTop: 24, padding: 16, backgroundColor: '#b388ff', borderRadius: 12, alignItems: 'center' }}>
+            <Text style={{ fontWeight: '900', color: '#000' }}>VIEW APPLICATION</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
-  // PAYWALL STATE
-  if (!provider.onboarding_fee_paid) {
+  // PAYWALL STATE (Approved, but not paid)
+  if (provider.status === 'approved' && !provider.onboarding_fee_paid) {
     const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
     const payHtml = payRef ? '<html><body style="background:#000;margin:0"><script src="https://js.paystack.co/v1/inline.js"></script><script>PaystackPop.setup({key:"' + PAYSTACK_PUBLIC + '",email:"' + provider.email + '",amount:' + (tierData.price * 100) + ',currency:"NGN",ref:"' + payRef + '",callback:function(r){window.ReactNativeWebView.postMessage(JSON.stringify({status:"success",reference:r.reference}));},onClose:function(){window.ReactNativeWebView.postMessage(JSON.stringify({status:"closed"}));}}).openIframe();</script></body></html>' : '';
 
     return (
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Activate Your Store</Text>
-          <Text style={styles.sub}>Your application was approved! Pay your yearly subscription to start listing products.</Text>
+          <Text style={styles.title}>Store Approved! 🎉</Text>
+          <Text style={styles.sub}>Pay your yearly subscription to start listing products.</Text>
           
           <View style={styles.payCard}>
             <Text style={styles.payTier}>{tierData.name} Plan</Text>
@@ -168,7 +155,7 @@ export default function InputProviderDashboard() {
             <Pressable onPress={startPayment} style={styles.cta}>
               <Text style={styles.ctaText}>PAY WITH CARD (PAYSTACK)</Text>
             </Pressable>
-            <Pressable onPress={payWithWallet} style={[styles.cta, { backgroundColor: p.neon, marginTop: 10 }]}>
+            <Pressable onPress={payWithWallet} style={[styles.cta, { backgroundColor: palette.neon, marginTop: 10 }]}>
               <Text style={[styles.ctaText, { color: '#000' }]}>PAY WITH WALLET</Text>
             </Pressable>
           </View>
@@ -176,9 +163,7 @@ export default function InputProviderDashboard() {
 
         <Modal visible={!!payRef} animationType="slide" onRequestClose={() => setPayRef(null)}>
           <View style={{ flex: 1, backgroundColor: '#000' }}>
-            <Pressable onPress={() => setPayRef(null)} style={{ padding: 16 }}>
-              <Text style={{ color: '#b388ff', fontWeight: '900' }}>CANCEL</Text>
-            </Pressable>
+            <Pressable onPress={() => setPayRef(null)} style={{ padding: 16 }}><Text style={{ color: '#b388ff', fontWeight: '900' }}>CANCEL</Text></Pressable>
             {payRef ? <WebView source={{ html: payHtml }} onMessage={(e) => onPayMsg(e.nativeEvent.data)} javaScriptEnabled domStorageEnabled style={{ flex: 1 }} /> : null}
           </View>
         </Modal>
@@ -190,16 +175,13 @@ export default function InputProviderDashboard() {
   const tierData = TIERS[provider.tier_id as keyof typeof TIERS] || TIERS.starter;
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor="#b388ff" />}>
+      <ScrollView contentContainerStyle={styles.scroll} refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); load(); }} tintColor="#b388ff" />}>
         <Text style={styles.title}>{provider.business_name}</Text>
         <Text style={styles.sub}>Status: Active · Plan: {tierData.name}</Text>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 12 }}>
           <Text style={styles.sectionLabel}>MY PRODUCTS</Text>
-          <Pressable onPress={() => setShowAdd(true)} style={styles.addBtn}>
-            <Text style={styles.addBtnText}>+ ADD PRODUCT</Text>
-          </Pressable>
+          <Pressable onPress={() => setShowAdd(true)} style={styles.addBtn}><Text style={styles.addBtnText}>+ ADD PRODUCT</Text></Pressable>
         </View>
 
         {products.length === 0 ? <Text style={styles.empty}>No products listed yet.</Text> : null}
@@ -222,9 +204,7 @@ export default function InputProviderDashboard() {
             <View key={o.id} style={[styles.card, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={styles.name}>{o.product_name} × {o.quantity}</Text>
-                <Text style={{ fontSize: 10, fontWeight: '900', color: isReleased ? '#00ff88' : '#ffb300' }}>
-                  {isReleased ? 'PAID OUT' : 'IN ESCROW'}
-                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '900', color: isReleased ? '#00ff88' : '#ffb300' }}>{isReleased ? 'PAID OUT' : 'IN ESCROW'}</Text>
               </View>
               <View style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
                 <Text style={{ fontSize: 10, color: '#b388ff', fontWeight: '900' }}>BUYER DETAILS</Text>
@@ -235,42 +215,17 @@ export default function InputProviderDashboard() {
               <Text style={[styles.total, { marginTop: 10 }]}>{money(o.total_ngn)}</Text>
               <Text style={styles.meta}>Ordered: {new Date(o.created_at).toLocaleDateString()}</Text>
 
-              {/* STATUS CHIP */}
-              <View style={{
-                marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-                borderWidth: 1, borderColor:
-                  o.status === 'shipped' ? '#4fc3f7' :
-                  o.status === 'delivered' ? '#00ff88' :
-                  o.status === 'cancelled' ? '#ff3b5c' : '#ffb300',
-              }}>
-                <Text style={{
-                  fontSize: 9, fontWeight: '900', letterSpacing: 1,
-                  color:
-                    o.status === 'shipped' ? '#4fc3f7' :
-                    o.status === 'delivered' ? '#00ff88' :
-                    o.status === 'cancelled' ? '#ff3b5c' : '#ffb300',
-                }}>
-                  {String(o.status || 'pending').toUpperCase()}
-                </Text>
+              <View style={{ marginTop: 8, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: o.status === 'shipped' ? '#4fc3f7' : o.status === 'delivered' ? '#00ff88' : o.status === 'cancelled' ? '#ff3b5c' : '#ffb300' }}>
+                <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 1, color: o.status === 'shipped' ? '#4fc3f7' : o.status === 'delivered' ? '#00ff88' : o.status === 'cancelled' ? '#ff3b5c' : '#ffb300' }}>{String(o.status || 'pending').toUpperCase()}</Text>
               </View>
 
-              {/* SHIP BUTTON (only when pending + escrow) */}
               {o.status === 'pending' && o.payment_status === 'held_in_escrow' ? (
-                <Pressable
-                  onPress={() => markShipped(o.id, o.product_name)}
-                  style={{ marginTop: 10, paddingVertical: 12, borderRadius: 10, backgroundColor: '#4fc3f7', alignItems: 'center' }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 }}>
-                    🚚 MARK AS SHIPPED
-                  </Text>
+                <Pressable onPress={() => markShipped(o.id, o.product_name)} style={{ marginTop: 10, paddingVertical: 12, borderRadius: 10, backgroundColor: '#4fc3f7', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 }}>🚚 MARK AS SHIPPED</Text>
                 </Pressable>
               ) : null}
 
-              {o.status === 'shipped' ? (
-                <Text style={{ color: '#4fc3f7', fontSize: 11, fontWeight: '800', textAlign: 'center', marginTop: 10 }}>
-                  ⏳ Waiting for buyer to confirm delivery
-                </Text>
-              ) : null}
+              {o.status === 'shipped' ? <Text style={{ color: '#4fc3f7', fontSize: 11, fontWeight: '800', textAlign: 'center', marginTop: 10 }}>⏳ Waiting for buyer to confirm delivery</Text> : null}
             </View>
           );
         })}
