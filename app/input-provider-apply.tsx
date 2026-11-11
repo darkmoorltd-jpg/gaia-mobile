@@ -34,7 +34,6 @@ export default function InputProviderApply() {
   const [gps, setGps] = useState<{lat: number, lon: number} | null>(null);
   const [images, setImages] = useState<string[]>([]);
 
-  // KYC docs
   const [cacImage, setCacImage] = useState<string | null>(null);
   const [idImage, setIdImage] = useState<string | null>(null);
   const [bankStatement, setBankStatement] = useState<string | null>(null);
@@ -53,7 +52,7 @@ export default function InputProviderApply() {
     if (status !== 'granted') { Alert.alert('Location permission required'); return; }
     const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     setGps({ lat: loc.coords.latitude, lon: loc.coords.longitude });
-    Alert.alert('GPS Captured', `${loc.coords.latitude.toFixed(4)}, ${loc.coords.longitude.toFixed(4)}`);
+    Alert.alert('GPS Captured', loc.coords.latitude.toFixed(4) + ', ' + loc.coords.longitude.toFixed(4));
   };
 
   const pickImages = async () => {
@@ -106,10 +105,10 @@ export default function InputProviderApply() {
       Alert.alert('Photos Required', 'Please upload at least 3 photos of your shop.'); return;
     }
     if (!cacImage || !idImage || !bankStatement || !consentForm) {
-      Alert.alert('KYC Documents Required', 'Please upload all 4 KYC documents: CAC, Owner ID, Bank Statement, Signed Consent Form.'); return;
+      Alert.alert('KYC Documents Required', 'Please upload all 4 KYC documents.'); return;
     }
     if (!agreed) {
-      Alert.alert('Consent Required', 'Please check the consent checkbox to continue.'); return;
+      Alert.alert('Consent Required', 'Please check the consent checkbox.'); return;
     }
 
     setBusy(true);
@@ -125,7 +124,7 @@ export default function InputProviderApply() {
         uploadToBucket(consentForm, 'consent', 'input-provider-docs'),
       ]);
       if (!cacUrl || !idUrl || !bankUrl || !consentUrl) {
-        Alert.alert('Upload Failed', 'One or more documents failed to upload. Try again.');
+        Alert.alert('Upload Failed', 'One or more documents failed to upload.');
         setBusy(false); return;
       }
 
@@ -168,7 +167,7 @@ export default function InputProviderApply() {
             <Text style={styles.doneIcon}>✓</Text>
             <Text style={styles.doneTitle}>Application received</Text>
             <Text style={styles.doneBody}>
-              Your KYC documents are under review. Once admin approves, log in and go to "My Input Store" to pay your subscription.
+              Your KYC documents are under review. Once approved, log in and pay your subscription to start listing.
             </Text>
             <Pressable onPress={() => router.replace('/(tabs)')} style={styles.cta}>
               <Text style={styles.ctaText}>BACK TO DASHBOARD</Text>
@@ -226,13 +225,13 @@ export default function InputProviderApply() {
         <Text style={styles.section}>STORE LOCATION & PHOTOS (MIN 3)</Text>
         <Pressable onPress={captureGPS} style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={{ color: gps ? palette.neon : palette.textDim }}>
-            {gps ? `📍 ${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : 'Capture Store GPS Location'}
+            {gps ? '📍 ' + gps.lat.toFixed(4) + ', ' + gps.lon.toFixed(4) : 'Capture Store GPS Location'}
           </Text>
           <Text style={{ fontSize: 18 }}>📍</Text>
         </Pressable>
         <Pressable onPress={pickImages} style={[styles.input, { marginTop: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={{ color: images.length >= 3 ? palette.neon : palette.textDim }}>
-            {images.length > 0 ? `📸 ${images.length} Photo(s) attached` : 'Upload Store Photos (Min 3)'}
+            {images.length > 0 ? '📸 ' + images.length + ' Photo(s) attached' : 'Upload Store Photos (Min 3)'}
           </Text>
           <Text style={{ fontSize: 18 }}>📸</Text>
         </Pressable>
@@ -246,22 +245,22 @@ export default function InputProviderApply() {
 
         <Text style={styles.section}>KYC DOCUMENTS (REQUIRED)</Text>
         <Text style={{ fontSize: 11, color: palette.textMuted, marginBottom: 8, lineHeight: 16 }}>
-          These are stored privately for admin verification only. Take clear photos of each document.
+          These are stored privately for admin verification only. Take clear photos.
         </Text>
 
         <Text style={styles.label}>📄 CAC CERTIFICATE *</Text>
         <Pressable onPress={() => pickDoc(setCacImage)} style={styles.uploadBox}>
           {cacImage ? (
-            <Image source={{ uri: cacImage }} style ?={styles.uploadPreview} />
- (
-          ) :            < (
-            <ImageText style={ sourcestyles.uploadPlaceholder}>Tap to upload CAC certificate photo</Text>
+            <Image source={{ uri: cacImage }} style={styles.uploadPreview} />
+          ) : (
+            <Text style={styles.uploadPlaceholder}>Tap to upload CAC certificate photo</Text>
           )}
         </Pressable>
 
-        <Text style={styles.label}>🪪 OWNER ID (NIN / BVN CARD / DRIVER'S LICENSE) *</Text>
+        <Text style={styles.label}>🪪 OWNER ID (NIN / BVN CARD / DRIVER LICENSE) *</Text>
         <Pressable onPress={() => pickDoc(setIdImage)} style={styles.uploadBox}>
-          {idImage={{ uri: idImage }} style={styles.uploadPreview} />
+          {idImage ? (
+            <Image source={{ uri: idImage }} style={styles.uploadPreview} />
           ) : (
             <Text style={styles.uploadPlaceholder}>Tap to upload owner ID photo</Text>
           )}
@@ -278,7 +277,7 @@ export default function InputProviderApply() {
 
         <Text style={styles.label}>✍️ SIGNED CONSENT FORM *</Text>
         <Text style={{ fontSize: 10, color: palette.textDim, marginBottom: 6 }}>
-          Print, sign, and photograph a consent form confirming you agree to GAIA's terms.
+          Print, sign, and photograph a consent form confirming you agree to GAIA terms.
         </Text>
         <Pressable onPress={() => pickDoc(setConsentForm)} style={styles.uploadBox}>
           {consentForm ? (
