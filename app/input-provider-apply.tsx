@@ -53,7 +53,7 @@ export default function InputProviderApply() {
       (async () => {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) { setLoading(false); return; }
         const { data } = await supabase.from('input_providers').select('*').eq('user_id', user.id).maybeSingle();
         if (data) {
           setExistingApp(data);
@@ -174,12 +174,27 @@ export default function InputProviderApply() {
 
       if (!error) {
         // Reset resubmission flag if this was a resubmit
-        await supabase.from('input_providers').update({ 
-          tier_id: tier.id, 
-          onboarding_fee_paid: false,
-          status: 'pending',
-          resubmission_requested: false 
-        }).eq('user_id', user.id);
+        try {
+          await supabase.from('input_providers').update({ 
+            tier_id: tier.id, 
+            onboarding_fee_paid: false,
+            status: 'pending',
+            resubmission_requested: false 
+          }).eq('user_id', user.id);
+        } catch {}
+
+        // Reload from DB to get the persisted status
+        try {
+          const { data: fresh } = await supabase.from('input_providers')
+            .select('*').eq('user_id', user.id).maybeSingle();
+          if (fresh) {
+            setExistingApp(fresh);
+          } else {
+            setExistingApp({ status: 'pending', business_name: businessName, user_id: user.id });
+          }
+        } catch {
+          setExistingApp({ status: 'pending', business_name: businessName, user_id: user.id });
+        }
         setDone(true);
       } else {
         Alert.alert('Failed', error.message);
