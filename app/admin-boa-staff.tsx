@@ -14,7 +14,7 @@ export default function AdminBoaStaff() {
   const user = useAuth((s: any) => s.user);
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchedUser, setSearchedUser] = useState<any>(null);
   
@@ -34,11 +34,11 @@ export default function AdminBoaStaff() {
   useFocusEffect(useCallback(() => { loadStaff(); }, [loadStaff]));
 
   const findUser = async () => {
-    if (!email) { Alert.alert('Enter email'); return; }
+    if (!identifier) { Alert.alert('Enter email or phone'); return; }
     setSearching(true);
     setSearchedUser(null);
     
-    const { data, error } = await supabase.rpc('admin_get_user_by_email', { p_email: email.trim() });
+    const { data, error } = await supabase.rpc('admin_get_user_by_identifier', { p_identifier: identifier.trim() });
     
     setSearching(false);
     if (error) { Alert.alert('Error', error.message); return; }
@@ -66,7 +66,7 @@ export default function AdminBoaStaff() {
     if (!data.ok) { Alert.alert('Failed', data.message); return; }
     
     Alert.alert('Success', `${searchedUser.email} is now a ${role.replace('boa_', '')}`);
-    setEmail(''); setSearchedUser(null); setZone('');
+    setIdentifier(''); setSearchedUser(null); setZone('');
     loadStaff();
   };
 
@@ -88,17 +88,18 @@ export default function AdminBoaStaff() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>BOA Staff Access</Text>
-        <Text style={styles.sub}>Search a user by email to view their KYC profile</Text>
+        <Text style={styles.sub}>Search a user by email or phone to view their KYC profile</Text>
 
         {/* SEARCH BOX */}
         <View style={styles.searchBox}>
           <TextInput 
-            value={email} 
-            onChangeText={setEmail} 
-            placeholder="user@example.com"
+            value={identifier} 
+            onChangeText={setIdentifier} 
+            placeholder="Email or Phone (e.g. 08031234567)"
             placeholderTextColor={palette.textDim} 
             style={styles.input} 
             autoCapitalize="none" 
+            keyboardType="email-address"
           />
           <Pressable onPress={findUser} disabled={searching} style={styles.searchBtn}>
             {searching ? <ActivityIndicator color="#000" /> : <Text style={styles.searchBtnText}>SEARCH</Text>}
