@@ -125,6 +125,7 @@ export default function Home() {
     { id: 'section:inputs',    label: 'Inputs' },
     { id: 'section:logistics', label: 'Logistics & Export' },
     { id: 'section:finance',   label: 'Finance & Support' },
+    { id: 'boa',               label: 'BOA Portal' },
     { id: 'admin',             label: 'Admin' },
   ];
 
