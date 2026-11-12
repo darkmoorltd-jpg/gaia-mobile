@@ -11,6 +11,7 @@ export default function BoaPortal() {
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [role, setRole] = useState<string>('manager');
   const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
 
@@ -18,6 +19,8 @@ export default function BoaPortal() {
     if (!user) { setHasAccess(false); setBusy(false); return; }
     setBusy(true);
     const { data } = await supabase.rpc('is_boa_viewer');
+    const { data: prof } = await supabase.from('user_profiles').select('role').eq('user_id', user.id).maybeSingle();
+    if (prof?.role) setRole(prof.role);
     setHasAccess(!!data);
     setBusy(false); setRef(false);
   }, [user]);
@@ -40,7 +43,7 @@ export default function BoaPortal() {
     );
   }
 
-  const SECTIONS = [
+  const MANAGER_SECTIONS = [
     { title: 'PORTFOLIO', color: '#00ff88', items: [
       { icon: '📊', label: 'Dashboard', route: '/boa-dashboard' },
       { icon: '👥', label: 'Borrowers', route: '/boa-borrowers' },
@@ -67,6 +70,17 @@ export default function BoaPortal() {
       { icon: '📄', label: 'Board Pack', route: '/boa-board-pack' },
     ]},
   ];
+
+  const OFFICER_SECTIONS = [
+    { title: 'MY DAY', color: '#00ff88', items: [
+      { icon: '🚴', label: 'Route Today', route: '/boa-officer-home' },
+      { icon: '👥', label: 'My Farmers', route: '/boa-borrowers' },
+      { icon: '📸', label: 'Field Visit', route: '/boa-visit' },
+      { icon: '➕', label: 'Onboard Customer', route: '/boa-onboard' },
+    ]},
+  ];
+
+  const SECTIONS = role === 'boa_officer' ? OFFICER_SECTIONS : MANAGER_SECTIONS;
 
   return (
     <View style={styles.container}>

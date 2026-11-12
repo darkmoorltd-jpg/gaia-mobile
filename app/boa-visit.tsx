@@ -15,6 +15,7 @@ export default function BoaVisit() {
   const [borrowers, setBorrowers] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [notes, setNotes] = useState('');
+  const [cashCollected, setCashCollected] = useState('');
   const [capturing, setCapturing] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -46,7 +47,8 @@ export default function BoaVisit() {
         p_lat: loc.coords.latitude,
         p_lng: loc.coords.longitude,
         p_photo_url: null,
-        p_notes: notes || null,
+        p_notes: notes || null, 
+        p_cash_collected: parseFloat(cashCollected) || 0,
       });
       if (error) { Alert.alert('Failed', error.message); setCapturing(false); return; }
       setResult(data);
@@ -94,7 +96,7 @@ export default function BoaVisit() {
               <Text style={styles.selectedLabel}>VISITING</Text>
               <Text style={styles.selectedName} numberOfLines={1}>{selected.name || selected.email}</Text>
               <Text style={styles.selectedMeta}>{selected.zone || '-'} · {selected.crop || '-'}</Text>
-              <Pressable onPress={() => { setSelected(null); setResult(null); setNotes(''); }} style={styles.changeBtn}>
+              <Pressable onPress={() => { setSelected(null); setResult(null); setNotes(''); setCashCollected(''); }} style={styles.changeBtn}>
                 <Text style={styles.changeBtnText}>CHANGE FARMER</Text>
               </Pressable>
             </View>
@@ -104,6 +106,10 @@ export default function BoaVisit() {
               placeholder="What did you observe on the farm? Crop condition, pest sightings, etc."
               placeholderTextColor={palette.textDim}
               style={[styles.input, { minHeight: 100 }]} />
+
+            <Text style={styles.label}>CASH COLLECTED (₦)</Text>
+            <TextInput value={cashCollected} onChangeText={setCashCollected} keyboardType="numeric"
+              placeholder="e.g. 15000" placeholderTextColor={palette.textDim} style={styles.input} />
 
             <Pressable onPress={captureVisit} disabled={capturing} style={styles.cta}>
               {capturing ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaText}>📸 CAPTURE GPS & LOG VISIT</Text>}
