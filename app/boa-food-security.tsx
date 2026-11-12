@@ -19,7 +19,7 @@ export default function BoaFoodSecurity() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = true; // Access managed by boa-portal
+  const isAdmin = user?.email === 'darkmoorltd@gmail.com' || (user as any)?.is_boa_viewer === true;
 
 
   const [data, setData] = useState<any>(null);
