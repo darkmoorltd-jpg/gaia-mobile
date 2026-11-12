@@ -30,6 +30,7 @@ const SECTIONS: Section[] = [
       { label: 'Advanced Search',     route: '/admin-advanced-search' },
       { label: 'User 360 View',        route: '/admin-user-360' },
       { label: 'All Users',           route: '/admin-users' },
+      { label: 'BOA Staff Access', route: '/admin-boa-staff' },
       { label: 'Verifications',       route: '/admin-verifications' },
       { label: 'KYC Queue',             route: '/admin-kyc-queue' },
       { label: 'Farmer Database',     route: '/admin-farmers' },
