@@ -1,41 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
-import NetInfo from '@react-native-community/netinfo';
-import { syncPendingOrders } from '../src/utils/offlineInputs';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
-import { useLocale } from '../src/store/locale';
-import { loadStoredLanguage } from '../src/i18n';
-import { bumpStreak } from '../src/utils/streak';
-import { registerPushToken } from '../src/utils/push';
-import { registerPushToken as registerExpoToken, subscribeToNotifications, triggerOutbreakScan } from '../src/utils/notifications';
 import { useLocation } from '../src/store/location';
-import { palette, useSyncTheme, useTheme } from '../src/theme';
-import { useThemeMode } from '../src/store/themeMode';
-import { installTapHandler, registerForPush } from '../src/utils/pushNotifications';
-import GaiaSplash from '../src/components/GaiaSplash';
+import { palette } from '../src/theme';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
 function RootNavigator() {
-  const themedPalette = useTheme((s) => s.palette);
   const router = useRouter();
   const segments = useSegments();
-
-  useSyncTheme();
 
   useEffect(() => {
     useLocation.getState().start();
   }, []);
-
 
   const user = useAuth((s: any) => s.user);
   const role = useAuth((s: any) => s.role);
@@ -46,28 +31,12 @@ function RootNavigator() {
   const loading = useAuth((s: any) => s.loading);
 
   const [ready, setReady] = useState(false);
-  const [hasCountry, setHasCountry] = useState<boolean | null>(null);
-  const [hasLanguage, setHasLanguage] = useState<boolean | null>(null);
-  const [minSplashDone, setMinSplashDone] = useState(false);
-  const localeLoaded = useLocale((s) => s.loaded);
-
-  useEffect(() => {
-    (async () => {
-      const [[, c], [, l]] = await AsyncStorage.multiGet(['gaia_country', 'gaia_language']);
-      setHasCountry(!!c);
-      setHasLanguage(!!l);
-    })();
-  }, []);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        try { await useLocale.getState().load(); } catch {}
         try { await useSettings.getState().load(); } catch {}
-        try { await useThemeMode.getState().load(); } catch {}
-        try { await loadStoredLanguage(); } catch {}
-
         const { data } = await supabase.auth.getSession();
         if (mounted) {
           if (setUser) setUser(data.session?.user ?? null);
@@ -88,7 +57,6 @@ function RootNavigator() {
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
-  // Refresh config when app comes back to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') useSettings.getState().load().catch(() => {});
@@ -96,61 +64,34 @@ function RootNavigator() {
     return () => sub.remove();
   }, []);
 
-  // Fire streak bump once per session when user is ready
-  const streakBumpedRef = React.useRef<string | null>(null);
   useEffect(() => {
-    if (!user?.id) return;
-    if (streakBumpedRef.current === user.id) return;
-    streakBumpedRef.current = user.id;
-    bumpStreak().catch(() => {});
-  }, [user?.id]);
-
-  // Enforce a minimum splash duration so it feels intentional, not flickery
-  useEffect(() => {
-    const t = setTimeout(() => setMinSplashDone(true), 1600);
-    return () => clearTimeout(t);
-  }, []);
-
-  // language switch handled inside setAppLanguage
-
-  // Poll remote config every 60s (also starts internal polling in settings store)
-  useEffect(() => {
-    useSettings.getState().startPolling();
-    return () => useSettings.getState().stopPolling();
+    const id = setInterval(() => {
+      useSettings.getState().load().catch(() => {});
+    }, 60_000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
     if (!ready || loading) return;
-    if (hasCountry === null || hasLanguage === null) return;
-
     const seg0 = String(segments[0] || '');
-    const seg1 = String(segments[1] || '');
     const inAuth = seg0 === '(auth)';
-    const inOnboarding = inAuth && (seg1 === 'country-select' || seg1 === 'language-select');
-    const PUBLIC = ['agent-apply', 'auth-callback', 'reset-password'];
-    const isPublic = PUBLIC.includes(seg0);
-
-    if (!hasCountry && !inOnboarding) {
-      router.replace('/(auth)/country-select' as any); return;
-    }
-    if (hasCountry && !hasLanguage && !inOnboarding) {
-      router.replace('/(auth)/language-select' as any); return;
-    }
-    if (inOnboarding && hasCountry && hasLanguage) {
-      router.replace(user ? (loginContext === 'agent' ? '/agent/home' : role === 'provider' ? '/provider/home' : '/(tabs)') : '/(auth)/login');
-      return;
-    }
-    if (inOnboarding) return;
+    const PUBLIC_ROUTES = ['agent-apply', 'auth-callback', 'reset-password', 'index'];
+    const isPublic = PUBLIC_ROUTES.includes(seg0) || seg0 === '';
 
     if (!user && !inAuth && !isPublic) {
-      router.replace('/(auth)/login' as any); return;
-    }
-    if (user && inAuth) {
-      const dest = (loginContext === 'agent' || role === 'agent') ? '/agent/home' : '/(tabs)';
-      setTimeout(() => { try { router.replace(dest as any); } catch {} }, 200);
+      router.replace('/(auth)/login' as any);
       return;
     }
-  }, [user, ready, loading, segments, loginContext, role, hasCountry, hasLanguage]);
+    
+    if (user && inAuth) {
+      const effContext = loginContext || (role === 'agent' ? 'agent' : 'user');
+      const dest = effContext === 'agent' ? '/agent/home' : '/(tabs)';
+      const timer = setTimeout(() => {
+        try { router.replace(dest as any); } catch {}
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [user, ready, loading, segments, loginContext, role]);
 
   useEffect(() => {
     if (__DEV__) return;
@@ -165,141 +106,33 @@ function RootNavigator() {
     })();
   }, []);
 
-  // Install notification tap handler once
-  useEffect(() => {
-    const cleanup = installTapHandler();
-    return cleanup;
-  }, []);
-
-  // (Re)register push token when user changes
-  useEffect(() => {
-    if (user?.id) registerForPush(user.id).catch(() => {});
-  }, [user?.id]);
-
-
-
-  // Notifications: register device token + live subscribe to alerts
-  useEffect(() => {
-    if (!user?.id) return;
-    let unsub: (() => void) | null = null;
-    (async () => {
-      try {
-        await registerExpoToken(user.id);
-        triggerOutbreakScan().catch(() => {});
-        unsub = subscribeToNotifications(user.id, (notif) => {
-          console.log('[notif]', notif.title, '-', notif.body);
-        });
-      } catch (e) {
-        console.warn('[notifications] setup failed', e);
-      }
-    })();
-    return () => { if (unsub) unsub(); };
-  }, [user?.id]);
-
-  if (!ready || !minSplashDone) {
-    return <GaiaSplash />;
+  if (!ready) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator color={palette.neon} size="large" />
+      </View>
+    );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: themedPalette.obsidian } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.obsidian } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(auth)/forgot-password" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/country-select" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="(auth)/language-select" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="voice" />
       <Stack.Screen name="rag" />
-      <Stack.Screen name="store-map" options={{ headerShown: false }} />
-      <Stack.Screen name="marketplace-rent-store" options={{ headerShown: false }} />
       <Stack.Screen name="marketplace-sell" options={{ presentation: 'modal' }} />
-      <Stack.Screen name="escrow-chat" options={{ headerShown: false }} />
-      <Stack.Screen name="escrow-receipt" options={{ headerShown: false }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-boa-staff" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-input-providers" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-provider-payouts" options={{ headerShown: false }} />
       <Stack.Screen name="admin-advanced-search" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-export" options={{ headerShown: false }} />
       <Stack.Screen name="agent-apply" options={{ headerShown: false }} />
-      <Stack.Screen name="agent-leaderboard" options={{ headerShown: false }} />
-      <Stack.Screen name="agent-field-map" options={{ headerShown: false }} />
       <Stack.Screen name="agent" options={{ headerShown: false }} />
-      <Stack.Screen name="claim-record" options={{ headerShown: false }} />
-      <Stack.Screen name="provider" options={{ headerShown: false }} />
-      <Stack.Screen name="input-provider-apply" options={{ headerShown: false }} />
-      <Stack.Screen name="input-orders" options={{ headerShown: false }} />
-      <Stack.Screen name="input-store" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-inputs" options={{ headerShown: false }} />
-      <Stack.Screen name="input-product" options={{ headerShown: false }} />
-      <Stack.Screen name="inputs" options={{ headerShown: false }} />
-      <Stack.Screen name="photo-timeline" options={{ headerShown: false }} />
-      <Stack.Screen name="alerts" options={{ headerShown: false }} />
       <Stack.Screen name="reset-password" options={{ headerShown: false }} />
-      <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="farm-mapping" />
-      <Stack.Screen name="history" options={{ headerShown: false }} />
-      <Stack.Screen name="help" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen name="kyc-verify" options={{ headerShown: false }} />
-      <Stack.Screen name="warehouse-register" options={{ headerShown: false }} />
-      <Stack.Screen name="warehouse-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-warehouses" options={{ headerShown: false }} />
-      <Stack.Screen name="organic-seller-register" options={{ headerShown: false }} />
-      <Stack.Screen name="organic-seller-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="organic-storefront" options={{ headerShown: false }} />
-      <Stack.Screen name="diaspora-box" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-organic" options={{ headerShown: false }} />
-      <Stack.Screen name="organic-certification" options={{ headerShown: false }} />
-      <Stack.Screen name="verify-certificate" options={{ headerShown: false }} />
-      <Stack.Screen name="eudr" options={{ headerShown: false }} />
-      <Stack.Screen name="input-provider-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="boa-portal" options={{ headerShown: false }} />
-      <Stack.Screen name="boa-onboard" options={{ headerShown: false }} />
-      <Stack.Screen name="boa-customer-edit" options={{ headerShown: false }} />
-      <Stack.Screen name="boa-visit" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-access" options={{ headerShown: false }} />
-      <Stack.Screen name="soil-data" options={{ headerShown: false }} />
-      <Stack.Screen name="organic-market" options={{ headerShown: false }} />
-      <Stack.Screen name="eudr-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="pension-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="lease-market" options={{ headerShown: false }} />
-      <Stack.Screen name="farm-batches" options={{ headerShown: false }} />
-      <Stack.Screen name="trace-batch" options={{ headerShown: false }} />
-      <Stack.Screen name="video-scan" options={{ headerShown: false }} />
       <Stack.Screen name="farm-detail" />
       <Stack.Screen name="farms" />
-      <Stack.Screen name="aflatoxin" options={{ headerShown: false }} />
-      <Stack.Screen name="land-estimator" options={{ headerShown: false }} />
-      <Stack.Screen name="briefing" options={{ headerShown: false }} />
-      <Stack.Screen name="loans" options={{ headerShown: false }} />
-      <Stack.Screen name="loans-apply" options={{ headerShown: false }} />
-      <Stack.Screen name="loan-receipt" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-loans-mobile" options={{ headerShown: false }} />
-      <Stack.Screen name="loan-detail" options={{ headerShown: false }} />
-      <Stack.Screen name="video-history-map" options={{ headerShown: false }} />
-      <Stack.Screen name="video-growth" options={{ headerShown: false }} />
-      <Stack.Screen name="video-session-report" options={{ headerShown: false }} />
-    <Stack.Screen name="warehouse-network" options={{ headerShown: false }} />
-    <Stack.Screen name="food-security" options={{ headerShown: false }} />
-    <Stack.Screen name="clinical-nutrition" options={{ headerShown: false }} />
-    <Stack.Screen name="care-subscribe" options={{ headerShown: false }} />
-    <Stack.Screen name="admin-kyc-queue" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-user-360" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-farmer-filter" options={{ headerShown: false }} />
-    <Stack.Screen name="clinical-onboarding" options={{ headerShown: false }} />
-    <Stack.Screen name="farm-profile" options={{ headerShown: false }} />
-    <Stack.Screen name="warehouse-manager" options={{ headerShown: false }} />
-    <Stack.Screen name="driver-app" options={{ headerShown: false }} />
-    <Stack.Screen name="exporter-dashboard" options={{ headerShown: false }} />
-    <Stack.Screen name="container-tracking" options={{ headerShown: false }} />
-    <Stack.Screen name="eudr-pdf" options={{ headerShown: false }} />
-      <Stack.Screen name="my-data" options={{ headerShown: false }} />
-      <Stack.Screen name="grievance" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-ndfr-dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-partner-usage" options={{ headerShown: false }} />
-      <Stack.Screen name="admin-state-sync" options={{ headerShown: false }} />
+      <Stack.Screen name="boa-portal" options={{ headerShown: false }} />
+      <Stack.Screen name="soil-data" options={{ headerShown: false }} />
     </Stack>
   );
 }
