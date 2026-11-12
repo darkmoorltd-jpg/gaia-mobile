@@ -255,6 +255,7 @@ function RootNavigator() {
       <Stack.Screen name="verify-certificate" options={{ headerShown: false }} />
       <Stack.Screen name="eudr" options={{ headerShown: false }} />
       <Stack.Screen name="input-provider-dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-boa-roles" options={{ headerShown: false }} />
       <Stack.Screen name="boa-portal" options={{ headerShown: false }} />
       <Stack.Screen name="boa-onboard" options={{ headerShown: false }} />
       <Stack.Screen name="boa-customer-edit" options={{ headerShown: false }} />

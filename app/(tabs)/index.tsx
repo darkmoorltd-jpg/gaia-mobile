@@ -14,6 +14,7 @@ import { useTheme } from '../../src/theme';
 import { useAuth } from '../../src/store/auth';
 import { useSettings } from '../../src/store/settings';
 import { supabase } from '../../src/api/supabase';
+import { useBoaAccess } from '../../src/hooks/useBoaAccess';
 import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
 import StreakWidget from '../../src/components/StreakWidget';
@@ -139,6 +140,7 @@ export default function Home() {
   const plan = useAuth((s) => s.plan);
   const refreshScans = useAuth((s) => s.refreshScans);
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const { hasAccess: hasBoaAccess, role: boaRole } = useBoaAccess();
 
   const [badgeTier, setBadgeTier] = useState<string | null>(null);
   const [gaiaAcct, setGaiaAcct] = useState<string | null>(null);
@@ -473,6 +475,17 @@ export default function Home() {
       case 'section:inputs':   return renderSection(SECTIONS[4]);
       case 'section:logistics': return renderSection(SECTIONS[5]);
       case 'section:finance':  return renderSection(SECTIONS[6]);
+      case 'boa':
+        if (!hasBoaAccess) return null;
+        return (
+          <Pressable onPress={() => router.push('/boa-portal' as any)} style={styles.adminCard}>
+            <Text style={styles.adminLabel}>
+              BOA PORTAL - {(boaRole || '').replace('boa_', '').toUpperCase()}
+            </Text>
+            <Text style={styles.adminArrow}>></Text>
+          </Pressable>
+        );
+
       case 'admin':
         if (!isAdmin) return null;
         return (

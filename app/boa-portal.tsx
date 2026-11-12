@@ -3,39 +3,23 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Refre
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
-import { supabase } from '../src/api/supabase';
+import { useBoaAccess } from '../src/hooks/useBoaAccess';
 
 export default function BoaPortal() {
   const router = useRouter();
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-  const [role, setRole] = useState<string>('manager');
-  const [busy, setBusy] = useState(true);
   const [ref, setRef] = useState(false);
+  const { role, loading, hasAccess, isAdmin, isManager } = useBoaAccess();
 
-  const check = useCallback(async () => {
-    if (!user) { setHasAccess(false); setBusy(false); return; }
-    setBusy(true);
-    const { data } = await supabase.rpc('is_boa_viewer');
-    const { data: prof } = await supabase.from('user_profiles').select('role').eq('user_id', user.id).maybeSingle();
-    if (prof?.role) setRole(prof.role);
-    setHasAccess(!!data);
-    setBusy(false); setRef(false);
-  }, [user]);
-
-  useFocusEffect(useCallback(() => { check(); }, [check]));
-
-  if (busy) return <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>;
 
   if (!hasAccess) {
     return (
       <View style={styles.center}>
         <Text style={styles.blockedTitle}>BOA Access Required</Text>
-        <Text style={styles.blockedText}>
-          Your account does not have Bank of Agriculture access. Contact GAIA admin to request access.
-        </Text>
+        <Text style={styles.blockedText}>Contact GAIA admin to request Bank of Agriculture access.</Text>
         <Pressable onPress={() => router.back()} style={styles.blockedBtn}>
           <Text style={styles.blockedBtnText}>GO BACK</Text>
         </Pressable>
@@ -43,53 +27,86 @@ export default function BoaPortal() {
     );
   }
 
+  const ADMIN_SECTIONS = [
+    { title: '🔐 ADMIN', color: '#ff3b5c', items: [
+      { icon: '⚙️', label: 'Portfolio', route: '/boa-dashboard' },
+      { icon: '👥', label: 'Borrowers', route: '/boa-borrowers' },
+      { icon: '👨‍🌾', label: 'Officers', route: '/boa-field-officers' },
+      { icon: '🌾', label: 'Coops', route: '/boa-coops' },
+    ]},
+    { title: '📊 EXECUTIVE', color: '#00ff88', items: [
+      { icon: '📄', label: 'Board Pack', route: '/boa-board-pack' },
+      { icon: '💹', label: 'Pricing', route: '/boa-pricing' },
+      { icon: '📈', label: 'Collections', route: '/boa-forecast' },
+      { icon: '📊', label: 'Benchmark', route: '/boa-benchmark' },
+    ]},
+    { title: '⚠️ RISK', color: '#ffb300', items: [
+      { icon: '🔍', label: 'Fraud', route: '/boa-fraud' },
+      { icon: '🚨', label: 'Risk Radar', route: '/boa-risk' },
+      { icon: '🔧', label: 'Restructure', route: '/boa-restructure' },
+      { icon: '🗺️', label: 'Map', route: '/boa-map' },
+    ]},
+    { title: '🌾 OPS', color: '#4fc3f7', items: [
+      { icon: '➕', label: 'Onboard', route: '/boa-onboard' },
+      { icon: '📸', label: 'Visit', route: '/boa-visit' },
+      { icon: '📥', label: 'CSV Import', route: '/boa-csv-import' },
+      { icon: '🍚', label: 'Food Sec', route: '/boa-food-security' },
+    ]},
+  ];
+
   const MANAGER_SECTIONS = [
-    { title: 'PORTFOLIO', color: '#00ff88', items: [
+    { title: '📊 PORTFOLIO', color: '#00ff88', items: [
       { icon: '📊', label: 'Dashboard', route: '/boa-dashboard' },
       { icon: '👥', label: 'Borrowers', route: '/boa-borrowers' },
-      { icon: '🌾', label: 'Cooperatives', route: '/boa-coops' },
-      { icon: '👨‍🌾', label: 'Field Officers', route: '/boa-field-officers' },
+      { icon: '🌾', label: 'Coops', route: '/boa-coops' },
+      { icon: '👨‍🌾', label: 'Officers', route: '/boa-field-officers' },
     ]},
-    { title: 'OPERATIONS', color: '#ffb300', items: [
-      { icon: '➕', label: 'Onboard Customer', route: '/boa-onboard' },
-      { icon: '📸', label: 'Field Visit', route: '/boa-visit' },
-      { icon: '📥', label: 'CSV Import', route: '/boa-csv-import' },
+    { title: '⚠️ RISK', color: '#ffb300', items: [
+      { icon: '🚨', label: 'Risk Radar', route: '/boa-risk' },
+      { icon: '🔍', label: 'Fraud', route: '/boa-fraud' },
+      { icon: '📈', label: 'Collections', route: '/boa-forecast' },
       { icon: '🔧', label: 'Restructure', route: '/boa-restructure' },
     ]},
-    { title: 'RISK & ANALYTICS', color: '#ff3b5c', items: [
-      { icon: '⚠️', label: 'Risk Radar', route: '/boa-risk' },
-      { icon: '🔍', label: 'Fraud Rings', route: '/boa-fraud' },
-      { icon: '📈', label: 'Collections', route: '/boa-forecast' },
-      { icon: '💹', label: 'Pricing', route: '/boa-pricing' },
+    { title: '🌾 OPS', color: '#4fc3f7', items: [
+      { icon: '➕', label: 'Onboard', route: '/boa-onboard' },
+      { icon: '📥', label: 'CSV Import', route: '/boa-csv-import' },
+      { icon: '🗺️', label: 'Map', route: '/boa-map' },
+      { icon: '📦', label: 'Warehouse', route: '/boa-receipts' },
     ]},
-    { title: 'INSIGHTS', color: '#4fc3f7', items: [
-      { icon: '🗺️', label: 'Portfolio Map', route: '/boa-map' },
-      { icon: '🍚', label: 'Food Security', route: '/boa-food-security' },
-      { icon: '📦', label: 'Warehouse Receipts', route: '/boa-receipts' },
-      { icon: '📊', label: 'Peer Benchmark', route: '/boa-benchmark' },
+    { title: '📄 REPORTS', color: '#c68a5c', items: [
+      { icon: '🍚', label: 'Food Sec', route: '/boa-food-security' },
+      { icon: '📊', label: 'Benchmark', route: '/boa-benchmark' },
       { icon: '📄', label: 'Board Pack', route: '/boa-board-pack' },
+      { icon: '💹', label: 'Pricing', route: '/boa-pricing' },
     ]},
   ];
 
   const OFFICER_SECTIONS = [
-    { title: 'MY DAY', color: '#00ff88', items: [
-      { icon: '🚴', label: 'Route Today', route: '/boa-officer-home' },
-      { icon: '👥', label: 'My Farmers', route: '/boa-borrowers' },
-      { icon: '📸', label: 'Field Visit', route: '/boa-visit' },
-      { icon: '➕', label: 'Onboard Customer', route: '/boa-onboard' },
+    { title: '🚴 MY DAY', color: '#00ff88', items: [
+      { icon: '🚴', label: 'My Route', route: '/boa-officer-home' },
+      { icon: '👥', label: 'Farmers', route: '/boa-borrowers' },
+      { icon: '📸', label: 'Log Visit', route: '/boa-visit' },
+      { icon: '➕', label: 'Onboard', route: '/boa-onboard' },
     ]},
   ];
 
-  const SECTIONS = role === 'boa_officer' ? OFFICER_SECTIONS : MANAGER_SECTIONS;
+  const SECTIONS = isAdmin ? ADMIN_SECTIONS : isManager ? MANAGER_SECTIONS : OFFICER_SECTIONS;
+  const roleLabel = isAdmin ? 'ADMIN' : isManager ? 'MANAGER' : 'FIELD OFFICER';
+  const roleColor = isAdmin ? '#ff3b5c' : isManager ? '#00ff88' : '#4fc3f7';
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => { setRef(true); check(); }} tintColor={palette.neon} />}>
+        refreshControl={<RefreshControl refreshing={ref} onRefresh={() => setRef(false)} tintColor={palette.neon} />}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.kicker}>BANK OF AGRICULTURE</Text>
         <Text style={styles.title}>BOA Portal</Text>
-        <Text style={styles.sub}>Powered by GAIA · {user?.email}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 24 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: roleColor }} />
+          <Text style={{ fontSize: 11, fontWeight: '800', color: roleColor, letterSpacing: 1.5 }}>
+            {roleLabel} · {user?.email}
+          </Text>
+        </View>
 
         {SECTIONS.map((sec, si) => (
           <View key={si} style={styles.section}>
@@ -116,7 +133,6 @@ const createStyles = (p: any) => StyleSheet.create({
   back: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: p.textMuted, marginBottom: 16 },
   kicker: { fontSize: 11, fontWeight: '900', letterSpacing: 3, color: '#00ff88' },
   title: { fontSize: 34, fontWeight: '900', color: p.text, letterSpacing: -1.2, marginTop: 4 },
-  sub: { fontSize: 12, color: p.textMuted, marginTop: 4, marginBottom: 24 },
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
