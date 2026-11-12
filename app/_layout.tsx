@@ -216,6 +216,7 @@ function RootNavigator() {
       <Stack.Screen name="escrow-chat" options={{ headerShown: false }} />
       <Stack.Screen name="escrow-receipt" options={{ headerShown: false }} />
       <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-boa-staff" options={{ headerShown: false }} />
       <Stack.Screen name="admin-agents" options={{ headerShown: false }} />
       <Stack.Screen name="admin-input-providers" options={{ headerShown: false }} />
       <Stack.Screen name="admin-provider-payouts" options={{ headerShown: false }} />
