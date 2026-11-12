@@ -6,7 +6,6 @@ import { useTheme, spacing } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const fmtN = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmtM = (n: any) => {
   const x = Number(n || 0);
@@ -21,7 +20,8 @@ export default function Boadashboard() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [portfolio, setPortfolio] = useState<any>(null);
   const [risks, setRisks] = useState<any[]>([]);

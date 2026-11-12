@@ -7,7 +7,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
 const HEADERS = [
   'email',
@@ -37,7 +36,8 @@ export default function BoaCsvImport() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [fileName, setFileName] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);
@@ -45,7 +45,7 @@ export default function BoaCsvImport() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const pickFile = async () => {
     try {

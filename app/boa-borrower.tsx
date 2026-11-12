@@ -5,7 +5,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const fmtN = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmtM = (n: any) => {
   const x = Number(n || 0);
@@ -21,7 +20,8 @@ export default function BoaBorrower() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [d, setD] = useState<any>(null);
   const [busy, setBusy] = useState(true);
@@ -38,7 +38,7 @@ export default function BoaBorrower() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
   if (busy && !d) return <View style={styles.blocked}><ActivityIndicator color={palette.neon} /></View>;
   if (!d) return <View style={styles.blocked}><Text style={styles.blockedText}>Borrower not found</Text></View>;
 

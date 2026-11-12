@@ -5,7 +5,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const fmtM = (n: any) => {
   const x = Number(n || 0);
   if (x >= 1e6) return 'N' + (x / 1e6).toFixed(1) + 'M';
@@ -18,7 +17,8 @@ export default function BoaFraud() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [rings, setRings] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
@@ -35,7 +35,7 @@ export default function BoaFraud() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const totalExposure = rings.reduce((s, r) => s + Number(r.combined_exposure || 0), 0);
 

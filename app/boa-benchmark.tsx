@@ -5,7 +5,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const num = (n: any, dp: number = 0) => Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: dp });
 
 export default function BoaBenchmark() {
@@ -13,7 +12,8 @@ export default function BoaBenchmark() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState(true);
@@ -30,7 +30,7 @@ export default function BoaBenchmark() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const boa = data?.boa || {};
   const ind = data?.industry || {};

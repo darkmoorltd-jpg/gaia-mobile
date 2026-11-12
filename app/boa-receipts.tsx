@@ -5,7 +5,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const fmtN = (n: any) => 'N' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 const fmtDate = (s?: string) => s ? new Date(s).toLocaleDateString() : '-';
 
@@ -14,7 +13,8 @@ export default function BoaReceipts() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [rows, setRows] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
@@ -31,7 +31,7 @@ export default function BoaReceipts() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const totalTonnes = rows.reduce((s, r) => s + Number(r.quantity_tonnes || 0), 0);
   const totalValue = rows.reduce((s, r) => s + Number(r.estimated_value_naira || 0), 0);

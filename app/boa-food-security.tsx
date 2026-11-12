@@ -5,7 +5,6 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
 const num = (n: any, dp: number = 0) => Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: dp });
 const fmtT = (n: any) => {
@@ -20,7 +19,8 @@ export default function BoaFoodSecurity() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState(true);
@@ -37,7 +37,7 @@ export default function BoaFoodSecurity() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const totalTonnes = Number(data?.total_tonnes || 0);
   // 146 kg dry grain feeds one person for a year (2000 kcal/day)

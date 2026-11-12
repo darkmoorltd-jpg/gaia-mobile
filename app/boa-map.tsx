@@ -6,7 +6,6 @@ import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { GoogleMap } from '../src/components/GoogleMap';
 
-const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const { width } = Dimensions.get('window');
 
 export default function BoaMap() {
@@ -14,7 +13,8 @@ export default function BoaMap() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s: any) => s.user);
-  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const isAdmin = true; // Access managed by boa-portal
+
 
   const [data, setData] = useState<any>({ borrowers: [], outbreaks: [] });
   const [busy, setBusy] = useState(true);
@@ -32,7 +32,7 @@ export default function BoaMap() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
+  
 
   const borrowers = (data.borrowers || []).map((b: any) => ({
     latitude: Number(b.lat),
