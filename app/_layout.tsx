@@ -7,6 +7,8 @@ import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
+import { syncPendingFarms } from '../src/utils/farmSync';
+import NetInfo from '@react-native-community/netinfo';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
 

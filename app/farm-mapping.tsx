@@ -5,11 +5,13 @@ import {
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import * as Sharing from 'expo-sharing';
 import ViewShot from 'react-native-view-shot';
 import FreeMap from '../src/components/FreeMap';
 import FarmReceipt from '../src/components/FarmReceipt';
 import { saveFarm, enclosedArea, pathLength, type FarmPoint } from '../src/utils/farms';
+import { queueFarm } from '../src/utils/farmSync';
 
 interface DetectedLocation {
   state: string; lga: string; community: string; ward: string;
@@ -39,6 +41,7 @@ export default function FarmMapping() {
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [isClosed, setIsClosed] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
   // Form State
   const [farmName, setFarmName] = useState('');
@@ -116,7 +119,7 @@ export default function FarmMapping() {
     const areaAcres = enclosedArea(points) / 4046.86;
     const perimeter = pathLength(points);
 
-    const { data, error } = await saveFarm({
+    const farmData = {
       name: farmName.trim(),
       crop: crop.trim() || undefined,
       state: stateName,
@@ -126,25 +129,36 @@ export default function FarmMapping() {
       centroid_lat: lat,
       centroid_lng: lng,
       boundary: points,
-    });
+    };
 
+    // Check connection one more time before saving
+    const netState = await NetInfo.fetch();
+    
+    if (!netState.isConnected) {
+      // OFFLINE SAVE
+      const queued = await queueFarm(farmData);
+      setSaving(false);
+      if (!queued) return Alert.alert('Error', 'Failed to save offline.');
+      
+      Alert.alert(
+        '📡 Saved Offline',
+        'You are offline. This farm is saved to your device and will sync automatically when you get network.',
+        [{ text: 'OK', onPress: () => router.replace('/farms') }]
+      );
+      return;
+    }
+
+    // ONLINE SAVE
+    const { data, error } = await saveFarm(farmData);
     setSaving(false);
     if (error) return Alert.alert('Save failed', error);
 
     // Show the receipt modal
     setSavedFarm({
       ...data,
-      name: farmName,
-      crop,
-      state: stateName,
-      lga,
-      community,
-      ward,
-      centroid_lat: lat,
-      centroid_lng: lng,
+      ...farmData,
       acres: areaAcres,
       perimeter,
-      boundary: points,
     });
   };
 
@@ -175,6 +189,11 @@ export default function FarmMapping() {
       </View>
 
       <ScrollView contentContainerStyle={styles.bottomPanel}>
+        {isOffline && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineText}>📡 OFFLINE MODE — Farms will save locally</Text>
+          </View>
+        )}
         <View style={styles.gpsRow}>
           <View style={[styles.gpsDot, { backgroundColor: gpsAccuracy && gpsAccuracy < 10 ? '#00ff88' : '#ffb300' }]} />
           <Text style={styles.gpsText}>GPS: {gpsAccuracy ? `±${gpsAccuracy.toFixed(0)}m` : 'Searching...'}</Text>
