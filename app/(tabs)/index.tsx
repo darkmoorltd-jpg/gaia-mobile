@@ -1,5 +1,5 @@
 // app/(tabs)/index.tsx
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
   ImageBackground, useWindowDimensions, RefreshControl,
@@ -7,7 +7,6 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../src/i18n';
 import { useTheme } from '../../src/theme';
@@ -172,7 +171,7 @@ export default function Home() {
     } catch {}
   }, [user]);
 
-  useFocusEffect(useCallback(() => { load(); refreshScans().catch(() => {}); }, [load, refreshScans]));
+  useEffect(() => { if (user) { load(); refreshScans().catch(() => {}); } }, [user]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
