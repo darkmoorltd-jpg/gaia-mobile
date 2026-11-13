@@ -226,6 +226,15 @@ export default function AdminUsers() {
     );
   };
 
+  const setBoaRole = async (row: any, newRole: string) => {
+    const { error } = await supabase.rpc('admin_set_boa_role', {
+      p_user_id: row.user_id,
+      p_role: newRole
+    });
+    if (error) Alert.alert('Failed', error.message);
+    else { Alert.alert('Updated', 'User role is now ' + newRole); refreshDetail(); load(); }
+  };
+
   const deleteUser = (row: any) => {
     Alert.alert('Delete user?', `Permanently remove ${row.email} and ALL their data?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -1151,6 +1160,17 @@ export default function AdminUsers() {
                 </Pressable>
                 <Pressable disabled={actionBusy} onPress={() => revokeBadge(selected)} style={[styles.actionBtn, { borderColor: palette.warning }]}>
                   <Text style={[styles.actionTxt, { color: palette.warning }]}>REVOKE BADGE</Text>
+                </Pressable>
+
+                <Text style={styles.sectionLabel}>BOA PORTAL ACCESS</Text>
+                <Pressable disabled={actionBusy} onPress={() => setBoaRole(selected, 'boa_manager')} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>MAKE BOA MANAGER</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => setBoaRole(selected, 'boa_officer')} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>MAKE FIELD OFFICER</Text>
+                </Pressable>
+                <Pressable disabled={actionBusy} onPress={() => setBoaRole(selected, 'farmer')} style={[styles.actionBtn, { borderColor: palette.danger }]}>
+                  <Text style={[styles.actionTxt, { color: palette.danger }]}>REMOVE BOA ACCESS</Text>
                 </Pressable>
 
                 <Text style={styles.sectionLabel}>SAFETY</Text>
