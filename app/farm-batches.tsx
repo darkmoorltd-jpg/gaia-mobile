@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { eudrPdfUrl } from '../src/utils/logistics';
 
 const CROPS = ['Maize','Rice','Cassava','Yam','Cocoa','Coffee','Soybean','Groundnut','Sorghum','Millet','Sesame','Palm Oil'];
 const QUALITY = ['A','B','C'];
@@ -38,6 +39,7 @@ export default function FarmBatches() {
   const [crop, setCrop] = useState('Maize');
   const [qty, setQty] = useState('');
   const [quality, setQuality] = useState('A');
+  const [harvestDate, setHarvestDate] = useState(new Date().toISOString().split('T')[0]);
   const [moisture, setMoisture] = useState('');
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
@@ -126,6 +128,23 @@ export default function FarmBatches() {
 
   const createBatch = async () => {
     if (!qty || isNaN(Number(qty))) { Alert.alert('Enter a valid quantity'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(harvestDate)) {
+      Alert.alert('Invalid harvest date', 'Please use YYYY-MM-DD format (e.g. 2026-11-10)');
+      return;
+    }
+    const harvestParsed = new Date(harvestDate);
+    if (isNaN(harvestParsed.getTime())) {
+      Alert.alert('Invalid harvest date', 'That date could not be parsed');
+      return;
+    }
+    if (harvestParsed > new Date()) {
+      Alert.alert('Invalid harvest date', 'Harvest date cannot be in the future');
+      return;
+    }
+    if (harvestParsed < new Date('2020-12-31')) {
+      Alert.alert('EUDR cutoff', 'Batches harvested before 2020-12-31 cannot be EUDR-compliant');
+      return;
+    }
     setCreating(true);
     try {
       const photoUrls: string[] = [];
@@ -149,8 +168,8 @@ export default function FarmBatches() {
         photos: photoUrls,
         gps_lat: coords?.lat || null,
         gps_lon: coords?.lon || null,
-        harvest_date: new Date().toISOString().split('T')[0],
-        qr_url: `https://gaia-mobile-docs.vercel.app/trace.html?batch=${batchCode}`,
+        harvest_date: harvestDate,
+        qr_url: eudrPdfUrl(batchCode),
         status: 'active',
       }).select().single();
 
@@ -165,6 +184,7 @@ export default function FarmBatches() {
 
       setShowCreate(false);
       setCrop('Maize'); setQty(''); setQuality('A'); setMoisture(''); setLocation('');
+      setHarvestDate(new Date().toISOString().split('T')[0]);
       setNotes(''); setPhotos([]); setCoords(null);
       load();
     } catch (e: any) {
@@ -308,8 +328,33 @@ export default function FarmBatches() {
                 ))}
               </View>
 
+              <Text style={styles.label}>HARVEST DATE *</Text>
+              <TextInput
+                value={harvestDate}
+                onChangeText={setHarvestDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={palette.textDim}
+                style={styles.input}
+                autoCapitalize="none"
+              />
+              <Text style={{ fontSize: 10, color: palette.textDim, marginTop: -4, marginBottom: 8 }}>
+                Actual harvest date (not today). EUDR requires this to match the field record.
+              </Text>
+
               <Text style={styles.label}>MOISTURE % (optional)</Text>
-              <TextInput value={moisture} onChangeText={setMoisture} keyboardType="numeric" placeholder="e.g. 7.5" placeholderTextColor={palette.textDim} style={styles.input} />
+              <TextInput
+                value={moisture}
+                onChangeText={setMoisture}
+                keyboardType="numeric"
+                placeholder="e.g. 7.5"
+                placeholderTextColor={palette.textDim}
+                style={[styles.input, moisture && Number(moisture) > 13.5 && { borderColor: '#ff3b5c', borderWidth: 1.5 }]}
+              />
+              {moisture && Number(moisture) > 13.5 ? (
+                <Text style={{ fontSize: 11, color: '#ff3b5c', marginTop: -4, marginBottom: 8 }}>
+                  ⚠️ Above 13.5% is unsafe for storage — dry before storing to prevent mould & aflatoxin.
+                </Text>
+              ) : null}
 
               <Text style={styles.label}>LOCATION / FARM</Text>
               <TextInput value={location} onChangeText={setLocation} placeholder="e.g. Zaria, Kaduna" placeholderTextColor={palette.textDim} style={styles.input} />
