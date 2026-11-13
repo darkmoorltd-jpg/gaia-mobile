@@ -8,7 +8,7 @@ export interface FarmPoint {
 }
 
 export function haversine(a: {latitude:number, longitude:number}, b: {latitude:number, longitude:number}) {
-  const R = 6371000; // meters
+  const R = 6371000;
   const dLat = (b.latitude - a.latitude) * Math.PI / 180;
   const dLon = (b.longitude - a.longitude) * Math.PI / 180;
   const lat1 = a.latitude * Math.PI / 180;
@@ -28,22 +28,13 @@ export function pathLength(points: FarmPoint[]) {
 export function enclosedArea(points: FarmPoint[]) {
   if (points.length < 3) return 0;
   let area = 0;
-  const R = 6378137; // Earth radius in meters
+  const R = 6378137;
   for (let i = 0; i < points.length; i++) {
     const p1 = points[i];
     const p2 = points[(i + 1) % points.length];
     area += (p2.longitude - p1.longitude) * (2 + Math.sin(p1.latitude * Math.PI / 180) + Math.sin(p2.latitude * Math.PI / 180));
   }
   return Math.abs(area * R * R / 2);
-}
-
-export function filterByAccuracy(points: FarmPoint[], maxAcc = 20) {
-  return points.filter(p => !p.accuracy || p.accuracy <= maxAcc);
-}
-
-export function simplifyPath(points: FarmPoint[], tolerance = 2.5) {
-  if (points.length < 3) return points;
-  return points;
 }
 
 export async function saveFarm(data: {
@@ -56,12 +47,16 @@ export async function saveFarm(data: {
   centroid_lat?: number;
   centroid_lng?: number;
   boundary: FarmPoint[];
+  area_m2?: number;
+  area_acres?: number;
+  area_hectares?: number;
+  perimeter_m?: number;
 }) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) throw new Error('Not logged in');
 
-    // 1. Insert into the farms table
+    // 1. Insert into farms table (all units)
     const { data: inserted, error } = await supabase.from('farms').insert({
       user_id: session.user.id,
       name: data.name,
@@ -73,19 +68,27 @@ export async function saveFarm(data: {
       centroid_lat: data.centroid_lat,
       centroid_lng: data.centroid_lng,
       boundary: data.boundary,
+      area_m2: data.area_m2,
+      area_acres: data.area_acres,
+      area_hectares: data.area_hectares,
+      perimeter_m: data.perimeter_m,
     }).select().single();
 
     if (error) throw error;
 
-    // 2. NDFR Sync (Ministry Compliance)
+    // 2. NDFR Sync (Ministry compliance — hectares required)
     try {
       await supabase.from('farmer_registry').update({
-        farm_polygon: data.boundary,
-        gps_lat: data.centroid_lat,
-        gps_lon: data.centroid_lng,
-        state: data.state || undefined,
-        lga: data.lga || undefined,
-        ward: data.ward || undefined,
+        farm_polygon: data);
+
+.boundary,
+        gps_lat: data.centroid   _lat,
+        gps_lon const: data.centroid_lng,
+        farm state: data.state || undefined,
+        lgaData: data.lga || undefined,
+        ward: data.ward = || undefined,
+        land_area_hectares: data.area_hectares,
+        farm_size_acres: data.area_acres,
       }).eq('user_id', session.user.id);
     } catch (ndfrErr) {
       console.warn('NDFR sync failed:', ndfrErr);

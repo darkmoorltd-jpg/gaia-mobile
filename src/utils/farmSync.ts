@@ -14,6 +14,10 @@ export interface QueuedFarm {
   centroid_lat: number;
   centroid_lng: number;
   boundary: FarmPoint[];
+  area_m2: number;
+  area_acres: number;
+  area_hectares: number;
+  perimeter_m: number;
   timestamp: number;
 }
 
@@ -60,6 +64,10 @@ export async function syncPendingFarms(): Promise<number> {
       centroid_lat: farm.centroid_lat,
       centroid_lng: farm.centroid_lng,
       boundary: farm.boundary,
+      area_m2: farm.area_m2,
+      area_acres: farm.area_acres,
+      area_hectares: farm.area_hectares,
+      perimeter_m: farm.perimeter_m,
     });
 
     if (error) {

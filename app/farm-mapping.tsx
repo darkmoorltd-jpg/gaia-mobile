@@ -103,7 +103,24 @@ export default function FarmMapping() {
     
     const lat = points.reduce((s, p) => s + p.latitude, 0) / points.length;
     const lng = points.reduce((s, p) => s + p.longitude, 0) / points.length;
-    const farmData = { name: farmName.trim(), crop: crop.trim() || undefined, state: stateName, lga, community, ward, centroid_lat: lat, centroid_lng: lng, boundary: points };
+    const areaM2 = enclosedArea(points);
+    const areaAcres = areaM2 / 4046.86;
+    const areaHectares = areaM2 / 10000;
+    const perimeter = pathLength(points {
+      name: farmName.trim(),
+      crop: crop.trim() || undefined,
+      state: stateName,
+      lga,
+      community,
+      ward,
+      centroid_lat: lat,
+      centroid_lng: lng,
+      boundary: points,
+      area_m2: areaM2,
+      area_acres: areaAcres,
+      area_hectares: areaHectares,
+      perimeter_m: perimeter,
+    };
 
     const netState = await NetInfo.fetch();
     if (!netState.isConnected) {
@@ -117,7 +134,7 @@ export default function FarmMapping() {
     const { data, error } = await saveFarm(farmData);
     setSaving(false);
     if (error) return Alert.alert('Save failed', error);
-    setSavedFarm({ ...data, ...farmData, acres: enclosedArea(points) / 4046.86, perimeter: pathLength(points) });
+    setSavedFarm({ ...data, ...farmData, acres: areaAcres, hectares: areaHectares, perimeter });
   };
 
   const shareReceipt = async () => {
@@ -126,7 +143,9 @@ export default function FarmMapping() {
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'image/jpeg' });
   };
 
-  const acres = enclosedArea(points) / 4046.86;
+  const areaM2 = enclosedArea(points);
+  const acres = areaM2 / 4046.86;
+  const hectares = areaM2 / 10000;
 
   return (
     <View style={styles.container}>
@@ -135,6 +154,7 @@ export default function FarmMapping() {
         <View style={styles.overlayTop}>
           <View style={styles.statBox}><Text style={styles.statVal}>{points.length}</Text><Text style={styles.statLbl}>PINS</Text></View>
           <View style={styles.statBox}><Text style={styles.statVal}>{acres.toFixed(2)}</Text><Text style={styles.statLbl}>ACRES</Text></View>
+          <View style={styles.statBox}><Text style={styles.statVal}>{hectares.toFixed(2)}</Text><Text style={styles.statLbl}>HECTARES</Text></View>
         </View>
       </View>
 
