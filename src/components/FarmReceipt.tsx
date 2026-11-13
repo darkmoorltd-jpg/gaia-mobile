@@ -23,12 +23,22 @@ const FarmReceipt = forwardRef<ViewShot, { farm: any }>(({ farm }, ref) => {
           {farm.crop ? <Text style={styles.cropName}>Crop: {farm.crop}</Text> : null}
           <View style={styles.grid}>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>AREA</Text>
-              <Text style={styles.gridValue}>{farm.acres.toFixed(2)} Acres</Text>
+              <Text style={styles.gridLabel}>ACRES</Text>
+              <Text style={styles.gridValue}>{farm.acres.toFixed(2)}</Text>
             </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>HECTARES</Text>
+              <Text style={styles.gridValue}>{farm.hectares.toFixed(2)}</Text>
+            </View>
+          </View>
+          <View style={styles.grid}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>PERIMETER</Text>
               <Text style={styles.gridValue}>{farm.perimeter.toFixed(0)} m</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>SQUARE METERS</Text>
+              <Text style={styles.gridValue}>{farm.area_m2.toFixed(0)}</Text>
             </View>
           </View>
           <View style={styles.divider} />
