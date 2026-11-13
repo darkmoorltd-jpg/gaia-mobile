@@ -21,6 +21,7 @@ const FarmReceipt = forwardRef<ViewShot, { farm: any }>(({ farm }, ref) => {
         <View style={styles.body}>
           <Text style={styles.farmName}>{farm.name}</Text>
           {farm.crop ? <Text style={styles.cropName}>Crop: {farm.crop}</Text> : null}
+          
           <View style={styles.grid}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>ACRES</Text>
@@ -37,17 +38,20 @@ const FarmReceipt = forwardRef<ViewShot, { farm: any }>(({ farm }, ref) => {
               <Text style={styles.gridValue}>{farm.perimeter.toFixed(0)} m</Text>
             </View>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>SQUARE METERS</Text>
+              <Text style={styles.gridLabel}>AREA (m²)</Text>
               <Text style={styles.gridValue}>{farm.area_m2.toFixed(0)}</Text>
             </View>
           </View>
+
           <View style={styles.divider} />
+
           <Text style={styles.sectionTitle}>LOCATION DATA</Text>
           <Text style={styles.locationText}>
             {farm.community ? `${farm.community}, ` : ''}{farm.lga}, {farm.state}
             {farm.ward ? `\nWard: ${farm.ward}` : ''}
           </Text>
           <Text style={styles.coords}>GPS: {farm.centroid_lat.toFixed(5)}, {farm.centroid_lng.toFixed(5)}</Text>
+
           <View style={styles.divider} />
           <View style={styles.footer}>
             <View>
@@ -76,14 +80,14 @@ const styles = StyleSheet.create({
   body: { padding: 16 },
   farmName: { fontSize: 22, fontWeight: '900', color: '#000', letterSpacing: -0.5 },
   cropName: { fontSize: 13, color: '#666', fontWeight: '600', marginTop: 2 },
-  grid: { flexDirection: 'row', marginTop: 16, gap: 12 },
+  grid: { flexDirection: 'row', marginTop: 12, gap: 8 },
   gridItem: { flex: 1, backgroundColor: '#f4faf5', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#c8e6c9' },
   gridLabel: { fontSize: 9, color: '#558b2f', fontWeight: '800', letterSpacing: 1 },
   gridValue: { fontSize: 16, color: '#1b5e20', fontWeight: '900', marginTop: 4 },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 16 },
-  sectionTitle: { fontSize: 9, color: '#999', fontWeight: '800', letterSpacing: 1.5, marginBottom: 6 },
-  locationText: { fontSize: 14, color: '#333', fontWeight: '700', lineHeight: 20 },
-  coords: { fontSize: 12, color: '#666', fontFamily: 'monospace', marginTop: 6 },
+  divider: { height: 1, backgroundColor: '#eee', marginVertical: 14 },
+  sectionTitle: { fontSize: 9, color: '#999', fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
+  locationText: { fontSize: 15, color: '#000', fontWeight: '800', lineHeight: 22 },
+  coords: { fontSize: 11, color: '#666', fontFamily: 'monospace', marginTop: 6 },
   footer: { flexDirection: 'row', justifyContent: 'space-between' },
   footerLabel: { fontSize: 8, color: '#999', fontWeight: '800', letterSpacing: 1 },
   footerValue: { fontSize: 12, color: '#000', fontWeight: '700', marginTop: 2 },
