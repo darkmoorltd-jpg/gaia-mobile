@@ -106,7 +106,9 @@ export default function FarmMapping() {
     const areaM2 = enclosedArea(points);
     const areaAcres = areaM2 / 4046.86;
     const areaHectares = areaM2 / 10000;
-    const perimeter = pathLength(points {
+    const perimeter = pathLength(points);
+
+    const farmData = {
       name: farmName.trim(),
       crop: crop.trim() || undefined,
       state: stateName,
