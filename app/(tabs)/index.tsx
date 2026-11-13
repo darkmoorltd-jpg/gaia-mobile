@@ -17,7 +17,6 @@ import { supabase } from '../../src/api/supabase';
 import { useBoaAccess } from '../../src/hooks/useBoaAccess';
 import { walletMe } from '../../src/utils/wallet';
 import WeatherWidget from '../../src/components/WeatherWidget';
-import StreakWidget from '../../src/components/StreakWidget';
 import PlantIDCard from '../../src/components/PlantIDCard';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
@@ -112,11 +111,8 @@ export default function Home() {
   const BLOCKS = [
     { id: 'header',            label: 'Header' },
     { id: 'weather',           label: 'Weather' },
-    { id: 'streak',            label: 'Streak' },
     { id: 'plan',              label: 'Plan' },
     { id: 'wallet',            label: 'Wallet' },
-    { id: 'season',            label: 'Season' },
-    { id: 'community',         label: 'Community' },
     { id: 'agronomist',        label: 'Agronomist' },
     { id: 'section:diagnose',  label: 'Diagnose & AI' },
     { id: 'section:my_farm',   label: 'My Farm' },
@@ -378,12 +374,6 @@ export default function Home() {
             <PlantIDCard />
           </Animated.View>
         );
-      case 'streak':
-        return (
-          <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-            <StreakWidget />
-          </Animated.View>
-        );
       case 'plan':
         return (
           <Animated.View entering={FadeInDown.delay(80).duration(500)}>
@@ -413,42 +403,6 @@ export default function Home() {
               </Pressable>
             </LinearGradient>
           </Animated.View>
-        );
-      case 'season':
-        return (
-          <Animated.View entering={FadeInDown.delay(120).duration(550)}>
-            <Pressable onPress={() => router.push('/season' as any)} style={({ pressed }) => [styles.seasonOuter, pressed && { opacity: 0.9 }]}>
-              <LinearGradient colors={['#ffb300', '#ff8f00', '#e65100']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.seasonBg}>
-                <View style={styles.seasonLeft}><Text style={styles.seasonEmoji}>🌾</Text></View>
-                <View style={styles.seasonRight}>
-                  <Text style={styles.seasonBadgeText}>SEASON TRACKER</Text>
-                  <Text style={styles.seasonTitle}>Suivre ma culture</Text>
-                  <Text style={styles.seasonSub}>Planter · Suivre · Récolter</Text>
-                </View>
-                <Text style={styles.seasonArrow}>›</Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
-        );
-      case 'community':
-        return (
-          <View style={styles.communityRow}>
-            <Pressable onPress={() => router.push('/pulse' as any)} style={[styles.communityBtn, styles.communityPulse]}>
-              <Text style={styles.communityEmoji}>📡</Text>
-              <Text style={[styles.communityTitle, { color: '#b388ff' }]}>Pulse</Text>
-              <Text style={styles.communitySub}>Market trends</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/coop' as any)} style={[styles.communityBtn, styles.communityCoop]}>
-              <Text style={styles.communityEmoji}>🤝</Text>
-              <Text style={[styles.communityTitle, { color: '#00c853' }]}>Coop</Text>
-              <Text style={styles.communitySub}>Find groups</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/sos' as any)} style={[styles.communityBtn, styles.communitySos]}>
-              <Text style={styles.communityEmoji}>🆘</Text>
-              <Text style={[styles.communityTitle, { color: '#ff3b5c' }]}>SOS</Text>
-              <Text style={styles.communitySub}>Emergency</Text>
-            </Pressable>
-          </View>
         );
       case 'agronomist':
         return (
