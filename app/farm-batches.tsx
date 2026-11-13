@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { enclosedArea } from '../src/utils/farms';
 import { eudrPdfUrl } from '../src/utils/logistics';
 
 const CROPS = ['Maize','Rice','Cassava','Yam','Cocoa','Coffee','Soybean','Groundnut','Sorghum','Millet','Sesame','Palm Oil'];
@@ -45,6 +46,7 @@ export default function FarmBatches() {
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [polygon, setPolygon] = useState<{ lat: number; lon: number; accuracy?: number }[]>([]);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -110,6 +112,42 @@ export default function FarmBatches() {
     }
   };
 
+  const addCorner = async () => {
+    setGpsBusy(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Location permission required'); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const corner = {
+        lat: loc.coords.latitude,
+        lon: loc.coords.longitude,
+        accuracy: loc.coords.accuracy || undefined,
+      };
+      setPolygon([...polygon, corner]);
+      // Also update single-point coords as fallback
+      if (!coords) setCoords({ lat: corner.lat, lon: corner.lon });
+    } catch (e: any) {
+      Alert.alert('GPS failed', e.message);
+    } finally {
+      setGpsBusy(false);
+    }
+  };
+
+  const removeCorner = (idx: number) => {
+    setPolygon(polygon.filter((_, i) => i !== idx));
+  };
+
+  const clearPolygon = () => {
+    Alert.alert('Clear polygon?', 'All corners will be removed.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => setPolygon([]) },
+    ]);
+  };
+
+  // Polygon area helpers
+  const polygonArea = polygon.length >= 3 ? enclosedArea(polygon) : 0;
+  const polygonAreaHa = polygonArea / 10000;
+
   const uploadPhoto = async (uri: string): Promise<string | null> => {
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
@@ -145,6 +183,17 @@ export default function FarmBatches() {
       Alert.alert('EUDR cutoff', 'Batches harvested before 2020-12-31 cannot be EUDR-compliant');
       return;
     }
+    if (polygon.length > 0 && polygon.length < 3) {
+      Alert.alert(
+        'Incomplete polygon',
+        `You've captured ${polygon.length} corner${polygon.length === 1 ? '' : 's'}. Add ${3 - polygon.length} more, or clear it to save without a polygon.`
+      );
+      return;
+    }
+    if (polygon.length >= 3 && polygonAreaHa > 1000) {
+      Alert.alert('Polygon too large', 'Area exceeds 1000 hectares. Please re-walk the boundary.');
+      return;
+    }
     setCreating(true);
     try {
       const photoUrls: string[] = [];
@@ -168,6 +217,8 @@ export default function FarmBatches() {
         photos: photoUrls,
         gps_lat: coords?.lat || null,
         gps_lon: coords?.lon || null,
+        farm_polygon: polygon.length >= 3 ? polygon.map(p => ({ lat: p.lat, lon: p.lon })) : null,
+        farm_area_hectares: polygon.length >= 3 ? polygonAreaHa : null,
         harvest_date: harvestDate,
         qr_url: eudrPdfUrl(batchCode),
         status: 'active',
@@ -185,7 +236,7 @@ export default function FarmBatches() {
       setShowCreate(false);
       setCrop('Maize'); setQty(''); setQuality('A'); setMoisture(''); setLocation('');
       setHarvestDate(new Date().toISOString().split('T')[0]);
-      setNotes(''); setPhotos([]); setCoords(null);
+      setNotes(''); setPhotos([]); setCoords(null); setPolygon([]);
       load();
     } catch (e: any) {
       Alert.alert('Failed', e.message || 'Try again');
@@ -377,9 +428,64 @@ export default function FarmBatches() {
                 </ScrollView>
               ) : null}
 
-              <Pressable onPress={captureGPS} disabled={gpsBusy} style={[styles.photoBtn, coords && { borderColor: palette.neon }]}>
+              <Text style={styles.label}>FARM POLYGON (EUDR)</Text>
+              <Text style={{ fontSize: 10, color: palette.textDim, marginBottom: 8 }}>
+                Walk to each corner of your farm and tap "Add Corner". 3+ corners = valid polygon for EUDR compliance.
+              </Text>
+
+              {polygon.length > 0 ? (
+                <View style={styles.polygonList}>
+                  {polygon.map((c, i) => (
+                    <View key={i} style={styles.polygonRow}>
+                      <Text style={styles.polygonTxt}>
+                        Corner {i + 1}: {c.lat.toFixed(5)}, {c.lon.toFixed(5)}
+                        {c.accuracy ? `  (±${c.accuracy.toFixed(0)}m)` : ''}
+                      </Text>
+                      <Pressable onPress={() => removeCorner(i)} hitSlop={10}>
+                        <Text style={{ color: '#ff3b5c', fontSize: 14, fontWeight: '900' }}>✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={addCorner} disabled={gpsBusy} style={[styles.photoBtn, { flex: 1 }]}>
+                  {gpsBusy ? <ActivityIndicator color={palette.neon} /> : (
+                    <Text style={styles.photoBtnTxt}>
+                      📍 {polygon.length === 0 ? 'Add First Corner' : `Add Corner ${polygon.length + 1}`}
+                    </Text>
+                  )}
+                </Pressable>
+                {polygon.length > 0 ? (
+                  <Pressable onPress={clearPolygon} style={[styles.photoBtn, { borderColor: '#ff3b5c' }]}>
+                    <Text style={[styles.photoBtnTxt, { color: '#ff3b5c' }]}>Clear</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {polygon.length > 0 && polygon.length < 3 ? (
+                <Text style={{ fontSize: 11, color: '#ffb300', marginTop: 8 }}>
+                  ⚠️ {3 - polygon.length} more corner{3 - polygon.length === 1 ? '' : 's'} needed for a valid polygon
+                </Text>
+              ) : null}
+
+              {polygon.length >= 3 ? (
+                <View style={styles.polygonInfo}>
+                  <Text style={styles.polygonInfoTxt}>
+                    ✅ {polygon.length} corners · {polygonAreaHa.toFixed(3)} hectares · {Math.round(polygonArea).toLocaleString()} m²
+                  </Text>
+                  {polygonAreaHa > 50 ? (
+                    <Text style={[styles.polygonInfoTxt, { color: '#ffb300', marginTop: 4, fontSize: 10 }]}>
+                      ⚠️ Large farm (>{50}ha). EUDR satellite verification will take longer.
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <Pressable onPress={captureGPS} disabled={gpsBusy} style={[styles.photoBtn, coords && { borderColor: palette.neon }, { marginTop: 8 }]}>
                 {gpsBusy ? <ActivityIndicator color={palette.neon} /> : <Text style={[styles.photoBtnTxt, coords && { color: palette.neon }]}>
-                  {coords ? `✅ GPS: ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}` : '📍 Capture GPS Location'}
+                  {coords ? `📌 Single-point GPS: ${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}` : '📌 Capture single GPS point (fallback)'}
                 </Text>}
               </Pressable>
 
@@ -562,6 +668,11 @@ const createStyles = (p: any) => StyleSheet.create({
   chipTxt: { fontSize: 11, fontWeight: '800', color: p.text },
   photoBtn: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, alignItems: 'center' },
   photoBtnTxt: { fontSize: 12, fontWeight: '800', color: p.text },
+  polygonList: { backgroundColor: p.surface, borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: p.border },
+  polygonRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  polygonTxt: { fontSize: 11, color: p.text, fontFamily: 'monospace', flex: 1 },
+  polygonInfo: { backgroundColor: 'rgba(0,255,136,0.08)', borderRadius: 10, padding: 12, marginTop: 8, borderWidth: 1, borderColor: 'rgba(0,255,136,0.25)' },
+  polygonInfoTxt: { fontSize: 12, color: p.neon, fontWeight: '700' },
   thumb: { width: 80, height: 80, borderRadius: 8 },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)', justifyContent: 'center', padding: 16 },
