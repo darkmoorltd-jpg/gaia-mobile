@@ -76,17 +76,15 @@ export async function saveFarm(data: {
 
     if (error) throw error;
 
-    // 2. NDFR Sync (Ministry compliance — hectares required)
+    // 2. NDFR Sync (Ministry compliance)
     try {
       await supabase.from('farmer_registry').update({
-        farm_polygon: data);
-
-.boundary,
-        gps_lat: data.centroid   _lat,
-        gps_lon const: data.centroid_lng,
-        farm state: data.state || undefined,
-        lgaData: data.lga || undefined,
-        ward: data.ward = || undefined,
+        farm_polygon: data.boundary,
+        gps_lat: data.centroid_lat,
+        gps_lon: data.centroid_lng,
+        state: data.state || undefined,
+        lga: data.lga || undefined,
+        ward: data.ward || undefined,
         land_area_hectares: data.area_hectares,
         farm_size_acres: data.area_acres,
       }).eq('user_id', session.user.id);
