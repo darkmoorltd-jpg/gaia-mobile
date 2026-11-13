@@ -9,23 +9,22 @@ export function useBoaAccess() {
   useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase.rpc('is_boa_viewer');
+        // New: boa_get_role() returns text ('boa_admin' | 'boa_manager' | 'boa_officer' | 'none')
+        const { data, error } = await supabase.rpc('boa_get_role');
         if (error) {
-          console.warn('BOA check failed:', error.message);
+          console.warn('BOA role check failed:', error.message);
           setRole('none');
           return;
         }
-        
-        // Handle old SQL version returning boolean, or new version returning string
-        if (data === true) {
-          setRole('boa_admin');
-        } else if (typeof data === 'string') {
+
+        if (typeof data === 'string') {
           setRole(data as BoaRole);
         } else {
+          // Fallback if the function isn't deployed yet
           setRole('none');
         }
       } catch (e) {
-        console.error('BOA exception:', e);
+        console.error('BOA role exception:', e);
         setRole('none');
       }
     })();
