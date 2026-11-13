@@ -2,25 +2,14 @@ import React, { forwardRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-interface Props {
-  farm: any;
-}
-
-const FarmReceipt = forwardRef<ViewShot, Props>(({ farm }, ref) => {
+const FarmReceipt = forwardRef<ViewShot, { farm: any }>(({ farm }, ref) => {
   if (!farm) return null;
-
-  // Generate a static satellite map from Yandex (Free, no API key)
-  // We draw a red dot at the centroid and show the satellite view
   const mapUrl = `https://static-maps.yandex.ru/1.x/?l=sat&pt=${farm.centroid_lng},${farm.centroid_lat},pm2rdm&z=16&size=600,350&lang=en_US`;
-
-  const dateStr = new Date().toLocaleDateString('en-GB', { 
-    day: 'numeric', month: 'short', year: 'numeric' 
-  });
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <ViewShot ref={ref} options={{ format: 'jpg', quality: 1.0 }} style={styles.container}>
       <View style={styles.receipt}>
-        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.brand}>GAIA</Text>
@@ -28,15 +17,10 @@ const FarmReceipt = forwardRef<ViewShot, Props>(({ farm }, ref) => {
           </View>
           <Text style={styles.date}>{dateStr}</Text>
         </View>
-
-        {/* Map Image */}
         <Image source={{ uri: mapUrl }} style={styles.mapImage} resizeMode="cover" />
-
-        {/* Farm Details */}
         <View style={styles.body}>
           <Text style={styles.farmName}>{farm.name}</Text>
           {farm.crop ? <Text style={styles.cropName}>Crop: {farm.crop}</Text> : null}
-
           <View style={styles.grid}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>AREA</Text>
@@ -47,20 +31,14 @@ const FarmReceipt = forwardRef<ViewShot, Props>(({ farm }, ref) => {
               <Text style={styles.gridValue}>{farm.perimeter.toFixed(0)} m</Text>
             </View>
           </View>
-
           <View style={styles.divider} />
-
           <Text style={styles.sectionTitle}>LOCATION DATA</Text>
           <Text style={styles.locationText}>
             {farm.community ? `${farm.community}, ` : ''}{farm.lga}, {farm.state}
             {farm.ward ? `\nWard: ${farm.ward}` : ''}
           </Text>
-          <Text style={styles.coords}>
-            GPS: {farm.centroid_lat.toFixed(5)}, {farm.centroid_lng.toFixed(5)}
-          </Text>
-
+          <Text style={styles.coords}>GPS: {farm.centroid_lat.toFixed(5)}, {farm.centroid_lng.toFixed(5)}</Text>
           <View style={styles.divider} />
-
           <View style={styles.footer}>
             <View>
               <Text style={styles.footerLabel}>SURVEYED BY</Text>
@@ -100,5 +78,4 @@ const styles = StyleSheet.create({
   footerLabel: { fontSize: 8, color: '#999', fontWeight: '800', letterSpacing: 1 },
   footerValue: { fontSize: 12, color: '#000', fontWeight: '700', marginTop: 2 },
 });
-
 export default FarmReceipt;

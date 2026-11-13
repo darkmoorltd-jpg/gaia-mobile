@@ -43,7 +43,6 @@ export function filterByAccuracy(points: FarmPoint[], maxAcc = 20) {
 
 export function simplifyPath(points: FarmPoint[], tolerance = 2.5) {
   if (points.length < 3) return points;
-  // Very basic simplification (just returns points for now, could implement Douglas-Peucker)
   return points;
 }
 
@@ -62,7 +61,7 @@ export async function saveFarm(data: {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) throw new Error('Not logged in');
 
-    // Insert into the farms table
+    // 1. Insert into the farms table
     const { data: inserted, error } = await supabase.from('farms').insert({
       user_id: session.user.id,
       name: data.name,
@@ -77,6 +76,21 @@ export async function saveFarm(data: {
     }).select().single();
 
     if (error) throw error;
+
+    // 2. NDFR Sync (Ministry Compliance)
+    try {
+      await supabase.from('farmer_registry').update({
+        farm_polygon: data.boundary,
+        gps_lat: data.centroid_lat,
+        gps_lon: data.centroid_lng,
+        state: data.state || undefined,
+        lga: data.lga || undefined,
+        ward: data.ward || undefined,
+      }).eq('user_id', session.user.id);
+    } catch (ndfrErr) {
+      console.warn('NDFR sync failed:', ndfrErr);
+    }
+
     return { data: inserted, error: null };
   } catch (e: any) {
     return { data: null, error: e.message || 'Failed to save farm' };
