@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { apiDispatch, apiDeliver } from '../src/utils/logistics';
 
 const GPS_INTERVAL_MS = 60_000; // every 60 seconds while in transit
 
@@ -78,23 +79,28 @@ export default function DriverApp() {
   const acceptCargo = async () => {
     if (!user) return;
     setBusy(true);
-    await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batch.id);
-    await supabase.from('batch_movements').insert({
-      batch_id: batch.id,
-      driver_id: user.id,
-      from_location: batch.location || 'Farm',
-      to_location: 'In Transit',
-      quantity_kg: batch.quantity_kg,
-      status: 'in_transit'
-    });
-    await supabase.from('batch_events').insert({
-      batch_id: batch.id,
-      event_type: 'dispatch',
-      actor_id: user.id,
-      notes: 'Driver accepted cargo',
-    });
+    try {
+      await apiDispatch(batch.batch_code);
+      Alert.alert('Accepted', 'Cargo is in transit. Enable live tracking below.');
+    } catch (apiErr: any) {
+      console.warn('[dispatch] API failed, using fallback:', apiErr.message);
+      // Fallback — direct Supabase
+      await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batch.id);
+      await supabase.from('batch_movements').insert({
+        batch_id: batch.id, driver_id: user.id,
+        from_location: batch.location || 'Farm', to_location: 'In Transit',
+        quantity_kg: batch.quantity_kg, status: 'in_transit'
+      });
+      await supabase.from('batch_events').insert({
+        batch_id: batch.id, event_type: 'dispatch',
+        actor_id: user.id, notes: 'Driver accepted cargo',
+      });
+      Alert.alert('Accepted', 'Cargo is in transit (offline mode).');
+    }
+    // Refresh batch to show new state
+    const { data } = await supabase.from('batches').select('*').eq('id', batch.id).maybeSingle();
+    if (data) setBatch(data);
     setBusy(false);
-    Alert.alert('Accepted', 'Cargo is in transit. Enable live tracking below.');
   };
 
   const deliverCargo = async () => {
@@ -102,28 +108,29 @@ export default function DriverApp() {
     if (!batch) return;
     setBusy(true);
     stopTracking();
-    await supabase.from('batches').update({ status: 'delivered' }).eq('id', batch.id);
-    await supabase.from('batch_movements').insert({
-      batch_id: batch.id,
-      driver_id: user.id,
-      from_location: 'In Transit',
-      to_location: 'Delivery Point',
-      quantity_kg: batch.quantity_kg,
-      status: 'delivered',
-      arrived_at: new Date().toISOString(),
-    });
-    await supabase.from('batch_events').insert({
-      batch_id: batch.id,
-      event_type: 'delivered',
-      actor_id: user.id,
-      notes: 'Driver marked cargo delivered',
-    });
-    setBusy(false);
+    try {
+      await apiDeliver(batch.batch_code);
+      Alert.alert('Delivered', 'Cargo marked as delivered.');
+    } catch (apiErr: any) {
+      console.warn('[deliver] API failed, using fallback:', apiErr.message);
+      await supabase.from('batches').update({ status: 'delivered' }).eq('id', batch.id);
+      await supabase.from('batch_movements').insert({
+        batch_id: batch.id, driver_id: user.id,
+        from_location: 'In Transit', to_location: 'Delivery Point',
+        quantity_kg: batch.quantity_kg, status: 'delivered',
+        arrived_at: new Date().toISOString(),
+      });
+      await supabase.from('batch_events').insert({
+        batch_id: batch.id, event_type: 'delivered',
+        actor_id: user.id, notes: 'Driver marked cargo delivered',
+      });
+      Alert.alert('Delivered', 'Cargo marked as delivered (offline mode).');
+    }
     setBatch(null);
     setScanCode('');
     setFixCount(0);
     setLastFix(null);
-    Alert.alert('Delivered', 'Cargo marked as delivered.');
+    setBusy(false);
   };
 
   return (

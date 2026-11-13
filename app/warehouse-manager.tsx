@@ -2,11 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
+import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { apiReceive } from '../src/utils/logistics';
 
 export default function WarehouseManager() {
   const router = useRouter();
   const { palette } = useTheme();
+  const user = useAuth((s: any) => s.user);
   const styles = createStyles(palette);
 
   const [batches, setBatches] = useState<any[]>([]);
@@ -55,36 +58,34 @@ export default function WarehouseManager() {
     if (!receivedKg || isNaN(Number(receivedKg))) { Alert.alert('Enter valid kg'); return; }
     setProcessing(true);
 
-    const loss = Number(selected.quantity_kg) - Number(receivedKg);
+    const kg = Number(receivedKg);
+    const loss = Number(selected.quantity_kg) - kg;
     const lossReasonText = loss > 0 ? (lossReason.trim() || 'Transit loss') : null;
 
-    // 1. Update Batch Status to 'in_storage'
-    await supabase.from('batches').update({ status: 'in_storage' }).eq('id', selected.id);
-
-    // 2. Log the movement
-    await supabase.from('batch_movements').insert({
-      batch_id: selected.id,
-      from_location: selected.location || 'Farm',
-      to_location: 'Warehouse',
-      quantity_kg: Number(receivedKg),
-      loss_kg: loss > 0 ? loss : 0,
-      loss_reason: lossReasonText,
-      arrived_at: new Date().toISOString()
-    });
-
-    // 3. Log the event
-    await supabase.from('batch_events').insert({
-      batch_id: selected.id,
-      event_type: 'warehouse_receive',
-      notes: `Received ${receivedKg}kg. Loss: ${loss}kg ${lossReasonText ? '(' + lossReasonText + ')' : ''}`,
-    });
+    try {
+      await apiReceive(selected.batch_code, kg, lossReasonText || undefined);
+      Alert.alert('Success', 'Batch received and logged into warehouse.');
+    } catch (apiErr: any) {
+      console.warn('[receive] API failed, using fallback:', apiErr.message);
+      // Fallback — direct Supabase
+      await supabase.from('batches').update({ status: 'in_storage' }).eq('id', selected.id);
+      await supabase.from('batch_movements').insert({
+        batch_id: selected.id, from_location: selected.location || 'Farm',
+        to_location: 'Warehouse', quantity_kg: kg, loss_kg: loss > 0 ? loss : 0,
+        loss_reason: lossReasonText, arrived_at: new Date().toISOString()
+      });
+      await supabase.from('batch_events').insert({
+        batch_id: selected.id, event_type: 'warehouse_receive',
+        notes: `Received ${kg}kg. Loss: ${loss}kg ${lossReasonText ? '(' + lossReasonText + ')' : ''}`,
+      });
+      Alert.alert('Success', 'Batch received (offline mode).');
+    }
 
     setProcessing(false);
     setSelected(null);
     setScanCode('');
     setReceivedKg('');
     setLossReason('');
-    Alert.alert('Success', 'Batch received and logged into warehouse.');
     load();
   };
 
