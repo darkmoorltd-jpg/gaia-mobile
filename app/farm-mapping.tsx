@@ -49,6 +49,7 @@ export default function FarmMapping() {
   const [savedFarm, setSavedFarm] = useState<any>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
+  const [farmerInfo, setFarmerInfo] = useState<any>(null);
   const viewShotRef = useRef<ViewShot>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
 
@@ -240,6 +241,10 @@ export default function FarmMapping() {
                   community={community}
                   ward={ward}
                   points={points}
+                  farmerName={farmerInfo ? `${farmerInfo.first_name} ${farmerInfo.last_name}` : session?.user?.email}
+                  farmerEmail={session?.user?.email || ''}
+                  farmerPhone={farmerInfo?.phone || ''}
+                  farmerAddress={farmerInfo?.street_address || ''}
                   areaAcres={enclosedArea(points) / 4046.86}
                   perimeterM={pathLength(points)}
                   centroidLat={savedFarm?.centroid_lat}
