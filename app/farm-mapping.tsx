@@ -7,6 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Sharing from 'expo-sharing';
 import ViewShot from 'react-native-view-shot';
 import FreeMap from '../src/components/FreeMap';
+import { useAuth } from '../src/store/auth';
 import FarmReceipt from '../src/components/FarmReceipt';
 import { generateFarmPdf } from '../src/utils/farmPdf';
 import { saveFarm, enclosedArea, pathLength, type FarmPoint } from '../src/utils/farms';
@@ -30,6 +31,7 @@ async function reverseGeocode(lat: number, lng: number) {
 export default function FarmMapping() {
   const router = useRouter();
   const styles = createStyles();
+  const user = useAuth((s) => s.user);
 
   const [points, setPoints] = useState<FarmPoint[]>([]);
   const [currentGPS, setCurrentGPS] = useState<FarmPoint | null>(null);
@@ -241,8 +243,8 @@ export default function FarmMapping() {
                   community={community}
                   ward={ward}
                   points={points}
-                  farmerName={farmerInfo ? `${farmerInfo.first_name} ${farmerInfo.last_name}` : session?.user?.email}
-                  farmerEmail={session?.user?.email || ''}
+                  farmerName={farmerInfo?.first_name ? `${farmerInfo.first_name} ${farmerInfo.last_name || ''}`.trim() : user?.email}
+                  farmerEmail={user?.email || ''}
                   farmerPhone={farmerInfo?.phone || ''}
                   farmerAddress={farmerInfo?.street_address || ''}
                   areaAcres={enclosedArea(points) / 4046.86}
