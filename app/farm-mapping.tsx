@@ -8,6 +8,7 @@ import * as Sharing from 'expo-sharing';
 import ViewShot from 'react-native-view-shot';
 import FreeMap from '../src/components/FreeMap';
 import FarmReceipt from '../src/components/FarmReceipt';
+import { generateFarmPdf } from '../src/utils/farmPdf';
 import { saveFarm, enclosedArea, pathLength, type FarmPoint } from '../src/utils/farms';
 import { queueFarm } from '../src/utils/farmSync';
 
@@ -252,13 +253,23 @@ export default function FarmMapping() {
               <Pressable 
                 onPress={async () => {
                   try {
-                    const uri = await viewShotRef.current?.capture();
-                    if (uri) await Sharing.shareAsync(uri);
-                  } catch (e) { Alert.alert('Error', 'Could not share receipt'); }
+                    // Capture the receipt UI as a base64 JPEG
+                    const base64 = await viewShotRef.current?.capture({ 
+                      format: 'jpg', 
+                      quality: 0.9, 
+                      result: 'base64' 
+                    });
+                    if (base64) {
+                      // Generate and share the PDF
+                      await generateFarmPdf(base64, farmName);
+                    }
+                  } catch (e: any) { 
+                    Alert.alert('Error', e.message || 'Could not generate PDF'); 
+                  }
                 }} 
                 style={styles.shareBtn}
               >
-                <Text style={styles.shareBtnText}>📥 DOWNLOAD / SHARE RECEIPT</Text>
+                <Text style={styles.shareBtnText}>📥 DOWNLOAD PDF SURVEY</Text>
               </Pressable>
               
               <Pressable 
