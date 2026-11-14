@@ -1,95 +1,132 @@
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import ViewShot from 'react-native-view-shot';
 
-const FarmReceipt = forwardRef<ViewShot, { farm: any }>(({ farm }, ref) => {
-  if (!farm) return null;
-  const mapUrl = `https://static-maps.yandex.ru/1.x/?l=sat&pt=${farm.centroid_lng},${farm.centroid_lat},pm2rdm&z=16&size=600,350&lang=en_US`;
-  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-
+export default function FarmReceipt({
+  farmName, crop, state, lga, community, ward,
+  points, areaAcres, perimeterM, centroidLat, centroidLng,
+  dateStr, surveyorName, mapSnapshotUri
+}: any) {
   return (
-    <ViewShot ref={ref} options={{ format: 'jpg', quality: 1.0 }} style={styles.container}>
-      <View style={styles.receipt}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.brand}>GAIA</Text>
-            <Text style={styles.subBrand}>Powered by DARKMOOR LTD</Text>
-          </View>
-          <Text style={styles.date}>{dateStr}</Text>
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>GAIA LAND SURVEY</Text>
+        <Text style={styles.subtitle}>Official Farm Boundary Record</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Farm Details */}
+      <View style={styles.row}>
+        <Text style={styles.label}>FARM NAME</Text>
+        <Text style={styles.value}>{farmName || '—'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>CROP</Text>
+        <Text style={styles.value}>{crop || 'Mixed'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>SURVEYOR</Text>
+        <Text style={styles.value}>{surveyorName || 'Agent'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>DATE</Text>
+        <Text style={styles.value}>{dateStr}</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Location */}
+      <View style={styles.row}>
+        <Text style={styles.label}>STATE</Text>
+        <Text style={styles.value}>{state || '—'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>LGA</Text>
+        <Text style={styles.value}>{lga || '—'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>COMMUNITY</Text>
+        <Text style={styles.value}>{community || '—'}</Text>
+      </View>
+      <View style={styles.row}>
+        <Text style={styles.label}>WARD</Text>
+        <Text style={styles.value}>{ward || '—'}</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      {/* Map Snapshot */}
+      {mapSnapshotUri ? (
+        <View style={styles.mapBox}>
+          <Text style={styles.mapLabel}>SATELLITE SNAPSHOT</Text>
+          <Image source={{ uri: mapSnapshotUri }} style={styles.mapImage} />
         </View>
-        <Image source={{ uri: mapUrl }} style={styles.mapImage} resizeMode="cover" />
-        <View style={styles.body}>
-          <Text style={styles.farmName}>{farm.name}</Text>
-          {farm.crop ? <Text style={styles.cropName}>Crop: {farm.crop}</Text> : null}
-          
-          <View style={styles.grid}>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>ACRES</Text>
-              <Text style={styles.gridValue}>{farm.acres.toFixed(2)}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>HECTARES</Text>
-              <Text style={styles.gridValue}>{farm.hectares.toFixed(2)}</Text>
-            </View>
-          </View>
-          <View style={styles.grid}>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>PERIMETER</Text>
-              <Text style={styles.gridValue}>{farm.perimeter.toFixed(0)} m</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>AREA (m²)</Text>
-              <Text style={styles.gridValue}>{farm.area_m2.toFixed(0)}</Text>
-            </View>
-          </View>
+      ) : null}
 
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionTitle}>LOCATION DATA</Text>
-          <Text style={styles.locationText}>
-            {farm.community ? `${farm.community}, ` : ''}{farm.lga}, {farm.state}
-            {farm.ward ? `\nWard: ${farm.ward}` : ''}
-          </Text>
-          <Text style={styles.coords}>GPS: {farm.centroid_lat.toFixed(5)}, {farm.centroid_lng.toFixed(5)}</Text>
-
-          <View style={styles.divider} />
-          <View style={styles.footer}>
-            <View>
-              <Text style={styles.footerLabel}>SURVEYED BY</Text>
-              <Text style={styles.footerValue}>{farm.surveyor || 'GAIA Agent'}</Text>
-            </View>
-            <View>
-              <Text style={styles.footerLabel}>ID</Text>
-              <Text style={styles.footerValue}>#{farm.id?.slice(0, 6).toUpperCase() || 'PENDING'}</Text>
-            </View>
-          </View>
+      {/* Geospatial Data */}
+      <View style={styles.grid}>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>AREA</Text>
+          <Text style={styles.gridValue}>{Number(areaAcres).toFixed(2)} ac</Text>
+        </View>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>PERIMETER</Text>
+          <Text style={styles.gridValue}>{Number(perimeterM).toFixed(0)} m</Text>
+        </View>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>LATITUDE</Text>
+          <Text style={styles.gridValue}>{Number(centroidLat).toFixed(5)}</Text>
+        </View>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>LONGITUDE</Text>
+          <Text style={styles.gridValue}>{Number(centroidLng).toFixed(5)}</Text>
+        </View>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>VERTICES</Text>
+          <Text style={styles.gridValue}>{points?.length || 0} pins</Text>
+        </View>
+        <View style={styles.gridItem}>
+          <Text style={styles.gridLabel}>CERT ID</Text>
+          <Text style={styles.gridValue}>GAIA-{Date.now().toString(36).toUpperCase().slice(-6)}</Text>
         </View>
       </View>
-    </ViewShot>
+
+      <View style={styles.divider} />
+
+      {/* Footer */}
+      <Text style={styles.footer}>
+        This digital survey was generated by GAIA Mobile. Valid for NDFR, BOA, and bank verification.
+      </Text>
+      <Text style={styles.footerBrand}>Powered by DARKMOOR LTD 🌱</Text>
+    </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', justifyContent: 'center', padding: 10 },
-  receipt: { backgroundColor: '#ffffff', borderRadius: 16, overflow: 'hidden', width: 340 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#0a1a10' },
-  brand: { fontSize: 24, fontWeight: '900', color: '#00ff88', letterSpacing: 2 },
-  subBrand: { fontSize: 8, color: '#888', fontWeight: '700', letterSpacing: 1, marginTop: 2 },
-  date: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  mapImage: { width: '100%', height: 180, backgroundColor: '#eee' },
-  body: { padding: 16 },
-  farmName: { fontSize: 22, fontWeight: '900', color: '#000', letterSpacing: -0.5 },
-  cropName: { fontSize: 13, color: '#666', fontWeight: '600', marginTop: 2 },
-  grid: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  gridItem: { flex: 1, backgroundColor: '#f4faf5', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#c8e6c9' },
-  gridLabel: { fontSize: 9, color: '#558b2f', fontWeight: '800', letterSpacing: 1 },
-  gridValue: { fontSize: 16, color: '#1b5e20', fontWeight: '900', marginTop: 4 },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 14 },
-  sectionTitle: { fontSize: 9, color: '#999', fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
-  locationText: { fontSize: 15, color: '#000', fontWeight: '800', lineHeight: 22 },
-  coords: { fontSize: 11, color: '#666', fontFamily: 'monospace', marginTop: 6 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between' },
-  footerLabel: { fontSize: 8, color: '#999', fontWeight: '800', letterSpacing: 1 },
-  footerValue: { fontSize: 12, color: '#000', fontWeight: '700', marginTop: 2 },
+  container: {
+    backgroundColor: '#ffffff',
+    padding: 24,
+    borderRadius: 16,
+    width: 340, // Fixed width for consistent export
+    alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: '#00c853',
+  },
+  header: { alignItems: 'center', marginBottom: 16 },
+  title: { fontSize: 20, fontWeight: '900', color: '#00c853', letterSpacing: 2 },
+  subtitle: { fontSize: 10, color: '#666', marginTop: 4, fontWeight: '600', textTransform: 'uppercase' },
+  divider: { height: 1, backgroundColor: '#e0e0e0', marginVertical: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  label: { fontSize: 11, fontWeight: '800', color: '#888', width: 100 },
+  value: { fontSize: 13, fontWeight: '700', color: '#111', textAlign: 'right', flex: 1 },
+  mapBox: { marginBottom: 16 },
+  mapLabel: { fontSize: 9, fontWeight: '800', color: '#888', marginBottom: 6 },
+  mapImage: { width: '100%', height: 160, borderRadius: 8, backgroundColor: '#eee' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  gridItem: { width: '48%', backgroundColor: '#f5f5f5', padding: 10, borderRadius: 8 },
+  gridLabel: { fontSize: 9, fontWeight: '800', color: '#888', marginBottom: 2 },
+  gridValue: { fontSize: 12, fontWeight: '900', color: '#111' },
+  footer: { fontSize: 9, color: '#888', textAlign: 'center', lineHeight: 14, marginTop: 8 },
+  footerBrand: { fontSize: 10, color: '#00c853', textAlign: 'center', fontWeight: '900', marginTop: 8, letterSpacing: 1 },
 });
-export default FarmReceipt;

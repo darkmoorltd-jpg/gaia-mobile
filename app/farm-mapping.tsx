@@ -46,6 +46,8 @@ export default function FarmMapping() {
   
   const [saving, setSaving] = useState(false);
   const [savedFarm, setSavedFarm] = useState<any>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const viewShotRef = useRef<ViewShot>(null);
   const watcher = useRef<Location.LocationSubscription | null>(null);
 
@@ -222,6 +224,54 @@ export default function FarmMapping() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* RECEIPT MODAL */}
+      <Modal visible={showReceipt} animationType="slide" transparent>
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            <ScrollView>
+              <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 1.0 }}>
+                <FarmReceipt
+                  farmName={farmName}
+                  crop={crop}
+                  state={stateName}
+                  lga={lga}
+                  community={community}
+                  ward={ward}
+                  points={points}
+                  areaAcres={enclosedArea(points) / 4046.86}
+                  perimeterM={pathLength(points)}
+                  centroidLat={savedFarm?.centroid_lat}
+                  centroidLng={savedFarm?.centroid_lng}
+                  dateStr={new Date().toLocaleDateString()}
+                  surveyorName="GAIA Agent"
+                  mapSnapshotUri={snapshotUri}
+                />
+              </ViewShot>
+              
+              <Pressable 
+                onPress={async () => {
+                  try {
+                    const uri = await viewShotRef.current?.capture();
+                    if (uri) await Sharing.shareAsync(uri);
+                  } catch (e) { Alert.alert('Error', 'Could not share receipt'); }
+                }} 
+                style={styles.shareBtn}
+              >
+                <Text style={styles.shareBtnText}>📥 DOWNLOAD / SHARE RECEIPT</Text>
+              </Pressable>
+              
+              <Pressable 
+                onPress={() => { setShowReceipt(false); router.replace('/farms'); }} 
+                style={styles.closeBtn}
+              >
+                <Text style={styles.closeBtnText}>DONE</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
