@@ -100,6 +100,15 @@ const SECTIONS: Section[] = [
       { label: 'Dr. Vinc Clinic', route: '/admin-dr-vinc' },
     ],
   },
+  {
+    title: 'LOGISTICS & DRIVERS',
+    icon: 'LG',
+    items: [
+      { label: 'Driver Management', route: '/admin-drivers' },
+      { label: 'Warehouse Dashboard', route: '/warehouse-dashboard' },
+      { label: 'Driver App (Preview)', route: '/driver-app' },
+    ],
+  },
 ];
 
 const BOA_SECTIONS: Section[] = [

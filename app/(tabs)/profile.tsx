@@ -38,6 +38,15 @@ interface Section { title: string; icon: string; items: MenuItem[]; }
 
 function getSections(t: any): Section[] {
   return [
+    {
+      title: 'DRIVER',
+      icon: 'DR',
+      items: [
+        { label: 'Become a Driver',     route: '/driver-register' },
+        { label: 'My Driver Dashboard', route: '/driver-app' },
+        { label: 'My Earnings',         route: '/driver-earnings' },
+      ],
+    },
   { title: 'GAIA INPUTS', icon: 'GI', items: [
     { label: 'Become Input Provider', route: '/input-provider-apply' },
     { label: 'Buy Farm Inputs',       route: '/inputs' },
