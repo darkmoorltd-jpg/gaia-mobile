@@ -1,55 +1,56 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../api/supabase';
 
-const KEY = 'gaia:offline_queue';
+const QUEUE_KEY = 'gaia_offline_queue';
 
-export interface OfflineScan {
+export interface QueueItem {
   id: string;
-  crop: string;
-  consensusLabel: string;
-  consensusConf: number;
-  severity: number;
-  framesAnalyzed: number;
-  voteCount: number;
-  voteTotal: number;
-  durationSec: number;
-  gpsLat: number | null;
-  gpsLon: number | null;
-  locationLabel: string | null;
-  createdAt: string;
-  retries: number;
+  table: string;
+  action: 'insert' | 'update';
+  payload: any;
+  match?: { column: string; value: any };
 }
 
-export async function listQueue(): Promise<OfflineScan[]> {
+export async function enqueue(table: string, action: 'insert' | 'update', payload: any, match?: any) {
   try {
-    const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as OfflineScan[];
-  } catch {
-    return [];
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    const queue: QueueItem[] = raw ? JSON.parse(raw) : [];
+    queue.push({
+      id: Math.random().toString(36).substring(2),
+      table, action, payload, match
+    });
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    console.log('[offline] queued', table);
+  } catch (e) {
+    console.warn('[offline] enqueue failed', e);
   }
 }
 
-export async function enqueueScan(item: OfflineScan): Promise<void> {
+export async function syncQueue() {
   try {
-    const cur = await listQueue();
-    cur.push(item);
-    await AsyncStorage.setItem(KEY, JSON.stringify(cur));
-  } catch {}
-}
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    if (!raw) return;
+    let queue: QueueItem[] = JSON.parse(raw);
+    if (queue.length === 0) return;
 
-export async function removeFromQueue(id: string): Promise<void> {
-  try {
-    const cur = await listQueue();
-    const next = cur.filter((x) => x.id !== id);
-    await AsyncStorage.setItem(KEY, JSON.stringify(next));
-  } catch {}
-}
-
-export async function queueSize(): Promise<number> {
-  const q = await listQueue();
-  return q.length;
-}
-
-export async function clearQueue(): Promise<void> {
-  try { await AsyncStorage.removeItem(KEY); } catch {}
+    const remaining: QueueItem[] = [];
+    for (const item of queue) {
+      try {
+        if (item.action === 'insert') {
+          const { error } = await supabase.from(item.table).insert(item.payload);
+          if (error) throw error;
+        } else if (item.action === 'update' && item.match) {
+          const { error } = await supabase.from(item.table).update(item.payload).eq(item.match.column, item.match.value);
+          if (error) throw error;
+        }
+      } catch (e) {
+        // Still offline or failed, keep in queue
+        remaining.push(item);
+      }
+    }
+    await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+    console.log('[offline] synced. remaining:', remaining.length);
+  } catch (e) {
+    console.warn('[offline] sync failed', e);
+  }
 }
