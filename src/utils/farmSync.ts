@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../api/supabase';
 import { saveFarm, type FarmPoint } from './farms';
 
 const QUEUE_KEY = '@gaia_offline_farms';
@@ -14,13 +15,10 @@ export interface QueuedFarm {
   centroid_lat: number;
   centroid_lng: number;
   boundary: FarmPoint[];
-  area_m2: number;
-  area_acres: number;
-  area_hectares: number;
-  perimeter_m: number;
   timestamp: number;
 }
 
+// 1. Add a farm to the local queue
 export async function queueFarm(farm: Omit<QueuedFarm, 'local_id' | 'timestamp'>) {
   try {
     const existing = await getQueue();
@@ -33,10 +31,12 @@ export async function queueFarm(farm: Omit<QueuedFarm, 'local_id' | 'timestamp'>
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(existing));
     return newFarm;
   } catch (e) {
+    console.error('Failed to queue farm', e);
     return null;
   }
 }
 
+// 2. Get the current queue
 export async function getQueue(): Promise<QueuedFarm[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
@@ -46,10 +46,12 @@ export async function getQueue(): Promise<QueuedFarm[]> {
   }
 }
 
+// 3. Sync all pending farms to Supabase
 export async function syncPendingFarms(): Promise<number> {
   const queue = await getQueue();
   if (queue.length === 0) return 0;
 
+  console.log(`Syncing ${queue.length} offline farms...`);
   let successCount = 0;
   const remaining: QueuedFarm[] = [];
 
@@ -64,19 +66,18 @@ export async function syncPendingFarms(): Promise<number> {
       centroid_lat: farm.centroid_lat,
       centroid_lng: farm.centroid_lng,
       boundary: farm.boundary,
-      area_m2: farm.area_m2,
-      area_acres: farm.area_acres,
-      area_hectares: farm.area_hectares,
-      perimeter_m: farm.perimeter_m,
     });
 
     if (error) {
-      remaining.push(farm);
+      console.warn(`Failed to sync farm ${farm.name}:`, error);
+      remaining.push(farm); // Keep it for next time
     } else {
       successCount++;
     }
   }
 
+  // Save the remaining queue (if any failed)
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+  console.log(`Sync complete. ${successCount} saved, ${remaining.length} remaining.`);
   return successCount;
 }
