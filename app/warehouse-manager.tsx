@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { initiateDriverPayout } from '../src/utils/payouts';
 
 export default function WarehouseManager() {
   const router = useRouter();
@@ -66,8 +67,11 @@ export default function WarehouseManager() {
         received_at: new Date().toISOString(),
       }).eq('id', selectedJob.id);
 
-      // 3. Trigger payout logic (mocked here, actual Paystack call is in the backend)
-      await supabase.rpc('process_driver_payout', { p_movement_id: selectedJob.id });
+      // 3. Trigger payout (test mode by default; set ENABLE_REAL_PAYOUTS=true on Supabase to move money)
+      const pay = await initiateDriverPayout(selectedJob.id);
+      if (!pay.ok) {
+        Alert.alert('Delivery logged, but payout failed', pay.error || 'Try again from the driver payout screen.');
+      }
 
       Alert.alert('Confirmed', 'Cargo received. Driver payout is being processed.');
       setShowModal(false);

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { supabase } from '../src/api/supabase';
+import { generateEUDRPdf, shareEUDRPdf } from '../src/utils/logistics';
 
 export default function EUDRDashboard() {
   const router = useRouter();
@@ -11,35 +12,56 @@ export default function EUDRDashboard() {
 
   const [batches, setBatches] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      // Fetch all batches to simulate what an exporter sees
       const { data } = await supabase.from('batches')
-        .select('*, batch_events(*)')
+        .select('*, batch_events(*), batch_movements(*)')
         .order('created_at', { ascending: false });
       setBatches(data || []);
       setBusy(false);
     })();
   }, []);
 
-  const generateEUDR = (batch: any) => {
-    setGenerating(true);
-    setTimeout(() => {
-      setGenerating(false);
-      Alert.alert(
-        '✅ EUDR Due Diligence Generated',
-        `Document for ${batch.batch_code} has been generated.\n\nStatus: Deforestation-free\nCrop: ${batch.crop_name}\nWeight: ${batch.quantity_kg}kg\n\nPDF is ready for download in the export portal.`
-      );
-    }, 2000);
+  const generate = async (batch: any) => {
+    setGenerating(batch.id);
+    try {
+      const { data: farmer } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name, state, lga')
+        .eq('user_id', batch.farmer_id).maybeSingle();
+
+      const farmerName = [farmer?.first_name, farmer?.last_name].filter(Boolean).join(' ');
+
+      const ok = await shareEUDRPdf({
+        batch_code: batch.batch_code,
+        crop_name: batch.crop_name,
+        quantity_kg: Number(batch.quantity_kg),
+        harvest_date: batch.harvest_date,
+        farmer_name: farmerName,
+        farmer_state: farmer?.state,
+        farmer_lga: farmer?.lga,
+        farm_area_hectares: batch.farm_area_hectares,
+        gps_lat: batch.gps_lat,
+        gps_lon: batch.gps_lon,
+        farm_polygon: batch.farm_polygon,
+        events: batch.batch_events || [],
+        movements: batch.batch_movements || [],
+      });
+      if (!ok) Alert.alert('PDF failed', 'Could not generate or share the document.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'PDF generation failed');
+    } finally {
+      setGenerating(null);
+    }
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        
+
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>EUDR Command Center</Text>
@@ -54,50 +76,52 @@ export default function EUDRDashboard() {
             <Text style={styles.statLbl}>BATCHES TRACKED</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNum}>100%</Text>
-            <Text style={styles.statLbl}>DEFORESTATION FREE</Text>
+            <Text style={styles.statNum}>{batches.filter(b => b.status === 'exported').length}</Text>
+            <Text style={styles.statLbl}>EXPORTED</Text>
           </View>
         </View>
 
         <Text style={styles.sectionLabel}>READY FOR EXPORT</Text>
         {busy ? <ActivityIndicator color={palette.neon} /> : null}
 
-        {batches.map(b => (
-          <View key={b.id} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.batchCode}>{b.batch_code}</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeTxt}>EUDR COMPLIANT</Text>
+        {batches.map(b => {
+          const eventCount = Array.isArray(b.batch_events) ? b.batch_events.length : 0;
+          const movementCount = Array.isArray(b.batch_movements) ? b.batch_movements.length : 0;
+          const isGen = generating === b.id;
+          return (
+            <View key={b.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.batchCode}>{b.batch_code}</Text>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeTxt}>EUDR READY</Text>
+                </View>
               </View>
-            </View>
-            
-            <View style={styles.grid}>
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLbl}>CROP</Text>
-                <Text style={styles.gridVal}>{b.crop_name}</Text>
-              </View>
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLbl}>WEIGHT</Text>
-                <Text style={styles.gridVal}>{b.quantity_kg} kg</Text>
-              </View>
-              <View style={styles.gridItem}>
-                <Text style={styles.gridLbl}>HARVEST DATE</Text>
-                <Text style={styles.gridVal}>{b.harvest_date}</Text>
-              </View>
-            </View>
 
-            <View style={styles.chain}>
-              <Text style={styles.chainLbl}>CHAIN OF CUSTODY ({b.batch_events?.length || 0} EVENTS)</Text>
-              {b.batch_events?.slice(0, 3).map((e: any, i: number) => (
-                <Text key={i} style={styles.chainItem}>• {e.event_type.toUpperCase()} — {new Date(e.created_at).toLocaleDateString()}</Text>
-              ))}
-            </View>
+              <View style={styles.grid}>
+                <View style={styles.gridItem}>
+                  <Text style={styles.gridLbl}>CROP</Text>
+                  <Text style={styles.gridVal}>{b.crop_name}</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={styles.gridLbl}>WEIGHT</Text>
+                  <Text style={styles.gridVal}>{Number(b.quantity_kg).toLocaleString()} kg</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Text style={styles.gridLbl}>HARVEST</Text>
+                  <Text style={styles.gridVal}>{b.harvest_date}</Text>
+                </View>
+              </View>
 
-            <Pressable onPress={() => generateEUDR(b)} disabled={generating} style={styles.actionBtn}>
-              {generating ? <ActivityIndicator color="#000" /> : <Text style={styles.actionBtnTxt}>GENERATE EU DUE DILIGENCE</Text>}
-            </Pressable>
-          </View>
-        ))}
+              <View style={styles.chain}>
+                <Text style={styles.chainLbl}>{eventCount} EVENTS · {movementCount} MOVEMENTS</Text>
+              </View>
+
+              <Pressable onPress={() => generate(b)} disabled={!!generating} style={styles.actionBtn}>
+                {isGen ? <ActivityIndicator color="#000" /> : <Text style={styles.actionBtnTxt}>📄 GENERATE EU DUE DILIGENCE PDF</Text>}
+              </Pressable>
+            </View>
+          );
+        })}
         <View style={{ height: 80 }} />
       </ScrollView>
     </View>
@@ -127,8 +151,7 @@ const createStyles = (p: any) => StyleSheet.create({
   gridLbl: { fontSize: 9, fontWeight: '800', color: p.textMuted, letterSpacing: 1 },
   gridVal: { fontSize: 14, fontWeight: '700', color: p.text, marginTop: 4 },
   chain: { marginBottom: 16 },
-  chainLbl: { fontSize: 9, fontWeight: '900', color: p.textMuted, letterSpacing: 1, marginBottom: 8 },
-  chainItem: { fontSize: 12, color: p.textMuted, marginBottom: 4 },
+  chainLbl: { fontSize: 9, fontWeight: '900', color: p.textMuted, letterSpacing: 1 },
   actionBtn: { backgroundColor: '#3b82f6', padding: 14, borderRadius: 10, alignItems: 'center' },
   actionBtnTxt: { fontSize: 11, fontWeight: '900', color: '#fff', letterSpacing: 1 },
 });
