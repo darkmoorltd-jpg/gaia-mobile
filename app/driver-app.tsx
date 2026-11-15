@@ -1,9 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal, Image } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal, Image, Linking, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
@@ -15,22 +18,52 @@ export default function DriverAppUltimate() {
   const user = useAuth((s: any) => s.user);
   const styles = createStyles(palette);
 
-  const [tab, setTab] = useState<'jobs' | 'scan'>('jobs');
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [tab, setTab] = useState<'jobs' | 'history' | 'scan'>('jobs');
+  const [activeJobs, setActiveJobs] = useState<any[]>([]);
+  const [historyJobs, setHistoryJobs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const [tracking, setTracking] = useState<string | null>(null);
 
   // Scanner State
   const [permission, requestPermission] = useCameraPermissions();
-  const [scannedBatch, setScannedBatch] = useState<any | null>(null);
-  const [manualCode, setManualCode] = useState('');
-
+  
   // Delivery Modal State
   const [activeJob, setActiveJob] = useState<any | null>(null);
   const [actualWeight, setActualWeight] = useState('');
   const [lossReason, setLossReason] = useState('');
   const [podPhoto, setPodPhoto] = useState<string | null>(null);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
+
+  // Register for Push Notifications
+  useEffect(() => {
+    async function registerForPushNotificationsAsync() {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+      if (Device.isDevice && user) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== 'granted') return;
+
+        try {
+          const token = (await Notifications.getExpoPushTokenAsync()).data;
+          await supabase.from('push_tokens').upsert({ user_id: user.id, token });
+          console.log('Push Token registered:', token);
+        } catch (e) {
+          console.log('Error getting push token', e);
+        }
+      }
+    }
+    registerForPushNotificationsAsync();
+  }, [user]);
 
   useFocusEffect(useCallback(() => { fetchJobs(); }, [user]));
 
@@ -40,8 +73,12 @@ export default function DriverAppUltimate() {
     const { data } = await supabase.from('batch_movements')
       .select('*, batches(*)')
       .eq('driver_id', user.id)
-      .in('status', ['assigned', 'in_transit']);
-    if (data) setJobs(data);
+      .order('created_at', { ascending: false });
+      
+    if (data) {
+      setActiveJobs(data.filter(j => ['assigned', 'in_transit'].includes(j.status)));
+      setHistoryJobs(data.filter(j => ['delivered', 'received'].includes(j.status)));
+    }
     setBusy(false);
   };
 
@@ -50,15 +87,46 @@ export default function DriverAppUltimate() {
     setBusy(true);
     const started = await startBackgroundTracking();
     if (!started) {
-      Alert.alert('Permission Required', 'Background location is required for tracking.');
+      Alert.alert('Permission Required', 'Background location is required.');
       setBusy(false);
       return;
     }
     await supabase.from('batch_movements').update({ status: 'in_transit', dispatched_at: new Date().toISOString() }).eq('id', movementId);
     await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batchId);
-    setTracking(batchId);
     await fetchJobs();
     setBusy(false);
+  };
+
+  const navigateToDestination = (job: any) => {
+    // If we have exact coords in the DB, use them, otherwise search by text
+    const destination = job.destination_location || 'Destination';
+    const url = Platform.select({
+      ios: `maps:0,0?q=${destination}`,
+      android: `geo:0,0?q=${destination}`
+    });
+    Linking.openURL(url as string);
+  };
+
+  const triggerSOS = async (job: any) => {
+    Alert.alert('EMERGENCY SOS', 'This will alert GAIA Admin and dispatch your exact GPS location. Proceed?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'SEND SOS', style: 'destructive', onPress: async () => {
+        setBusy(true);
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest });
+          await supabase.from('sos_alerts').insert({
+            driver_id: user.id,
+            batch_id: job.batch_id,
+            lat: loc.coords.latitude,
+            lon: loc.coords.longitude,
+          });
+          Alert.alert('SOS SENT', 'Admin has been notified. Help is on the way.');
+        } catch (e: any) {
+          Alert.alert('Error', 'Could not send SOS. Please call emergency services.');
+        }
+        setBusy(false);
+      }}
+    ]);
   };
 
   const pickPod = async () => {
@@ -76,7 +144,6 @@ export default function DriverAppUltimate() {
 
     setBusy(true);
     try {
-      // 1. Upload POD photo
       const base64 = await FileSystem.readAsStringAsync(podPhoto, { encoding: 'base64' as any });
       const path = `pod-${activeJob.id}-${Date.now()}.jpg`;
       const binary = atob(base64);
@@ -87,7 +154,6 @@ export default function DriverAppUltimate() {
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from('delivery-photos').getPublicUrl(path);
 
-      // 2. Update DB
       await supabase.from('batch_movements').update({
         status: 'delivered',
         arrived_at: new Date().toISOString(),
@@ -113,26 +179,21 @@ export default function DriverAppUltimate() {
     }
   };
 
-  const handleScanned = ({ data }: any) => {
-    setTab('jobs');
-    setManualCode(data);
-    // Optional: Auto-search the batch if it's not in the assigned list
-    alert('Scanned: ' + data);
-  };
-
   return (
     <View style={styles.container}>
-      {/* Header & Tabs */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Driver Portal</Text>
         
         <View style={styles.tabBar}>
           <Pressable onPress={() => setTab('jobs')} style={[styles.tabBtn, tab === 'jobs' && styles.tabBtnActive]}>
-            <Text style={[styles.tabTxt, tab === 'jobs' && styles.tabTxtActive]}>MY JOBS</Text>
+            <Text style={[styles.tabTxt, tab === 'jobs' && styles.tabTxtActive]}>ACTIVE</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('history')} style={[styles.tabBtn, tab === 'history' && styles.tabBtnActive]}>
+            <Text style={[styles.tabTxt, tab === 'history' && styles.tabTxtActive]}>HISTORY</Text>
           </Pressable>
           <Pressable onPress={() => setTab('scan')} style={[styles.tabBtn, tab === 'scan' && styles.tabBtnActive]}>
-            <Text style={[styles.tabTxt, tab === 'scan' && styles.tabTxtActive]}>SCAN QR</Text>
+            <Text style={[styles.tabTxt, tab === 'scan' && styles.tabTxtActive]}>SCAN</Text>
           </Pressable>
           <Pressable onPress={() => router.push('/driver-earnings' as any)} style={styles.tabBtn}>
             <Text style={styles.tabTxt}>WALLET</Text>
@@ -144,33 +205,50 @@ export default function DriverAppUltimate() {
         <View style={{ flex: 1 }}>
           {!permission?.granted ? (
             <View style={styles.center}>
-              <Text style={{ color: '#fff', marginBottom: 16 }}>Camera access required.</Text>
-              <Pressable onPress={requestPermission} style={styles.btn}><Text style={styles.btnTxt}>GRANT PERMISSION</Text></Pressable>
+              <Pressable onPress={requestPermission} style={styles.btn}><Text style={styles.btnTxt}>GRANT CAMERA</Text></Pressable>
             </View>
           ) : (
-            <CameraView style={StyleSheet.absoluteFillObject} facing="back" onBarcodeScanned={handleScanned} barcodeScannerSettings={{ barcodeTypes: ["qr"] }}>
-              <View style={styles.scanOverlay}>
-                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Scan Batch QR Code</Text>
-              </View>
+            <CameraView style={StyleSheet.absoluteFillObject} facing="back" onBarcodeScanned={({data}) => { setTab('jobs'); alert('Scanned: ' + data); }} barcodeScannerSettings={{ barcodeTypes: ["qr"] }}>
+              <View style={styles.scanOverlay}><Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>Scan Batch QR</Text></View>
             </CameraView>
           )}
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
-          {busy && jobs.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
-          {jobs.length === 0 && !busy ? <Text style={styles.empty}>No active jobs. Wait for dispatch.</Text> : null}
+          {busy && activeJobs.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
+          
+          {tab === 'jobs' && activeJobs.length === 0 && !busy ? <Text style={styles.empty}>No active jobs. Wait for dispatch.</Text> : null}
+          {tab === 'history' && historyJobs.length === 0 && !busy ? <Text style={styles.empty}>No past deliveries.</Text> : null}
 
-          {jobs.map((job) => {
+          {(tab === 'jobs' ? activeJobs : historyJobs).map((job) => {
             const b = job.batches;
             const isActive = job.status === 'in_transit';
+            const isHistory = ['delivered', 'received'].includes(job.status);
+            
             return (
               <View key={job.id} style={[styles.card, isActive && { borderColor: '#ffb300' }]}>
                 <View style={styles.row}>
                   <Text style={styles.batchCode}>{b.batch_code}</Text>
-                  <Text style={styles.status}>{job.status.toUpperCase()}</Text>
+                  <Text style={[styles.status, isHistory && { color: palette.textMuted }]}>{job.status.toUpperCase()}</Text>
                 </View>
                 <Text style={styles.cargo}>{b.crop_name} · {b.quantity_kg}kg</Text>
                 <Text style={styles.route}>📍 {job.origin_location} ➔ {job.destination_location}</Text>
+
+                {isActive ? (
+                  <View style={{ marginTop: 16 }}>
+                    <View style={styles.actionRow}>
+                      <Pressable onPress={() => navigateToDestination(job)} style={[styles.btn, { backgroundColor: '#3b82f6', flex: 1 }]}>
+                        <Text style={styles.btnTxt}>🗺️ NAVIGATE</Text>
+                      </Pressable>
+                      <Pressable onPress={() => triggerSOS(job)} style={[styles.btn, { backgroundColor: '#ff3b5c', width: 100 }]}>
+                        <Text style={[styles.btnTxt, { color: '#fff' }]}>🚨 SOS</Text>
+                      </Pressable>
+                    </View>
+                    <Pressable onPress={() => { setActiveJob(job); setShowDeliverModal(true); }} style={[styles.btn, { backgroundColor: palette.neon, marginTop: 10 }]}>
+                      <Text style={styles.btnTxt}>✅ ARRIVED AT DESTINATION</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
 
                 {job.status === 'assigned' ? (
                   <Pressable onPress={() => acceptJob(job.id, b.id)} style={[styles.btn, { backgroundColor: '#ffb300', marginTop: 16 }]}>
@@ -178,10 +256,12 @@ export default function DriverAppUltimate() {
                   </Pressable>
                 ) : null}
 
-                {isActive ? (
-                  <Pressable onPress={() => { setActiveJob(job); setShowDeliverModal(true); }} style={[styles.btn, { backgroundColor: palette.neon, marginTop: 16 }]}>
-                    <Text style={styles.btnTxt}>✅ ARRIVED AT DESTINATION</Text>
-                  </Pressable>
+                {isHistory ? (
+                  <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#333' }}>
+                    <Text style={styles.meta}>Gross: ₦{Number(job.delivery_fee || 0).toLocaleString()}</Text>
+                    <Text style={styles.meta}>Net: ₦{(Number(job.delivery_fee || 0) - Number(job.gaia_commission || 0)).toLocaleString()}</Text>
+                    {job.loss_kg > 0 ? <Text style={{ color: '#ff3b5c', fontSize: 12, marginTop: 4 }}>Loss: {job.loss_kg}kg</Text> : null}
+                  </View>
                 ) : null}
               </View>
             );
@@ -189,13 +269,11 @@ export default function DriverAppUltimate() {
         </ScrollView>
       )}
 
-      {/* DELIVERY & POD MODAL */}
+      {/* POD MODAL */}
       <Modal visible={showDeliverModal} transparent animationType="slide">
         <View style={styles.modalBg}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Complete Delivery</Text>
-            <Text style={styles.meta}>Expected: {activeJob?.batches?.quantity_kg}kg</Text>
-            
             <Text style={styles.label}>ACTUAL WEIGHT (KG)</Text>
             <TextInput style={styles.input} keyboardType="numeric" value={actualWeight} onChangeText={setActualWeight} placeholder={`${activeJob?.batches?.quantity_kg}`} placeholderTextColor="#666" />
 
@@ -206,13 +284,13 @@ export default function DriverAppUltimate() {
               </>
             ) : null}
 
-            <Text style={styles.label}>PROOF OF DELIVERY PHOTO *</Text>
+            <Text style={styles.label}>PROOF OF DELIVERY *</Text>
             <Pressable onPress={pickPod} style={styles.photoBtn}>
-              {podPhoto ? <Image source={{ uri: podPhoto }} style={{ width: '100%', height: 120, borderRadius: 8 }} /> : <Text style={{ color: '#ffb300', fontWeight: '800' }}>📸 TAKE PHOTO WITH RECEIVER</Text>}
+              {podPhoto ? <Image source={{ uri: podPhoto }} style={{ width: '100%', height: 100, borderRadius: 8 }} /> : <Text style={{ color: '#ffb300', fontWeight: '800' }}>📸 TAKE PHOTO WITH RECEIVER</Text>}
             </Pressable>
 
             <Pressable onPress={submitDelivery} disabled={busy} style={[styles.btn, { marginTop: 20 }]}>
-              {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>CONFIRM DELIVERY</Text>}
+              {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>CONFIRM</Text>}
             </Pressable>
             <Pressable onPress={() => setShowDeliverModal(false)} style={{ marginTop: 16, alignItems: 'center' }}>
               <Text style={{ color: '#888' }}>Cancel</Text>
@@ -229,10 +307,10 @@ const createStyles = (p: any) => StyleSheet.create({
   header: { padding: 20, paddingTop: 60, backgroundColor: p.obsidian },
   back: { fontSize: 11, fontWeight: '800', color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '900', color: p.text, marginBottom: 20 },
-  tabBar: { flexDirection: 'row', gap: 8 },
+  tabBar: { flexDirection: 'row', gap: 6 },
   tabBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: p.surface, alignItems: 'center', borderWidth: 1, borderColor: p.border },
   tabBtnActive: { backgroundColor: p.neon, borderColor: p.neon },
-  tabTxt: { fontSize: 11, fontWeight: '900', color: p.textMuted, letterSpacing: 1 },
+  tabTxt: { fontSize: 10, fontWeight: '900', color: p.textMuted, letterSpacing: 1 },
   tabTxtActive: { color: '#000' },
   scroll: { padding: 20, paddingBottom: 60 },
   empty: { textAlign: 'center', color: p.textMuted, marginTop: 40, fontStyle: 'italic' },
@@ -243,12 +321,12 @@ const createStyles = (p: any) => StyleSheet.create({
   status: { fontSize: 10, fontWeight: '900', color: p.neon },
   cargo: { fontSize: 14, color: p.textMuted },
   route: { fontSize: 12, color: p.textDim, marginTop: 8 },
-  btn: { backgroundColor: p.neon, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  actionRow: { flexDirection: 'row', gap: 8 },
+  btn: { paddingVertical: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   btnTxt: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: '#222', padding: 20, borderRadius: 16 },
   modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 16 },
-  meta: { color: '#aaa', marginBottom: 12 },
   label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginBottom: 6, marginTop: 12 },
   input: { backgroundColor: p.obsidian, padding: 16, borderRadius: 10, color: p.text, borderWidth: 1, borderColor: p.border },
   photoBtn: { padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#ffb300', borderStyle: 'dashed', alignItems: 'center', backgroundColor: 'rgba(255,179,0,0.1)' },

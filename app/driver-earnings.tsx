@@ -20,7 +20,7 @@ export default function DriverEarnings() {
     const { data } = await supabase.from('batch_movements')
       .select('*, batches(batch_code, crop_name)')
       .eq('driver_id', user.id)
-      .eq('status', 'delivered')
+      .in('status', ['delivered', 'received'])
       .order('arrived_at', { ascending: false });
     if (data) setTrips(data);
     setBusy(false);
@@ -28,8 +28,8 @@ export default function DriverEarnings() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const totalNet = trips.reduce((sum, t) => sum + (Number(t.delivery_fee) - Number(t.gaia_commission)), 0);
-  const totalGross = trips.reduce((sum, t) => sum + Number(t.delivery_fee), 0);
+  const totalNet = trips.reduce((sum, t) => sum + (Number(t.delivery_fee || 0) - Number(t.gaia_commission || 0)), 0);
+  const totalGross = trips.reduce((sum, t) => sum + Number(t.delivery_fee || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -42,7 +42,7 @@ export default function DriverEarnings() {
           <Text style={styles.walletBal}>₦{totalNet.toLocaleString()}</Text>
           <Text style={styles.walletSub}>Gross: ₦{totalGross.toLocaleString()} · GAIA Fees: ₦{(totalGross - totalNet).toLocaleString()}</Text>
           
-          <Pressable style={styles.withdrawBtn} onPress={() => alert('Withdrawal feature coming soon via Paystack Transfers.')}>
+          <Pressable style={styles.withdrawBtn} onPress={() => alert('Withdrawal feature coming soon via Paystack.')}>
             <Text style={styles.withdrawTxt}>WITHDRAW TO BANK</Text>
           </Pressable>
         </View>
@@ -55,10 +55,10 @@ export default function DriverEarnings() {
           <View key={t.id} style={styles.tripCard}>
             <View style={styles.row}>
               <Text style={styles.batchCode}>{t.batches?.batch_code}</Text>
-              <Text style={styles.amount}>+₦{(Number(t.delivery_fee) - Number(t.gaia_commission)).toLocaleString()}</Text>
+              <Text style={styles.amount}>+₦{(Number(t.delivery_fee || 0) - Number(t.gaia_commission || 0)).toLocaleString()}</Text>
             </View>
             <Text style={styles.meta}>{t.batches?.crop_name}</Text>
-            <Text style={styles.meta}>{new Date(t.arrived_at).toLocaleDateString()}</Text>
+            <Text style={styles.meta}>{t.arrived_at ? new Date(t.arrived_at).toLocaleDateString() : 'N/A'}</Text>
             {t.loss_kg > 0 ? <Text style={styles.loss}>Loss: {t.loss_kg}kg ({t.loss_reason})</Text> : null}
           </View>
         ))}
