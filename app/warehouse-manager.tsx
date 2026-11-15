@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Modal, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { apiReceive } from '../src/utils/logistics';
 
 export default function WarehouseManager() {
   const router = useRouter();
@@ -12,162 +13,120 @@ export default function WarehouseManager() {
   const user = useAuth((s: any) => s.user);
   const styles = createStyles(palette);
 
-  const [batches, setBatches] = useState<any[]>([]);
+  const [incoming, setIncoming] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
-  const [scanCode, setScanCode] = useState('');
-  const [selected, setSelected] = useState<any | null>(null);
-  const [receivedKg, setReceivedKg] = useState('');
-  const [lossReason, setLossReason] = useState('');
-  const [processing, setProcessing] = useState(false);
+
+  // Modal
+  const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [finalWeight, setFinalWeight] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
     setBusy(true);
-    // Fetch all batches that are NOT yet in storage (in transit to us)
-    const { data } = await supabase
-      .from('batches')
-      .select('*')
-      .in('status', ['active', 'in_transit'])
-      .order('created_at', { ascending: false });
-    setBatches(data || []);
+    // Find jobs marked 'delivered' by the driver, awaiting receiver confirmation
+    const { data } = await supabase.from('batch_movements')
+      .select('*, batches(batch_code, crop_name), driver_profiles(license_number, user_profiles(first_name, last_name))')
+      .eq('status', 'delivered')
+      .eq('payout_status', 'pending');
+    if (data) setIncoming(data);
     setBusy(false);
-  }, []);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const openBatch = () => {
-    if (!scanCode.trim()) return;
-    const found = batches.find(b => b.batch_code === scanCode.trim().toUpperCase());
-    if (!found) {
-      Alert.alert('Not Found', 'No incoming batch found with that code.');
-      return;
-    }
-    setSelected(found);
-    setReceivedKg(String(found.quantity_kg)); // Default to full quantity
+  const pickSignature = async () => {
+    const r = await ImagePicker.launchCameraAsync({ quality: 0.6 });
+    if (!r.canceled) setSignature(r.assets[0].uri);
   };
 
-  const confirmReceive = async () => {
-    if (!user) return;
-    if (!receivedKg || isNaN(Number(receivedKg))) { Alert.alert('Enter valid kg'); return; }
-    setProcessing(true);
-
-    const kg = Number(receivedKg);
-    const loss = Number(selected.quantity_kg) - kg;
-    const lossReasonText = loss > 0 ? (lossReason.trim() || 'Transit loss') : null;
-
-    try {
-      await apiReceive(selected.batch_code, kg, lossReasonText || undefined);
-      Alert.alert('Success', 'Batch received and logged into warehouse.');
-    } catch (apiErr: any) {
-      console.warn('[receive] API failed, using fallback:', apiErr.message);
-      // Fallback — direct Supabase
-      await supabase.from('batches').update({ status: 'in_storage' }).eq('id', selected.id);
-      await supabase.from('batch_movements').insert({
-        batch_id: selected.id, from_location: selected.location || 'Farm',
-        to_location: 'Warehouse', quantity_kg: kg, loss_kg: loss > 0 ? loss : 0,
-        loss_reason: lossReasonText, arrived_at: new Date().toISOString()
-      });
-      await supabase.from('batch_events').insert({
-        batch_id: selected.id, event_type: 'warehouse_receive',
-        notes: `Received ${kg}kg. Loss: ${loss}kg ${lossReasonText ? '(' + lossReasonText + ')' : ''}`,
-      });
-      Alert.alert('Success', 'Batch received (offline mode).');
+  const confirmReceipt = async () => {
+    if (!selectedJob || !signature || !finalWeight) {
+      return Alert.alert('Missing', 'Please enter weight and take a signature photo.');
     }
 
-    setProcessing(false);
-    setSelected(null);
-    setScanCode('');
-    setReceivedKg('');
-    setLossReason('');
-    load();
+    setBusy(true);
+    try {
+      // 1. Upload signature
+      const base64 = await FileSystem.readAsStringAsync(signature, { encoding: 'base64' as any });
+      const path = `sign-${selectedJob.id}-${Date.now()}.jpg`;
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      await supabase.storage.from('receiver-signatures').upload(path, bytes.buffer, { contentType: 'image/jpeg' });
+      const { data: pub } = supabase.storage.from('receiver-signatures').getPublicUrl(path);
+
+      // 2. Update batch_movements
+      await supabase.from('batch_movements').update({
+        status: 'received',
+        receiver_id: user.id,
+        receiver_weight_kg: parseFloat(finalWeight),
+        receiver_signature_url: pub.publicUrl,
+        received_at: new Date().toISOString(),
+      }).eq('id', selectedJob.id);
+
+      // 3. Trigger payout logic (mocked here, actual Paystack call is in the backend)
+      await supabase.rpc('process_driver_payout', { p_movement_id: selectedJob.id });
+
+      Alert.alert('Confirmed', 'Cargo received. Driver payout is being processed.');
+      setShowModal(false);
+      setSignature(null);
+      setFinalWeight('');
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        
-        <Text style={styles.title}>Warehouse Manager</Text>
-        <Text style={styles.sub}>Receive incoming harvest batches.</Text>
+        <Text style={styles.title}>Incoming Deliveries</Text>
 
-        <View style={styles.scannerBox}>
-          <Text style={styles.label}>SCAN OR ENTER BATCH CODE</Text>
-          <TextInput 
-            value={scanCode} 
-            onChangeText={setScanCode} 
-            placeholder="e.g. GAI-2025-MZ-0001" 
-            placeholderTextColor="#888" 
-            style={styles.input} 
-            autoCapitalize="characters"
-          />
-          <Pressable onPress={openBatch} style={styles.btn}>
-            <Text style={styles.btnTxt}>RECEIVE BATCH</Text>
-          </Pressable>
-        </View>
+        {busy && incoming.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
+        {incoming.length === 0 && !busy ? <Text style={styles.empty}>No cargo awaiting confirmation.</Text> : null}
 
-        <Text style={styles.sectionLabel}>INCOMING TRUCKS ({batches.length})</Text>
-        {busy ? <ActivityIndicator color={palette.neon} /> : null}
-
-        {batches.map(b => (
-          <Pressable key={b.id} onPress={() => { setSelected(b); setReceivedKg(String(b.quantity_kg)); }} style={styles.card}>
-            <View>
-              <Text style={styles.batchCode}>{b.batch_code}</Text>
-              <Text style={styles.crop}>{b.crop_name} · {b.quantity_kg}kg expected</Text>
-              <Text style={styles.loc}>From: {b.location || 'Unknown Farm'}</Text>
+        {incoming.map((job) => (
+          <View key={job.id} style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.batchCode}>{job.batches?.batch_code}</Text>
+              <Text style={styles.status}>ARRIVED</Text>
             </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
+            <Text style={styles.meta}>Crop: {job.batches?.crop_name}</Text>
+            <Text style={styles.meta}>Expected: {job.batches?.quantity_kg}kg</Text>
+            <Text style={styles.meta}>Driver entered: {job.quantity_kg}kg</Text>
+            <Text style={styles.meta}>Driver: {job.driver_profiles?.user_profiles?.first_name} ({job.driver_profiles?.license_number})</Text>
+
+            <Pressable onPress={() => { setSelectedJob(job); setFinalWeight(String(job.quantity_kg || '')); setShowModal(true); }} style={[styles.btn, { marginTop: 16 }]}>
+              <Text style={styles.btnTxt}>📝 CONFIRM RECEIPT</Text>
+            </Pressable>
+          </View>
         ))}
       </ScrollView>
 
-      {/* RECEIVE MODAL */}
-      <Modal visible={!!selected} animationType="slide" transparent>
+      <Modal visible={showModal} transparent animationType="slide">
         <View style={styles.modalBg}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.title}>Receive Batch</Text>
-            <Text style={styles.sub}>{selected?.batch_code} · {selected?.crop_name}</Text>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirm Delivery</Text>
+            <Text style={styles.meta}>Driver weight: {selectedJob?.quantity_kg}kg</Text>
 
-            <View style={styles.statRow}>
-              <Text style={styles.statLbl}>EXPECTED WEIGHT</Text>
-              <Text style={styles.statVal}>{selected?.quantity_kg} kg</Text>
-            </View>
+            <Text style={styles.label}>VERIFIED WEIGHT (KG)</Text>
+            <TextInput style={styles.input} keyboardType="numeric" value={finalWeight} onChangeText={setFinalWeight} placeholderTextColor="#666" />
 
-            <Text style={styles.label}>ACTUAL RECEIVED WEIGHT (KG)</Text>
-            <TextInput 
-              value={receivedKg} 
-              onChangeText={setReceivedKg} 
-              keyboardType="numeric" 
-              style={styles.input} 
-            />
-
-            {Number(receivedKg) < Number(selected?.quantity_kg) ? (
-              <>
-                <Text style={[styles.label, { color: '#ff3b5c' }]}>
-                  LOSS: {Number(selected?.quantity_kg) - Number(receivedKg)} KG
-                </Text>
-                <TextInput 
-                  value={lossReason} 
-                  onChangeText={setLossReason} 
-                  placeholder="Reason for loss (e.g. spillage, moisture, theft)" 
-                  placeholderTextColor="#888" 
-                  style={styles.input} 
-                />
-              </>
-            ) : null}
-
-            <Pressable onPress={confirmReceive} disabled={processing} style={styles.btn}>
-              {processing ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>CONFIRM RECEIPT</Text>}
+            <Text style={styles.label}>RECEIVER SIGNATURE PHOTO *</Text>
+            <Pressable onPress={pickSignature} style={styles.photoBtn}>
+              {signature ? <Image source={{ uri: signature }} style={{ width: '100%', height: 100, borderRadius: 8 }} /> : <Text style={{ color: '#ffb300', fontWeight: '800' }}>📸 TAKE PHOTO OF SIGNED WAYBILL</Text>}
             </Pressable>
-            
-            <Pressable onPress={() => setSelected(null)} style={{ marginTop: 16, alignItems: 'center' }}>
-              <Text style={{ color: palette.textMuted }}>Cancel</Text>
+
+            <Pressable onPress={confirmReceipt} disabled={busy} style={[styles.btn, { marginTop: 20 }]}>
+              {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>CONFIRM & RELEASE PAYMENT</Text>}
+            </Pressable>
+            <Pressable onPress={() => setShowModal(false)} style={{ marginTop: 16, alignItems: 'center' }}>
+              <Text style={{ color: '#888' }}>Cancel</Text>
             </Pressable>
           </View>
         </View>
@@ -180,22 +139,19 @@ const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { padding: 20, paddingTop: 60 },
   back: { fontSize: 11, fontWeight: '800', color: p.textMuted, marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '900', color: p.text },
-  sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
-  scannerBox: { backgroundColor: p.surface, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: p.neon, marginBottom: 24 },
-  label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginTop: 12, marginBottom: 6, letterSpacing: 1 },
-  input: { backgroundColor: p.obsidian, padding: 16, borderRadius: 10, color: p.text, borderWidth: 1, borderColor: p.border, marginBottom: 12 },
-  btn: { backgroundColor: p.neon, padding: 16, borderRadius: 12, alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: '900', color: p.text, marginBottom: 20 },
+  empty: { color: p.textMuted, fontStyle: 'italic', textAlign: 'center', marginTop: 40 },
+  card: { backgroundColor: p.surface, padding: 16, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: p.border },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  batchCode: { fontSize: 16, fontWeight: '900', color: p.text, fontFamily: 'monospace' },
+  status: { fontSize: 10, fontWeight: '900', color: '#ffb300' },
+  meta: { fontSize: 12, color: p.textMuted, marginTop: 4 },
+  btn: { backgroundColor: p.neon, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   btnTxt: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 },
-  sectionLabel: { fontSize: 11, fontWeight: '900', color: p.textMuted, letterSpacing: 2, marginBottom: 12 },
-  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: p.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: p.border, marginBottom: 10 },
-  batchCode: { fontSize: 15, fontWeight: '900', color: p.neon, fontFamily: 'monospace' },
-  crop: { fontSize: 14, fontWeight: '600', color: p.text, marginTop: 4 },
-  loc: { fontSize: 11, color: p.textMuted, marginTop: 4 },
-  chevron: { fontSize: 24, color: p.textDim },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
-  modalSheet: { backgroundColor: p.abyss, padding: 24, borderRadius: 20 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: p.surface, padding: 16, borderRadius: 12, marginBottom: 16 },
-  statLbl: { fontSize: 10, fontWeight: '900', color: p.textMuted, letterSpacing: 1 },
-  statVal: { fontSize: 20, fontWeight: '900', color: p.text },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#222', padding: 20, borderRadius: 16 },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 12 },
+  label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: p.obsidian, padding: 16, borderRadius: 10, color: p.text, borderWidth: 1, borderColor: p.border },
+  photoBtn: { padding: 16, borderRadius: 10, borderWidth: 1, borderColor: '#ffb300', borderStyle: 'dashed', alignItems: 'center', backgroundColor: 'rgba(255,179,0,0.1)' },
 });

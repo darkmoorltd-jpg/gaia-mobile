@@ -7,6 +7,7 @@ import * as Updates from 'expo-updates';
 import { supabase } from '../src/api/supabase';
 import { useAuth } from '../src/store/auth';
 import { useSettings } from '../src/store/settings';
+import { syncQueue } from '../src/utils/offlineQueue';
 import { syncPendingFarms } from '../src/utils/farmSync';
 import NetInfo from '@react-native-community/netinfo';
 import { useLocation } from '../src/store/location';
@@ -62,6 +63,7 @@ function RootNavigator() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') useSettings.getState().load().catch(() => {});
+        syncQueue().catch(() => {});
     });
     return () => sub.remove();
   }, []);
@@ -69,6 +71,7 @@ function RootNavigator() {
   useEffect(() => {
     const id = setInterval(() => {
       useSettings.getState().load().catch(() => {});
+        syncQueue().catch(() => {});
     }, 60_000);
     return () => clearInterval(id);
   }, []);
