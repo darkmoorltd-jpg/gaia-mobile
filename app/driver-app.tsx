@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Switch } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Switch, Modal } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { apiDispatch, apiDeliver } from '../src/utils/logistics';
 
-const GPS_INTERVAL_MS = 60_000; // every 60 seconds while in transit
+const GPS_INTERVAL_MS = 60_000;
 
 export default function DriverApp() {
   const router = useRouter();
@@ -15,28 +14,32 @@ export default function DriverApp() {
   const user = useAuth((s: any) => s.user);
   const styles = createStyles(palette);
 
-  const [scanCode, setScanCode] = useState('');
-  const [batch, setBatch] = useState<any | null>(null);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
-  const [tracking, setTracking] = useState(false);
-  const [lastFix, setLastFix] = useState<string | null>(null);
-  const [fixCount, setFixCount] = useState(0);
+  const [tracking, setTracking] = useState<string | null>(null); // stores batch_id currently tracking
   const intervalRef = useRef<any>(null);
 
-  // Stop tracking on unmount
+  // Delivery Modal State
+  const [activeJob, setActiveJob] = useState<any | null>(null);
+  const [actualWeight, setActualWeight] = useState('');
+  const [lossReason, setLossReason] = useState('');
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+
+  useFocusEffect(React.useCallback(() => { fetchJobs(); }, [user]));
+
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  const findBatch = async () => {
+  const fetchJobs = async () => {
     if (!user) return;
-    if (!scanCode.trim()) return;
     setBusy(true);
-    const { data } = await supabase.from('batches').select('*').eq('batch_code', scanCode.trim().toUpperCase()).maybeSingle();
-    if (!data) Alert.alert('Not Found', 'Batch not found.');
-    else setBatch(data);
+    // Fetch jobs assigned to this driver that are 'assigned' or 'in_transit'
+    const { data } = await supabase.from('batch_movements')
+      .select('*, batches(*)')
+      .eq('driver_id', user.id)
+      .in('status', ['assigned', 'in_transit']);
+    if (data) setJobs(data);
     setBusy(false);
   };
 
@@ -52,161 +55,173 @@ export default function DriverApp() {
         heading_deg: loc.coords.heading || null,
         accuracy_m: loc.coords.accuracy || null,
       });
-      setLastFix(new Date().toLocaleTimeString());
-      setFixCount(c => c + 1);
-    } catch (e) {
-      console.warn('GPS log failed', e);
-    }
+    } catch (e) {}
   };
 
-  const startTracking = async (batchId: string) => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Location permission required');
+  const toggleTracking = async (batchId: string) => {
+    if (tracking === batchId) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setTracking(null);
       return;
     }
-    setTracking(true);
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Permission denied', 'GPS is required.');
+    
+    setTracking(batchId);
     logLocation(batchId);
     intervalRef.current = setInterval(() => logLocation(batchId), GPS_INTERVAL_MS);
-    Alert.alert('Tracking started', 'Your location is logged every 60 seconds while the app is open.');
+    Alert.alert('Tracking Started', 'Your location is being sent to the exporter.');
   };
 
-  const stopTracking = () => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    setTracking(false);
-  };
-
-  const acceptCargo = async () => {
-    if (!user) return;
+  const acceptJob = async (movementId: string, batchId: string) => {
     setBusy(true);
-    try {
-      await apiDispatch(batch.batch_code);
-      Alert.alert('Accepted', 'Cargo is in transit. Enable live tracking below.');
-    } catch (apiErr: any) {
-      console.warn('[dispatch] API failed, using fallback:', apiErr.message);
-      // Fallback — direct Supabase
-      await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batch.id);
-      await supabase.from('batch_movements').insert({
-        batch_id: batch.id, driver_id: user.id,
-        from_location: batch.location || 'Farm', to_location: 'In Transit',
-        quantity_kg: batch.quantity_kg, status: 'in_transit'
-      });
-      await supabase.from('batch_events').insert({
-        batch_id: batch.id, event_type: 'dispatch',
-        actor_id: user.id, notes: 'Driver accepted cargo',
-      });
-      Alert.alert('Accepted', 'Cargo is in transit (offline mode).');
-    }
-    // Refresh batch to show new state
-    const { data } = await supabase.from('batches').select('*').eq('id', batch.id).maybeSingle();
-    if (data) setBatch(data);
+    await supabase.from('batch_movements').update({ status: 'in_transit', dispatched_at: new Date().toISOString() }).eq('id', movementId);
+    await supabase.from('batches').update({ status: 'in_transit' }).eq('id', batchId);
+    await fetchJobs();
     setBusy(false);
   };
 
-  const deliverCargo = async () => {
-    if (!user) return;
-    if (!batch) return;
+  const submitDelivery = async () => {
+    if (!activeJob) return;
+    const expected = activeJob.batches.quantity_kg;
+    const actual = parseFloat(actualWeight) || expected;
+    const loss = expected - actual;
+    
+    if (loss > 0 && !lossReason) {
+      return Alert.alert('Loss Reason Required', 'Please state why the cargo weight reduced.');
+    }
+
     setBusy(true);
-    stopTracking();
     try {
-      await apiDeliver(batch.batch_code);
-      Alert.alert('Delivered', 'Cargo marked as delivered.');
-    } catch (apiErr: any) {
-      console.warn('[deliver] API failed, using fallback:', apiErr.message);
-      await supabase.from('batches').update({ status: 'delivered' }).eq('id', batch.id);
-      await supabase.from('batch_movements').insert({
-        batch_id: batch.id, driver_id: user.id,
-        from_location: 'In Transit', to_location: 'Delivery Point',
-        quantity_kg: batch.quantity_kg, status: 'delivered',
+      await supabase.from('batch_movements').update({
+        status: 'delivered',
         arrived_at: new Date().toISOString(),
-      });
-      await supabase.from('batch_events').insert({
-        batch_id: batch.id, event_type: 'delivered',
-        actor_id: user.id, notes: 'Driver marked cargo delivered',
-      });
-      Alert.alert('Delivered', 'Cargo marked as delivered (offline mode).');
+        quantity_kg: actual,
+        loss_kg: loss > 0 ? loss : 0,
+        loss_reason: lossReason,
+      }).eq('id', activeJob.id);
+
+      await supabase.from('batches').update({ status: 'delivered' }).eq('id', activeJob.batches.id);
+      
+      Alert.alert('Delivered', 'Cargo successfully delivered!');
+      setShowDeliverModal(false);
+      fetchJobs();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setBusy(false);
     }
-    setBatch(null);
-    setScanCode('');
-    setFixCount(0);
-    setLastFix(null);
-    setBusy(false);
   };
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>Driver Logistics</Text>
-        <Text style={styles.sub}>Scan to accept, deliver, and track cargo.</Text>
+        <Text style={styles.title}>My Dispatch Board</Text>
+        <Text style={styles.sub}>Manage your assigned cargo and track deliveries.</Text>
 
-        <View style={styles.scannerBox}>
-          <Text style={styles.label}>BATCH CODE</Text>
-          <TextInput value={scanCode} onChangeText={setScanCode} placeholder="e.g. GAI-2025-MZ-0001" style={styles.input} autoCapitalize="characters" />
-          <Pressable onPress={findBatch} disabled={busy} style={styles.btn}>
-            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>FIND CARGO</Text>}
-          </Pressable>
-        </View>
+        {busy && jobs.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
 
-        {batch ? (
-          <View style={styles.card}>
-            <Text style={styles.batchCode}>{batch.batch_code}</Text>
-            <Text style={styles.crop}>{batch.crop_name} · {batch.quantity_kg}kg</Text>
-            <Text style={styles.loc}>From: {batch.location || 'Farm'}</Text>
-            <Text style={styles.loc}>Status: {batch.status}</Text>
+        {jobs.length === 0 && !busy ? (
+           <Text style={styles.empty}>No active jobs. Waiting for dispatch from Exporter or Warehouse.</Text>
+        ) : null}
 
-            {batch.status === 'active' ? (
-              <Pressable onPress={acceptCargo} disabled={busy} style={[styles.btn, { backgroundColor: '#ffb300', marginTop: 16 }]}>
-                <Text style={styles.btnTxt}>🚚 ACCEPT CARGO</Text>
-              </Pressable>
-            ) : null}
+        {jobs.map((job) => {
+          const b = job.batches;
+          const isActive = job.status === 'in_transit';
+          return (
+            <View key={job.id} style={[styles.card, isActive && { borderColor: '#ffb300' }]}>
+              <View style={styles.row}>
+                <Text style={styles.batchCode}>{b.batch_code}</Text>
+                <Text style={styles.status}>{job.status.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.cargo}>{b.crop_name} · {b.quantity_kg}kg</Text>
+              
+              <View style={styles.routeBox}>
+                <Text style={styles.route}>📍 FROM: {job.origin_location || 'Farm'}</Text>
+                <Text style={styles.route}>🏁 TO: {job.destination_location || 'Market'}</Text>
+              </View>
 
-            {batch.status === 'in_transit' ? (
-              <>
-                <View style={styles.trackBox}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.trackTitle}>Live GPS Tracking</Text>
-                    <Text style={styles.trackMeta}>
-                      {tracking ? 'Tracking every 60s · ' + fixCount + ' fixes sent' : 'Not tracking'}
-                    </Text>
-                    {lastFix ? <Text style={styles.trackMeta}>Last fix: {lastFix}</Text> : null}
-                  </View>
-                  <Switch value={tracking} onValueChange={(v) => v ? startTracking(batch.id) : stopTracking()} trackColor={{ false: '#333', true: '#ffb300' }} />
-                </View>
-
-                <Pressable onPress={deliverCargo} disabled={busy} style={[styles.btn, { backgroundColor: palette.neon, marginTop: 12 }]}>
-                  <Text style={styles.btnTxt}>✅ MARK DELIVERED</Text>
+              {job.status === 'assigned' ? (
+                <Pressable onPress={() => acceptJob(job.id, b.id)} style={[styles.btn, { backgroundColor: '#ffb300', marginTop: 16 }]}>
+                  <Text style={styles.btnTxt}>🚚 ACCEPT & START TRIP</Text>
                 </Pressable>
+              ) : null}
+
+              {isActive ? (
+                <View style={{ marginTop: 16 }}>
+                  <View style={styles.trackRow}>
+                    <Text style={{ color: '#ffb300', fontWeight: '800' }}>Live GPS Tracking</Text>
+                    <Switch value={tracking === b.id} onValueChange={() => toggleTracking(b.id)} trackColor={{ false: '#333', true: '#ffb300' }} />
+                  </View>
+                  <Pressable onPress={() => { setActiveJob(job); setShowDeliverModal(true); }} style={[styles.btn, { backgroundColor: palette.neon, marginTop: 12 }]}>
+                    <Text style={styles.btnTxt}>✅ ARRIVED AT DESTINATION</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      {/* DELIVERY & LOSS TRACKING MODAL */}
+      <Modal visible={showDeliverModal} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Complete Delivery</Text>
+            <Text style={styles.meta}>Expected: {activeJob?.batches?.quantity_kg}kg</Text>
+            
+            <Text style={styles.label}>ACTUAL WEIGHT RECEIVED (KG)</Text>
+            <TextInput 
+              style={styles.input} keyboardType="numeric" 
+              value={actualWeight} onChangeText={setActualWeight} 
+              placeholder={`e.g. ${activeJob?.batches?.quantity_kg}`} placeholderTextColor="#666"
+            />
+
+            {parseFloat(actualWeight) < (activeJob?.batches?.quantity_kg || 0) && actualWeight !== '' ? (
+              <>
+                <Text style={[styles.label, { color: '#ff3b5c' }]}>LOSS REASON</Text>
+                <TextInput 
+                  style={styles.input} value={lossReason} onChangeText={setLossReason} 
+                  placeholder="e.g. Spillage, Rain damage" placeholderTextColor="#666"
+                />
               </>
             ) : null}
 
-            {batch.status === 'delivered' ? (
-              <Text style={styles.doneText}>✅ This cargo has been delivered.</Text>
-            ) : null}
+            <Pressable onPress={submitDelivery} disabled={busy} style={[styles.btn, { marginTop: 20 }]}>
+              {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.btnTxt}>CONFIRM DELIVERY</Text>}
+            </Pressable>
+            <Pressable onPress={() => setShowDeliverModal(false)} style={{ marginTop: 16, alignItems: 'center' }}>
+              <Text style={{ color: '#888' }}>Cancel</Text>
+            </Pressable>
           </View>
-        ) : null}
-      </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
-  scroll: { padding: 20, paddingTop: 60 },
+  scroll: { padding: 20, paddingTop: 60, paddingBottom: 60 },
   back: { fontSize: 11, fontWeight: '800', color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 26, fontWeight: '900', color: p.text },
   sub: { fontSize: 13, color: p.textMuted, marginTop: 4, marginBottom: 20 },
-  scannerBox: { backgroundColor: p.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#ffb300', marginBottom: 24 },
-  label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginBottom: 8 },
-  input: { backgroundColor: p.obsidian, padding: 16, borderRadius: 10, color: p.text, borderWidth: 1, borderColor: p.border, marginBottom: 16, fontSize: 18, letterSpacing: 2, textAlign: 'center' },
-  btn: { backgroundColor: '#ffb300', padding: 16, borderRadius: 10, alignItems: 'center' },
+  empty: { textAlign: 'center', color: p.textMuted, marginTop: 40, fontStyle: 'italic' },
+  card: { backgroundColor: p.surface, padding: 16, borderRadius: 14, marginBottom: 16, borderWidth: 1, borderColor: p.border },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  batchCode: { fontSize: 16, fontWeight: '900', color: p.text, fontFamily: 'monospace' },
+  status: { fontSize: 10, fontWeight: '900', color: p.neon },
+  cargo: { fontSize: 14, color: p.textMuted },
+  routeBox: { marginTop: 12, backgroundColor: 'rgba(255,255,255,0.03)', padding: 10, borderRadius: 8 },
+  route: { fontSize: 12, color: p.text, marginVertical: 2 },
+  trackRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: 'rgba(255,179,0,0.1)', borderRadius: 8 },
+  btn: { backgroundColor: p.neon, paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
   btnTxt: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 },
-  card: { backgroundColor: p.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: p.border },
-  batchCode: { fontSize: 18, fontWeight: '900', color: p.text, fontFamily: 'monospace', textAlign: 'center' },
-  crop: { fontSize: 14, color: p.textMuted, textAlign: 'center', marginTop: 8 },
-  loc: { fontSize: 12, color: p.textDim, textAlign: 'center', marginTop: 4 },
-  doneText: { fontSize: 14, color: p.neon, textAlign: 'center', marginTop: 16, fontWeight: '800' },
-  trackBox: { marginTop: 16, padding: 16, backgroundColor: 'rgba(255,179,0,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,179,0,0.3)', flexDirection: 'row', alignItems: 'center' },
-  trackTitle: { fontSize: 14, fontWeight: '900', color: '#ffb300' },
-  trackMeta: { fontSize: 11, color: p.textMuted, marginTop: 4 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#222', padding: 20, borderRadius: 16 },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginBottom: 16 },
+  meta: { color: '#aaa', marginBottom: 12 },
+  label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: p.obsidian, padding: 16, borderRadius: 10, color: p.text, borderWidth: 1, borderColor: p.border },
 });
