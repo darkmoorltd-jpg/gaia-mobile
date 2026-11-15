@@ -138,6 +138,20 @@ function RootNavigator() {
       <Stack.Screen name="farms" />
       <Stack.Screen name="boa-portal" options={{ headerShown: false }} />
       <Stack.Screen name="soil-data" options={{ headerShown: false }} />
+      <Stack.Screen name="driver-app" options={{ headerShown: false }} />
+      <Stack.Screen name="driver-register" options={{ headerShown: false }} />
+      <Stack.Screen name="driver-earnings" options={{ headerShown: false }} />
+      <Stack.Screen name="admin-drivers" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-network" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-register" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="warehouse-manager" options={{ headerShown: false }} />
+      <Stack.Screen name="exporter-dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="container-tracking" options={{ headerShown: false }} />
+      <Stack.Screen name="farm-batches" options={{ headerShown: false }} />
+      <Stack.Screen name="trace-batch" options={{ headerShown: false }} />
+      <Stack.Screen name="eudr" options={{ headerShown: false }} />
+      <Stack.Screen name="eudr-pdf" options={{ headerShown: false }} />
     </Stack>
   );
 }
