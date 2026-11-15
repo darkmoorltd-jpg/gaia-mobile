@@ -25,14 +25,7 @@ export default function ExporterDashboard() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    if (!user) return;
-    setBusy(true);
+setBusy(true);
     // Fetch batches available in storage
     const { data } = await supabase.from('batches').select('*').eq('status', 'in_storage').order('created_at', { ascending: false });
     setBatches(data || []);
