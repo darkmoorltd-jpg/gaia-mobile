@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import { apiDispatch } from '../src/utils/logistics';
 
 export default function ExporterDashboard() {
   const router = useRouter();
@@ -13,6 +14,10 @@ export default function ExporterDashboard() {
 
   const [batches, setBatches] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showDispatch, setShowDispatch] = useState(false);
+  const [dispatchBatch, setDispatchBatch] = useState<any | null>(null);
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
+  const [busyDispatch, setBusyDispatch] = useState(false);
   const [busy, setBusy] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [containerNum, setContainerNum] = useState('');
