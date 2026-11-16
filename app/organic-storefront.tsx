@@ -42,20 +42,43 @@ export default function OrganicStorefront() {
     if (!selected) return;
     const quantity = parseFloat(qty);
     if (isNaN(quantity) || quantity <= 0) { Alert.alert('Invalid quantity'); return; }
+    if (quantity > Number(selected.stock_quantity)) {
+      Alert.alert('Insufficient stock', `Only ${selected.stock_quantity} ${selected.unit} available`);
+      return;
+    }
 
+    // Payment must happen first via Paystack, then order is created with the verified ref
     setBuying(true);
-    const ref = 'GAIA_ORD_' + Date.now().toString(36).toUpperCase();
-    const { data, error } = await supabase.rpc('create_organic_order', {
-      p_product_id: selected.id,
-      p_quantity: quantity,
-      p_payment_ref: ref,
-    });
-    setBuying(false);
-    if (error) { Alert.alert('Order failed', error.message); return; }
-    Alert.alert('Order Placed!', `Total ₦${Number(data.total_paid).toLocaleString()}\nGAIA fee: ₦${Number(data.gaia_fee).toLocaleString()}\nFunds held in escrow for 3 days.`);
-    setSelected(null);
-    setQty('1');
-    load();
+    try {
+      const { data: charge, error: chErr } = await supabase.functions.invoke('charge-organic-order', {
+        body: { product_id: selected.id, quantity },
+      });
+      if (chErr) throw chErr;
+      if (!charge?.ok) throw new Error(charge?.error || 'Charge init failed');
+
+      const WebBrowser = await import('expo-web-browser');
+      const r = await WebBrowser.openAuthSessionAsync(charge.authorization_url, 'gaia://organic-storefront');
+
+      if (r.type === 'success') {
+        const { data: ord, error: ordErr } = await supabase.rpc('create_organic_order_verified', {
+          p_product_id: selected.id,
+          p_quantity: quantity,
+          p_paystack_ref: charge.reference,
+        });
+        if (ordErr) throw ordErr;
+        Alert.alert(
+          'Order placed!',
+          `Total ₦${Number(ord.total_paid).toLocaleString()} · GAIA fee ₦${Number(ord.gaia_fee).toLocaleString()}\nFunds held in escrow for 3 days.`,
+        );
+        setSelected(null);
+        setQty('1');
+        load();
+      }
+    } catch (e: any) {
+      Alert.alert('Order failed', e.message || 'Try again');
+    } finally {
+      setBuying(false);
+    }
   };
 
   const filtered = search.trim() && !sellerId

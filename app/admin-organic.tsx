@@ -28,7 +28,6 @@ export default function AdminOrganic() {
     ]);
     setSellers(s || []);
     setOrders(o || []);
-    try { await supabase.rpc('release_expired_escrow'); } catch {}
     setBusy(false);
   }, [isAdmin]);
 
@@ -46,13 +45,15 @@ export default function AdminOrganic() {
   };
 
   const suspend = async (seller: any) => {
-    Alert.alert('Suspend seller?', seller.business_name, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Suspend', style: 'destructive', onPress: async () => {
-        await supabase.from('organic_sellers').update({ status: 'suspended' }).eq('id', seller.id);
-        load();
-      }},
-    ]);
+    Alert.prompt?.('Suspend seller', 'Reason:', async (reason: string) => {
+      if (!reason || reason.trim().length < 3) return;
+      const { error } = await supabase.rpc('admin_suspend_seller', {
+        p_seller_id: seller.id,
+        p_reason: reason.trim(),
+      });
+      if (error) Alert.alert('Failed', error.message);
+      else { Alert.alert('Suspended'); load(); }
+    });
   };
 
   if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedTxt}>Access denied</Text></View>;

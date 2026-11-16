@@ -310,14 +310,31 @@ export async function payOrderFromWallet(orderRef: string, pin: string) {
 }
 
 export async function releaseEscrow(orderId: string | number) {
-  const r = await fetch(API_BASE + '/marketplace/release', {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify({ order_id: String(orderId) }),
+  const { data, error } = await supabase.rpc('release_marketplace_escrow', {
+    p_order_id: String(orderId),
   });
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.detail || d.error || 'Release failed');
-  return d;
+  if (error) throw new Error(error.message);
+  if (!data?.ok) throw new Error(data?.reason || 'Release failed');
+  return data as { seller_credited: number; commission: number };
+}
+
+export async function placeMarketplaceOrder(
+  items: { listing_id: number; quantity: number }[],
+  deliveryName: string,
+  deliveryPhone: string,
+  deliveryAddress: string,
+  deliveryMethod: 'home' | 'pickup',
+): Promise<{ reference: string; total: number; order_ids: string[] }> {
+  const { data, error } = await supabase.rpc('place_marketplace_order', {
+    p_items: items,
+    p_delivery_name: deliveryName,
+    p_delivery_phone: deliveryPhone,
+    p_delivery_address: deliveryAddress,
+    p_delivery_method: deliveryMethod,
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.ok) throw new Error('Order failed');
+  return data;
 }
 
 // Convenience wrapper used by confirmation flows.

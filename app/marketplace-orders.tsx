@@ -92,17 +92,13 @@ export default function Orders() {
     if (!shipModal) return;
     setShipBusy(true);
     try {
-      const h = await authHdr();
-      const { data: shipRes, error: shipErr } = await supabase.rpc('marketplace_ship_order', {
-        p_order_id: order.id,
-        p_carrier: null,
-        p_tracking_number: null,
+      const { data, error } = await supabase.rpc('marketplace_ship_order', {
+        p_order_id: String(shipModal.id),
+        p_carrier: carrier.trim() || null,
+        p_tracking_number: tracking.trim() || null,
         p_estimated_delivery: null,
       });
-      if (shipErr) throw new Error(shipErr.message);
-      Alert.alert('Order shipped');
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.detail || d.error || 'Failed');
+      if (error) throw new Error(error.message);
       setShipModal(null); setCarrier(''); setTracking('');
       await load();
       Alert.alert('Shipped', 'Buyer notified.');
@@ -111,6 +107,25 @@ export default function Orders() {
     } finally {
       setShipBusy(false);
     }
+  };
+
+  const markDelivered = async (order: any) => {
+    Alert.alert('Mark as delivered?', 'This notifies the buyer they can confirm.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: async () => {
+        try {
+          const { error } = await supabase.rpc('marketplace_order_delivered', {
+            p_order_id: String(order.id),
+            p_proof_url: null,
+          });
+          if (error) throw error;
+          await load();
+          Alert.alert('Delivered', 'Buyer notified.');
+        } catch (e: any) {
+          Alert.alert('Failed', e.message);
+        }
+      }},
+    ]);
   };
 
   const submitDispute = async () => {
@@ -180,8 +195,9 @@ export default function Orders() {
           const sColor = statusColor(o.status, palette);
           const isBuyer = tab === 'buyer';
           const inEscrow = ['paid', 'shipped', 'delivered'].includes(o.status);
-          const canRelease = isBuyer && inEscrow;
+          const canRelease = isBuyer && o.status === 'delivered';
           const canShip = !isBuyer && o.status === 'paid';
+          const canMarkDelivered = !isBuyer && o.status === 'shipped';
           const canDispute = ['paid', 'shipped', 'delivered'].includes(o.status);
           const canReview = isBuyer && o.status === 'confirmed' && !o.reviewed_at;
 
@@ -250,6 +266,11 @@ export default function Orders() {
                     {canShip ? (
                       <Pressable onPress={() => { setShipModal(o); setCarrier(''); setTracking(''); }} style={styles.confirmBtn}>
                         <Text style={styles.confirmBtnTxt}>MARK SHIPPED</Text>
+                      </Pressable>
+                    ) : null}
+                    {canMarkDelivered ? (
+                      <Pressable onPress={() => markDelivered(o)} style={[styles.confirmBtn, { backgroundColor: '#3b82f6' }]}>
+                        <Text style={styles.confirmBtnTxt}>MARK DELIVERED</Text>
                       </Pressable>
                     ) : null}
                   </>

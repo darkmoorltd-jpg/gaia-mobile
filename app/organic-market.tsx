@@ -84,11 +84,11 @@ export default function OrganicMarket() {
               <Text style={styles.itemLoc}>📍 {item.location}</Text>
               
               <View style={styles.btnRow}>
-                <Pressable onPress={() => setGiftItem(item)} style={styles.giftBtn}>
-                  <Text style={styles.giftBtnTxt}>🎁 SEND AS GIFT</Text>
+                <Pressable onPress={() => Alert.alert('Coming soon', 'Gift checkout is being rebuilt with real Paystack verification.')} style={[styles.giftBtn, { opacity: 0.6 }]}>
+                  <Text style={styles.giftBtnTxt}>🎁 GIFT (SOON)</Text>
                 </Pressable>
-                <Pressable style={styles.buyBtn}>
-                  <Text style={styles.buyBtnTxt}>BUY</Text>
+                <Pressable onPress={() => router.push('/organic-storefront' as any)} style={styles.buyBtn}>
+                  <Text style={styles.buyBtnTxt}>BROWSE</Text>
                 </Pressable>
               </View>
             </View>

@@ -13,7 +13,7 @@ export default function AdminMarketplace() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
   const user = useAuth((s) => s.user);
-  const isAdmin = user?.email === 'darkmoorltd@gmail.com';
+  const isAdmin = user?.email?.toLowerCase() === 'darkmoorltd@gmail.com';
 
   const [tab, setTab] = useState<any>('overview');
   const [busy, setBusy] = useState(true);
@@ -46,8 +46,15 @@ export default function AdminMarketplace() {
   const load = useCallback(async () => {
     if (!isAdmin) return;
     setBusy(true);
-    const safeCall = async (fn: any) => { try { const r = await fn(); return r.data || []; } catch { return []; } };
-    const safeObj = async (fn: any) => { try { const r = await fn(); return r.data || {}; } catch { return {}; } };
+    const errs: string[] = [];
+    const safeCall = async (fn: any) => {
+      try { const r = await fn(); if (r.error) { errs.push(r.error.message); return []; } return r.data || []; }
+      catch (e: any) { errs.push(e?.message || 'unknown'); return []; }
+    };
+    const safeObj = async (fn: any) => {
+      try { const r = await fn(); if (r.error) { errs.push(r.error.message); return {}; } return r.data || {}; }
+      catch (e: any) { errs.push(e?.message || 'unknown'); return {}; }
+    };
 
     const st = await safeObj(() => supabase.rpc('admin_marketplace_stats'));
     const ch = await safeCall(() => supabase.rpc('admin_marketplace_chart'));
@@ -77,6 +84,7 @@ export default function AdminMarketplace() {
     setTopSellers(ts);
     setTopSellers(ts);
     
+    if (errs.length) console.warn('[admin-marketplace] RPC errors:', errs);
     setBusy(false);
     setRef(false);
   }, [isAdmin]);
@@ -91,6 +99,22 @@ export default function AdminMarketplace() {
   const approveListing = async (id: number) => {
     const { error } = await supabase.rpc('admin_approve_listing', { p_listing_id: id });
     if (error) Alert.alert('Error', error.message); else { Alert.alert('Success', 'Listing is live.'); setViewListing(null); load(); }
+  };
+  const rejectStore = (id: string) => {
+    Alert.prompt?.('Reject store', 'Reason:', async (reason: string) => {
+      if (!reason || reason.trim().length < 3) return;
+      const { error } = await supabase.rpc('admin_reject_store', { p_store_id: id, p_reason: reason.trim() });
+      if (error) Alert.alert('Error', error.message);
+      else { Alert.alert('Rejected'); setViewStore(null); load(); }
+    });
+  };
+  const rejectListing = (id: number) => {
+    Alert.prompt?.('Reject listing', 'Reason:', async (reason: string) => {
+      if (!reason || reason.trim().length < 3) return;
+      const { error } = await supabase.rpc('admin_reject_listing', { p_listing_id: id, p_reason: reason.trim() });
+      if (error) Alert.alert('Error', error.message);
+      else { Alert.alert('Rejected'); setViewListing(null); load(); }
+    });
   };
   const settlePayout = async (id: string, status: 'paid'|'rejected') => {
     await supabase.rpc('admin_settle_withdrawal', { p_id: id, p_status: status });
@@ -355,9 +379,17 @@ export default function AdminMarketplace() {
             {(!viewStore?.documents || viewStore.documents.length === 0) ? <Text style={{color:'#888'}}>No documents</Text> : null}
 
             {viewStore?.status === 'pending' ? (
-              <Pressable onPress={() => approveStore(viewStore.id)} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 20 }]}>
-                <Text style={{ fontWeight: '900', color: '#000', fontSize: 16 }}>APPROVE STORE</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
+                <Pressable onPress={() => rejectStore(viewStore.id)} style={[styles.btn, { borderColor: '#ff3b5c', borderWidth: 2, flex: 1 }]}>
+                  <Text style={{ fontWeight: '900', color: '#ff3b5c', fontSize: 14 }}>REJECT</Text>
+                </Pressable>
+                <Pressable onPress={() => Alert.alert('Approve store?', viewStore.store_name, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Approve', onPress: () => approveStore(viewStore.id) },
+                ])} style={[styles.btn, { backgroundColor: '#00ff88', flex: 1 }]}>
+                  <Text style={{ fontWeight: '900', color: '#000', fontSize: 14 }}>APPROVE</Text>
+                </Pressable>
+              </View>
             ) : null}
           </View>
         </View>
@@ -385,9 +417,17 @@ export default function AdminMarketplace() {
             </ScrollView>
 
             {viewListing?.approval_status === 'pending' ? (
-              <Pressable onPress={() => approveListing(viewListing.id)} style={[styles.btn, { backgroundColor: '#00ff88', marginTop: 20 }]}>
-                <Text style={{ fontWeight: '900', color: '#000', fontSize: 16 }}>APPROVE LISTING</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
+                <Pressable onPress={() => rejectListing(viewListing.id)} style={[styles.btn, { borderColor: '#ff3b5c', borderWidth: 2, flex: 1 }]}>
+                  <Text style={{ fontWeight: '900', color: '#ff3b5c', fontSize: 14 }}>REJECT</Text>
+                </Pressable>
+                <Pressable onPress={() => Alert.alert('Approve listing?', viewListing.title, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Approve', onPress: () => approveListing(viewListing.id) },
+                ])} style={[styles.btn, { backgroundColor: '#00ff88', flex: 1 }]}>
+                  <Text style={{ fontWeight: '900', color: '#000', fontSize: 14 }}>APPROVE</Text>
+                </Pressable>
+              </View>
             ) : null}
           </View>
         </View>

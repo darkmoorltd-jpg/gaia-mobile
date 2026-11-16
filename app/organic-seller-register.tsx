@@ -47,8 +47,9 @@ export default function OrganicSellerRegister() {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.status === 'success') {
         setBusy(true);
-        // Register seller in DB
-        const { error } = await supabase.rpc('register_organic_seller', {
+        // Server verifies the reference against pending_payments before creating seller
+        const { error } = await supabase.rpc('register_organic_seller_verified', {
+          p_paystack_ref: msg.reference,
           p_business_name: businessName.trim(),
           p_tier_id: selectedTier.id,
           p_cac: cac.trim() || null,
