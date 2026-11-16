@@ -4,6 +4,8 @@ import { useTheme } from '../../src/theme';
 import { useSettings } from '../../src/store/settings';
 import { useTranslation } from 'react-i18next';
 
+import NotificationSetup from '../../src/components/NotificationSetup';
+import FloatingBell from '../../src/components/FloatingBell';
 function TabIcon({ emoji, focused, color }: {
   emoji: string; focused: boolean; color: ColorValue;
 }) {
@@ -21,7 +23,8 @@ export default function TabsLayout() {
   const flagOn = (k: string) => (flags[k] === undefined ? true : !!flags[k]);
 
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: palette.neon,
@@ -123,6 +126,10 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+      <NotificationSetup />
+      <FloatingBell />
+    </View>
+  
   );
 }
 

@@ -13,6 +13,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useLocation } from '../src/store/location';
 import { palette } from '../src/theme';
 
+import NotificationSetup from '../src/components/NotificationSetup';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
@@ -158,10 +159,14 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <View style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
       <StatusBar style="light" />
       <RootNavigator />
     </QueryClientProvider>
+      <NotificationSetup />
+    </View>
+  
   );
 }
 
