@@ -461,6 +461,8 @@ export default function Signup() {
           ) : null}
 
           <Pressable onPress={handleSubmit} disabled={!formValid || busy}>
+          <Text style={{ fontSize: 11, color: '#888', textAlign: 'center', marginTop: 16 }}>By continuing you accept our <Text style={{ color: '#00ff88' }} onPress={() => router.push('/legal/terms' as any)}>Terms</Text> and <Text style={{ color: '#00ff88' }} onPress={() => router.push('/legal/privacy' as any)}>Privacy Policy</Text></Text>
+
             <LinearGradient
               colors={(!formValid || busy) ? ['#E2E8F0', '#E2E8F0'] : ['#10B981', '#059669']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}

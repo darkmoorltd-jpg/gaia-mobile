@@ -106,6 +106,34 @@ export default function WarehouseDashboard() {
 
   if (loading) return <View style={styles.container}><ActivityIndicator color={palette.neon} style={{ marginTop: 100 }} /></View>;
 
+  if (company && (company.verification_status !== 'approved' || !company.registration_fee_paid_at)) {
+    return (
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
+          <Text style={styles.title}>Warehouse Dashboard</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
+              {company.verification_status === 'pending'
+                ? 'Your company is pending admin verification. You cannot add units yet.'
+                : company.verification_status === 'rejected'
+                ? 'Your company application was rejected. Contact support.'
+                : 'Pay the ₦20,000 registration fee to activate your account.'}
+            </Text>
+            {company.verification_status === 'approved' && !company.registration_fee_paid_at ? (
+              <Pressable
+                onPress={() => router.push(`/warehouse-pay-fee?company_id=${company.id}` as any)}
+                style={styles.cta}
+              >
+                <Text style={styles.ctaText}>PAY ₦20,000 REGISTRATION FEE</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   if (!company) {
     return (
       <View style={styles.container}>

@@ -205,7 +205,25 @@ export default function Settings() {
                 </View>
               ))}
               <View style={{ height: 40 }} />
-            </ScrollView>
+            
+        <Text style={styles.sectionLabel}>LEGAL</Text>
+        <Pressable onPress={() => router.push('/legal' as any)} style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Legal documents</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/legal/terms' as any)} style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Terms of Service</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/legal/privacy' as any)} style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Privacy Policy</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/legal/refunds' as any)} style={styles.settingRow}>
+          <Text style={styles.settingLabel}>Refund Policy</Text>
+          <Text style={styles.settingChevron}>›</Text>
+        </Pressable>
+</ScrollView>
           </View>
         </View>
       </Modal>
@@ -246,6 +264,10 @@ export default function Settings() {
 }
 
 const createStyles = (p: any) => StyleSheet.create({
+  sectionLabel: { fontSize: 11, fontWeight: '900', color: p.neon, letterSpacing: 2, marginTop: 24, marginBottom: 8 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: p.border },
+  settingLabel: { fontSize: 14, color: p.text },
+  settingChevron: { fontSize: 20, color: p.textMuted },
   container: { flex: 1, backgroundColor: p.obsidian },
   scroll: { padding: 20, paddingTop: 60, paddingBottom: 40 },
   back: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: p.textMuted, marginBottom: 12 },
