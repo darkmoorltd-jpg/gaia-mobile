@@ -98,25 +98,21 @@ export async function createListing(
   listing: Partial<Listing>,
 ): Promise<{ id: number | null; error: string | null }> {
   try {
-    const { data, error } = await supabase
-      .from('marketplace_listings')
-      .insert({
-        seller_id: userId,
-        title: listing.title,
-        description: listing.description || '',
-        category: listing.category,
-        price: listing.price,
-        unit: listing.unit,
-        quantity: listing.quantity,
-        location: listing.location || '',
-        images: listing.images || [],
-        delivery_method: listing.delivery_method || 'both',
-        delivery_fee: listing.delivery_fee || 0,
-        approval_status: 'pending',
-      })
-      .select()
-      .single();
-    return { id: data ? data.id : null, error: error ? error.message : null };
+    const { data, error } = await supabase.rpc('create_marketplace_listing', {
+      p_title: listing.title || '',
+      p_description: listing.description || '',
+      p_category: listing.category || 'Other',
+      p_price: Number(listing.price || 0),
+      p_unit: listing.unit || 'per kg',
+      p_quantity: Number(listing.quantity || 0),
+      p_location: listing.location || '',
+      p_images: listing.images || [],
+      p_delivery_method: listing.delivery_method || 'both',
+      p_delivery_fee: Number(listing.delivery_fee || 0),
+    });
+    if (error) return { id: null, error: error.message };
+    if (!data?.ok) return { id: null, error: 'Listing failed' };
+    return { id: Number(data.listing_id), error: null };
   } catch (e: any) {
     return { id: null, error: e.message || 'Insert failed' };
   }

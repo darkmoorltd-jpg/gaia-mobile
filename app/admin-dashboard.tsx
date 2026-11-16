@@ -124,6 +124,7 @@ export default function AdminDashboard() {
           {[
             { label: 'Warehouses', route: '/admin-warehouses', icon: '🏢' },
             { label: 'Drivers', route: '/admin-drivers', icon: '🚛' },
+            { label: 'Sellers', route: '/admin-seller-verify', icon: '🏪' },
             { label: 'Farms', route: '/admin-farms', icon: '🌾' },
             { label: 'Loans', route: '/admin-loans', icon: '💰' },
             { label: 'Payments', route: '/admin-payments', icon: '💳' },

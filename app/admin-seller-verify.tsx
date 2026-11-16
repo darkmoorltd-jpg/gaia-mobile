@@ -4,6 +4,8 @@ import {
   ActivityIndicator, Alert, Modal, Image, Linking, RefreshControl,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
@@ -23,8 +25,12 @@ export default function AdminSellerVerify() {
   const [inspections, setInspections] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [selected, setSelected] = useState<any>(null);
+  const [precheck, setPrecheck] = useState<any>(null);
+  const [tierInfo, setTierInfo] = useState<any>(null);
   const [signedDocs, setSignedDocs] = useState<{ label: string; url: string }[]>([]);
+
   const [rejectModal, setRejectModal] = useState<any>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [inspectionForm, setInspectionForm] = useState<any>(null);
@@ -33,15 +39,17 @@ export default function AdminSellerVerify() {
     inspector1: '',
     inspector1Phone: '',
     inspector2: '',
-    inspection2Phone: '',
+    inspector2Phone: '',
     area: '',
     compost: false,
     synthetic: false,
     separation: false,
     residuePassed: false,
-    residueReportPath: '',
     observations: '',
   });
+  const [insPhotos, setInsPhotos] = useState<string[]>([]);
+  const [insVideo, setInsVideo] = useState<string | null>(null);
+  const [insSubmitting, setInsSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
@@ -60,7 +68,17 @@ export default function AdminSellerVerify() {
 
   const openDetail = async (v: any) => {
     setSelected(v);
+    setPrecheck(null);
+    setTierInfo(null);
     setSignedDocs([]);
+
+    const [{ data: pre }, { data: tier }] = await Promise.all([
+      supabase.rpc('admin_precheck_verification', { p_verification_id: v.id }),
+      supabase.rpc('get_seller_tier_summary', { p_user_id: v.user_id }),
+    ]);
+    setPrecheck(pre || null);
+    setTierInfo(tier || null);
+
     const { data: docs } = await supabase.from('seller_documents').select('*').eq('verification_id', v.id);
     if (docs) {
       const signed = await Promise.all(
@@ -92,8 +110,7 @@ export default function AdminSellerVerify() {
     if (!rejectModal || rejectReason.trim().length < 3) { Alert.alert('Reason required'); return; }
     try {
       const { error } = await supabase.rpc('admin_reject_seller_verification', {
-        p_verification_id: rejectModal.id,
-        p_reason: rejectReason.trim(),
+        p_verification_id: rejectModal.id, p_reason: rejectReason.trim(),
       });
       if (error) throw error;
       setRejectModal(null); setRejectReason(''); setSelected(null);
@@ -102,31 +119,60 @@ export default function AdminSellerVerify() {
     } catch (e: any) { Alert.alert('Failed', e.message); }
   };
 
+  const pickInsPhoto = async () => {
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!r.canceled) setInsPhotos([...insPhotos, r.assets[0].uri]);
+  };
+
+  const pickInsVideo = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ type: 'video/*' });
+    if (!r.canceled) setInsVideo(r.assets[0].uri);
+  };
+
+  const uploadInsFile = async (uri: string, key: string): Promise<string> => {
+    const resp = await fetch(uri);
+    const blob = await resp.blob();
+    const ext = (uri.split('.').pop() || 'bin').toLowerCase();
+    const path = `inspections/${inspectionForm.user_id}/${key}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('seller-docs').upload(path, blob, { contentType: blob.type || 'application/octet-stream', upsert: false });
+    if (error) throw error;
+    return path;
+  };
+
   const submitInspection = async () => {
     if (!inspectionForm) return;
     if (!insForm.inspector1.trim()) { Alert.alert('Inspector 1 name required'); return; }
+    setInsSubmitting(true);
     try {
+      const photoPaths: string[] = [];
+      for (const p of insPhotos) photoPaths.push(await uploadInsFile(p, 'photo'));
+      let videoPath: string | null = null;
+      if (insVideo) videoPath = await uploadInsFile(insVideo, 'video');
+
       const { error } = await supabase.rpc('admin_record_inspection', {
         p_user_id: inspectionForm.user_id,
         p_inspection_date: insForm.date,
         p_inspector_1_name: insForm.inspector1.trim(),
         p_inspector_1_phone: insForm.inspector1Phone.trim() || null,
         p_inspector_2_name: insForm.inspector2.trim() || null,
-        p_inspector_2_phone: insForm.inspection2Phone.trim() || null,
+        p_inspector_2_phone: insForm.inspector2Phone.trim() || null,
         p_farm_area_hectares: insForm.area ? parseFloat(insForm.area) : null,
         p_compost_use: insForm.compost,
         p_synthetic_fertilizer_used: insForm.synthetic,
         p_separation_from_non_organic: insForm.separation,
         p_residue_test_passed: insForm.residuePassed,
-        p_residue_report_path: insForm.residueReportPath.trim() || null,
+        p_residue_report_path: null,
         p_observations: insForm.observations.trim() || null,
-        p_photos: [],
+        p_photos: photoPaths,
+        p_video_path: videoPath,
       });
       if (error) throw error;
       setInspectionForm(null);
-      Alert.alert('Recorded', 'Inspection submitted. Approve to unlock Premium/Organic.');
+      setInsPhotos([]); setInsVideo(null);
+      Alert.alert('Recorded');
       await load();
     } catch (e: any) { Alert.alert('Failed', e.message); }
+    finally { setInsSubmitting(false); }
   };
 
   const approveInspection = async (i: any) => {
@@ -172,7 +218,12 @@ export default function AdminSellerVerify() {
             {pendingVerifs.length === 0 ? <Text style={styles.empty}>No pending verifications.</Text> : null}
             {pendingVerifs.map(v => (
               <Pressable key={v.id} onPress={() => openDetail(v)} style={styles.card}>
-                <Text style={styles.cardTitle}>{v.legal_name}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.cardTitle}>{v.legal_name}</Text>
+                  {v.updated_at && new Date(v.updated_at) < new Date(Date.now() - 48*3600000) ? (
+                    <Text style={{ fontSize: 10, color: '#ffb300', fontWeight: '900' }}>⏱ 48h+</Text>
+                  ) : null}
+                </View>
                 <Text style={styles.cardMeta}>{v.cac_registration} · {v.farm_lga}, {v.farm_state}</Text>
                 <Text style={styles.cardMeta}>Submitted {new Date(v.updated_at || v.created_at).toLocaleDateString()}</Text>
               </Pressable>
@@ -180,7 +231,7 @@ export default function AdminSellerVerify() {
 
             <Text style={[styles.sectionLbl, { marginTop: 20 }]}>APPROVED ({approvedVerifs.length})</Text>
             {approvedVerifs.map(v => (
-              <View key={v.id} style={[styles.card, { opacity: 0.7 }]}>
+              <View key={v.id} style={[styles.card, { opacity: 0.85 }]}>
                 <Text style={styles.cardTitle}>✅ {v.legal_name}</Text>
                 <Text style={styles.cardMeta}>{v.cac_registration}</Text>
                 <Pressable onPress={() => setInspectionForm(v)} style={styles.scheduleBtn}>
@@ -200,6 +251,8 @@ export default function AdminSellerVerify() {
                 <Text style={styles.cardTitle}>{i.inspector_1_name}{i.inspector_2_name ? ` + ${i.inspector_2_name}` : ''}</Text>
                 <Text style={styles.cardMeta}>{new Date(i.inspection_date).toLocaleDateString()} · {i.farm_area_hectares || '?'} ha</Text>
                 <Text style={styles.cardMeta}>Compost: {i.compost_use ? '✅' : '—'} · Synthetic: {i.synthetic_fertilizer_used ? '❌' : 'none'} · Separation: {i.separation_from_non_organic ? '✅' : '—'}</Text>
+                {Array.isArray(i.photos) && i.photos.length > 0 ? <Text style={styles.cardMeta}>📷 {i.photos.length} photo(s)</Text> : null}
+                {i.video_path ? <Text style={styles.cardMeta}>🎥 Video attached</Text> : null}
                 <Pressable onPress={() => approveInspection(i)} style={styles.approveBtn}>
                   <Text style={styles.approveTxt}>APPROVE INSPECTION</Text>
                 </Pressable>
@@ -211,33 +264,76 @@ export default function AdminSellerVerify() {
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* Verification detail modal */}
+      {/* Detail modal */}
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
         <View style={styles.modalBg}>
           <ScrollView style={styles.modalSheet}>
             <Pressable onPress={() => setSelected(null)}><Text style={styles.back}>CLOSE</Text></Pressable>
-            <Text style={styles.modalTitle}>{selected?.legal_name}</Text>
-            <Text style={styles.cardMeta}>Status: {selected?.status?.toUpperCase()}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.modalTitle}>{selected?.legal_name}</Text>
+              {precheck ? (
+                <View style={[styles.riskPill, { backgroundColor: precheck.risk_level === 'high' ? '#ff3b5c' : precheck.risk_level === 'medium' ? '#ffb300' : palette.neon }]}>
+                  <Text style={styles.riskTxt}>{precheck.risk_level.toUpperCase()} RISK</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {precheck ? (
+              <>
+                <Text style={styles.sectionLbl}>PRE-CHECK</Text>
+                <View style={styles.block}>
+                  <Row ok={precheck.document_count >= 3} text={`${precheck.document_count}/3 required documents`} />
+                  <Row ok={precheck.bank_matches_cac} text="Bank name matches CAC" />
+                  <Row ok={precheck.gps_valid} text="GPS within Nigeria" />
+                  <Row ok={precheck.nin_duplicate_count === 0} text={precheck.nin_duplicate_count === 0 ? 'NIN unique' : `NIN used by ${precheck.nin_duplicate_count} other(s)`} />
+                  <Row ok={precheck.cac_duplicate_count === 0} text={precheck.cac_duplicate_count === 0 ? 'CAC unique' : `CAC used by ${precheck.cac_duplicate_count} other(s)`} />
+                  <Row ok={precheck.account_age_days >= 3} text={`Account age: ${precheck.account_age_days} days`} />
+                  <Row ok={precheck.applicant_age >= 18} text={`Applicant age: ${precheck.applicant_age}`} />
+                </View>
+
+                {precheck.active_subscription ? (
+                  <>
+                    <Text style={styles.sectionLbl}>ACTIVE SUBSCRIPTION</Text>
+                    <View style={styles.block}>
+                      <KV k="Tier" v={precheck.active_subscription.tier_name} />
+                      <KV k="Commission" v={`${precheck.active_subscription.commission_pct}%`} />
+                      <KV k="Expires" v={new Date(precheck.active_subscription.period_end).toLocaleDateString()} />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.sectionLbl}>SUBSCRIPTION</Text>
+                    <Text style={styles.hint}>No active subscription yet.</Text>
+                  </>
+                )}
+              </>
+            ) : null}
 
             <Text style={styles.sectionLbl}>IDENTITY</Text>
-            <KV k="Legal name" v={selected?.legal_name || '—'} />
-            <KV k="DOB" v={selected?.date_of_birth || '—'} />
-            <KV k="NIN" v={selected?.nin || '—'} mono />
-            <KV k="CAC" v={selected?.cac_registration || '—'} mono />
+            <View style={styles.block}>
+              <KV k="Legal name" v={selected?.legal_name || '—'} />
+              <KV k="DOB" v={selected?.date_of_birth || '—'} />
+              <KV k="NIN" v={selected?.nin || '—'} mono />
+              <KV k="CAC" v={selected?.cac_registration || '—'} mono />
+            </View>
 
             <Text style={styles.sectionLbl}>BANK</Text>
-            <KV k="Bank" v={selected?.bank_name || '—'} />
-            <KV k="Account" v={selected?.bank_account_number || '—'} mono />
-            <KV k="Account name" v={selected?.bank_account_name || '—'} />
+            <View style={styles.block}>
+              <KV k="Bank" v={selected?.bank_name || '—'} />
+              <KV k="Account" v={selected?.bank_account_number || '—'} mono />
+              <KV k="Account name" v={selected?.bank_account_name || '—'} />
+            </View>
 
             <Text style={styles.sectionLbl}>FARM</Text>
-            <KV k="State/LGA" v={`${selected?.farm_state || '—'} / ${selected?.farm_lga || '—'}`} />
-            <KV k="Address" v={selected?.farm_address || '—'} />
-            <KV k="GPS" v={selected?.farm_gps_lat != null ? `${selected.farm_gps_lat}, ${selected.farm_gps_lon}` : '—'} mono
+            <View style={styles.block}>
+              <KV k="State/LGA" v={`${selected?.farm_state || '—'} / ${selected?.farm_lga || '—'}`} />
+              <KV k="Address" v={selected?.farm_address || '—'} />
+              <KV k="GPS" v={selected?.farm_gps_lat != null ? `${selected.farm_gps_lat}, ${selected.farm_gps_lon}` : '—'} mono
                 action={selected?.farm_gps_lat != null ? () => Linking.openURL(`https://maps.google.com/?q=${selected.farm_gps_lat},${selected.farm_gps_lon}`) : undefined} actionLabel="Map" />
+            </View>
 
-            <Text style={styles.sectionLbl}>DOCUMENTS</Text>
-            {signedDocs.length === 0 ? <Text style={styles.empty}>No documents uploaded.</Text> : null}
+            <Text style={styles.sectionLbl}>DOCUMENTS ({signedDocs.length})</Text>
+            {signedDocs.length === 0 ? <Text style={styles.hint}>No documents uploaded.</Text> : null}
             {signedDocs.map((d, idx) => (
               <Pressable key={idx} onPress={() => Linking.openURL(d.url)} style={styles.docRow}>
                 <Text style={styles.docLabel}>📄 {d.label}</Text>
@@ -278,7 +374,7 @@ export default function AdminSellerVerify() {
         </View>
       </Modal>
 
-      {/* Inspection form modal */}
+      {/* Inspection form */}
       <Modal visible={!!inspectionForm} transparent animationType="slide">
         <View style={styles.modalBg}>
           <ScrollView style={styles.modalSheet}>
@@ -301,35 +397,52 @@ export default function AdminSellerVerify() {
             <TextInput value={insForm.area} onChangeText={v => setInsForm(s => ({ ...s, area: v }))} keyboardType="numeric" style={styles.input} placeholderTextColor={palette.textDim} />
 
             <Pressable onPress={() => setInsForm(s => ({ ...s, compost: !s.compost }))} style={styles.toggleRow}>
-              <Text style={styles.toggleLbl}>Compost use observed</Text>
-              <Text style={styles.toggleVal}>{insForm.compost ? '✅' : '—'}</Text>
+              <Text style={styles.toggleLbl}>Compost use observed</Text><Text style={styles.toggleVal}>{insForm.compost ? '✅' : '—'}</Text>
             </Pressable>
             <Pressable onPress={() => setInsForm(s => ({ ...s, synthetic: !s.synthetic }))} style={styles.toggleRow}>
-              <Text style={styles.toggleLbl}>Synthetic fertilizer used</Text>
-              <Text style={styles.toggleVal}>{insForm.synthetic ? '❌' : 'none'}</Text>
+              <Text style={styles.toggleLbl}>Synthetic fertilizer used</Text><Text style={styles.toggleVal}>{insForm.synthetic ? '❌' : 'none'}</Text>
             </Pressable>
             <Pressable onPress={() => setInsForm(s => ({ ...s, separation: !s.separation }))} style={styles.toggleRow}>
-              <Text style={styles.toggleLbl}>Separated from non-organic</Text>
-              <Text style={styles.toggleVal}>{insForm.separation ? '✅' : '—'}</Text>
+              <Text style={styles.toggleLbl}>Separated from non-organic</Text><Text style={styles.toggleVal}>{insForm.separation ? '✅' : '—'}</Text>
             </Pressable>
             <Pressable onPress={() => setInsForm(s => ({ ...s, residuePassed: !s.residuePassed }))} style={styles.toggleRow}>
-              <Text style={styles.toggleLbl}>Residue test passed</Text>
-              <Text style={styles.toggleVal}>{insForm.residuePassed ? '✅' : '—'}</Text>
+              <Text style={styles.toggleLbl}>Residue test passed</Text><Text style={styles.toggleVal}>{insForm.residuePassed ? '✅' : '—'}</Text>
             </Pressable>
 
-            <Text style={styles.label}>RESIDUE REPORT PATH (storage)</Text>
-            <TextInput value={insForm.residueReportPath} onChangeText={v => setInsForm(s => ({ ...s, residueReportPath: v }))} style={styles.input} placeholderTextColor={palette.textDim} placeholder="organic-reports/..." />
+            <Text style={styles.label}>FARM PHOTOS ({insPhotos.length})</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {insPhotos.map((uri, i) => <Image key={i} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 8 }} />)}
+                <Pressable onPress={pickInsPhoto} style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: palette.neon, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 24, color: palette.neon }}>+</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+
+            <Text style={styles.label}>FARM VIDEO (walkthrough)</Text>
+            <Pressable onPress={pickInsVideo} style={{ padding: 14, borderRadius: 10, backgroundColor: insVideo ? 'rgba(0,255,136,0.15)' : palette.surface, borderWidth: 1, borderColor: insVideo ? palette.neon : palette.border, alignItems: 'center' }}>
+              <Text style={{ color: palette.neon, fontWeight: '900' }}>{insVideo ? '✓ VIDEO ATTACHED' : '🎥 ATTACH VIDEO'}</Text>
+            </Pressable>
 
             <Text style={styles.label}>OBSERVATIONS</Text>
             <TextInput value={insForm.observations} onChangeText={v => setInsForm(s => ({ ...s, observations: v }))} multiline style={[styles.input, { minHeight: 80 }]} placeholderTextColor={palette.textDim} />
 
-            <Pressable onPress={submitInspection} style={[styles.bigBtn, { borderColor: palette.neon, backgroundColor: palette.neon, marginTop: 20 }]}>
-              <Text style={[styles.bigBtnTxt, { color: '#000' }]}>SUBMIT INSPECTION</Text>
+            <Pressable onPress={submitInspection} disabled={insSubmitting} style={[styles.bigBtn, { borderColor: palette.neon, backgroundColor: palette.neon, marginTop: 20, flex: 0 }]}>
+              {insSubmitting ? <ActivityIndicator color="#000" /> : <Text style={[styles.bigBtnTxt, { color: '#000' }]}>SUBMIT INSPECTION</Text>}
             </Pressable>
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+function Row({ ok, text }: { ok: boolean; text: string }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 5, alignItems: 'flex-start' }}>
+      <Text style={{ fontSize: 13 }}>{ok ? '✅' : '⚠️'}</Text>
+      <Text style={{ flex: 1, fontSize: 12, color: ok ? '#fff' : '#ffb300' }}>{text}</Text>
     </View>
   );
 }
@@ -359,6 +472,7 @@ const createStyles = (p: any) => StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingTop: 8 },
   sectionLbl: { fontSize: 11, fontWeight: '900', color: p.neon, letterSpacing: 2, marginBottom: 8, marginTop: 12 },
   empty: { fontSize: 13, color: p.textMuted, fontStyle: 'italic', marginBottom: 8 },
+  hint: { fontSize: 12, color: p.textMuted, fontStyle: 'italic', marginBottom: 8 },
   card: { backgroundColor: p.surface, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
   cardTitle: { fontSize: 15, fontWeight: '900', color: p.text },
   cardMeta: { fontSize: 11, color: p.textMuted, marginTop: 4 },
@@ -366,11 +480,14 @@ const createStyles = (p: any) => StyleSheet.create({
   scheduleTxt: { fontSize: 10, fontWeight: '900', color: p.neon, letterSpacing: 1 },
   approveBtn: { marginTop: 10, padding: 12, borderRadius: 8, backgroundColor: p.neon, alignItems: 'center' },
   approveTxt: { fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 },
+  riskPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  riskTxt: { fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 1 },
+  block: { backgroundColor: p.surface, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
   modalBgCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
   modalSheet: { backgroundColor: p.obsidian, padding: 20, paddingTop: 60, flex: 1 },
   modalCard: { backgroundColor: p.surface, padding: 20, borderRadius: 16 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginBottom: 12 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: p.text, marginBottom: 12, flex: 1 },
   notesInput: { padding: 12, borderRadius: 10, backgroundColor: p.obsidian, color: p.text, borderWidth: 1, borderColor: p.border, fontSize: 13, minHeight: 80, textAlignVertical: 'top' },
   input: { padding: 12, borderRadius: 10, backgroundColor: p.surface, color: p.text, borderWidth: 1, borderColor: p.border, fontSize: 14, marginBottom: 8 },
   label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginTop: 12, marginBottom: 6, letterSpacing: 1 },
