@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput,
-  Alert, ActivityIndicator, Image, Linking, Modal,
+  Alert, ActivityIndicator, Image, Modal, Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,17 +9,38 @@ import * as Location from 'expo-location';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import { WAREHOUSE_AGREEMENT, TERMS_OF_SERVICE } from '../src/legal/content';
+import { WAREHOUSE_AGREEMENT } from '../src/legal/content';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 const DOC_SLOTS = [
-  { key: 'cac_cert', label: 'CAC Certificate' },
-  { key: 'tin_cert', label: 'TIN Certificate' },
-  { key: 'director_id', label: 'Director Government ID' },
-  { key: 'utility_bill', label: 'Utility Bill (Office)' },
-  { key: 'letterhead', label: 'Company Letterhead + Stamp' },
+  { key: 'cac_cert', label: 'CAC Certificate', required: true },
+  { key: 'tin_cert', label: 'TIN Certificate', required: false },
+  { key: 'director_id', label: 'Director Government ID', required: true },
+  { key: 'utility_bill', label: 'Utility Bill (Office)', required: true },
+  { key: 'letterhead', label: 'Company Letterhead + Stamp', required: false },
 ] as const;
+
+const FLAG_LABELS: Record<string, string> = {
+  company_name: 'Company name',
+  cac_registration: 'CAC registration',
+  tin: 'TIN',
+  contact_person: 'Contact person',
+  contact_phone: 'Contact phone',
+  contact_email: 'Contact email',
+  address: 'Address',
+  gps: 'GPS location',
+  bank_name: 'Bank name',
+  bank_account_number: 'Bank account number',
+  bank_account_name: 'Bank account name',
+  total_capacity_tonnes: 'Storage capacity',
+  references: 'References',
+  doc_cac_cert: 'CAC Certificate document',
+  doc_tin_cert: 'TIN Certificate document',
+  doc_director_id: 'Director ID document',
+  doc_utility_bill: 'Utility Bill document',
+  doc_letterhead: 'Letterhead document',
+};
 
 type Step = 1 | 2 | 3 | 4;
 type DocKey = typeof DOC_SLOTS[number]['key'];
@@ -34,6 +55,7 @@ export default function WarehouseRegisterWizard() {
   const [busy, setBusy] = useState(false);
   const [checking, setChecking] = useState(true);
   const [existing, setExisting] = useState<any>(null);
+  const [editMode, setEditMode] = useState(false);
 
   // Identity
   const [name, setName] = useState('');
@@ -41,7 +63,7 @@ export default function WarehouseRegisterWizard() {
   const [tin, setTin] = useState('');
   const [years, setYears] = useState('');
 
-  // Contact + address
+  // Contact
   const [contactName, setContactName] = useState('');
   const [contactRole, setContactRole] = useState('Owner');
   const [contactPhone, setContactPhone] = useState('');
@@ -52,10 +74,12 @@ export default function WarehouseRegisterWizard() {
   const [lon, setLon] = useState<number | null>(null);
   const [locBusy, setLocBusy] = useState(false);
 
-  // Documents — key -> uri
+  // Documents — new uploads
   const [docs, setDocs] = useState<Record<string, string | null>>({});
+  // Existing documents (in edit mode)
+  const [existingDocs, setExistingDocs] = useState<Record<string, { url: string; path: string; ext: string }>>({});
 
-  // Banking + capacity
+  // Bank + capacity
   const [bankName, setBankName] = useState('');
   const [acctNum, setAcctNum] = useState('');
   const [acctName, setAcctName] = useState('');
@@ -74,6 +98,7 @@ export default function WarehouseRegisterWizard() {
   const [signature, setSignature] = useState('');
   const [showAgreement, setShowAgreement] = useState(false);
 
+  // ---- load existing ----
   useFocusEffect(
     useCallback(() => {
       (async () => {
@@ -90,6 +115,62 @@ export default function WarehouseRegisterWizard() {
     }, [user]),
   );
 
+  // ---- enter edit mode + pre-fill ----
+  useEffect(() => {
+    if (!existing) { setEditMode(false); return; }
+    const editable =
+      existing.verification_status === 'needs_info' ||
+      (existing.verification_status === 'rejected' && !!existing.allow_resubmit);
+    setEditMode(editable);
+    if (!editable) return;
+
+    setName(existing.company_name || '');
+    setCac(existing.cac_registration || '');
+    setTin(existing.tin || '');
+    setYears(existing.years_in_business != null ? String(existing.years_in_business) : '');
+    setContactName(existing.contact_person || '');
+    setContactRole(existing.contact_role || 'Owner');
+    setContactPhone(existing.contact_phone || '');
+    setContactEmail(existing.contact_email || '');
+    setState(existing.state || 'Lagos');
+    setAddress(existing.address || '');
+    setLat(existing.head_office_lat ?? null);
+    setLon(existing.head_office_lon ?? null);
+    setBankName(existing.bank_name || '');
+    setAcctNum(existing.bank_account_number || '');
+    setAcctName(existing.bank_account_name || '');
+    setCapacity(existing.total_capacity_tonnes != null ? String(existing.total_capacity_tonnes) : '');
+    setFacilityCount(existing.facility_count != null ? String(existing.facility_count) : '1');
+    setUnitTypes(Array.isArray(existing.unit_types) ? existing.unit_types : []);
+    setRef1Name(existing.reference_1?.name || '');
+    setRef1Phone(existing.reference_1?.phone || '');
+    setRef2Name(existing.reference_2?.name || '');
+    setRef2Phone(existing.reference_2?.phone || '');
+    setSignature(existing.agreement_signature || '');
+    setAgreed(!!existing.agreement_signed_at);
+
+    // Load signed URLs for existing documents
+    const raw = Array.isArray(existing.documents) ? existing.documents : [];
+    if (raw.length > 0) {
+      Promise.all(
+        raw.map(async (d: any) => {
+          const { data } = await supabase.storage.from('warehouse-docs').createSignedUrl(d.path, 60 * 60 * 24);
+          const ext = (d.path || '').split('.').pop()?.toLowerCase() || 'jpg';
+          return [d.slot, { url: data?.signedUrl || '', path: d.path, ext }] as const;
+        }),
+      ).then(pairs => setExistingDocs(Object.fromEntries(pairs.filter(([, v]) => v.url))));
+    }
+  }, [existing]);
+
+  // ---- flagged helpers ----
+  const flagged = useMemo(
+    () => new Set<string>(Array.isArray(existing?.needs_info_fields) ? existing.needs_info_fields : []),
+    [existing],
+  );
+  const isFlagged = (k: string) => editMode && flagged.has(k);
+  const docFlagged = (slotKey: string) => editMode && flagged.has(`doc_${slotKey}`);
+
+  // ---- validation ----
   const validateStep = (): string | null => {
     if (step === 1) {
       if (!name.trim()) return 'Company name required';
@@ -106,9 +187,13 @@ export default function WarehouseRegisterWizard() {
       if (lat == null || lon == null) return 'Tap "Pin my location" to capture GPS';
     }
     if (step === 3) {
-      if (!docs['cac_cert']) return 'CAC certificate upload required';
-      if (!docs['director_id']) return 'Director ID upload required';
-      if (!docs['utility_bill']) return 'Utility bill upload required';
+      // For each required slot, must have either new upload OR existing doc
+      for (const slot of DOC_SLOTS) {
+        if (!slot.required) continue;
+        const hasNew = !!docs[slot.key];
+        const hasExisting = !!existingDocs[slot.key];
+        if (!hasNew && !hasExisting) return `${slot.label} upload required`;
+      }
     }
     if (step === 4) {
       if (!bankName.trim()) return 'Bank name required';
@@ -177,59 +262,97 @@ export default function WarehouseRegisterWizard() {
     if (err) { Alert.alert('Missing', err); return; }
     setBusy(true);
     try {
-      // 1. Upload docs
+      // Build merged documents list — new uploads uploaded, unchanged existing reused
       const docPaths: { slot: string; path: string }[] = [];
       for (const slot of DOC_SLOTS) {
-        const uri = docs[slot.key];
-        if (!uri) continue;
-        const path = await uploadDoc(slot.key, uri);
-        docPaths.push({ slot: slot.key, path });
+        if (docs[slot.key]) {
+          const path = await uploadDoc(slot.key, docs[slot.key]!);
+          docPaths.push({ slot: slot.key, path });
+        } else if (existingDocs[slot.key]) {
+          docPaths.push({ slot: slot.key, path: existingDocs[slot.key].path });
+        }
       }
 
-      // 2. Call registration RPC (existing signature)
-      const { data, error } = await supabase.rpc('register_warehouse_company', {
-        p_company_name: name.trim(),
-        p_cac_registration: cac.trim().toUpperCase(),
-        p_tin: tin.trim(),
-        p_contact_person: contactName.trim(),
-        p_contact_phone: contactPhone.trim(),
-        p_contact_email: contactEmail.trim().toLowerCase(),
-        p_state: state,
-        p_address: address.trim(),
-        p_years_in_business: parseInt(years) || 0,
-        p_documents: docPaths.map(d => d.path),
-        p_photos: [],
-      });
-      if (error) throw error;
+      const ref1 = ref1Name && ref1Phone ? { name: ref1Name, phone: ref1Phone } : null;
+      const ref2 = ref2Name && ref2Phone ? { name: ref2Name, phone: ref2Phone } : null;
 
-      // 3. Update extended fields
-      const { error: updErr } = await supabase
-        .from('warehouse_companies')
-        .update({
-          head_office_lat: lat,
-          head_office_lon: lon,
-          bank_name: bankName.trim(),
-          bank_account_number: acctNum.replace(/\D/g, ''),
-          bank_account_name: acctName.trim(),
-          total_capacity_tonnes: Number(capacity),
-          facility_count: parseInt(facilityCount) || 1,
-          unit_types: unitTypes,
-          documents: docPaths,
-          contact_role: contactRole,
-          reference_1: ref1Name && ref1Phone ? { name: ref1Name, phone: ref1Phone } : null,
-          reference_2: ref2Name && ref2Phone ? { name: ref2Name, phone: ref2Phone } : null,
-          agreement_signed_at: new Date().toISOString(),
-          agreement_version: WAREHOUSE_AGREEMENT.version,
-          agreement_signature: signature.trim(),
-        })
-        .eq('owner_id', user!.id);
-      if (updErr) throw updErr;
+      if (editMode && existing) {
+        // --- RESUBMIT ---
+        const { error } = await supabase.rpc('resubmit_warehouse_application', {
+          p_company_id: existing.id,
+          p_company_name: name.trim(),
+          p_cac_registration: cac.trim().toUpperCase(),
+          p_tin: tin.trim(),
+          p_contact_person: contactName.trim(),
+          p_contact_phone: contactPhone.trim(),
+          p_contact_email: contactEmail.trim().toLowerCase(),
+          p_contact_role: contactRole,
+          p_state: state,
+          p_address: address.trim(),
+          p_years_in_business: parseInt(years) || 0,
+          p_head_office_lat: lat,
+          p_head_office_lon: lon,
+          p_bank_name: bankName.trim(),
+          p_bank_account_number: acctNum.replace(/\D/g, ''),
+          p_bank_account_name: acctName.trim(),
+          p_total_capacity_tonnes: Number(capacity),
+          p_facility_count: parseInt(facilityCount) || 1,
+          p_unit_types: unitTypes,
+          p_documents: docPaths as any,
+          p_reference_1: ref1,
+          p_reference_2: ref2,
+        });
+        if (error) throw error;
+        Alert.alert(
+          'Resubmitted',
+          'Your updated application is back in the review queue. Admin will re-review within 1-3 business days.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else {
+        // --- FRESH ---
+        const { error } = await supabase.rpc('register_warehouse_company', {
+          p_company_name: name.trim(),
+          p_cac_registration: cac.trim().toUpperCase(),
+          p_tin: tin.trim(),
+          p_contact_person: contactName.trim(),
+          p_contact_phone: contactPhone.trim(),
+          p_contact_email: contactEmail.trim().toLowerCase(),
+          p_state: state,
+          p_address: address.trim(),
+          p_years_in_business: parseInt(years) || 0,
+          p_documents: docPaths.map(d => d.path),
+          p_photos: [],
+        });
+        if (error) throw error;
 
-      Alert.alert(
-        'Submitted',
-        'Application received. Admin review takes 1-3 business days. You will be notified once approved.',
-        [{ text: 'OK', onPress: () => router.back() }],
-      );
+        const { error: updErr } = await supabase
+          .from('warehouse_companies')
+          .update({
+            head_office_lat: lat,
+            head_office_lon: lon,
+            bank_name: bankName.trim(),
+            bank_account_number: acctNum.replace(/\D/g, ''),
+            bank_account_name: acctName.trim(),
+            total_capacity_tonnes: Number(capacity),
+            facility_count: parseInt(facilityCount) || 1,
+            unit_types: unitTypes,
+            documents: docPaths,
+            contact_role: contactRole,
+            reference_1: ref1,
+            reference_2: ref2,
+            agreement_signed_at: new Date().toISOString(),
+            agreement_version: WAREHOUSE_AGREEMENT.version,
+            agreement_signature: signature.trim(),
+          })
+          .eq('owner_id', user!.id);
+        if (updErr) throw updErr;
+
+        Alert.alert(
+          'Submitted',
+          'Application received. Admin review takes 1-3 business days.',
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      }
     } catch (e: any) {
       Alert.alert('Submission failed', e.message);
     } finally {
@@ -237,11 +360,12 @@ export default function WarehouseRegisterWizard() {
     }
   };
 
+  // ---- states ----
   if (checking) {
     return <View style={styles.center}><ActivityIndicator color={palette.neon} /></View>;
   }
 
-  if (existing) {
+  if (existing && !editMode) {
     const st = existing.verification_status;
     const paid = !!existing.registration_fee_paid_at;
     return (
@@ -256,20 +380,26 @@ export default function WarehouseRegisterWizard() {
 
             <View style={[styles.badge, { borderColor: st === 'approved' ? palette.neon : st === 'pending' ? '#ffb300' : '#ff3b5c' }]}>
               <Text style={[styles.badgeText, { color: st === 'approved' ? palette.neon : st === 'pending' ? '#ffb300' : '#ff3b5c' }]}>
-                {st.toUpperCase()}
+                {String(st).replace('_',' ').toUpperCase()}
               </Text>
             </View>
 
             {st === 'pending' && (
-              <Text style={styles.hint}>⏳ Admin is reviewing your application (1-3 business days).</Text>
+              <Text style={styles.hint}>
+                ⏳ Admin is reviewing your application (1-3 business days).
+                {existing.resubmission_count > 0 ? ` · Resubmitted ${existing.resubmission_count} time(s).` : ''}
+              </Text>
             )}
-            {st === 'rejected' && (
-              <Text style={styles.hint}>❌ {existing.rejection_reason || 'Application rejected. Contact support.'}</Text>
+            {st === 'rejected' && !existing.allow_resubmit && (
+              <>
+                <Text style={styles.hint}>❌ {existing.rejection_reason || 'Application rejected.'}</Text>
+                <Text style={styles.hint}>This application is closed. Contact support if you believe this is an error.</Text>
+              </>
             )}
             {st === 'approved' && !paid && (
               <>
                 <Text style={styles.hint}>
-                  ✅ Approved! Pay ₦20,000 registration fee to activate your account and start listing units.
+                  ✅ Approved! Pay ₦20,000 registration fee to activate your account.
                 </Text>
                 <Pressable
                   onPress={() => router.push(`/warehouse-pay-fee?company_id=${existing.id}` as any)}
@@ -281,9 +411,7 @@ export default function WarehouseRegisterWizard() {
             )}
             {st === 'approved' && paid && (
               <>
-                <Text style={styles.hint}>
-                  🎉 Fully activated. Add your first unit (30 days free) from the dashboard.
-                </Text>
+                <Text style={styles.hint}>🎉 Fully activated. Add your first unit (30 days free).</Text>
                 <Pressable onPress={() => router.push('/warehouse-dashboard' as any)} style={styles.cta}>
                   <Text style={styles.ctaText}>GO TO DASHBOARD</Text>
                 </Pressable>
@@ -295,12 +423,14 @@ export default function WarehouseRegisterWizard() {
     );
   }
 
-  // wizard
+  // ---- wizard (fresh OR edit mode) ----
+  const flagList = Array.from(flagged).filter(k => FLAG_LABELS[k]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={back}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>Register Warehouse</Text>
+        <Text style={styles.title}>{editMode ? 'Update Application' : 'Register Warehouse'}</Text>
         <View style={styles.progress}>
           {[1,2,3,4].map(s => (
             <View key={s} style={[styles.progressDot, step >= s && styles.progressDotActive]} />
@@ -310,15 +440,36 @@ export default function WarehouseRegisterWizard() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        {editMode && existing ? (
+          <View style={styles.editBanner}>
+            <Text style={styles.editBannerTitle}>
+              {existing.verification_status === 'needs_info' ? '📝 INFO NEEDED' : '📝 UPDATE REQUIRED'}
+            </Text>
+            {existing.rejection_reason ? (
+              <Text style={styles.editBannerReason}>"{existing.rejection_reason}"</Text>
+            ) : null}
+            {flagList.length > 0 ? (
+              <>
+                <Text style={styles.editBannerSub}>Fix these fields:</Text>
+                {flagList.map(k => (
+                  <Text key={k} style={styles.editBannerItem}>• {FLAG_LABELS[k]}</Text>
+                ))}
+              </>
+            ) : (
+              <Text style={styles.editBannerSub}>Update anything that needs correcting and resubmit.</Text>
+            )}
+          </View>
+        ) : null}
+
         {step === 1 && (
           <>
             <Text style={styles.sectionLabel}>COMPANY IDENTITY</Text>
             <Text style={styles.label}>COMPANY NAME *</Text>
-            <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Must match CAC exactly" placeholderTextColor={palette.textDim} />
+            <TextInput value={name} onChangeText={setName} style={[styles.input, isFlagged('company_name') && styles.inputFlagged]} placeholder="Must match CAC exactly" placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>CAC REGISTRATION NUMBER *</Text>
-            <TextInput value={cac} onChangeText={setCac} style={styles.input} placeholder="RC-1234567" placeholderTextColor={palette.textDim} autoCapitalize="characters" />
+            <TextInput value={cac} onChangeText={setCac} style={[styles.input, isFlagged('cac_registration') && styles.inputFlagged]} placeholder="RC-1234567" placeholderTextColor={palette.textDim} autoCapitalize="characters" />
             <Text style={styles.label}>TIN *</Text>
-            <TextInput value={tin} onChangeText={setTin} style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={tin} onChangeText={setTin} style={[styles.input, isFlagged('tin') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>YEARS IN BUSINESS</Text>
             <TextInput value={years} onChangeText={setYears} keyboardType="number-pad" style={styles.input} placeholderTextColor={palette.textDim} placeholder="e.g. 5" />
           </>
@@ -328,7 +479,7 @@ export default function WarehouseRegisterWizard() {
           <>
             <Text style={styles.sectionLabel}>CONTACT PERSON</Text>
             <Text style={styles.label}>FULL NAME *</Text>
-            <TextInput value={contactName} onChangeText={setContactName} style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={contactName} onChangeText={setContactName} style={[styles.input, isFlagged('contact_person') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>ROLE</Text>
             <View style={styles.row}>
               {['Owner', 'Director', 'Manager'].map(r => (
@@ -338,9 +489,9 @@ export default function WarehouseRegisterWizard() {
               ))}
             </View>
             <Text style={styles.label}>PHONE *</Text>
-            <TextInput value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" style={styles.input} placeholder="080..." placeholderTextColor={palette.textDim} />
+            <TextInput value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" style={[styles.input, isFlagged('contact_phone') && styles.inputFlagged]} placeholder="080..." placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>EMAIL *</Text>
-            <TextInput value={contactEmail} onChangeText={setContactEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={contactEmail} onChangeText={setContactEmail} autoCapitalize="none" keyboardType="email-address" style={[styles.input, isFlagged('contact_email') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
 
             <Text style={styles.sectionLabel}>HEAD OFFICE</Text>
             <Text style={styles.label}>STATE *</Text>
@@ -352,10 +503,10 @@ export default function WarehouseRegisterWizard() {
               ))}
             </ScrollView>
             <Text style={styles.label}>ADDRESS *</Text>
-            <TextInput value={address} onChangeText={setAddress} multiline style={[styles.input, { minHeight: 70 }]} placeholderTextColor={palette.textDim} />
+            <TextInput value={address} onChangeText={setAddress} multiline style={[styles.input, { minHeight: 70 }, isFlagged('address') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
 
             <Text style={styles.label}>GPS PIN *</Text>
-            <Pressable onPress={captureLocation} disabled={locBusy} style={styles.locBtn}>
+            <Pressable onPress={captureLocation} disabled={locBusy} style={[styles.locBtn, isFlagged('gps') && styles.locBtnFlagged]}>
               {locBusy ? <ActivityIndicator color={palette.neon} /> :
                 <Text style={styles.locBtnText}>
                   {lat != null ? `📍 ${lat.toFixed(5)}, ${lon?.toFixed(5)}` : '📍 TAP TO PIN MY LOCATION'}
@@ -367,20 +518,32 @@ export default function WarehouseRegisterWizard() {
         {step === 3 && (
           <>
             <Text style={styles.sectionLabel}>REQUIRED DOCUMENTS</Text>
+            {editMode && flagList.some(k => k.startsWith('doc_')) ? (
+              <Text style={styles.editBannerSub}>Fields marked red need to be re-uploaded.</Text>
+            ) : null}
             {DOC_SLOTS.map(slot => {
-              const uri = docs[slot.key];
-              const required = ['cac_cert', 'director_id', 'utility_bill'].includes(slot.key);
+              const newUri = docs[slot.key];
+              const existingDoc = existingDocs[slot.key];
+              const isBad = docFlagged(slot.key);
+              const hasAny = !!newUri || !!existingDoc;
+              const statusLabel = newUri ? '✓ New upload' : existingDoc ? '✓ Uploaded' : 'Not uploaded';
+              const statusColor = isBad ? '#ff3b5c' : hasAny ? palette.neon : palette.textMuted;
+
               return (
-                <View key={slot.key} style={styles.docRow}>
+                <View key={slot.key} style={[styles.docRow, isBad && { borderColor: '#ff3b5c' }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.docLabel}>{slot.label}{required ? ' *' : ''}</Text>
-                    <Text style={styles.docStatus}>{uri ? '✓ Uploaded' : 'Not uploaded'}</Text>
+                    <Text style={styles.docLabel}>{slot.label}{slot.required ? ' *' : ''}</Text>
+                    <Text style={[styles.docStatus, { color: statusColor }]}>{statusLabel}{isBad ? ' — needs replacement' : ''}</Text>
                   </View>
-                  {uri ? (
-                    <Image source={{ uri }} style={styles.thumb} />
+                  {newUri ? (
+                    <Image source={{ uri: newUri }} style={styles.thumb} />
+                  ) : existingDoc && existingDoc.ext !== 'pdf' ? (
+                    <Image source={{ uri: existingDoc.url }} style={styles.thumb} />
+                  ) : existingDoc ? (
+                    <Text style={{ fontSize: 24 }}>📄</Text>
                   ) : null}
                   <Pressable onPress={() => pickDoc(slot.key)} style={styles.docBtn}>
-                    <Text style={styles.docBtnText}>{uri ? 'CHANGE' : 'UPLOAD'}</Text>
+                    <Text style={styles.docBtnText}>{newUri ? 'CHANGE' : hasAny ? 'REPLACE' : 'UPLOAD'}</Text>
                   </Pressable>
                 </View>
               );
@@ -392,15 +555,15 @@ export default function WarehouseRegisterWizard() {
           <>
             <Text style={styles.sectionLabel}>PAYOUT BANK ACCOUNT</Text>
             <Text style={styles.label}>BANK NAME *</Text>
-            <TextInput value={bankName} onChangeText={setBankName} style={styles.input} placeholder="e.g. Access Bank" placeholderTextColor={palette.textDim} />
+            <TextInput value={bankName} onChangeText={setBankName} style={[styles.input, isFlagged('bank_name') && styles.inputFlagged]} placeholder="e.g. Access Bank" placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>ACCOUNT NUMBER * (10 digits)</Text>
-            <TextInput value={acctNum} onChangeText={setAcctNum} keyboardType="number-pad" maxLength={10} style={styles.input} placeholderTextColor={palette.textDim} />
-            <Text style={styles.label}>ACCOUNT NAME * (must match CAC)</Text>
-            <TextInput value={acctName} onChangeText={setAcctName} style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={acctNum} onChangeText={setAcctNum} keyboardType="number-pad" maxLength={10} style={[styles.input, isFlagged('bank_account_number') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
+            <Text style={styles.label}>ACCOUNT NAME *</Text>
+            <TextInput value={acctName} onChangeText={setAcctName} style={[styles.input, isFlagged('bank_account_name') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
 
             <Text style={styles.sectionLabel}>CAPACITY</Text>
             <Text style={styles.label}>TOTAL CAPACITY (TONNES) *</Text>
-            <TextInput value={capacity} onChangeText={setCapacity} keyboardType="numeric" style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={capacity} onChangeText={setCapacity} keyboardType="numeric" style={[styles.input, isFlagged('total_capacity_tonnes') && styles.inputFlagged]} placeholderTextColor={palette.textDim} />
             <Text style={styles.label}>NUMBER OF FACILITIES</Text>
             <TextInput value={facilityCount} onChangeText={setFacilityCount} keyboardType="number-pad" style={styles.input} placeholderTextColor={palette.textDim} />
 
@@ -409,11 +572,7 @@ export default function WarehouseRegisterWizard() {
               {['cold', 'dry', 'humidity', 'fumigation'].map(t => {
                 const active = unitTypes.includes(t);
                 return (
-                  <Pressable
-                    key={t}
-                    onPress={() => setUnitTypes(u => active ? u.filter(x => x !== t) : [...u, t])}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
+                  <Pressable key={t} onPress={() => setUnitTypes(u => active ? u.filter(x => x !== t) : [...u, t])} style={[styles.chip, active && styles.chipActive]}>
                     <Text style={[styles.chipText, active && { color: '#000' }]}>{t.toUpperCase()}</Text>
                   </Pressable>
                 );
@@ -421,44 +580,33 @@ export default function WarehouseRegisterWizard() {
             </View>
 
             <Text style={styles.sectionLabel}>REFERENCES (OPTIONAL)</Text>
-            <Text style={styles.label}>REFERENCE 1 — NAME</Text>
-            <TextInput value={ref1Name} onChangeText={setRef1Name} style={styles.input} placeholderTextColor={palette.textDim} />
-            <Text style={styles.label}>REFERENCE 1 — PHONE</Text>
-            <TextInput value={ref1Phone} onChangeText={setRef1Phone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
-            <Text style={styles.label}>REFERENCE 2 — NAME</Text>
-            <TextInput value={ref2Name} onChangeText={setRef2Name} style={styles.input} placeholderTextColor={palette.textDim} />
-            <Text style={styles.label}>REFERENCE 2 — PHONE</Text>
-            <TextInput value={ref2Phone} onChangeText={setRef2Phone} keyboardType="phone-pad" style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={ref1Name} onChangeText={setRef1Name} placeholder="Reference 1 — name" style={[styles.input, isFlagged('references') && styles.inputFlagged, { marginBottom: 8 }]} placeholderTextColor={palette.textDim} />
+            <TextInput value={ref1Phone} onChangeText={setRef1Phone} placeholder="Reference 1 — phone" keyboardType="phone-pad" style={[styles.input, isFlagged('references') && styles.inputFlagged, { marginBottom: 8 }]} placeholderTextColor={palette.textDim} />
+            <TextInput value={ref2Name} onChangeText={setRef2Name} placeholder="Reference 2 — name" style={styles.input} placeholderTextColor={palette.textDim} />
+            <TextInput value={ref2Phone} onChangeText={setRef2Phone} placeholder="Reference 2 — phone" keyboardType="phone-pad" style={[styles.input, { marginTop: 8 }]} placeholderTextColor={palette.textDim} />
 
-            <Text style={styles.sectionLabel}>AGREEMENT</Text>
-            <Pressable onPress={() => setAgreed(a => !a)} style={styles.checkRow}>
-              <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
-                {agreed ? <Text style={styles.checkMark}>✓</Text> : null}
-              </View>
-              <Text style={styles.checkLabel}>
-                I have read and accept the{' '}
-                <Text style={styles.link} onPress={() => setShowAgreement(true)}>
-                  Warehouse Partner Agreement
-                </Text>
-                {' '}and{' '}
-                <Text style={styles.link} onPress={() => router.push('/legal/terms' as any)}>
-                  Terms of Service
-                </Text>.
+            {!editMode ? (
+              <>
+                <Text style={styles.sectionLabel}>AGREEMENT</Text>
+                <Pressable onPress={() => setAgreed(a => !a)} style={styles.checkRow}>
+                  <View style={[styles.checkbox, agreed && styles.checkboxActive]}>
+                    {agreed ? <Text style={styles.checkMark}>✓</Text> : null}
+                  </View>
+                  <Text style={styles.checkLabel}>
+                    I have read and accept the{' '}
+                    <Text style={styles.link} onPress={() => setShowAgreement(true)}>Warehouse Partner Agreement</Text>
+                    {' '}and{' '}
+                    <Text style={styles.link} onPress={() => router.push('/legal/terms' as any)}>Terms of Service</Text>.
+                  </Text>
+                </Pressable>
+                <Text style={styles.label}>E-SIGNATURE — TYPE FULL NAME *</Text>
+                <TextInput value={signature} onChangeText={setSignature} style={styles.input} placeholder="Type your full legal name" placeholderTextColor={palette.textDim} />
+              </>
+            ) : (
+              <Text style={styles.metaSmall}>
+                Your original agreement remains in effect. Resubmitting does not revoke it.
               </Text>
-            </Pressable>
-
-            <Text style={styles.label}>E-SIGNATURE — TYPE FULL NAME *</Text>
-            <TextInput
-              value={signature}
-              onChangeText={setSignature}
-              style={styles.input}
-              placeholder="Type your full legal name"
-              placeholderTextColor={palette.textDim}
-            />
-
-            <Text style={styles.metaSmall}>
-              By submitting you confirm all information is accurate. False information may result in permanent ban and legal action.
-            </Text>
+            )}
           </>
         )}
 
@@ -472,7 +620,9 @@ export default function WarehouseRegisterWizard() {
           </Pressable>
         ) : (
           <Pressable onPress={submit} disabled={busy} style={[styles.primaryBtn, busy && { opacity: 0.5 }]}>
-            {busy ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryBtnText}>SUBMIT APPLICATION</Text>}
+            {busy
+              ? <ActivityIndicator color="#000" />
+              : <Text style={styles.primaryBtnText}>{editMode ? 'RESUBMIT APPLICATION' : 'SUBMIT APPLICATION'}</Text>}
           </Pressable>
         )}
       </View>
@@ -504,18 +654,25 @@ const createStyles = (p: any) => StyleSheet.create({
   progressDotActive: { backgroundColor: p.neon },
   stepLabel: { fontSize: 11, color: p.textMuted, marginTop: 8 },
   scroll: { padding: 20, paddingBottom: 120 },
+  editBanner: { backgroundColor: 'rgba(59,130,246,0.12)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#3b82f6', marginBottom: 20 },
+  editBannerTitle: { fontSize: 12, fontWeight: '900', color: '#3b82f6', letterSpacing: 1.5, marginBottom: 6 },
+  editBannerReason: { fontSize: 12, color: p.text, fontStyle: 'italic', marginBottom: 8, lineHeight: 18 },
+  editBannerSub: { fontSize: 11, color: p.text, fontWeight: '700', marginTop: 4 },
+  editBannerItem: { fontSize: 11, color: '#3b82f6', marginTop: 3, fontWeight: '700' },
   sectionLabel: { fontSize: 11, fontWeight: '900', color: p.neon, letterSpacing: 2, marginTop: 24, marginBottom: 8 },
   label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginTop: 14, marginBottom: 6, letterSpacing: 1 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
+  inputFlagged: { borderColor: '#ff3b5c', borderWidth: 2 },
   row: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   chip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: p.border, backgroundColor: p.surface },
   chipActive: { borderColor: p.neon, backgroundColor: p.neon },
   chipText: { fontSize: 11, fontWeight: '700', color: p.textDim },
   locBtn: { padding: 16, borderRadius: 12, backgroundColor: 'rgba(0,255,136,0.1)', borderWidth: 1, borderColor: p.neon, alignItems: 'center', marginTop: 6 },
+  locBtnFlagged: { borderColor: '#ff3b5c', borderWidth: 2 },
   locBtnText: { color: p.neon, fontWeight: '800', fontSize: 12, letterSpacing: 1 },
   docRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: p.surface, borderRadius: 12, borderWidth: 1, borderColor: p.border, marginBottom: 8 },
   docLabel: { fontSize: 13, color: p.text, fontWeight: '700' },
-  docStatus: { fontSize: 11, color: p.textMuted, marginTop: 2 },
+  docStatus: { fontSize: 11, marginTop: 2, fontWeight: '700' },
   thumb: { width: 40, height: 40, borderRadius: 6 },
   docBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: p.neon },
   docBtnText: { color: p.neon, fontSize: 10, fontWeight: '900', letterSpacing: 1 },

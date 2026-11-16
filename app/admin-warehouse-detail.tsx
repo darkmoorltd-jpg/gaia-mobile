@@ -14,6 +14,27 @@ const MANDATORY = ['docs_match_cac', 'bank_matches_cac', 'has_real_photo'] as co
 const OPTIONAL = ['spoke_to_contact', 'called_ref_1', 'called_ref_2'] as const;
 const ALL_ITEMS = [...MANDATORY, ...OPTIONAL];
 
+const INFO_FIELDS = [
+  { key: 'company_name', label: 'Company name' },
+  { key: 'cac_registration', label: 'CAC registration' },
+  { key: 'tin', label: 'TIN' },
+  { key: 'contact_person', label: 'Contact person' },
+  { key: 'contact_phone', label: 'Contact phone' },
+  { key: 'contact_email', label: 'Contact email' },
+  { key: 'address', label: 'Address' },
+  { key: 'gps', label: 'GPS location' },
+  { key: 'doc_cac_cert', label: 'CAC Certificate document' },
+  { key: 'doc_tin_cert', label: 'TIN Certificate document' },
+  { key: 'doc_director_id', label: 'Director ID document' },
+  { key: 'doc_utility_bill', label: 'Utility Bill document' },
+  { key: 'doc_letterhead', label: 'Letterhead document' },
+  { key: 'bank_name', label: 'Bank name' },
+  { key: 'bank_account_number', label: 'Bank account number' },
+  { key: 'bank_account_name', label: 'Bank account name' },
+  { key: 'total_capacity_tonnes', label: 'Storage capacity' },
+  { key: 'references', label: 'References' },
+];
+
 const ITEM_LABELS: Record<string, string> = {
   docs_match_cac: 'Documents match CAC name',
   bank_matches_cac: 'Bank account name matches CAC',
@@ -60,6 +81,7 @@ export default function AdminWarehouseDetail() {
   const [decision, setDecision] = useState<null | 'approved' | 'rejected' | 'requested_info'>(null);
   const [reason, setReason] = useState('');
   const [allowResubmit, setAllowResubmit] = useState(true);
+  const [needsInfoFields, setNeedsInfoFields] = useState<string[]>([]);
   const [deciding, setDeciding] = useState(false);
 
   const load = useCallback(async () => {
@@ -166,6 +188,7 @@ export default function AdminWarehouseDetail() {
         p_action: decision,
         p_reason: decision === 'approved' ? null : reason.trim(),
         p_allow_resubmit: decision !== 'approved' ? allowResubmit : false,
+        p_needs_info_fields: decision === 'requested_info' ? needsInfoFields : null,
       });
       if (error) throw error;
       setDecision(null);
@@ -419,7 +442,7 @@ export default function AdminWarehouseDetail() {
               <Pressable onPress={() => setDecision('rejected')} style={[styles.decBtn, { borderColor: '#ff3b5c' }]}>
                 <Text style={[styles.decTxt, { color: '#ff3b5c' }]}>REJECT</Text>
               </Pressable>
-              <Pressable onPress={() => setDecision('requested_info')} style={[styles.decBtn, { borderColor: '#3b82f6' }]}>
+              <Pressable onPress={() => { setDecision('requested_info'); setNeedsInfoFields([]); }} style={[styles.decBtn, { borderColor: '#3b82f6' }]}>
                 <Text style={[styles.decTxt, { color: '#3b82f6' }]}>REQUEST INFO</Text>
               </Pressable>
               <Pressable
@@ -529,6 +552,29 @@ export default function AdminWarehouseDetail() {
                   style={styles.reasonInput}
                 />
 
+                {decision === 'requested_info' ? (
+                  <>
+                    <Text style={[styles.decModalLabel, { marginTop: 16 }]}>WHICH FIELDS NEED FIXING?</Text>
+                    {INFO_FIELDS.map(f => {
+                      const checked = needsInfoFields.includes(f.key);
+                      return (
+                        <Pressable
+                          key={f.key}
+                          onPress={() => setNeedsInfoFields(prev =>
+                            checked ? prev.filter(x => x !== f.key) : [...prev, f.key],
+                          )}
+                          style={styles.fieldCheckRow}
+                        >
+                          <View style={[styles.fieldCheckbox, checked && styles.fieldCheckboxOn]}>
+                            {checked ? <Text style={styles.fieldCheckMark}>✓</Text> : null}
+                          </View>
+                          <Text style={styles.fieldCheckLabel}>{f.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </>
+                ) : null}
+
                 <Pressable onPress={() => setAllowResubmit(a => !a)} style={styles.resubmitRow}>
                   <View style={[styles.checkbox, allowResubmit && styles.checkboxOn]}>
                     {allowResubmit ? <Text style={styles.checkMark}>✓</Text> : null}
@@ -539,7 +585,7 @@ export default function AdminWarehouseDetail() {
             )}
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
-              <Pressable onPress={() => { setDecision(null); setReason(''); }} style={[styles.decModalBtn, { borderColor: palette.border }]}>
+              <Pressable onPress={() => { setDecision(null); setReason(''); setNeedsInfoFields([]); }} style={[styles.decModalBtn, { borderColor: palette.border }]}>
                 <Text style={[styles.decModalBtnTxt, { color: palette.text }]}>CANCEL</Text>
               </Pressable>
               <Pressable
@@ -649,6 +695,11 @@ const createStyles = (p: any) => StyleSheet.create({
   radioOn: { borderColor: p.neon },
   radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: p.neon },
   reasonTxt: { flex: 1, fontSize: 13, color: p.text },
+  fieldCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  fieldCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: p.border, alignItems: 'center', justifyContent: 'center' },
+  fieldCheckboxOn: { borderColor: '#3b82f6', backgroundColor: '#3b82f6' },
+  fieldCheckMark: { fontSize: 12, fontWeight: '900', color: '#fff' },
+  fieldCheckLabel: { flex: 1, fontSize: 12, color: p.text },
   reasonInput: { marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: p.obsidian, color: p.text, borderWidth: 1, borderColor: p.border, fontSize: 13, minHeight: 60, textAlignVertical: 'top' },
   resubmitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   resubmitTxt: { flex: 1, fontSize: 12, color: p.text },
