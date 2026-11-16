@@ -16,7 +16,6 @@ export default function OrganicSellerDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
 
-  // Add product modal
   const [showAdd, setShowAdd] = useState(false);
   const [pTitle, setPTitle] = useState('');
   const [pPrice, setPPrice] = useState('');
@@ -27,18 +26,14 @@ export default function OrganicSellerDashboard() {
   const load = useCallback(async () => {
     if (!user) return;
     setBusy(true);
-    
-    // Get seller profile
     const { data: s } = await supabase.from('organic_sellers').select('*').eq('user_id', user.id).maybeSingle();
     setSeller(s);
-
     if (s) {
-      // Get products
-      const { data: p } = await supabase.from('organic_products').select('*').eq('seller_id', s.id).order('created_at', { ascending: false });
+      const [{ data: p }, { data: o }] = await Promise.all([
+        supabase.from('organic_products').select('*').eq('seller_id', s.id).order('created_at', { ascending: false }),
+        supabase.from('organic_orders').select('*, organic_products(title)').eq('seller_id', s.id).order('created_at', { ascending: false }),
+      ]);
       setProducts(p || []);
-
-      // Get orders
-      const { data: o } = await supabase.from('organic_orders').select('*, organic_products(title)').eq('seller_id', s.id).order('created_at', { ascending: false });
       setOrders(o || []);
     }
     setBusy(false);
@@ -49,19 +44,41 @@ export default function OrganicSellerDashboard() {
   const addProduct = async () => {
     if (!pTitle.trim() || !pPrice || !pStock) { Alert.alert('Missing fields'); return; }
     setAdding(true);
-
     const { error } = await supabase.rpc('create_organic_product', {
-      p_title: pTitle.trim(),
-      p_price: parseFloat(pPrice),
-      p_stock: parseFloat(pStock),
-      p_unit: pUnit,
+      p_title: pTitle.trim(), p_price: parseFloat(pPrice),
+      p_stock: parseFloat(pStock), p_unit: pUnit,
     });
-
     setAdding(false);
     if (error) { Alert.alert('Failed', error.message); return; }
-    setShowAdd(false);
-    setPTitle(''); setPPrice(''); setPStock('');
+    setShowAdd(false); setPTitle(''); setPPrice(''); setPStock('');
     load();
+  };
+
+  const markShipped = (order: any) => {
+    Alert.prompt?.('Tracking number (optional)', 'Enter carrier tracking:', async (tracking) => {
+      try {
+        const { error } = await supabase.rpc('organic_order_shipped', {
+          p_order_id: String(order.id), p_tracking: tracking || null,
+        });
+        if (error) throw error;
+        Alert.alert('Shipped'); load();
+      } catch (e: any) { Alert.alert('Failed', e.message); }
+    });
+  };
+
+  const markDelivered = (order: any) => {
+    Alert.alert('Mark as delivered?', 'Buyer will be notified to confirm.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Confirm', onPress: async () => {
+        try {
+          const { error } = await supabase.rpc('organic_order_delivered', {
+            p_order_id: String(order.id), p_proof_url: null,
+          });
+          if (error) throw error;
+          Alert.alert('Delivered'); load();
+        } catch (e: any) { Alert.alert('Failed', e.message); }
+      }},
+    ]);
   };
 
   if (busy) return <View style={styles.container}><ActivityIndicator color={palette.neon} style={{ marginTop: 100 }} /></View>;
@@ -84,29 +101,60 @@ export default function OrganicSellerDashboard() {
   }
 
   const pendingOrders = orders.filter(o => o.status === 'escrow');
+  const shippedOrders = orders.filter(o => o.status === 'shipped');
+  const deliveredOrders = orders.filter(o => o.status === 'delivered');
   const completedOrders = orders.filter(o => o.status === 'completed');
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + Number(o.seller_payout), 0);
-  const escrowAmount = pendingOrders.reduce((sum, o) => sum + Number(o.seller_payout), 0);
+  const totalRevenue = completedOrders.reduce((s, o) => s + Number(o.seller_payout), 0);
+  const escrowAmount = [...pendingOrders, ...shippedOrders, ...deliveredOrders].reduce((s, o) => s + Number(o.seller_payout), 0);
+
+  const activeOrders = [...pendingOrders, ...shippedOrders, ...deliveredOrders];
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>{seller.business_name}</Text>
-        <Text style={styles.sub}>Tier: {seller.tier_id.toUpperCase()} · {seller.is_certified ? '✅ Certified' : 'Not Certified'}</Text>
+        <Text style={styles.sub}>Tier: {seller.tier_id?.toUpperCase()} · {seller.is_certified ? '✅ Certified' : 'Not Certified'}</Text>
 
         <View style={styles.statRow}>
           <View style={styles.stat}><Text style={styles.statVal}>{products.length}</Text><Text style={styles.statLbl}>PRODUCTS</Text></View>
-          <View style={styles.stat}><Text style={styles.statVal}>{pendingOrders.length}</Text><Text style={styles.statLbl}>IN ESCROW</Text></View>
-          <View style={styles.stat}><Text style={styles.statVal}>₦{totalRevenue.toLocaleString()}</Text><Text style={styles.statLbl}>EARNED</Text></View>
+          <View style={styles.stat}><Text style={styles.statVal}>{activeOrders.length}</Text><Text style={styles.statLbl}>ACTIVE</Text></View>
+          <View style={styles.stat}><Text style={styles.statVal}>₦{(totalRevenue/1000).toFixed(0)}k</Text><Text style={styles.statLbl}>EARNED</Text></View>
         </View>
 
-        {escrowAmount > 0 && (
+        {escrowAmount > 0 ? (
           <View style={styles.escrowBox}>
             <Text style={styles.escrowLabel}>⏳ ₦{escrowAmount.toLocaleString()} IN ESCROW</Text>
-            <Text style={styles.escrowSub}>Funds release automatically 3 days after buyer confirms delivery.</Text>
+            <Text style={styles.escrowSub}>Funds release 3 days after buyer confirms delivery.</Text>
           </View>
-        )}
+        ) : null}
+
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>ACTIVE ORDERS</Text>
+        {activeOrders.length === 0 ? <Text style={styles.emptyText}>No active orders.</Text> : null}
+        {activeOrders.map(o => (
+          <View key={o.id} style={styles.card}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.prodTitle}>{o.organic_products?.title || 'Product'} × {o.quantity}</Text>
+              <Text style={styles.prodPrice}>₦{Number(o.seller_payout).toLocaleString()}</Text>
+              <Text style={[styles.prodStock, { color: o.status === 'escrow' ? '#ffb300' : o.status === 'shipped' ? '#3b82f6' : palette.neon }]}>
+                {o.status === 'escrow' ? '⏳ Awaiting shipment' :
+                 o.status === 'shipped' ? '🚚 In transit' :
+                 o.status === 'delivered' ? '📦 Delivered — awaiting buyer confirmation' :
+                 '✓ Completed'}
+              </Text>
+              {o.status === 'escrow' ? (
+                <Pressable onPress={() => markShipped(o)} style={styles.actionBtn}>
+                  <Text style={styles.actionBtnTxt}>MARK SHIPPED</Text>
+                </Pressable>
+              ) : null}
+              {o.status === 'shipped' ? (
+                <Pressable onPress={() => markDelivered(o)} style={[styles.actionBtn, { backgroundColor: '#3b82f6' }]}>
+                  <Text style={styles.actionBtnTxt}>MARK DELIVERED</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ))}
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, marginBottom: 10 }}>
           <Text style={styles.sectionLabel}>MY PRODUCTS</Text>
@@ -126,17 +174,11 @@ export default function OrganicSellerDashboard() {
           </View>
         ))}
 
-        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>RECENT ORDERS</Text>
-        {orders.length === 0 ? <Text style={styles.emptyText}>No orders yet.</Text> : null}
-        {orders.slice(0, 10).map(o => (
+        <Text style={[styles.sectionLabel, { marginTop: 24 }]}>COMPLETED</Text>
+        {completedOrders.slice(0, 10).map(o => (
           <View key={o.id} style={styles.card}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.prodTitle}>{o.organic_products?.title || 'Product'} × {o.quantity}</Text>
-              <Text style={styles.prodPrice}>Earned: ₦{Number(o.seller_payout).toLocaleString()}</Text>
-              <Text style={[styles.prodStock, { color: o.status === 'escrow' ? '#ffb300' : palette.neon }]}>
-                {o.status === 'escrow' ? '⏳ In Escrow (3-day release)' : '✅ Completed'}
-              </Text>
-            </View>
+            <Text style={styles.prodTitle}>{o.organic_products?.title || 'Product'} × {o.quantity}</Text>
+            <Text style={styles.prodPrice}>₦{Number(o.seller_payout).toLocaleString()}</Text>
           </View>
         ))}
 
@@ -194,6 +236,8 @@ const createStyles = (p: any) => StyleSheet.create({
   prodTitle: { fontSize: 14, fontWeight: '800', color: p.text },
   prodPrice: { fontSize: 13, color: p.text, marginTop: 4, fontWeight: '600' },
   prodStock: { fontSize: 11, color: p.textMuted, marginTop: 4 },
+  actionBtn: { marginTop: 10, backgroundColor: p.neon, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  actionBtnTxt: { fontSize: 11, fontWeight: '900', color: '#000', letterSpacing: 1 },
   emptyCard: { backgroundColor: p.surface, padding: 24, borderRadius: 16, borderWidth: 1, borderColor: p.border, alignItems: 'center', marginTop: 20 },
   emptyText: { fontSize: 13, color: p.textMuted, textAlign: 'center', lineHeight: 20, marginTop: 12 },
   cta: { padding: 16, borderRadius: 12, backgroundColor: p.neon, alignItems: 'center', marginTop: 16, width: '100%' },

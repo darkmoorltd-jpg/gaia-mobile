@@ -70,13 +70,8 @@ export default function WarehouseManager() {
         received_at: new Date().toISOString(),
       }).eq('id', selectedJob.id);
 
-      // 3. Trigger payout (test mode by default; set ENABLE_REAL_PAYOUTS=true on Supabase to move money)
-      const pay = await initiateDriverPayout(selectedJob.id);
-      if (!pay.ok) {
-        Alert.alert('Delivery logged, but payout failed', pay.error || 'Try again from the driver payout screen.');
-      }
-
-      Alert.alert('Confirmed', 'Cargo received. Driver payout is being processed.');
+      // Payout queued server-side inside receive_trip()
+      Alert.alert('Confirmed', 'Cargo received. Driver payout queued.');
       setShowModal(false);
       setSignature(null);
       setFinalWeight('');

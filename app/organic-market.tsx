@@ -106,6 +106,9 @@ export default function OrganicMarket() {
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>🌿 GAIA Organic</Text>
           <Text style={styles.heroSub}>Certified chemical-free food, delivered to your family.</Text>
+          <Pressable onPress={() => router.push('/organic-orders' as any)} style={{ marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#ffd700', borderRadius: 8 }}>
+            <Text style={{ color: '#ffd700', fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>MY ORDERS →</Text>
+          </Pressable>
         </View>
 
         <View style={styles.diasporaBanner}>

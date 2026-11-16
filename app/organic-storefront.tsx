@@ -158,6 +158,10 @@ export default function OrganicStorefront() {
         <Text style={styles.title}>🌿 GAIA Organic Market</Text>
         <Text style={styles.sub}>Certified chemical-free produce from verified farms</Text>
 
+        <Pressable onPress={() => router.push('/organic-orders' as any)} style={{ alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: palette.neon, borderRadius: 8, marginBottom: 12 }}>
+          <Text style={{ color: palette.neon, fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>MY ORDERS</Text>
+        </Pressable>
+
         <TextInput value={search} onChangeText={setSearch} placeholder="Search sellers..." placeholderTextColor={palette.textDim} style={styles.search} />
 
         {filtered.length === 0 ? (

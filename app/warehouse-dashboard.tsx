@@ -86,15 +86,7 @@ export default function WarehouseDashboard() {
     } else {
       Alert.alert('Pay listing fee?', '₦10,000 for 1 month. Unit will go live immediately.', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Pay Now', onPress: async () => {
-          const ref = 'GAIA_LIST_' + Date.now().toString(36).toUpperCase();
-          const { error } = await supabase.rpc('pay_listing_fee', {
-            p_unit_id: unit.id, p_payment_ref: ref, p_months: 1
-          });
-          if (error) { Alert.alert('Failed', error.message); return; }
-          Alert.alert('Listed!', 'Your unit is now visible to farmers.');
-          load();
-        }},
+        { text: 'Pay Now', onPress: () => router.push(`/warehouse-listing-pay?unit_id=${unit.id}` as any) },
       ]);
     }
   };

@@ -12,6 +12,7 @@ export default function AdminExportScreen() {
   const { palette } = useTheme();
   const styles = createStyles(palette);
 
+  const isAdmin = user?.email?.toLowerCase() === 'darkmoorltd@gmail.com';
   const [busy, setBusy] = useState(false);
   const [farmers, setFarmers] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -135,6 +136,19 @@ export default function AdminExportScreen() {
       setBusy(false);
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <View style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ color: '#ff3b5c', fontSize: 20, fontWeight: '900' }}>Access denied</Text>
+          <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+            <Text style={{ color: palette.textMuted }}>Go back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
