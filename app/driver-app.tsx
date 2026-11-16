@@ -13,6 +13,7 @@ import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
 import { startBackgroundTracking, stopBackgroundTracking } from '../src/utils/backgroundLocation';
+import { DRIVER_AGREEMENT } from '../src/legal/content';
 
 type Tab = 'home' | 'wallet' | 'profile';
 
@@ -392,6 +393,10 @@ export default function DriverApp() {
       </View>
     );
   }
+  if (!driverProfile.agreement_signed_at) {
+    return <DriverAgreementGate onAccepted={loadProfile} />;
+  }
+
   if (driverProfile.status !== 'active') {
     return (
       <View style={styles.center}>
@@ -536,6 +541,13 @@ export default function DriverApp() {
             <Text style={styles.walletValue}>₦{wallet.balance.toLocaleString()}</Text>
             <Text style={styles.muted}>Ledger-based — confirmed payments only.</Text>
           </View>
+
+          <Pressable
+            onPress={() => router.push('/driver-withdraw' as any)}
+            style={{ backgroundColor: palette.neon, paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginTop: 12, marginBottom: 8 }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 1 }}>WITHDRAW TO BANK</Text>
+          </Pressable>
 
           <Text style={styles.sectionLabel}>PAYOUT HISTORY</Text>
           {wallet.transfers.length === 0 && <Text style={styles.muted}>No payouts yet.</Text>}
@@ -745,3 +757,52 @@ const createStyles = (p: any) => StyleSheet.create({
   chipActive: { backgroundColor: '#ffb300' },
   chipText: { color: '#fff', fontSize: 11, fontWeight: '800' },
 });
+
+function DriverAgreementGate({ onAccepted }: { onAccepted: () => void }) {
+  const { palette } = useTheme();
+  const user = useAuth((s: any) => s.user);
+  const [agreed, setAgreed] = useState(false);
+  const [sig, setSig] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const accept = async () => {
+    if (!sig.trim()) return Alert.alert('Signature required');
+    setBusy(true);
+    try {
+      const { error } = await supabase.from('driver_profiles').update({
+        agreement_signed_at: new Date().toISOString(),
+        agreement_version: DRIVER_AGREEMENT.version,
+        agreement_signature: sig.trim(),
+      }).eq('user_id', user.id);
+      if (error) throw error;
+      onAccepted();
+    } catch (e: any) {
+      Alert.alert('Failed', e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: palette.obsidian }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 60 }}>
+        <Text style={{ fontSize: 26, fontWeight: '900', color: palette.text }}>Driver Agreement</Text>
+        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 4 }}>Read and accept to continue.</Text>
+        <View style={{ backgroundColor: palette.surface, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: palette.border, marginTop: 20 }}>
+          <Text style={{ fontSize: 11, color: palette.text, lineHeight: 18 }}>{DRIVER_AGREEMENT.body}</Text>
+        </View>
+        <Pressable onPress={() => setAgreed(a => !a)} style={{ flexDirection: 'row', gap: 12, marginTop: 20, alignItems: 'flex-start' }}>
+          <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: agreed ? palette.neon : palette.border, backgroundColor: agreed ? palette.neon : 'transparent', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+            {agreed ? <Text style={{ color: '#000', fontSize: 16, fontWeight: '900' }}>✓</Text> : null}
+          </View>
+          <Text style={{ flex: 1, fontSize: 13, color: palette.text, lineHeight: 20 }}>I have read and accept the Driver Agreement.</Text>
+        </Pressable>
+        <Text style={{ fontSize: 10, fontWeight: '800', color: palette.textMuted, marginTop: 16, marginBottom: 6 }}>E-SIGNATURE *</Text>
+        <TextInput value={sig} onChangeText={setSig} style={{ padding: 14, borderRadius: 12, backgroundColor: palette.surface, color: palette.text, borderWidth: 1, borderColor: palette.border, fontSize: 15 }} placeholder="Full legal name" placeholderTextColor={palette.textDim} />
+        <Pressable onPress={accept} disabled={!agreed || busy} style={{ backgroundColor: palette.neon, paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 20, opacity: (agreed && !busy) ? 1 : 0.4 }}>
+          {busy ? <ActivityIndicator color="#000" /> : <Text style={{ fontSize: 14, fontWeight: '900', color: '#000', letterSpacing: 1 }}>ACCEPT & CONTINUE</Text>}
+        </Pressable>
+      </ScrollView>
+    </View>
+  );
+}

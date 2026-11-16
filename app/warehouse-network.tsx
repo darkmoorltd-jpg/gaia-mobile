@@ -4,6 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function WarehouseNetwork() {
   const router = useRouter();
@@ -57,19 +58,32 @@ export default function WarehouseNetwork() {
         { text: 'Cancel', style: 'cancel' },
         { text: 'Pay Now', onPress: async () => {
           setBooking(true);
-          const ref = 'GAIA_STOR_' + Date.now().toString(36).toUpperCase();
-          const { data, error } = await supabase.rpc('create_warehouse_booking', {
-            p_unit_id: selected.id,
-            p_start_date: startDate,
-            p_end_date: endDate,
-            p_tonnes: Number(tonnes),
-            p_payment_ref: ref,
-            p_farmer_notes: notes.trim() || null,
-          });
-          setBooking(false);
-          if (error) { Alert.alert('Booking failed', error.message); return; }
-          Alert.alert('Booked!', `Total ₦${total.toLocaleString()}. Warehouse will confirm within 24hrs.`);
-          setSelected(null); setTonnes(''); setNotes('');
+          try {
+            const { data, error } = await supabase.rpc('create_booking_intent', {
+              p_unit_id: selected.id,
+              p_start_date: startDate,
+              p_end_date: endDate,
+              p_tonnes: Number(tonnes),
+              p_farmer_notes: notes.trim() || null,
+            });
+            if (error) throw error;
+            if (!data?.booking_id) throw new Error('Could not create booking');
+            const { data: charge, error: cErr } = await supabase.functions.invoke('charge-booking-fee', {
+              body: { booking_id: data.booking_id },
+            });
+            if (cErr) throw cErr;
+            if (!charge?.ok) throw new Error(charge?.error || 'Charge init failed');
+            const r = await WebBrowser.openAuthSessionAsync(charge.authorization_url, 'gaia://warehouse-network');
+            if (r.type === 'success') {
+              Alert.alert('Payment processing', 'Booking confirms within seconds.');
+              setTimeout(load, 5000);
+            }
+            setSelected(null); setTonnes(''); setNotes('');
+          } catch (e: any) {
+            Alert.alert('Booking failed', e.message);
+          } finally {
+            setBooking(false);
+          }
         }},
       ],
     );
