@@ -6,12 +6,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import NotificationBell from '../src/components/NotificationBell';
+import { usePushRegistration } from '../src/hooks/usePushRegistration';
 import { initiateDriverPayout } from '../src/utils/payouts';
 
 export default function WarehouseManager() {
   const router = useRouter();
   const { palette } = useTheme();
   const user = useAuth((s: any) => s.user);
+  usePushRegistration(user);
   const styles = createStyles(palette);
 
   const [incoming, setIncoming] = useState<any[]>([]);
@@ -89,7 +92,10 @@ export default function WarehouseManager() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>Incoming Deliveries</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={styles.title}>Incoming Deliveries</Text>
+          <NotificationBell />
+        </View>
 
         {busy && incoming.length === 0 ? <ActivityIndicator color={palette.neon} /> : null}
         {incoming.length === 0 && !busy ? <Text style={styles.empty}>No cargo awaiting confirmation.</Text> : null}

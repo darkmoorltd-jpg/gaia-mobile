@@ -4,6 +4,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import NotificationBell from '../src/components/NotificationBell';
+import { usePushRegistration } from '../src/hooks/usePushRegistration';
 
 const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
@@ -11,6 +13,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { palette } = useTheme();
   const user = useAuth((s: any) => s.user);
+  usePushRegistration(user);
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
   const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -73,7 +76,10 @@ export default function AdminDashboard() {
       <ScrollView contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.neon} />}>
         <View style={styles.header}>
-          <Text style={styles.title}>Admin Control</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={styles.title}>Admin Control</Text>
+            <NotificationBell />
+          </View>
           <Text style={styles.sub}>Everything at a glance</Text>
         </View>
 

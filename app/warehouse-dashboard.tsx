@@ -4,6 +4,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+import NotificationBell from '../src/components/NotificationBell';
+import { usePushRegistration } from '../src/hooks/usePushRegistration';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
@@ -11,6 +13,7 @@ export default function WarehouseDashboard() {
   const router = useRouter();
   const { palette } = useTheme();
   const user = useAuth((s: any) => s.user);
+  usePushRegistration(user);
   const styles = createStyles(palette);
 
   const [company, setCompany] = useState<any>(null);
@@ -159,7 +162,10 @@ export default function WarehouseDashboard() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
-        <Text style={styles.title}>{company.company_name}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={[styles.title, { flex: 1 }]}>{company.company_name}</Text>
+          <NotificationBell />
+        </View>
         <Text style={styles.sub}>{company.verification_status.toUpperCase()} · {listedCount} of {units.length} units listed</Text>
 
         <View style={styles.statRow}>
