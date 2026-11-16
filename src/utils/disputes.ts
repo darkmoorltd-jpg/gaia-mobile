@@ -49,3 +49,54 @@ export async function myDisputes(): Promise<Dispute[]> {
   const { data } = await supabase.from('disputes').select('*').eq('raised_by', uid).order('created_at', { ascending: false });
   return (data || []) as Dispute[];
 }
+
+
+export async function fileOrderDispute(params: {
+  order_id: string;
+  kind: 'marketplace' | 'organic';
+  reason: string;
+  description: string;
+  claimed_amount?: number;
+  evidence_paths?: string[];
+}): Promise<{ ok: boolean; dispute_code?: string; dispute_id?: string; error?: string }> {
+  const { data, error } = await supabase.rpc('file_marketplace_dispute', {
+    p_order_id: params.order_id,
+    p_kind: params.kind,
+    p_reason: params.reason,
+    p_description: params.description,
+    p_claimed_amount: params.claimed_amount || null,
+    p_evidence_paths: params.evidence_paths || [],
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, dispute_code: data.dispute_code, dispute_id: data.dispute_id };
+}
+
+export async function respondToDispute(params: {
+  dispute_id: string;
+  response: string;
+  proposal: 'full_refund' | 'partial_refund' | 'no_refund';
+  evidence_paths?: string[];
+}): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc('respond_to_marketplace_dispute', {
+    p_dispute_id: params.dispute_id,
+    p_response: params.response,
+    p_proposal: params.proposal,
+    p_evidence_paths: params.evidence_paths || [],
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function resolveDispute(params: {
+  dispute_id: string;
+  resolution: 'refund_buyer' | 'award_seller' | 'split';
+  notes?: string;
+}): Promise<{ ok: boolean; to_buyer?: number; to_seller?: number; error?: string }> {
+  const { data, error } = await supabase.rpc('resolve_marketplace_dispute', {
+    p_dispute_id: params.dispute_id,
+    p_resolution: params.resolution,
+    p_notes: params.notes || null,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, to_buyer: data.to_buyer, to_seller: data.to_seller };
+}

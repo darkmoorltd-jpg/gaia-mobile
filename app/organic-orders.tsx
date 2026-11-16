@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
@@ -12,6 +12,10 @@ export default function OrganicOrders() {
   const styles = createStyles(palette);
   const [orders, setOrders] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
+  const [disputeModal, setDisputeModal] = useState<any>(null);
+  const [disputeReason, setDisputeReason] = useState('');
+  const [disputeDesc, setDisputeDesc] = useState('');
+  const [disputeBusy, setDisputeBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -38,6 +42,27 @@ export default function OrganicOrders() {
         } catch (e: any) { Alert.alert('Failed', e.message); }
       }},
     ]);
+  };
+
+  const submitDispute = async () => {
+    if (!disputeModal || !disputeReason.trim()) { Alert.alert('Reason required'); return; }
+    setDisputeBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('file_marketplace_dispute', {
+        p_order_id: String(disputeModal.id),
+        p_kind: 'organic',
+        p_reason: disputeReason.trim(),
+        p_description: disputeDesc.trim() || '',
+        p_claimed_amount: Number(disputeModal.seller_payout) || null,
+        p_evidence_paths: [],
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error('Dispute failed');
+      setDisputeModal(null); setDisputeReason(''); setDisputeDesc('');
+      await load();
+      Alert.alert('Dispute filed', `Ref: ${data.dispute_code}\n\nSeller has 48h to respond.`);
+    } catch (e: any) { Alert.alert('Failed', e.message); }
+    finally { setDisputeBusy(false); }
   };
 
   return (
@@ -70,11 +95,34 @@ export default function OrganicOrders() {
                   <Text style={styles.confirmTxt}>CONFIRM DELIVERY & RELEASE</Text>
                 </Pressable>
               ) : null}
+              {['escrow','shipped','delivered'].includes(o.status) ? (
+                <Pressable onPress={() => { setDisputeModal(o); setDisputeReason(''); setDisputeDesc(''); }} style={[styles.confirmBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#ff3b5c', marginTop: 8 }]}>
+                  <Text style={[styles.confirmTxt, { color: '#ff3b5c' }]}>RAISE DISPUTE</Text>
+                </Pressable>
+              ) : null}
             </View>
           );
         })}
         <View style={{ height: 60 }} />
       </ScrollView>
+
+      <Modal visible={!!disputeModal} transparent animationType="slide" onRequestClose={() => setDisputeModal(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: palette.obsidian, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }}>
+            <Text style={{ fontSize: 20, fontWeight: '900', color: palette.text, marginBottom: 12 }}>Raise a dispute</Text>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: palette.textMuted, marginTop: 8, marginBottom: 6 }}>REASON *</Text>
+            <TextInput value={disputeReason} onChangeText={setDisputeReason} placeholder="Never arrived, wrong item, damaged..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, color: '#fff', fontSize: 14 }} />
+            <Text style={{ fontSize: 11, fontWeight: '800', color: palette.textMuted, marginTop: 12, marginBottom: 6 }}>DESCRIPTION</Text>
+            <TextInput value={disputeDesc} onChangeText={setDisputeDesc} multiline style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, color: '#fff', fontSize: 14, minHeight: 80, textAlignVertical: 'top' }} />
+            <Pressable onPress={submitDispute} disabled={disputeBusy} style={{ marginTop: 20, padding: 16, borderRadius: 12, backgroundColor: '#ff3b5c', alignItems: 'center', opacity: disputeBusy ? 0.5 : 1 }}>
+              {disputeBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 13, fontWeight: '900', color: '#fff', letterSpacing: 1 }}>SUBMIT DISPUTE</Text>}
+            </Pressable>
+            <Pressable onPress={() => setDisputeModal(null)} style={{ marginTop: 12, padding: 12, alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -123,6 +123,7 @@ export default function AdminDashboard() {
         <View style={styles.quickGrid}>
           {[
             { label: 'Warehouses', route: '/admin-warehouses', icon: '🏢' },
+            { label: 'Disputes', route: '/admin-disputes', icon: '⚖️' },
             { label: 'Drivers', route: '/admin-drivers', icon: '🚛' },
             { label: 'Sellers', route: '/admin-seller-verify', icon: '🏪' },
             { label: 'Farms', route: '/admin-farms', icon: '🌾' },

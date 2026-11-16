@@ -7,9 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useTheme } from '../src/theme';
 import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
-import {
-  fetchCart, createOrder, clearCart, makeOrderRef, naira, payOrderFromWallet,
-} from '../src/utils/marketplace';
+import { fetchCart, placeMarketplaceOrder, naira } from '../src/utils/marketplace';
 import { walletMe, hasWalletPin } from '../src/utils/wallet';
 
 export default function Checkout() {
@@ -31,7 +29,6 @@ export default function Checkout() {
   const [method, setMethod] = useState<'home' | 'pickup'>('home');
 
   const [showPay, setShowPay] = useState(false);
-  const [orderRef, setOrderRef] = useState('');
   const [pin, setPin] = useState('');
   const [paying, setPaying] = useState(false);
 
@@ -41,19 +38,14 @@ export default function Checkout() {
       setBusy(true);
       const rows = await fetchCart(user.id);
       setItems(rows);
-
       const w = await walletMe();
       if (w) setBalance(Number(w.wallet.balance || 0));
       setPinSet(await hasWalletPin());
-
       try {
         const { data: cfg } = await supabase.from('marketplace_config').select('delivery_fee').eq('id', 1).single();
-      if (cfg) setDelivFee(cfg.delivery_fee);
-      const { data: prof } = await supabase
-          .from('user_profiles')
-          .select('first_name,last_name,phone,state')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        if (cfg) setDelivFee(cfg.delivery_fee);
+        const { data: prof } = await supabase.from('user_profiles')
+          .select('first_name,last_name,phone,state').eq('user_id', user.id).maybeSingle();
         if (prof) {
           const n = ((prof.first_name || '') + ' ' + (prof.last_name || '')).trim();
           if (n) setName(n);
@@ -70,7 +62,7 @@ export default function Checkout() {
   const total = subtotal + delivery;
   const shortfall = Math.max(0, total - balance);
 
-  const placeOrder = async () => {
+  const startPayment = () => {
     if (!user) return;
     if (!name.trim() || !phone.trim() || !address.trim()) {
       Alert.alert('Missing info', 'Name, phone, and address are required');
@@ -94,43 +86,8 @@ export default function Checkout() {
       ]);
       return;
     }
-
-    setPlacing(true);
-    const ref = makeOrderRef();
-
-    try {
-      for (const it of items) {
-        const l = it.listing;
-        if (!l) continue;
-        const itemSub = Number(l.price) * it.quantity;
-        await createOrder({
-          order_ref: ref + '-' + it.id,
-          buyer_id: user.id,
-          seller_id: l.seller_id,
-          listing_id: l.id,
-          listing_title: l.title,
-          listing_image: (l.images && l.images[0]) || null,
-          quantity: it.quantity,
-          subtotal: itemSub,
-          delivery_fee: method === 'home' ? delivFee : 0,
-          total: itemSub + (method === 'home' ? delivFee : 0),
-          status: 'pending',
-          delivery_address: address.trim(),
-          delivery_method: method,
-          buyer_name: name.trim(),
-          buyer_phone: phone.trim(),
-          payment_ref: ref,
-        });
-      }
-      await clearCart(user.id);
-      setPlacing(false);
-      setOrderRef(ref);
-      setPin('');
-      setShowPay(true);
-    } catch (e: any) {
-      setPlacing(false);
-      Alert.alert('Failed', e.message || 'Could not place order');
-    }
+    setPin('');
+    setShowPay(true);
   };
 
   const confirmPay = async () => {
@@ -140,13 +97,21 @@ export default function Checkout() {
     }
     setPaying(true);
     try {
-      const r = await payOrderFromWallet(orderRef, pin);
+      const orderItems = items
+        .filter(it => it.listing && it.listing.id)
+        .map(it => ({ listing_id: Number(it.listing.id), quantity: Number(it.quantity) }));
+      const result = await placeMarketplaceOrder(
+        orderItems,
+        name.trim(),
+        phone.trim(),
+        address.trim(),
+        method,
+      );
       setShowPay(false);
       setPaying(false);
       Alert.alert(
         'Payment successful',
-        'Paid ' + naira(r.total_charged) + ' from your wallet.\n\n' +
-        'Funds are held in escrow until you confirm delivery.',
+        'Paid ' + naira(result.total) + ' from your wallet.\n\nFunds are held in escrow until you confirm delivery.',
         [{ text: 'View orders', onPress: () => router.replace('/marketplace-orders' as any) }],
       );
     } catch (e: any) {
@@ -156,19 +121,13 @@ export default function Checkout() {
   };
 
   if (busy) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={palette.neon} />
-      </View>
-    );
+    return <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}><ActivityIndicator color={palette.neon} /></View>;
   }
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>BACK</Text>
-        </Pressable>
+        <Pressable onPress={() => router.back()}><Text style={styles.back}>BACK</Text></Pressable>
         <Text style={styles.title}>Checkout</Text>
 
         <Text style={styles.section}>DELIVERY ADDRESS</Text>
@@ -200,9 +159,7 @@ export default function Checkout() {
             </Pressable>
           ) : null}
         </View>
-        {shortfall > 0 ? (
-          <Text style={styles.warnText}>You need {naira(shortfall)} more to complete this order.</Text>
-        ) : null}
+        {shortfall > 0 ? <Text style={styles.warnText}>You need {naira(shortfall)} more to complete this order.</Text> : null}
         {!pinSet ? (
           <Pressable onPress={() => router.push('/wallet-set-pin' as any)} style={styles.pinWarn}>
             <Text style={styles.pinWarnTxt}>SET YOUR PIN FIRST</Text>
@@ -211,28 +168,17 @@ export default function Checkout() {
 
         <Text style={styles.section}>ORDER SUMMARY</Text>
         <View style={styles.summary}>
-          <View style={styles.sumRow}>
-            <Text style={styles.sumLbl}>Subtotal ({items.length} items)</Text>
-            <Text style={styles.sumVal}>{naira(subtotal)}</Text>
-          </View>
-          <View style={styles.sumRow}>
-            <Text style={styles.sumLbl}>Delivery</Text>
-            <Text style={styles.sumVal}>{naira(delivery)}</Text>
-          </View>
+          <View style={styles.sumRow}><Text style={styles.sumLbl}>Subtotal ({items.length} items)</Text><Text style={styles.sumVal}>{naira(subtotal)}</Text></View>
+          <View style={styles.sumRow}><Text style={styles.sumLbl}>Delivery</Text><Text style={styles.sumVal}>{naira(delivery)}</Text></View>
           <View style={styles.divider} />
-          <View style={styles.sumRow}>
-            <Text style={styles.totalLbl}>Total</Text>
-            <Text style={styles.totalVal}>{naira(total)}</Text>
-          </View>
+          <View style={styles.sumRow}><Text style={styles.totalLbl}>Total</Text><Text style={styles.totalVal}>{naira(total)}</Text></View>
         </View>
 
         <View style={styles.escrow}>
-          <Text style={styles.escrowTxt}>
-            Funds held in escrow. Released to seller only after you confirm delivery.
-          </Text>
+          <Text style={styles.escrowTxt}>Funds held in escrow. Released to seller only after you confirm delivery.</Text>
         </View>
 
-        <Pressable onPress={placeOrder} disabled={placing} style={[styles.cta, placing && { opacity: 0.5 }]}>
+        <Pressable onPress={startPayment} disabled={placing} style={[styles.cta, placing && { opacity: 0.5 }]}>
           {placing ? <ActivityIndicator color={palette.obsidian} /> : <Text style={styles.ctaTxt}>PAY {naira(total)}</Text>}
         </Pressable>
 
@@ -243,15 +189,11 @@ export default function Checkout() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBg}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Confirm payment</Text>
-            <Text style={styles.modalSub}>
-              {naira(total)} from your wallet
-            </Text>
-
+            <Text style={styles.modalSub}>{naira(total)} from your wallet</Text>
             <View style={styles.modalRow}>
               <Text style={styles.modalLbl}>Balance after</Text>
               <Text style={styles.modalVal}>{naira(Math.max(0, balance - total))}</Text>
             </View>
-
             <Text style={styles.pinLbl}>ENTER 4-DIGIT PIN</Text>
             <TextInput
               value={pin}
@@ -263,7 +205,6 @@ export default function Checkout() {
               placeholderTextColor="rgba(255,255,255,0.3)"
               style={styles.pinInput}
             />
-
             <Pressable
               onPress={confirmPay}
               disabled={paying || pin.length !== 4}
@@ -271,7 +212,6 @@ export default function Checkout() {
             >
               {paying ? <ActivityIndicator color="#000" /> : <Text style={styles.payTxt}>PAY {naira(total)}</Text>}
             </Pressable>
-
             <Pressable onPress={() => setShowPay(false)} style={styles.cancelLink}>
               <Text style={styles.cancelTxt}>Cancel</Text>
             </Pressable>
