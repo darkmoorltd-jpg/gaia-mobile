@@ -47,33 +47,43 @@ export default function OrganicStorefront() {
       return;
     }
 
-    // Payment must happen first via Paystack, then order is created with the verified ref
     setBuying(true);
     try {
       const { data: charge, error: chErr } = await supabase.functions.invoke('charge-organic-order', {
-        body: { product_id: selected.id, quantity },
+        body: { purpose: 'buy', product_id: selected.id, quantity },
       });
       if (chErr) throw chErr;
       if (!charge?.ok) throw new Error(charge?.error || 'Charge init failed');
 
       const WebBrowser = await import('expo-web-browser');
       const r = await WebBrowser.openAuthSessionAsync(charge.authorization_url, 'gaia://organic-storefront');
+      if (r.type !== 'success') return;
 
-      if (r.type === 'success') {
+      // Poll for webhook + create order
+      let created = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise(res => setTimeout(res, 1000));
         const { data: ord, error: ordErr } = await supabase.rpc('create_organic_order_verified', {
           p_product_id: selected.id,
           p_quantity: quantity,
           p_paystack_ref: charge.reference,
         });
-        if (ordErr) throw ordErr;
-        Alert.alert(
-          'Order placed!',
-          `Total ₦${Number(ord.total_paid).toLocaleString()} · GAIA fee ₦${Number(ord.gaia_fee).toLocaleString()}\nFunds held in escrow for 3 days.`,
-        );
-        setSelected(null);
-        setQty('1');
-        load();
+        if (!ordErr && ord?.ok) {
+          created = true;
+          Alert.alert(
+            'Order placed!',
+            `Total ₦${Number(ord.total_paid).toLocaleString()} · GAIA fee ₦${Number(ord.gaia_fee).toLocaleString()}\nFunds held in escrow for 3 days.`,
+          );
+          setSelected(null);
+          setQty('1');
+          load();
+          break;
+        }
+        if (ordErr && !ordErr.message.includes('payment not verified')) {
+          throw ordErr;
+        }
       }
+      if (!created) throw new Error('Payment is being confirmed. Please reopen the app in a minute — your order will appear once confirmed.');
     } catch (e: any) {
       Alert.alert('Order failed', e.message || 'Try again');
     } finally {

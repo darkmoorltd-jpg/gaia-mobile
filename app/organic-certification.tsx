@@ -1,13 +1,20 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Switch, Image } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../src/theme';
+import { useAuth } from '../src/store/auth';
 import { supabase } from '../src/api/supabase';
+
+const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 
 export default function OrganicCertification() {
   const router = useRouter();
   const { palette } = useTheme();
   const { sellerId } = useLocalSearchParams<{ sellerId?: string }>();
+  const user = useAuth((s: any) => s.user);
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
   const styles = createStyles(palette);
 
   const [sellers, setSellers] = useState<any[]>([]);
@@ -15,12 +22,15 @@ export default function OrganicCertification() {
   const [busy, setBusy] = useState(true);
   const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().slice(0, 10));
   const [residuePassed, setResiduePassed] = useState(false);
-  const [residueUrl, setResidueUrl] = useState('');
+  const [reportUri, setReportUri] = useState<string | null>(null);
+  const [reportName, setReportName] = useState('');
+  const [farmPhotos, setFarmPhotos] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<any>(null);
 
   const load = useCallback(async () => {
+    if (!isAdmin) return;
     setBusy(true);
     if (sellerId) {
       const { data } = await supabase.from('organic_sellers').select('*').eq('id', sellerId).maybeSingle();
@@ -30,25 +40,64 @@ export default function OrganicCertification() {
       setSellers(data || []);
     }
     setBusy(false);
-  }, [sellerId]);
+  }, [sellerId, isAdmin]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const pickReport = async () => {
+    const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+    if (r.canceled) return;
+    setReportUri(r.assets[0].uri);
+    setReportName(r.assets[0].name);
+  };
+
+  const addFarmPhoto = async () => {
+    if (farmPhotos.length >= 5) { Alert.alert('Max 5 farm photos'); return; }
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (!r.canceled) setFarmPhotos([...farmPhotos, r.assets[0].uri]);
+  };
+
+  const uploadFile = async (uri: string, folder: string, ext: string, mime: string): Promise<string> => {
+    const resp = await fetch(uri);
+    const blob = await resp.blob();
+    const path = `${selected.id}/${folder}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('organic-reports').upload(path, blob, { contentType: mime, upsert: false });
+    if (error) throw error;
+    return path;
+  };
 
   const submit = async () => {
     if (!selected) return;
     if (!inspectionDate) { Alert.alert('Missing date'); return; }
+    if (!reportUri) { Alert.alert('Residue report required', 'Upload the PDF test report.'); return; }
+
     setSubmitting(true);
-    const { data, error } = await supabase.rpc('issue_certificate', {
-      p_seller_id: selected.id,
-      p_inspection_date: inspectionDate,
-      p_residue_passed: residuePassed,
-      p_residue_url: residueUrl.trim() || null,
-      p_notes: notes.trim() || null,
-    });
-    setSubmitting(false);
-    if (error) { Alert.alert('Failed', error.message); return; }
-    setSuccess(data);
+    try {
+      const reportPath = await uploadFile(reportUri, 'residue', 'pdf', 'application/pdf');
+      const photoPaths: string[] = [];
+      for (const uri of farmPhotos) {
+        const path = await uploadFile(uri, 'farm', 'jpg', 'image/jpeg');
+        photoPaths.push(path);
+      }
+
+      const { data, error } = await supabase.rpc('issue_certificate_verified', {
+        p_seller_id: selected.id,
+        p_inspection_date: inspectionDate,
+        p_residue_passed: residuePassed,
+        p_residue_report_path: reportPath,
+        p_notes: notes.trim() || null,
+        p_inspection_photos: photoPaths,
+      });
+      if (error) throw error;
+      setSuccess(data);
+    } catch (e: any) {
+      Alert.alert('Failed', e.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (!isAdmin) return <View style={styles.blocked}><Text style={styles.blockedText}>Access denied</Text></View>;
 
   if (success) {
     return (
@@ -60,8 +109,7 @@ export default function OrganicCertification() {
             <Text style={styles.successCode}>{success.certificate_code}</Text>
             <Text style={styles.successSub}>Valid until {new Date(success.valid_until).toLocaleDateString()}</Text>
             <Text style={styles.successHelp}>
-              This code is now attached to {selected?.business_name}.
-              Buyers can verify at /verify-certificate
+              Evidence stored. Buyers can verify at /verify-certificate with this code.
             </Text>
             <Pressable onPress={() => router.replace('/admin-organic' as any)} style={styles.cta}>
               <Text style={styles.ctaText}>BACK TO ADMIN</Text>
@@ -88,8 +136,24 @@ export default function OrganicCertification() {
             <Switch value={residuePassed} onValueChange={setResiduePassed} trackColor={{ false: '#333', true: palette.neon }} />
           </View>
 
-          <Text style={styles.label}>RESIDUE TEST REPORT URL (optional)</Text>
-          <TextInput value={residueUrl} onChangeText={setResidueUrl} style={styles.input} placeholderTextColor={palette.textDim} placeholder="https://..." autoCapitalize="none" />
+          <Text style={styles.label}>RESIDUE TEST REPORT (PDF) *</Text>
+          <Pressable onPress={pickReport} style={styles.uploadBtn}>
+            <Text style={styles.uploadTxt}>{reportUri ? `✓ ${reportName || 'Attached'}` : '📄 UPLOAD PDF REPORT'}</Text>
+          </Pressable>
+
+          <Text style={styles.label}>FARM INSPECTION PHOTOS (up to 5)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {farmPhotos.map((uri, i) => (
+                <Image key={i} source={{ uri }} style={styles.photo} />
+              ))}
+              {farmPhotos.length < 5 ? (
+                <Pressable onPress={addFarmPhoto} style={styles.addPhoto}>
+                  <Text style={styles.addPhotoTxt}>+</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </ScrollView>
 
           <Text style={styles.label}>INSPECTOR NOTES</Text>
           <TextInput value={notes} onChangeText={setNotes} multiline style={[styles.input, { minHeight: 100 }]} placeholderTextColor={palette.textDim} placeholder="What did you observe? Compost use, no pesticides, etc." />
@@ -130,6 +194,8 @@ export default function OrganicCertification() {
 
 const createStyles = (p: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: p.obsidian },
+  blocked: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: p.obsidian },
+  blockedText: { fontSize: 20, fontWeight: '900', color: '#ff3b5c' },
   scroll: { padding: 20, paddingTop: 60 },
   back: { fontSize: 11, fontWeight: '800', color: p.textMuted, marginBottom: 12 },
   title: { fontSize: 24, fontWeight: '900', color: p.text },
@@ -144,6 +210,11 @@ const createStyles = (p: any) => StyleSheet.create({
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderColor: p.border, color: p.text, fontSize: 15 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   toggleLabel: { fontSize: 14, color: p.text, fontWeight: '700' },
+  uploadBtn: { padding: 16, borderRadius: 12, backgroundColor: p.surface, borderWidth: 1, borderStyle: 'dashed', borderColor: p.neon, alignItems: 'center' },
+  uploadTxt: { fontSize: 12, fontWeight: '800', color: p.neon },
+  photo: { width: 80, height: 80, borderRadius: 8 },
+  addPhoto: { width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: p.neon, alignItems: 'center', justifyContent: 'center' },
+  addPhotoTxt: { fontSize: 24, color: p.neon, fontWeight: '300' },
   cta: { padding: 18, borderRadius: 14, backgroundColor: p.neon, alignItems: 'center', marginTop: 24 },
   ctaText: { fontSize: 13, fontWeight: '900', color: p.obsidian, letterSpacing: 1 },
   successBox: { backgroundColor: p.surface, padding: 30, borderRadius: 20, borderWidth: 2, borderColor: p.neon, alignItems: 'center', marginTop: 40 },
