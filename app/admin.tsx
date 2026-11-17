@@ -69,6 +69,8 @@ const SECTIONS: Section[] = [
       { label: 'Warehouse Companies', route: '/admin-warehouses' },
       { label: 'Organic Sellers', route: '/admin-organic' },
       { label: 'Certify Organic Seller', route: '/organic-certification' },
+      { label: 'Seller Verification', route: '/admin-seller-verify' },
+      { label: 'Disputes', route: '/admin-disputes' },
     ],
   },
   {
