@@ -16,7 +16,7 @@ export default function AgentLeaderboard() {
 
   useEffect(() => {
     (async () => {
-      const r = await supabase.rpc('admin_agent_leaderboard');
+      const r = await supabase.rpc('agent_leaderboard_public');
       if (!r.error && r.data) {
         // Sort by verified count descending
         const sorted = [...r.data].sort((a, b) => Number(b.approved) - Number(a.approved));

@@ -259,30 +259,40 @@ export default function AgentVerify() {
       const reference = data.reference;
       if (!reference || !selected) return;
       setBusy(true);
-      const sess = await supabase.auth.getSession();
-      const token = sess.data.session?.access_token;
-      const r = await fetch(API_BASE + '/agent/submit-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({
-          farmer_id: selected.user_id,
-          full_name: fullName, phone, state, lga: lga || null, address: address || null,
-          bvn: bvn || null, nin: nin || null, id_type: idType, id_number: idNumber || null,
-          crop: null, farm_state: state, farm_lga: lga || null, farm_size: null,
-          id_image_url: uploadedUrls.id, selfie_url: uploadedUrls.selfie,
-          gps_lat: gpsLat, gps_lng: gpsLng,
-          payment_reference: reference,
-        }),
-      });
-      const resp = await r.json();
-      setBusy(false);
-      setPayRef(null);
-      if (!r.ok) {
-        Alert.alert('Failed', resp.detail || 'Submit failed');
-        return;
+      try {
+        // Server RPC verifies the payment reference is completed before accepting
+        const { data: resp, error: rpcErr } = await supabase.rpc('agent_submit_verification', {
+          p_farmer_id: selected.user_id,
+          p_kyc: {
+            full_name: fullName,
+            phone,
+            state,
+            lga: lga || null,
+            address: address || null,
+            bvn: bvn || null,
+            nin: nin || null,
+            id_type: idType,
+            id_number: idNumber || null,
+            id_image_url: uploadedUrls.id,
+            selfie_url: uploadedUrls.selfie,
+            gps_lat: gpsLat,
+            gps_lng: gpsLng,
+            payment_reference: reference,
+          },
+        });
+        setBusy(false);
+        setPayRef(null);
+        if (rpcErr) {
+          Alert.alert('Failed', rpcErr.message);
+          return;
+        }
+        Alert.alert('Verification submitted', 'Paid N2,000. Admin will review shortly. You earn N500 once approved.');
+        router.replace('/agent/home' as any);
+      } catch (e: any) {
+        setBusy(false);
+        setPayRef(null);
+        Alert.alert('Failed', e.message);
       }
-      Alert.alert('Verification submitted', 'Paid N2,000. Admin will review shortly. You earn N500 once approved.');
-      router.replace('/agent/home' as any);
     } catch (e: any) {
       setBusy(false);
       setPayRef(null);

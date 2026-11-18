@@ -50,6 +50,10 @@ export default function AdminAgents() {
   }, [isAdmin]);
 
   const approveApp = (ap: any) => {
+    if (ap.payment_status !== 'paid') {
+      Alert.alert('Payment required', 'Cannot approve until ₦3,000 application fee is paid. Current status: ' + (ap.payment_status || 'pending'));
+      return;
+    }
     Alert.alert('Approve agent?', ap.full_name + ' (' + ap.email + ')', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Approve', onPress: async () => {
