@@ -62,6 +62,9 @@ export default function AgentRegister() {
   const [password, setPassword] = useState('');
   const [lga, setLga] = useState('');
   const [ward, setWard] = useState('');
+  const [community, setCommunity] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [sex, setSex] = useState('');
 
   // Category
   const [farmerCategory, setFarmerCategory] = useState('Arable Crops');
@@ -327,6 +330,9 @@ export default function AgentRegister() {
             bank_account_number: bankAccountNumber || null,
             mobile_money_provider: mobileMoneyProvider || null,
             mobile_money_number: mobileMoneyNumber || null,
+            community: community || null,
+            date_of_birth: dateOfBirth || null,
+            sex: sex || null,
             enterprise_count: enterpriseCount ? Number(enterpriseCount) : null,
             enterprise_unit: enterpriseCount ? (FARMER_CATEGORIES[farmerCategory].countUnit || 'units') : null,
             nin: nin,
@@ -400,6 +406,21 @@ export default function AgentRegister() {
         <TextInput value={stateName} onChangeText={setStateName} style={styles.input} placeholder="State *" placeholderTextColor="#888" />
         <TextInput value={lga} onChangeText={setLga} style={styles.input} placeholder="LGA *" placeholderTextColor="#888" />
         <TextInput value={ward} onChangeText={setWard} style={styles.input} placeholder="Ward (Sub-LGA)" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>COMMUNITY</Text>
+        <TextInput value={community} onChangeText={setCommunity} style={styles.input} placeholder="Village / Community name" placeholderTextColor="#888" />
+
+        <Text style={styles.label}>DATE OF BIRTH (YYYY-MM-DD)</Text>
+        <TextInput value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="1990-01-15" placeholderTextColor="#888" style={styles.input} />
+
+        <Text style={styles.label}>SEX</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+          {['Male', 'Female', 'Other'].map(opt => (
+            <Pressable key={opt} onPress={() => setSex(opt.toLowerCase())} style={{ flex: 1, padding: 12, borderRadius: 8, backgroundColor: sex === opt.toLowerCase() ? '#00ff88' : '#222', alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontWeight: '800', color: sex === opt.toLowerCase() ? '#000' : '#888' }}>{opt}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         <Text style={styles.sectionLabel}>1B. IDENTITY & NIN</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>

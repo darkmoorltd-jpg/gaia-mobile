@@ -71,6 +71,7 @@ const SECTIONS: Section[] = [
       { label: 'Certify Organic Seller', route: '/organic-certification' },
       { label: 'Seller Verification', route: '/admin-seller-verify' },
       { label: 'Disputes', route: '/admin-disputes' },
+      { label: 'Ministry Access', route: '/admin-ministry-access' },
     ],
   },
   {
