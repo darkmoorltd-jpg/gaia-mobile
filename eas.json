@@ -11,7 +11,7 @@
         "buildType": "apk",
         "image": "latest"
       },
-      "node": "20.19.4",
+      "node": "22.13.0",
       "channel": "development"
     },
     "preview": {
@@ -19,12 +19,12 @@
       "android": {
         "buildType": "apk"
       },
-      "node": "20.19.4",
+      "node": "22.13.0",
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.19.4"
+      "node": "22.13.0"
     }
   }
 }
