@@ -56,7 +56,7 @@ export default function AgentFarmers() {
           const color = approved ? '#00ff88' : pending ? '#ffb300' : rejected ? '#ff3b5c' : '#8899a6';
           const label = approved ? 'VERIFIED' : pending ? 'PENDING' : rejected ? 'REJECTED' : 'REGISTERED';
           return (
-            <Pressable key={i} onPress={() => router.push(('/agent/verify?farmerId=' + r.user_id) as any)} style={styles.card}>
+            <Pressable key={i} onPress={() => router.push(('/farmer-detail?id=' + r.user_id) as any)} style={styles.card}>
               <View style={[styles.avatar, { borderColor: color }]}>
                 <Text style={[styles.avatarTxt, { color }]}>{(r.name || r.email || 'U').charAt(0).toUpperCase()}</Text>
               </View>
