@@ -72,6 +72,7 @@ const SECTIONS: Section[] = [
       { label: 'Seller Verification', route: '/admin-seller-verify' },
       { label: 'Disputes', route: '/admin-disputes' },
       { label: 'Ministry Access', route: '/admin-ministry-access' },
+      { label: 'Ministry Users', route: '/admin-ministry-users' },
     ],
   },
   {
