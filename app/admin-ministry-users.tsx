@@ -12,10 +12,12 @@ const ADMIN_EMAIL = 'darkmoorltd@gmail.com';
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT Abuja','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 const LEVELS = [
-  { id: 'national', label: 'NATIONAL', desc: 'Sees ALL Nigeria data' },
-  { id: 'state', label: 'STATE', desc: 'Restricted to one state' },
+  { id: 'national', label: 'NATIONAL', desc: 'Sees ALL Nigeria data — all farmers, all polygons, all NDVI' },
+  { id: 'state', label: 'STATE', desc: 'Restricted to one state only' },
   { id: 'ifad', label: 'IFAD', desc: 'Full national access (donor)' },
 ];
+
+type Mode = 'create' | 'grant';
 
 export default function AdminMinistryUsers() {
   const router = useRouter();
@@ -27,7 +29,8 @@ export default function AdminMinistryUsers() {
   const [users, setUsers] = useState<any[]>([]);
   const [busy, setBusy] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [mode, setMode] = useState<Mode>('create');
 
   // Form
   const [email, setEmail] = useState('');
@@ -36,7 +39,7 @@ export default function AdminMinistryUsers() {
   const [level, setLevel] = useState('national');
   const [scopeState, setScopeState] = useState('Lagos');
   const [organization, setOrganization] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!isAdmin) return;
@@ -50,14 +53,10 @@ export default function AdminMinistryUsers() {
     setBusy(false);
   }, [isAdmin]);
 
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
-  }, [load]);
-
+  const refresh = useCallback(async () => { setRefreshing(true); try { await load(); } finally { setRefreshing(false); } }, [load]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const createUser = async () => {
+  const submitCreate = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Missing', 'Email and password required');
       return;
@@ -70,7 +69,7 @@ export default function AdminMinistryUsers() {
       Alert.alert('State required', 'Pick a state for state-level user');
       return;
     }
-    setCreating(true);
+    setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('admin-create-ministry-user', {
         body: {
@@ -82,22 +81,70 @@ export default function AdminMinistryUsers() {
           full_name: fullName.trim() || null,
         },
       });
-      if (error) throw error;
+
+      // CRITICAL: read the actual error from data (functions.invoke hides it in `error`)
+      if (error) {
+        // Try to extract body from error context
+        let detailedError = error.message || 'Function failed';
+        try {
+          const contextBody = (error as any).context?.body;
+          const parsed = typeof contextBody === 'string' ? JSON.parse(contextBody) : contextBody;
+          if (parsed?.error) detailedError = parsed.error;
+        } catch {}
+        if (data?.error) detailedError = data.error;
+        throw new Error(detailedError);
+      }
       if (!data?.ok) throw new Error(data?.error || 'Creation failed');
 
       Alert.alert(
-        'User Created ✅',
-        `Email: ${email.trim()}\nPassword: ${password.trim()}\n\nGive these credentials to the ministry user. They can log in to gaia-ministry app immediately.`,
+        data.note?.includes('Existing') ? 'Access Granted ✅' : 'User Created ✅',
+        `Email: ${email.trim()}\nPassword: ${password.trim()}\n\nGive these to the ministry user. They can log in to gaia-ministry immediately.`,
         [{ text: 'OK', onPress: () => {
-          setShowCreate(false);
+          setShowModal(false);
           setEmail(''); setPassword(''); setFullName(''); setOrganization('');
           load();
         }}]
       );
     } catch (e: any) {
-      Alert.alert('Failed', e.message);
+      Alert.alert('Create failed', e.message || 'Unknown error');
     } finally {
-      setCreating(false);
+      setSubmitting(false);
+    }
+  };
+
+  const submitGrant = async () => {
+    if (!email.trim()) {
+      Alert.alert('Missing', 'Email required');
+      return;
+    }
+    if (level === 'state' && !scopeState) {
+      Alert.alert('State required', 'Pick a state');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_grant_ministry_by_email', {
+        p_email: email.trim().toLowerCase(),
+        p_level: level,
+        p_scope_state: level === 'state' ? scopeState : null,
+        p_organization: organization.trim() || null,
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Grant failed');
+
+      Alert.alert(
+        'Access Granted ✅',
+        `${email.trim()} can now log in to gaia-ministry with their existing password.`,
+        [{ text: 'OK', onPress: () => {
+          setShowModal(false);
+          setEmail(''); setFullName(''); setOrganization('');
+          load();
+        }}]
+      );
+    } catch (e: any) {
+      Alert.alert('Grant failed', e.message || 'Unknown error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -129,11 +176,10 @@ export default function AdminMinistryUsers() {
         <Text style={styles.sub}>{users.length} active</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.neon} />}
-      >
-        <Pressable onPress={() => setShowCreate(true)} style={styles.cta}>
+      <ScrollView contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.neon} />}>
+
+        <Pressable onPress={() => { setMode('create'); setShowModal(true); }} style={styles.cta}>
           <Text style={styles.ctaTxt}>+ CREATE MINISTRY USER</Text>
         </Pressable>
 
@@ -160,24 +206,43 @@ export default function AdminMinistryUsers() {
         <View style={{ height: 60 }} />
       </ScrollView>
 
-      <Modal visible={showCreate} animationType="slide" transparent onRequestClose={() => setShowCreate(false)}>
+      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalBg}>
           <ScrollView style={styles.modalSheet}>
-            <Pressable onPress={() => setShowCreate(false)}><Text style={styles.back}>CANCEL</Text></Pressable>
-            <Text style={styles.title}>Create Ministry User</Text>
-            <Text style={styles.sub}>They can log in to gaia-ministry app immediately</Text>
+            <Pressable onPress={() => setShowModal(false)}><Text style={styles.back}>CANCEL</Text></Pressable>
+            <Text style={styles.title}>{mode === 'create' ? 'Create Ministry User' : 'Grant Access to Existing User'}</Text>
+
+            {/* Mode toggle */}
+            <View style={styles.modeRow}>
+              <Pressable onPress={() => setMode('create')} style={[styles.modeBtn, mode === 'create' && styles.modeBtnOn]}>
+                <Text style={[styles.modeTxt, mode === 'create' && styles.modeTxtOn]}>CREATE NEW</Text>
+              </Pressable>
+              <Pressable onPress={() => setMode('grant')} style={[styles.modeBtn, mode === 'grant' && styles.modeBtnOn]}>
+                <Text style={[styles.modeTxt, mode === 'grant' && styles.modeTxtOn]}>GRANT EXISTING</Text>
+              </Pressable>
+            </View>
+
+            {mode === 'create' ? (
+              <Text style={styles.hint}>Creates both the auth account and ministry_access row. Easiest for new users.</Text>
+            ) : (
+              <Text style={styles.hint}>Use this if the user already has a GAIA account. They log in with their existing password.</Text>
+            )}
 
             <Text style={styles.label}>EMAIL *</Text>
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"
               style={styles.input} placeholderTextColor={palette.textDim} placeholder="director@ministry.gov.ng" />
 
-            <Text style={styles.label}>PASSWORD *</Text>
-            <TextInput value={password} onChangeText={setPassword} secureTextEntry
-              style={styles.input} placeholderTextColor={palette.textDim} placeholder="Min 6 characters" />
+            {mode === 'create' ? (
+              <>
+                <Text style={styles.label}>PASSWORD * (min 6 chars)</Text>
+                <TextInput value={password} onChangeText={setPassword} secureTextEntry
+                  style={styles.input} placeholderTextColor={palette.textDim} placeholder="••••••" />
 
-            <Text style={styles.label}>FULL NAME</Text>
-            <TextInput value={fullName} onChangeText={setFullName}
-              style={styles.input} placeholderTextColor={palette.textDim} placeholder="Adebayo Ogunlesi" />
+                <Text style={styles.label}>FULL NAME</Text>
+                <TextInput value={fullName} onChangeText={setFullName}
+                  style={styles.input} placeholderTextColor={palette.textDim} placeholder="Adebayo Ogunlesi" />
+              </>
+            ) : null}
 
             <Text style={styles.label}>LEVEL *</Text>
             {LEVELS.map(l => (
@@ -209,10 +274,16 @@ export default function AdminMinistryUsers() {
             <TextInput value={organization} onChangeText={setOrganization}
               style={styles.input} placeholderTextColor={palette.textDim} placeholder="Ministry of Agriculture" />
 
-            <Pressable onPress={createUser} disabled={creating}
-              style={[styles.cta, creating && { opacity: 0.5 }, { marginTop: 20 }]}>
-              {creating ? <ActivityIndicator color="#000" /> : <Text style={styles.ctaTxt}>CREATE USER</Text>}
+            <Pressable
+              onPress={mode === 'create' ? submitCreate : submitGrant}
+              disabled={submitting}
+              style={[styles.cta, submitting && { opacity: 0.5 }, { marginTop: 20 }]}
+            >
+              {submitting ? <ActivityIndicator color="#000" /> : (
+                <Text style={styles.ctaTxt}>{mode === 'create' ? 'CREATE USER' : 'GRANT ACCESS'}</Text>
+              )}
             </Pressable>
+
             <View style={{ height: 60 }} />
           </ScrollView>
         </View>
@@ -242,6 +313,12 @@ const createStyles = (p: any) => StyleSheet.create({
   revokeTxt: { fontSize: 10, fontWeight: '900', color: '#ff3b5c', letterSpacing: 1 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
   modalSheet: { backgroundColor: p.obsidian, padding: 20, paddingTop: 60, flex: 1 },
+  modeRow: { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 8 },
+  modeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, alignItems: 'center' },
+  modeBtnOn: { borderColor: p.neon, backgroundColor: 'rgba(0,255,136,0.12)' },
+  modeTxt: { fontSize: 10, fontWeight: '900', color: p.textMuted, letterSpacing: 1 },
+  modeTxtOn: { color: p.neon },
+  hint: { fontSize: 11, color: p.textMuted, lineHeight: 16, marginBottom: 8, fontStyle: 'italic' },
   label: { fontSize: 10, fontWeight: '800', color: p.textMuted, marginTop: 16, marginBottom: 8, letterSpacing: 1 },
   input: { padding: 14, borderRadius: 12, backgroundColor: p.surface, color: p.text, borderWidth: 1, borderColor: p.border, fontSize: 15 },
   levelOpt: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: p.border, backgroundColor: p.surface, marginBottom: 8 },
